@@ -29,7 +29,7 @@ import os
 import sys
 import getopt
 
-from dimsdk import ID
+from mkm import ID
 
 cur = os.path.abspath(__file__)
 cur = os.path.dirname(cur)
@@ -38,7 +38,8 @@ cur = os.path.dirname(cur)
 sys.path.insert(0, cur)
 
 from dimples.utils import Log
-from dimples.register.generate import generate, AccountDatabase
+from dimples.database import AccountDatabase
+from dimples.register.generate import generate
 from dimples.register.modify import modify
 
 

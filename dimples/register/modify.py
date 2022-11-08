@@ -23,12 +23,154 @@
 # SOFTWARE.
 # ==============================================================================
 
+from typing import List
 
-from dimsdk import ID
+from mkm.crypto import PrivateKey, SignKey, DecryptKey
+from mkm.protocol import entity_is_group
+from mkm import EntityType, ID
+from mkm import Document, Visa
 
+from ..database.account import MSG_KEY_TAG
 from ..database import AccountDatabase
 
 
-def modify(identifier: ID, db: AccountDatabase):
-    print('Modifying document for: %s' % identifier)
+class AccountInfo:
+
+    def __new__(cls, document: Document, msg_keys: List[PrivateKey] = None):
+        if msg_keys is None:
+            msg_keys = []
+        info = super().__new__(cls)
+        info.document = document
+        info.msg_keys = msg_keys
+        return info
+
+    def show(self):
+        doc = self.document
+        identifier = doc.identifier
+        print('!!! ID: %s, document type: %s, name: "%s"' % (identifier, doc.type, doc.name))
+        # show algorithm for keys
+        msg_keys = self.msg_keys
+        array = []
+        for key in msg_keys:
+            array.append(key.algorithm)
+        print('!!! private msg keys: %s' % str(array))
+
+    def save(self, db: AccountDatabase) -> bool:
+        doc = self.document
+        identifier = doc.identifier
+        # save keys
+        msg_keys = self.msg_keys
+        for key in msg_keys:
+            db.save_private_key(key=key, identifier=identifier, key_type=MSG_KEY_TAG)
+        # save document
+        return db.save_document(document=self.document)
+
+
+def show_document(document: Document):
+    name = document.name
+    identifier = document.identifier
+    print('!!! document type: %s, ID: %s, name: "%s"' % (document.type, identifier, name))
+    network = identifier.type
+    if network == EntityType.STATION:
+        host = document.get_property(key='host')
+        port = document.get_property(key='port')
+        print('!!! station: %s "%s" (%s:%d)' % (identifier, name, host, port))
+
+
+def modify_station(document: Document, sign_key: SignKey, msg_keys: List[DecryptKey]) -> AccountInfo:
+    # update host
+    default_host = document.get_property(key='host')
+    if default_host is None or len(default_host) == 0:
+        default_host = '127.0.0.1'
+    host = input('>>> please input station host (default is "%s"): ' % default_host)
+    if len(host) > 0:
+        document.set_property(key='host', value=host)
+    # update port
+    default_port = document.get_property(key='port')
+    if default_port is None or default_port == 0:
+        default_port = 9394
+    port = input('>>> please input station port (default is %d): ' % default_port)
+    if len(port) > 0:
+        port = int(port)
+        document.set_property(key='port', value=port)
+    # update name & msg keys
+    return modify_user(document=document, sign_key=sign_key, msg_keys=msg_keys)
+
+
+def modify_user(document: Document, sign_key: SignKey, msg_keys: List[DecryptKey]) -> AccountInfo:
+    assert isinstance(document, Visa), 'visa error: %s' % document
+    visa = document
+    # update name
+    default_name = visa.name
+    if default_name is None:
+        default_name = ''
+    name = input('>>> please input user name (default is "%s"): ' % default_name)
+    if len(name) > 0:
+        visa.name = name
+    # update msg keys
+    if msg_keys is None:
+        msg_keys = []
+    if not isinstance(sign_key, DecryptKey):
+        if msg_keys is None or len(msg_keys) == 0:
+            # generate msg key
+            pri_key = PrivateKey.generate(algorithm=PrivateKey.RSA)
+            msg_keys = [pri_key]
+        else:
+            pri_key = msg_keys[0]
+        visa.key = pri_key.public_key
+    # sign
+    visa.sign(private_key=sign_key)
+    return AccountInfo(document=visa, msg_keys=msg_keys)
+
+
+def modify_group(document: Document, sign_key: SignKey) -> AccountInfo:
+    # TODO: modify bulletin document for group
+    pass
+
+
+def modify(identifier: ID, db: AccountDatabase) -> bool:
+    print('Modifying DIM account...')
     db.show()
+    #
+    # Step 1: check meta & private keys
+    #
+    meta = db.load_meta(identifier=identifier)
+    if meta is None:
+        print('!!! meta not exists: %s' % identifier)
+        return False
+    network = identifier.type
+    if entity_is_group(network=network):
+        # TODO: get group founder(owner) and its id key
+        print('!!! TODO: modify bulletin document for group: %s' % identifier)
+        return False
+    id_key = db.private_key_for_visa_signature(identifier=identifier)
+    if id_key is None:
+        print('!!! private key not exists: %s' % identifier)
+        return False
+    msg_keys = db.private_keys_for_decryption(identifier=identifier)
+    print('!!! old msg keys found: %d, id key: %s' % (len(msg_keys), id_key.algorithm))
+    #
+    # Step 2: create document
+    #
+    doc = db.load_document(identifier=identifier)
+    if doc is not None:
+        print('!!! old document found: %s' % identifier)
+        show_document(document=doc)
+    elif entity_is_group(network=network):
+        doc = Document.create(doc_type=Document.BULLETIN, identifier=identifier)
+    else:
+        doc = Document.create(doc_type=Document.VISA, identifier=identifier)
+    #
+    # Step 3: modify document
+    #
+    if network == EntityType.STATION:
+        info = modify_station(document=doc, sign_key=id_key, msg_keys=msg_keys)
+    elif entity_is_group(network=network):
+        info = modify_group(document=doc, sign_key=id_key)
+    else:
+        info = modify_user(document=doc, sign_key=id_key, msg_keys=msg_keys)
+    #
+    # Step 3: save account info
+    #
+    info.show()
+    return info.save(db=db)

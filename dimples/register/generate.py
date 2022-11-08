@@ -55,7 +55,7 @@ class AccountInfo:
         identifier = self.identifier
         meta = self.meta
         doc = self.document
-        print('!!! ID: %s, meta version: %d, document type: %s, name: %s' % (identifier, meta.type, doc.type, doc.name))
+        print('!!! ID: %s, meta type: %d, document type: %s, name: "%s"' % (identifier, meta.type, doc.type, doc.name))
         # show algorithm for keys
         private_key = self.private_key
         if private_key is not None:
