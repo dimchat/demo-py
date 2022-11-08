@@ -1,13 +1,8 @@
 # -*- coding: utf-8 -*-
-#
-#   Ming-Ke-Ming : Decentralized User Identity Authentication
-#
-#                                Written in 2022 by Moky <albert.moky@gmail.com>
-#
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2022 Albert Moky
+# Copyright (c) 2019 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,10 +23,26 @@
 # SOFTWARE.
 # ==============================================================================
 
+"""
+    Utils
+    ~~~~~
 
-def main():
-    print('TODO: DIM account generate/modify')
+    I'm too lazy to write codes for demo project, so I borrow some utils here
+    from the <dimsdk> packages, but I don't suggest you to do it also, because
+    I won't promise these private utils will not be changed. Hia hia~ :P
+                                             -- Albert Moky @ Jan. 23, 2019
+"""
+
+from .singleton import Singleton
+from .log import Log, Logging
+from .dos import Path, File, TextFile, JSONFile
+from .cache import CachePool, CacheHolder, CacheManager
+from .cache import FrequencyChecker
 
 
-if __name__ == '__main__':
-    main()
+__all__ = [
+    'Singleton',
+    'Log', 'Logging',
+    'Path', 'File', 'TextFile', 'JSONFile',
+    'CachePool', 'CacheHolder', 'CacheManager', 'FrequencyChecker',
+]

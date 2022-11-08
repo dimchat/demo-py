@@ -14,7 +14,7 @@ import io
 
 from setuptools import setup, find_packages
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 __author__ = 'Albert Moky'
 __contact__ = 'albert.moky@gmail.com'
 
@@ -42,13 +42,14 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'dimid=dimples.mkm.register:main',
+            'dimid=dimples.register.run:main',
             'dims=dimples.station.start:main',
             'dime=dimples.edge.start:main'
         ]
     },
     install_requires=[
-        'dimsdk>=0.7.3',
+        'dimplugins>=0.1.0',
+        'dimsdk>=0.8.0',
         'dimp>=0.12.2',
         'dkd>=0.12.2',
         'mkm>=0.12.2',
