@@ -29,16 +29,13 @@ from typing import Optional
 from mkm import ID, Document
 
 from ..utils import CacheHolder, CacheManager
+from ..common.dbi import DocumentDBI
 
 from .dos import DocumentStorage
 
 
-class TableDocument:
-    """
-        Document Table
-        ~~~~~~~~~~~~~~
-        Implementations of DocumentTable
-    """
+class DocumentTable(DocumentDBI):
+    """ Implementations of DocumentDBI """
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
@@ -50,8 +47,10 @@ class TableDocument:
         self.__doc_storage.show_info()
 
     #
-    #   DocumentTable
+    #   Document DBI
     #
+
+    # Override
     def save_document(self, document: Document) -> bool:
         assert document.valid, 'document invalid: %s' % document
         identifier = document.identifier
@@ -66,6 +65,7 @@ class TableDocument:
         # 2. store into local storage
         return self.__doc_storage.save_document(document=document)
 
+    # Override
     def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
         """ get document for ID """
         now = time.time()

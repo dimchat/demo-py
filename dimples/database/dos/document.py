@@ -27,11 +27,13 @@ from typing import Optional
 
 from mkm import ID, Document
 
+from ...common.dbi import DocumentDBI
+
 from .base import Storage
 from .base import template_replace
 
 
-class DocumentStorage(Storage):
+class DocumentStorage(Storage, DocumentDBI):
     """
         Document for Entities (User/Group)
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -49,14 +51,17 @@ class DocumentStorage(Storage):
         return template_replace(path, 'ADDRESS', str(identifier.address))
 
     #
-    #   DocumentTable
+    #   Document DBI
     #
+
+    # Override
     def save_document(self, document: Document) -> bool:
         """ save document into file """
         path = self.__doc_path(identifier=document.identifier)
         self.info('Saving document into: %s' % path)
         return self.write_json(container=document.dictionary, path=path)
 
+    # Override
     def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
         """ load document from file """
         path = self.__doc_path(identifier=identifier)

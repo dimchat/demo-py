@@ -23,49 +23,57 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional
+from abc import ABC, abstractmethod
+from typing import Optional, List
 
-from mkm import ID, Meta
-
-from ...common.dbi import MetaDBI
-
-from .base import Storage
-from .base import template_replace
+from dimsdk import PrivateKey, SignKey, DecryptKey
+from dimsdk import ID, Meta, Document
 
 
-class MetaStorage(Storage, MetaDBI):
-    """
-        Meta for Entities (User/Group)
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        file path: '.dim/public/{ADDRESS}/meta.js'
-    """
-    meta_path = '{PUBLIC}/{ADDRESS}/meta.js'
+class PrivateKeyDBI(ABC):
+    """ PrivateKey Table """
 
-    def show_info(self):
-        path = template_replace(self.meta_path, 'PUBLIC', self._public)
-        print('!!!      meta path: %s' % path)
+    @abstractmethod
+    def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M') -> bool:
+        raise NotImplemented
 
-    def __meta_path(self, identifier: ID) -> str:
-        path = self.meta_path
-        path = template_replace(path, 'PUBLIC', self._public)
-        return template_replace(path, 'ADDRESS', str(identifier.address))
+    @abstractmethod
+    def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
+        raise NotImplemented
 
-    #
-    #   Meta DBI
-    #
+    @abstractmethod
+    def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
+        raise NotImplemented
 
-    # Override
+    @abstractmethod
+    def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
+        raise NotImplemented
+
+
+class MetaDBI(ABC):
+    """ Meta Table """
+
+    @abstractmethod
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        """ save meta into file """
-        path = self.__meta_path(identifier=identifier)
-        self.info('Saving meta into: %s' % path)
-        return self.write_json(container=meta.dictionary, path=path)
+        raise NotImplemented
 
-    # Override
+    @abstractmethod
     def meta(self, identifier: ID) -> Optional[Meta]:
-        """ load meta from file """
-        path = self.__meta_path(identifier=identifier)
-        self.info('Loading meta from: %s' % path)
-        info = self.read_json(path=path)
-        if info is not None:
-            return Meta.parse(meta=info)
+        raise NotImplemented
+
+
+class DocumentDBI(ABC):
+    """ Document Table """
+
+    @abstractmethod
+    def save_document(self, document: Document) -> bool:
+        raise NotImplemented
+
+    @abstractmethod
+    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
+        raise NotImplemented
+
+
+class AccountDBI(PrivateKeyDBI, MetaDBI, DocumentDBI, ABC):
+    """ Account Database """
+    pass

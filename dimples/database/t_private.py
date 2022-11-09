@@ -30,17 +30,14 @@ from mkm.crypto import PrivateKey, DecryptKey, SignKey
 from mkm import ID
 
 from ..utils import CacheHolder, CacheManager
+from ..common.dbi import PrivateKeyDBI
 
 from .dos import PrivateKeyStorage
 from .dos.private import insert_key
 
 
-class TablePrivateKey:
-    """
-        Private Key Table
-        ~~~~~~~~~~~~~~~~~
-        Implementations of PrivateKeyTable
-    """
+class PrivateKeyTable(PrivateKeyDBI):
+    """ Implementations of PrivateKeyDBI """
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
@@ -53,8 +50,10 @@ class TablePrivateKey:
         self.__key_storage.show_info()
 
     #
-    #   PrivateKeyTable
+    #   PrivateKey DBI
     #
+
+    # Override
     def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M') -> bool:
         now = time.time()
         # 1. update memory cache
@@ -73,6 +72,7 @@ class TablePrivateKey:
         # 2. update local storage
         return self.__key_storage.save_private_key(key=key, identifier=identifier, key_type=key_type)
 
+    # Override
     def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
         """ get sign key for ID """
         now = time.time()
@@ -97,10 +97,12 @@ class TablePrivateKey:
         # OK, return cached value
         return value
 
+    # Override
     def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
         # TODO: support multi private keys
         return self.private_key_for_visa_signature(identifier=identifier)
 
+    # Override
     def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
         """ get sign key for ID """
         now = time.time()

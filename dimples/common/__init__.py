@@ -24,21 +24,11 @@
 # ==============================================================================
 
 """
-    Database module
-    ~~~~~~~~~~~~~~~
-    File System
+    Common module
+    ~~~~~~~~~~~~~
+
 """
 
-from .base import Storage
-from .private import PrivateKeyStorage
-from .meta import MetaStorage
-from .document import DocumentStorage
 
 __all__ = [
-
-    'Storage',
-
-    'PrivateKeyStorage',
-    'MetaStorage',
-    'DocumentStorage',
 ]

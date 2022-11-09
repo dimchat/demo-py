@@ -24,21 +24,16 @@
 # ==============================================================================
 
 """
-    Database module
-    ~~~~~~~~~~~~~~~
-    File System
+    Database Interfaces
+    ~~~~~~~~~~~~~~~~~~~
+
 """
 
-from .base import Storage
-from .private import PrivateKeyStorage
-from .meta import MetaStorage
-from .document import DocumentStorage
+from .account import PrivateKeyDBI, MetaDBI, DocumentDBI
+from .account import AccountDBI
+
 
 __all__ = [
-
-    'Storage',
-
-    'PrivateKeyStorage',
-    'MetaStorage',
-    'DocumentStorage',
+    'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
+    'AccountDBI',
 ]

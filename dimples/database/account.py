@@ -28,12 +28,14 @@ from typing import Optional, List
 from mkm.crypto import PrivateKey, DecryptKey, SignKey
 from mkm import ID, Meta, Document
 
-from .t_meta import TableMeta
-from .t_document import TableDocument
-from .t_private import TablePrivateKey
+from ..common.dbi import AccountDBI
+
+from .t_meta import MetaTable
+from .t_document import DocumentTable
+from .t_private import PrivateKeyTable
 
 
-class AccountDatabase:
+class AccountDatabase(AccountDBI):
     """
         Database for MingKeMing
         ~~~~~~~~~~~~~~~~~~~~~~~
@@ -41,44 +43,55 @@ class AccountDatabase:
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
-        self.__t_meta = TableMeta(root=root, public=public, private=private)
-        self.__t_doc = TableDocument(root=root, public=public, private=private)
-        self.__t_private = TablePrivateKey(root=root, public=public, private=private)
+        self.__meta_table = MetaTable(root=root, public=public, private=private)
+        self.__doc_table = DocumentTable(root=root, public=public, private=private)
+        self.__private_table = PrivateKeyTable(root=root, public=public, private=private)
 
     def show_info(self):
-        self.__t_meta.show_info()
-        self.__t_doc.show_info()
-        self.__t_private.show_info()
+        self.__meta_table.show_info()
+        self.__doc_table.show_info()
+        self.__private_table.show_info()
 
     #
-    #   Meta
+    #   Meta DBI
     #
+
+    # Override
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        return self.__t_meta.save_meta(meta=meta, identifier=identifier)
+        return self.__meta_table.save_meta(meta=meta, identifier=identifier)
 
+    # Override
     def meta(self, identifier: ID) -> Optional[Meta]:
-        return self.__t_meta.meta(identifier=identifier)
+        return self.__meta_table.meta(identifier=identifier)
 
     #
-    #   Document
+    #   Document DBI
     #
+
+    # Override
     def save_document(self, document: Document) -> bool:
-        return self.__t_doc.save_document(document=document)
+        return self.__doc_table.save_document(document=document)
 
+    # Override
     def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
-        return self.__t_doc.document(identifier=identifier, doc_type=doc_type)
+        return self.__doc_table.document(identifier=identifier, doc_type=doc_type)
 
     #
-    #   Private Keys
+    #   PrivateKey DBI
     #
+
+    # Override
     def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M') -> bool:
-        return self.__t_private.save_private_key(key=key, identifier=identifier, key_type=key_type)
+        return self.__private_table.save_private_key(key=key, identifier=identifier, key_type=key_type)
 
+    # Override
     def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
-        return self.__t_private.private_keys_for_decryption(identifier=identifier)
+        return self.__private_table.private_keys_for_decryption(identifier=identifier)
 
+    # Override
     def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
-        return self.__t_private.private_key_for_signature(identifier=identifier)
+        return self.__private_table.private_key_for_signature(identifier=identifier)
 
+    # Override
     def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
-        return self.__t_private.private_key_for_visa_signature(identifier=identifier)
+        return self.__private_table.private_key_for_visa_signature(identifier=identifier)

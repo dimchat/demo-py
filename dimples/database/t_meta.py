@@ -29,16 +29,13 @@ from typing import Optional
 from mkm import ID, Meta
 
 from ..utils import CacheHolder, CacheManager
+from ..common.dbi import MetaDBI
 
 from .dos import MetaStorage
 
 
-class TableMeta:
-    """
-        Meta Table
-        ~~~~~~~~~~
-        Implementations of MetaTable
-    """
+class MetaTable(MetaDBI):
+    """ Implementations of MetaDBI """
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
@@ -50,8 +47,10 @@ class TableMeta:
         self.__meta_storage.show_info()
 
     #
-    #   MetaTable
+    #   Meta DBI
     #
+
+    # Override
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         assert Meta.matches(meta=meta, identifier=identifier), 'meta invalid: %s, %s' % (identifier, meta)
         # 0. check old record
@@ -64,6 +63,7 @@ class TableMeta:
         # 2. store into local storage
         return self.__meta_storage.save_meta(meta=meta, identifier=identifier)
 
+    # Override
     def meta(self, identifier: ID) -> Optional[Meta]:
         """ get meta for ID """
         now = time.time()

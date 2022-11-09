@@ -28,11 +28,13 @@ from typing import Optional, List
 from mkm.crypto import PrivateKey, SignKey, DecryptKey
 from mkm import ID
 
+from ...common.dbi import PrivateKeyDBI
+
 from .base import Storage
 from .base import template_replace
 
 
-class PrivateKeyStorage(Storage):
+class PrivateKeyStorage(Storage, PrivateKeyDBI):
     """
         Private Key Storage
         ~~~~~~~~~~~~~~~~~~~
@@ -103,8 +105,10 @@ class PrivateKeyStorage(Storage):
         return keys
 
     #
-    #   PrivateKeyTable
+    #   PrivateKey DBI
     #
+
+    # Override
     def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M') -> bool:
         if key_type == self.ID_KEY_TAG:
             # save private key for meta
@@ -113,6 +117,7 @@ class PrivateKeyStorage(Storage):
             # save private key for visa
             return self._save_msg_key(key=key, identifier=identifier)
 
+    # Override
     def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
         keys: list = self._load_msg_keys(identifier=identifier)
         # the 'ID key' could be used for encrypting message too (RSA),
@@ -122,10 +127,12 @@ class PrivateKeyStorage(Storage):
             keys.append(id_key)
         return keys
 
+    # Override
     def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
         # TODO: support multi private keys
         return self.private_key_for_visa_signature(identifier=identifier)
 
+    # Override
     def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
         return self._load_id_key(identifier=identifier)
 

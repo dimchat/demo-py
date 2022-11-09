@@ -29,6 +29,7 @@
 # ==============================================================================
 
 from dimsdk import *
+from dimplugins import *
 
 name = 'DIMPLES'
 
