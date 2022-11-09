@@ -26,64 +26,66 @@
 import time
 from typing import Optional
 
-from mkm import ID, Meta
+from mkm import ID, Document
 
 from ..utils import CacheHolder, CacheManager
 
-from .dos import MetaStorage
+from .dos import DocumentStorage
 
 
-class TableMeta:
+class TableDocument:
     """
-        Meta Table
-        ~~~~~~~~~~
-        Implementations of MetaTable
+        Document Table
+        ~~~~~~~~~~~~~~
+        Implementations of DocumentTable
     """
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         man = CacheManager()
-        self.__meta_cache = man.get_pool(name='meta')
-        self.__meta_storage = MetaStorage(root=root, public=public, private=private)
+        self.__doc_cache = man.get_pool(name='document')
+        self.__doc_storage = DocumentStorage(root=root, public=public, private=private)
 
     def show_info(self):
-        self.__meta_storage.show_info()
+        self.__doc_storage.show_info()
 
     #
-    #   MetaTable
+    #   DocumentTable
     #
-    def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        assert Meta.matches(meta=meta, identifier=identifier), 'meta invalid: %s, %s' % (identifier, meta)
-        # 0. check old record
-        old = self.meta(identifier=identifier)
-        if old is not None:
-            # meta exists, no need to update it
-            return True
+    def save_document(self, document: Document) -> bool:
+        assert document.valid, 'document invalid: %s' % document
+        identifier = document.identifier
+        doc_type = document.type
+        # 0. check old record with time
+        old = self.document(identifier=identifier, doc_type=doc_type)
+        if old is not None and old.time > document.time >= 0:
+            # document expired, drop it
+            return False
         # 1. store into memory cache
-        self.__meta_cache.update(key=identifier, value=meta, life_span=36000)
+        self.__doc_cache.update(key=identifier, value=document, life_span=3600)
         # 2. store into local storage
-        return self.__meta_storage.save_meta(meta=meta, identifier=identifier)
+        return self.__doc_storage.save_document(document=document)
 
-    def meta(self, identifier: ID) -> Optional[Meta]:
-        """ get meta for ID """
+    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
+        """ get document for ID """
         now = time.time()
         # 1. check memory cache
-        value, holder = self.__meta_cache.fetch(key=identifier, now=now)
+        value, holder = self.__doc_cache.fetch(key=identifier, now=now)
         if value is None:
             # cache empty
             if holder is None:
-                # meta not load yet, wait to load
-                self.__meta_cache.update(key=identifier, life_span=128, now=now)
+                # document not load yet, wait to load
+                self.__doc_cache.update(key=identifier, life_span=128, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'meta cache error'
+                assert isinstance(holder, CacheHolder), 'document cache error'
                 if holder.is_alive(now=now):
-                    # meta not exists
+                    # document not exists
                     return None
-                # meta expired, wait to reload
+                # document expired, wait to reload
                 holder.renewal(duration=128, now=now)
             # 2. check local storage
-            value = self.__meta_storage.meta(identifier=identifier)
+            value = self.__doc_storage.document(identifier=identifier, doc_type=doc_type)
             # 3. update memory cache
-            self.__meta_cache.update(key=identifier, value=value, life_span=36000, now=now)
+            self.__doc_cache.update(key=identifier, value=value, life_span=3600, now=now)
         # OK, return cached value
         return value

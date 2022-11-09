@@ -26,23 +26,27 @@
 """
     Database module
     ~~~~~~~~~~~~~~~
-
+    File System
 """
 
-from .dos import *
-
-from .account import AccountDatabase
+from .base import Storage
+# from .ans import AddressNameStorage
+from .private import PrivateKeyStorage
+from .meta import MetaStorage
+from .document import DocumentStorage
+# from .device import DeviceStorage
+# from .user import UserStorage
+# from .group import GroupStorage
 
 __all__ = [
 
-    #
-    #   DOS
-    #
     'Storage',
-    'PrivateKeyStorage', 'MetaStorage', 'DocumentStorage',
 
-    #
-    #   Database
-    #
-    'AccountDatabase',
+    # 'AddressNameStorage',
+    'PrivateKeyStorage',
+    'MetaStorage',
+    'DocumentStorage',
+    # 'DeviceStorage',
+    # 'UserStorage',
+    # 'GroupStorage',
 ]

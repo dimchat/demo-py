@@ -33,7 +33,7 @@ from mkm import Document, Visa, Bulletin
 
 from dimplugins.network import NetworkType, network_to_type
 
-from ..database.account import ID_KEY_TAG, MSG_KEY_TAG
+from ..database import PrivateKeyStorage
 from ..database import AccountDatabase
 
 
@@ -51,7 +51,7 @@ class AccountInfo:
         info.msg_keys = msg_keys
         return info
 
-    def show(self):
+    def show_info(self):
         identifier = self.identifier
         meta = self.meta
         doc = self.document
@@ -70,10 +70,10 @@ class AccountInfo:
         # save keys
         private_key = self.private_key
         if private_key is not None:
-            db.save_private_key(key=private_key, identifier=identifier, key_type=ID_KEY_TAG)
+            db.save_private_key(key=private_key, identifier=identifier, key_type=PrivateKeyStorage.ID_KEY_TAG)
         msg_keys = self.msg_keys
         for key in msg_keys:
-            db.save_private_key(key=key, identifier=identifier, key_type=MSG_KEY_TAG)
+            db.save_private_key(key=key, identifier=identifier, key_type=PrivateKeyStorage.MSG_KEY_TAG)
         # save meta & document
         db.save_meta(meta=self.meta, identifier=identifier)
         return db.save_document(document=self.document)
@@ -121,10 +121,17 @@ def gen_station(network: int, seed: str) -> AccountInfo:
     doc.key = private_key.public_key
     name = input('>>> please input station name: ')
     doc.name = name
-    host = input('>>> please input station host: ')
-    port = input('>>> please input station port: ')
+    # host & port
+    host = input('>>> please input station host (default is "127.0.0.1"): ')
+    port = input('>>> please input station port (default is 9394): ')
     host = host.strip()
-    port = int(port)
+    port = port.strip()
+    if len(host) == 0:
+        host = '127.0.0.1'
+    if len(port) == 0:
+        port = 9394
+    else:
+        port = int(port)
     doc.set_property(key='host', value=host)
     doc.set_property(key='port', value=port)
     print('!!! station info: %s "%s" (%s:%d)' % (identifier, name, host, port))
@@ -174,7 +181,7 @@ def gen_group(network: int, seed: str, founder: ID, sign_key: SignKey) -> Accoun
 
 def generate(db: AccountDatabase) -> bool:
     print('Generating DIM account...')
-    db.show()
+    db.show_info()
     #
     # Step 1: get entity type
     #
@@ -230,5 +237,5 @@ def generate(db: AccountDatabase) -> bool:
     #
     # Step 5: save account info
     #
-    info.show()
+    info.show_info()
     return info.save(db=db)

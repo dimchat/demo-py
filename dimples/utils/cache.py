@@ -45,22 +45,39 @@ class CacheHolder(Generic[V]):
     def __init__(self, value: Optional[V] = None, life_span: float = 3600, now: float = None):
         super().__init__()
         self.__value = value
+        self.__life_span = life_span
         if now is None:
             now = time.time()
         self.__expired = now + life_span
+        self.__deprecated = now + life_span * 2
 
     @property
     def value(self) -> V:
         return self.__value
+
+    def update(self, value: V, now: float = None):
+        if now is None:
+            now = time.time()
+        life_span = self.__life_span
+        self.__value = value
+        self.__expired = now + life_span
+        self.__deprecated = now + life_span * 2
 
     def is_alive(self, now: float = None) -> bool:
         if now is None:
             now = time.time()
         return now < self.__expired
 
+    def is_deprecated(self, now: float = None) -> bool:
+        if now is None:
+            now = time.time()
+        return now > self.__deprecated
+
     def renewal(self, duration: float = 128, now: float = None):
         if now is None:
             now = time.time()
+        life_span = self.__life_span
+        self.__deprecated = now + life_span * 2
         self.__expired = now + duration
 
 
@@ -70,11 +87,12 @@ class CachePool(Generic[K, V]):
         self.__holders: Dict[K, CacheHolder[V]] = {}  # key -> holder(value)
 
     def update(self, key: K, holder: CacheHolder = None,
-               value: V = None, life_span: float = None, now: float = None):
+               value: V = None, life_span: float = None, now: float = None) -> CacheHolder[V]:
         """ update: key -> holder(value) """
         if holder is None:
             holder = CacheHolder(value=value, life_span=life_span, now=now)
         self.__holders[key] = holder
+        return holder
 
     def fetch(self, key: K, now: float = None) -> (V, CacheHolder):
         """ fetch value & holder with key """
@@ -94,7 +112,7 @@ class CachePool(Generic[K, V]):
         keys = list(self.__holders.keys())
         for key in keys:
             holder = self.__holders.get(key)
-            if holder is None or not holder.is_alive(now=now):
+            if holder is None or holder.is_deprecated(now=now):
                 # remove expired holders
                 self.__holders.pop(key, None)
                 count += 1

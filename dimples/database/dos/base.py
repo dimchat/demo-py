@@ -25,8 +25,8 @@
 
 from typing import Optional, Union
 
-from ..utils import Log
-from ..utils import File, TextFile, JSONFile
+from ...utils import Log
+from ...utils import File, TextFile, JSONFile
 
 
 """
@@ -108,16 +108,16 @@ class Storage:
             Log.error('Storage >\t%s' % error)
 
     #
-    #  Log
+    #  Logging
     #
     def debug(self, msg: str):
-        Log.debug('Storage::%s >\t%s' % (self.__class__.__name__, msg))
+        Log.debug('[DB] %s >\t%s' % (self.__class__.__name__, msg))
 
     def info(self, msg: str):
-        Log.info('Storage::%s >\t%s' % (self.__class__.__name__, msg))
+        Log.info('[DB] %s >\t%s' % (self.__class__.__name__, msg))
 
     def warning(self, msg: str):
-        Log.warning('Storage::%s >\t%s' % (self.__class__.__name__, msg))
+        Log.warning('[DB] %s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
-        Log.error('Storage::%s >\t%s' % (self.__class__.__name__, msg))
+        Log.error('[DB] %s >\t%s' % (self.__class__.__name__, msg))

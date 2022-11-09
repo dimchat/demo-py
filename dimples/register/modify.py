@@ -30,7 +30,7 @@ from mkm.protocol import entity_is_group
 from mkm import EntityType, ID
 from mkm import Document, Visa
 
-from ..database.account import MSG_KEY_TAG
+from ..database import PrivateKeyStorage
 from ..database import AccountDatabase
 
 
@@ -44,7 +44,7 @@ class AccountInfo:
         info.msg_keys = msg_keys
         return info
 
-    def show(self):
+    def show_info(self):
         doc = self.document
         identifier = doc.identifier
         print('!!! ID: %s, document type: %s, name: "%s"' % (identifier, doc.type, doc.name))
@@ -61,7 +61,7 @@ class AccountInfo:
         # save keys
         msg_keys = self.msg_keys
         for key in msg_keys:
-            db.save_private_key(key=key, identifier=identifier, key_type=MSG_KEY_TAG)
+            db.save_private_key(key=key, identifier=identifier, key_type=PrivateKeyStorage.MSG_KEY_TAG)
         # save document
         return db.save_document(document=self.document)
 
@@ -78,18 +78,21 @@ def show_document(document: Document):
 
 
 def modify_station(document: Document, sign_key: SignKey, msg_keys: List[DecryptKey]) -> AccountInfo:
-    # update host
+    # default host, port
     default_host = document.get_property(key='host')
     if default_host is None or len(default_host) == 0:
         default_host = '127.0.0.1'
-    host = input('>>> please input station host (default is "%s"): ' % default_host)
-    if len(host) > 0:
-        document.set_property(key='host', value=host)
-    # update port
     default_port = document.get_property(key='port')
     if default_port is None or default_port == 0:
         default_port = 9394
+    # get host, port
+    host = input('>>> please input station host (default is "%s"): ' % default_host)
     port = input('>>> please input station port (default is %d): ' % default_port)
+    host = host.strip()
+    port = port.strip()
+    # update host, port
+    if len(host) > 0:
+        document.set_property(key='host', value=host)
     if len(port) > 0:
         port = int(port)
         document.set_property(key='port', value=port)
@@ -130,11 +133,11 @@ def modify_group(document: Document, sign_key: SignKey) -> AccountInfo:
 
 def modify(identifier: ID, db: AccountDatabase) -> bool:
     print('Modifying DIM account...')
-    db.show()
+    db.show_info()
     #
     # Step 1: check meta & private keys
     #
-    meta = db.load_meta(identifier=identifier)
+    meta = db.meta(identifier=identifier)
     if meta is None:
         print('!!! meta not exists: %s' % identifier)
         return False
@@ -152,7 +155,7 @@ def modify(identifier: ID, db: AccountDatabase) -> bool:
     #
     # Step 2: create document
     #
-    doc = db.load_document(identifier=identifier)
+    doc = db.document(identifier=identifier)
     if doc is not None:
         print('!!! old document found: %s' % identifier)
         show_document(document=doc)
@@ -172,5 +175,5 @@ def modify(identifier: ID, db: AccountDatabase) -> bool:
     #
     # Step 3: save account info
     #
-    info.show()
+    info.show_info()
     return info.save(db=db)

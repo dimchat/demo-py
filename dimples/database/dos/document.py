@@ -27,8 +27,8 @@ from typing import Optional
 
 from mkm import ID, Document
 
-from .storage import Storage
-from .storage import template_replace
+from .base import Storage
+from .base import template_replace
 
 
 class DocumentStorage(Storage):
@@ -39,7 +39,7 @@ class DocumentStorage(Storage):
     """
     doc_path = '{PUBLIC}/{ADDRESS}/document.js'
 
-    def show(self):
+    def show_info(self):
         path = template_replace(self.doc_path, 'PUBLIC', self._public)
         print('!!!       doc path: %s' % path)
 
@@ -48,12 +48,17 @@ class DocumentStorage(Storage):
         path = template_replace(path, 'PUBLIC', self._public)
         return template_replace(path, 'ADDRESS', str(identifier.address))
 
+    #
+    #   DocumentTable
+    #
     def save_document(self, document: Document) -> bool:
+        """ save document into file """
         path = self.__doc_path(identifier=document.identifier)
         self.info('Saving document into: %s' % path)
         return self.write_json(container=document.dictionary, path=path)
 
-    def load_document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
+    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
+        """ load document from file """
         path = self.__doc_path(identifier=identifier)
         self.info('Loading document from: %s' % path)
         info = self.read_json(path=path)

@@ -28,10 +28,9 @@ from typing import Optional, List
 from mkm.crypto import PrivateKey, DecryptKey, SignKey
 from mkm import ID, Meta, Document
 
-from .t_meta import MetaStorage
-from .t_doc import DocumentStorage
-from .t_keys import PrivateKeyStorage
-from .t_keys import find_key
+from .t_meta import TableMeta
+from .t_document import TableDocument
+from .t_private import TablePrivateKey
 
 
 class AccountDatabase:
@@ -42,60 +41,44 @@ class AccountDatabase:
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
-        self.__meta_storage = MetaStorage(root=root, public=public, private=private)
-        self.__doc_storage = DocumentStorage(root=root, public=public, private=private)
-        self.__key_storage = PrivateKeyStorage(root=root, public=public, private=private)
+        self.__t_meta = TableMeta(root=root, public=public, private=private)
+        self.__t_doc = TableDocument(root=root, public=public, private=private)
+        self.__t_private = TablePrivateKey(root=root, public=public, private=private)
 
-    def show(self):
-        self.__meta_storage.show()
-        self.__doc_storage.show()
-        self.__key_storage.show()
+    def show_info(self):
+        self.__t_meta.show_info()
+        self.__t_doc.show_info()
+        self.__t_private.show_info()
 
     #
     #   Meta
     #
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        return self.__meta_storage.save_meta(meta=meta, identifier=identifier)
+        return self.__t_meta.save_meta(meta=meta, identifier=identifier)
 
-    def load_meta(self, identifier: ID) -> Optional[Meta]:
-        return self.__meta_storage.load_meta(identifier=identifier)
+    def meta(self, identifier: ID) -> Optional[Meta]:
+        return self.__t_meta.meta(identifier=identifier)
 
     #
     #   Document
     #
     def save_document(self, document: Document) -> bool:
-        return self.__doc_storage.save_document(document=document)
+        return self.__t_doc.save_document(document=document)
 
-    def load_document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
-        return self.__doc_storage.load_document(identifier=identifier, doc_type=doc_type)
+    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
+        return self.__t_doc.document(identifier=identifier, doc_type=doc_type)
 
     #
     #   Private Keys
     #
     def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M') -> bool:
-        if key_type == ID_KEY_TAG:
-            # save private key for meta
-            return self.__key_storage.save_id_key(key=key, identifier=identifier)
-        else:
-            # save private key for visa
-            return self.__key_storage.save_msg_key(key=key, identifier=identifier)
+        return self.__t_private.save_private_key(key=key, identifier=identifier, key_type=key_type)
 
     def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
-        keys: list = self.__key_storage.load_msg_keys(identifier=identifier)
-        # the 'ID key' could be used for encrypting message too (RSA),
-        # so we append it to the decrypt keys here
-        id_key = self.__key_storage.load_id_key(identifier=identifier)
-        if isinstance(id_key, DecryptKey) and find_key(key=id_key, private_keys=keys) < 0:
-            keys.append(id_key)
-        return keys
+        return self.__t_private.private_keys_for_decryption(identifier=identifier)
 
     def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
-        # TODO: support multi private keys
-        return self.private_key_for_visa_signature(identifier=identifier)
+        return self.__t_private.private_key_for_signature(identifier=identifier)
 
     def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
-        return self.__key_storage.load_id_key(identifier=identifier)
-
-
-ID_KEY_TAG = 'M'   # private key pared to meta.key
-MSG_KEY_TAG = 'V'  # private key pared to visa.key
+        return self.__t_private.private_key_for_visa_signature(identifier=identifier)
