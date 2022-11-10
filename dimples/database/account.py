@@ -114,6 +114,14 @@ class AccountDatabase(AccountDBI):
     def contacts(self, identifier: ID) -> List[ID]:
         return self.__user_table.contacts(identifier=identifier)
 
+    # Override
+    def save_local_users(self, users: List[ID]) -> bool:
+        return self.__user_table.save_local_users(users=users)
+
+    # Override
+    def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
+        return self.__user_table.save_contacts(contacts=contacts, identifier=identifier)
+
     #
     #   Group DBI
     #

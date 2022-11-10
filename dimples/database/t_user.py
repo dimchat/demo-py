@@ -101,3 +101,17 @@ class UserTable(UserDBI):
                 self.__user_cache.update(key=identifier, value=value, life_span=36000, now=now)
         # OK, return cached value
         return value
+
+    # Override
+    def save_local_users(self, users: List[ID]) -> bool:
+        # 1. store into memory cache
+        self.__user_cache.update(key='local_users', value=users, life_span=3600)
+        # 2. store into local storage
+        return self.__user_storage.save_local_users(users=users)
+
+    # Override
+    def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
+        # 1. store into memory cache
+        self.__user_cache.update(key=identifier, value=contacts, life_span=3600)
+        # 2. store into local storage
+        return self.__user_storage.save_contacts(contacts=contacts, identifier=identifier)

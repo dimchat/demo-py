@@ -86,6 +86,14 @@ class UserDBI(ABC):
         """ contacts for user """
         raise NotImplemented
 
+    @abstractmethod
+    def save_local_users(self, users: List[ID]) -> bool:
+        raise NotImplemented
+
+    @abstractmethod
+    def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
+        raise NotImplemented
+
 
 class GroupDBI(ABC):
     """ Group/Member Table """

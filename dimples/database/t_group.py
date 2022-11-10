@@ -98,7 +98,7 @@ class GroupTable(GroupDBI):
                 # owner expired, wait to reload
                 holder.renewal(duration=128, now=now)
             # 2. check local storage
-            value = self.__group_storage.founder(identifier=identifier)
+            value = self.__group_storage.owner(identifier=identifier)
             # 3. update memory cache
             if value is not None:
                 self.__owner_cache.update(key=identifier, value=value, life_span=3600, now=now)
@@ -124,7 +124,7 @@ class GroupTable(GroupDBI):
                 # members expired, wait to reload
                 holder.renewal(duration=128, now=now)
             # 2. check local storage
-            value = self.__group_storage.founder(identifier=identifier)
+            value = self.__group_storage.members(identifier=identifier)
             # 3. update memory cache
             if value is not None:
                 self.__members_cache.update(key=identifier, value=value, life_span=3600, now=now)
@@ -150,7 +150,7 @@ class GroupTable(GroupDBI):
                 # assistants expired, wait to reload
                 holder.renewal(duration=128, now=now)
             # 2. check local storage
-            value = self.__group_storage.founder(identifier=identifier)
+            value = self.__group_storage.assistants(identifier=identifier)
             # 3. update memory cache
             if value is not None:
                 self.__assistants_cache.update(key=identifier, value=value, life_span=3600, now=now)
