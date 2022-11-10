@@ -25,9 +25,9 @@
 
 from typing import Optional
 
-from mkm import ID, Meta
+from dimsdk import ID, Meta
 
-from ...common.dbi import MetaDBI
+from ...common import MetaDBI
 
 from .base import Storage
 from .base import template_replace

@@ -184,20 +184,3 @@ class CacheManager:
             if pool is not None:
                 count += pool.purge(now=now)
         return count
-
-
-class FrequencyChecker(Generic[K]):
-    """ Frequency checker for duplicated queries """
-
-    def __init__(self, expires: float = 3600):
-        super().__init__()
-        self.__expires = expires
-        self.__map: Dict[K, float] = {}
-
-    def expired(self, key: K, expires: float = None) -> bool:
-        if expires is None:
-            expires = self.__expires
-        now = time.time()
-        if now > self.__map.get(key, 0):
-            self.__map[key] = now + expires
-            return True

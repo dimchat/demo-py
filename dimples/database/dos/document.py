@@ -25,9 +25,9 @@
 
 from typing import Optional
 
-from mkm import ID, Document
+from dimsdk import ID, Document
 
-from ...common.dbi import DocumentDBI
+from ...common import DocumentDBI
 
 from .base import Storage
 from .base import template_replace

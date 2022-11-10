@@ -26,11 +26,11 @@
 import time
 from typing import Optional, List
 
-from mkm.crypto import PrivateKey, DecryptKey, SignKey
-from mkm import ID
+from dimsdk import PrivateKey, DecryptKey, SignKey
+from dimsdk import ID
 
 from ..utils import CacheHolder, CacheManager
-from ..common.dbi import PrivateKeyDBI
+from ..common import PrivateKeyDBI
 
 from .dos import PrivateKeyStorage
 from .dos.private import insert_key
@@ -93,7 +93,8 @@ class PrivateKeyTable(PrivateKeyDBI):
             # 2. check local storage
             value = self.__key_storage.private_keys_for_decryption(identifier=identifier)
             # 3. update memory cache
-            self.__msg_keys_cache.update(key=identifier, value=value, life_span=36000, now=now)
+            if value is not None:
+                self.__msg_keys_cache.update(key=identifier, value=value, life_span=36000, now=now)
         # OK, return cached value
         return value
 
@@ -123,6 +124,7 @@ class PrivateKeyTable(PrivateKeyDBI):
             # 2. check local storage
             value = self.__key_storage.private_key_for_visa_signature(identifier=identifier)
             # 3. update memory cache
-            self.__id_key_cache.update(key=identifier, value=value, life_span=36000, now=now)
+            if value is not None:
+                self.__id_key_cache.update(key=identifier, value=value, life_span=36000, now=now)
         # OK, return cached value
         return value

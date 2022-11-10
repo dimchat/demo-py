@@ -26,10 +26,10 @@
 import time
 from typing import Optional
 
-from mkm import ID, Document
+from dimsdk import ID, Document
 
 from ..utils import CacheHolder, CacheManager
-from ..common.dbi import DocumentDBI
+from ..common import DocumentDBI
 
 from .dos import DocumentStorage
 
@@ -86,6 +86,7 @@ class DocumentTable(DocumentDBI):
             # 2. check local storage
             value = self.__doc_storage.document(identifier=identifier, doc_type=doc_type)
             # 3. update memory cache
-            self.__doc_cache.update(key=identifier, value=value, life_span=3600, now=now)
+            if value is not None:
+                self.__doc_cache.update(key=identifier, value=value, life_span=3600, now=now)
         # OK, return cached value
         return value

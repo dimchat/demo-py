@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2019 Albert Moky
+# Copyright (c) 2020 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,24 +24,53 @@
 # ==============================================================================
 
 """
-    Utils
-    ~~~~~
+    Report Protocol
+    ~~~~~~~~~~~~~~~
 
-    I'm too lazy to write codes for demo project, so I borrow some utils here
-    from the <dimsdk> packages, but I don't suggest you to do it also, because
-    I won't promise these private utils will not be changed. Hia hia~ :P
-                                             -- Albert Moky @ Jan. 23, 2019
+    Report for online/offline, ...
 """
 
-from .singleton import Singleton
-from .log import Log, Logging
-from .dos import Path, File, TextFile, JSONFile
-from .cache import CachePool, CacheHolder, CacheManager
+from typing import Optional, Any, Dict
+
+from dimsdk import BaseCommand
 
 
-__all__ = [
-    'Singleton',
-    'Log', 'Logging',
-    'Path', 'File', 'TextFile', 'JSONFile',
-    'CachePool', 'CacheHolder', 'CacheManager',
-]
+class ReportCommand(BaseCommand):
+    """
+        Report Command
+        ~~~~~~~~~~~~~~
+
+        data format: {
+            type : 0x88,
+            sn   : 123,
+
+            cmd     : "report",
+            title   : "online",   // or "offline"
+            time    : 1234567890
+        }
+    """
+
+    REPORT = 'report'
+
+    ONLINE = 'online'
+    OFFLINE = 'offline'
+
+    def __init__(self, content: Optional[Dict[str, Any]] = None,
+                 title: Optional[str] = None):
+        if content is None:
+            super().__init__(cmd=ReportCommand.REPORT)
+        else:
+            super().__init__(content=content)
+        if title is not None:
+            self['title'] = title
+
+    #
+    #   report title
+    #
+    @property
+    def title(self) -> str:
+        return self.get('title')
+
+    @title.setter
+    def title(self, value: str):
+        self['title'] = value

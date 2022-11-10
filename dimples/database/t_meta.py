@@ -26,10 +26,10 @@
 import time
 from typing import Optional
 
-from mkm import ID, Meta
+from dimsdk import ID, Meta
 
 from ..utils import CacheHolder, CacheManager
-from ..common.dbi import MetaDBI
+from ..common import MetaDBI
 
 from .dos import MetaStorage
 
@@ -84,6 +84,7 @@ class MetaTable(MetaDBI):
             # 2. check local storage
             value = self.__meta_storage.meta(identifier=identifier)
             # 3. update memory cache
-            self.__meta_cache.update(key=identifier, value=value, life_span=36000, now=now)
+            if value is not None:
+                self.__meta_cache.update(key=identifier, value=value, life_span=36000, now=now)
         # OK, return cached value
         return value

@@ -25,10 +25,10 @@
 
 from typing import Optional, List
 
-from mkm.crypto import PrivateKey, DecryptKey, SignKey
-from mkm import ID, Meta, Document
+from dimsdk import PrivateKey, DecryptKey, SignKey
+from dimsdk import ID, Meta, Document
 
-from ..common.dbi import AccountDBI
+from ..common import AccountDBI
 
 from .t_meta import MetaTable
 from .t_document import DocumentTable

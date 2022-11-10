@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2019 Albert Moky
+# Copyright (c) 2020 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,25 +23,36 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    Utils
-    ~~~~~
+from dimsdk import Command, CommandFactoryBuilder
+from dimsdk import register_core_factories
 
-    I'm too lazy to write codes for demo project, so I borrow some utils here
-    from the <dimsdk> packages, but I don't suggest you to do it also, because
-    I won't promise these private utils will not be changed. Hia hia~ :P
-                                             -- Albert Moky @ Jan. 23, 2019
-"""
+from .handshake import HandshakeCommand, HandshakeState
+from .receipt import ReceiptCommand
+from .login import LoginCommand
+from .report import ReportCommand
 
-from .singleton import Singleton
-from .log import Log, Logging
-from .dos import Path, File, TextFile, JSONFile
-from .cache import CachePool, CacheHolder, CacheManager
+
+def register_all_factories():
+    # Register core factories
+    register_core_factories()
+
+    # Handshake
+    Command.register(cmd=HandshakeCommand.HANDSHAKE, factory=CommandFactoryBuilder(command_class=HandshakeCommand))
+    # Receipt
+    Command.register(cmd=ReceiptCommand.RECEIPT, factory=CommandFactoryBuilder(command_class=ReceiptCommand))
+    # Login
+    Command.register(cmd=LoginCommand.LOGIN, factory=CommandFactoryBuilder(command_class=LoginCommand))
+    # Report
+    Command.register(cmd=ReportCommand.REPORT, factory=CommandFactoryBuilder(command_class=ReportCommand))
+
+
+register_all_factories()
 
 
 __all__ = [
-    'Singleton',
-    'Log', 'Logging',
-    'Path', 'File', 'TextFile', 'JSONFile',
-    'CachePool', 'CacheHolder', 'CacheManager',
+
+    'HandshakeCommand', 'HandshakeState',
+    'ReceiptCommand',
+    'LoginCommand',
+    'ReportCommand',
 ]

@@ -25,10 +25,10 @@
 
 from typing import Optional, List
 
-from mkm.crypto import PrivateKey, SignKey, DecryptKey
-from mkm import ID
+from dimsdk import PrivateKey, SignKey, DecryptKey
+from dimsdk import ID
 
-from ...common.dbi import PrivateKeyDBI
+from ...common import PrivateKeyDBI
 
 from .base import Storage
 from .base import template_replace
