@@ -46,5 +46,6 @@ __all__ = [
     #   Database Interface
     #
     'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
+    'UserDBI', 'GroupDBI',
     'AccountDBI',
 ]

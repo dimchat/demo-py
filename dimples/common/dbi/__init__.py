@@ -30,10 +30,12 @@
 """
 
 from .account import PrivateKeyDBI, MetaDBI, DocumentDBI
+from .account import UserDBI, GroupDBI
 from .account import AccountDBI
 
 
 __all__ = [
     'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
+    'UserDBI', 'GroupDBI',
     'AccountDBI',
 ]

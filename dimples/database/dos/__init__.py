@@ -30,9 +30,12 @@
 """
 
 from .base import Storage
+
 from .private import PrivateKeyStorage
 from .meta import MetaStorage
 from .document import DocumentStorage
+
+from .user import UserStorage
 
 __all__ = [
 
@@ -41,4 +44,6 @@ __all__ = [
     'PrivateKeyStorage',
     'MetaStorage',
     'DocumentStorage',
+
+    'UserStorage',
 ]

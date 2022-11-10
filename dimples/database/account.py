@@ -30,9 +30,10 @@ from dimsdk import ID, Meta, Document
 
 from ..common import AccountDBI
 
+from .t_private import PrivateKeyTable
 from .t_meta import MetaTable
 from .t_document import DocumentTable
-from .t_private import PrivateKeyTable
+from .t_user import UserTable
 
 
 class AccountDatabase(AccountDBI):
@@ -43,14 +44,36 @@ class AccountDatabase(AccountDBI):
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
+        self.__private_table = PrivateKeyTable(root=root, public=public, private=private)
         self.__meta_table = MetaTable(root=root, public=public, private=private)
         self.__doc_table = DocumentTable(root=root, public=public, private=private)
-        self.__private_table = PrivateKeyTable(root=root, public=public, private=private)
+        self.__user_table = UserTable(root=root, public=public, private=private)
 
     def show_info(self):
+        self.__private_table.show_info()
         self.__meta_table.show_info()
         self.__doc_table.show_info()
-        self.__private_table.show_info()
+        self.__user_table.show_info()
+
+    #
+    #   PrivateKey DBI
+    #
+
+    # Override
+    def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M') -> bool:
+        return self.__private_table.save_private_key(key=key, identifier=identifier, key_type=key_type)
+
+    # Override
+    def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
+        return self.__private_table.private_keys_for_decryption(identifier=identifier)
+
+    # Override
+    def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
+        return self.__private_table.private_key_for_signature(identifier=identifier)
+
+    # Override
+    def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
+        return self.__private_table.private_key_for_visa_signature(identifier=identifier)
 
     #
     #   Meta DBI
@@ -77,21 +100,13 @@ class AccountDatabase(AccountDBI):
         return self.__doc_table.document(identifier=identifier, doc_type=doc_type)
 
     #
-    #   PrivateKey DBI
+    #   User DBI
     #
 
     # Override
-    def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M') -> bool:
-        return self.__private_table.save_private_key(key=key, identifier=identifier, key_type=key_type)
+    def local_users(self) -> List[ID]:
+        return self.__user_table.local_users()
 
     # Override
-    def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
-        return self.__private_table.private_keys_for_decryption(identifier=identifier)
-
-    # Override
-    def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
-        return self.__private_table.private_key_for_signature(identifier=identifier)
-
-    # Override
-    def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
-        return self.__private_table.private_key_for_visa_signature(identifier=identifier)
+    def contacts(self, identifier: ID) -> List[ID]:
+        return self.__user_table.contacts(identifier=identifier)
