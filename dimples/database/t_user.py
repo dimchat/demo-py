@@ -90,9 +90,9 @@ class UserTable(UserDBI):
             else:
                 assert isinstance(holder, CacheHolder), 'contacts cache error'
                 if holder.is_alive(now=now):
-                    # meta not exists
+                    # contacts not exists
                     return []
-                # meta expired, wait to reload
+                # contacts expired, wait to reload
                 holder.renewal(duration=128, now=now)
             # 2. check local storage
             value = self.__user_storage.contacts(identifier=identifier)

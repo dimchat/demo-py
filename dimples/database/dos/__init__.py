@@ -36,6 +36,7 @@ from .meta import MetaStorage
 from .document import DocumentStorage
 
 from .user import UserStorage
+from .group import GroupStorage
 
 __all__ = [
 
@@ -46,4 +47,5 @@ __all__ = [
     'DocumentStorage',
 
     'UserStorage',
+    'GroupStorage',
 ]

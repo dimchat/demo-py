@@ -40,7 +40,7 @@ __all__ = [
     #
     'Storage',
     'PrivateKeyStorage', 'MetaStorage', 'DocumentStorage',
-    'UserStorage',
+    'UserStorage', 'GroupStorage',
 
     #
     #   Database

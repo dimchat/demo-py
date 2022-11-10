@@ -28,7 +28,6 @@ from typing import Optional, List
 
 from dimsdk import PrivateKey, SignKey, DecryptKey
 from dimsdk import ID, Meta, Document
-from dimsdk import GroupDataSource
 
 
 class PrivateKeyDBI(ABC):
@@ -88,8 +87,24 @@ class UserDBI(ABC):
         raise NotImplemented
 
 
-class GroupDBI(GroupDataSource, ABC):
+class GroupDBI(ABC):
     """ Group/Member Table """
+
+    @abstractmethod
+    def founder(self, identifier: ID) -> Optional[ID]:
+        raise NotImplemented
+
+    @abstractmethod
+    def owner(self, identifier: ID) -> Optional[ID]:
+        raise NotImplemented
+
+    @abstractmethod
+    def members(self, identifier: ID) -> List[ID]:
+        raise NotImplemented
+
+    @abstractmethod
+    def assistants(self, identifier: ID) -> List[ID]:
+        raise NotImplemented
 
     @abstractmethod
     def save_members(self, members: List[ID], identifier: ID) -> bool:

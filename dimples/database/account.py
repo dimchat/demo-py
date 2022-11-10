@@ -34,6 +34,7 @@ from .t_private import PrivateKeyTable
 from .t_meta import MetaTable
 from .t_document import DocumentTable
 from .t_user import UserTable
+from .t_group import GroupTable
 
 
 class AccountDatabase(AccountDBI):
@@ -48,12 +49,14 @@ class AccountDatabase(AccountDBI):
         self.__meta_table = MetaTable(root=root, public=public, private=private)
         self.__doc_table = DocumentTable(root=root, public=public, private=private)
         self.__user_table = UserTable(root=root, public=public, private=private)
+        self.__group_table = GroupTable(root=root, public=public, private=private)
 
     def show_info(self):
         self.__private_table.show_info()
         self.__meta_table.show_info()
         self.__doc_table.show_info()
         self.__user_table.show_info()
+        self.__group_table.show_info()
 
     #
     #   PrivateKey DBI
@@ -110,3 +113,31 @@ class AccountDatabase(AccountDBI):
     # Override
     def contacts(self, identifier: ID) -> List[ID]:
         return self.__user_table.contacts(identifier=identifier)
+
+    #
+    #   Group DBI
+    #
+
+    # Override
+    def founder(self, identifier: ID) -> Optional[ID]:
+        return self.__group_table.founder(identifier=identifier)
+
+    # Override
+    def owner(self, identifier: ID) -> Optional[ID]:
+        return self.__group_table.owner(identifier=identifier)
+
+    # Override
+    def members(self, identifier: ID) -> List[ID]:
+        return self.__group_table.members(identifier=identifier)
+
+    # Override
+    def assistants(self, identifier: ID) -> List[ID]:
+        return self.__group_table.assistants(identifier=identifier)
+
+    # Override
+    def save_members(self, members: List[ID], identifier: ID) -> bool:
+        return self.__group_table.save_members(members=members, identifier=identifier)
+
+    # Override
+    def save_assistants(self, assistants: List[ID], identifier: ID) -> bool:
+        return self.__group_table.save_assistants(assistants=assistants, identifier=identifier)
