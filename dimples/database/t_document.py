@@ -66,7 +66,7 @@ class DocumentTable(DocumentDBI):
         return self.__doc_storage.save_document(document=document)
 
     # Override
-    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
+    def document(self, identifier: ID, doc_type: str = '*') -> Optional[Document]:
         """ get document for ID """
         now = time.time()
         # 1. check memory cache

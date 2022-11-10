@@ -70,14 +70,15 @@ class LoginCommand(BaseCommand):
     """
     LOGIN = 'login'
 
-    def __init__(self, content: Optional[Dict[str, Any]] = None,
-                 identifier: Optional[ID] = None):
+    def __init__(self, content: Dict[str, Any] = None, identifier: ID = None):
         if content is None:
+            # create with ID
             super().__init__(cmd=self.LOGIN)
-        else:
-            super().__init__(content=content)
-        if identifier is not None:
+            assert identifier is not None, 'login ID should not empty'
             self['ID'] = str(identifier)
+        else:
+            # create with command content
+            super().__init__(content=content)
 
     #
     #   Client Info

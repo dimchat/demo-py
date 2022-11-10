@@ -62,7 +62,7 @@ class DocumentStorage(Storage, DocumentDBI):
         return self.write_json(container=document.dictionary, path=path)
 
     # Override
-    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
+    def document(self, identifier: ID, doc_type: str = '*') -> Optional[Document]:
         """ load document from file """
         path = self.__doc_path(identifier=identifier)
         self.info('Loading document from: %s' % path)
@@ -71,9 +71,7 @@ class DocumentStorage(Storage, DocumentDBI):
             return parse_document(dictionary=info, identifier=identifier, doc_type=doc_type)
 
 
-def parse_document(dictionary: Optional[dict],
-                   identifier: Optional[ID] = None,
-                   doc_type: Optional[str] = '*') -> Optional[Document]:
+def parse_document(dictionary: dict, identifier: ID, doc_type: str) -> Optional[Document]:
     # check document ID
     doc_id = ID.parse(identifier=dictionary.get('ID'))
     assert doc_id is not None, 'document error: %s' % dictionary

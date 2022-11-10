@@ -28,6 +28,7 @@ from typing import Optional, List
 
 from dimsdk import PrivateKey, SignKey, DecryptKey
 from dimsdk import ID, Meta, Document
+from dimsdk import GroupDataSource
 
 
 class PrivateKeyDBI(ABC):
@@ -70,10 +71,35 @@ class DocumentDBI(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
+    def document(self, identifier: ID, doc_type: str = '*') -> Optional[Document]:
         raise NotImplemented
 
 
-class AccountDBI(PrivateKeyDBI, MetaDBI, DocumentDBI, ABC):
+class UserDBI(ABC):
+    """ User/Contact Table """
+
+    @abstractmethod
+    def local_users(self) -> List[ID]:
+        raise NotImplemented
+
+    @abstractmethod
+    def contacts(self, identifier: ID) -> List[ID]:
+        """ contacts for user """
+        raise NotImplemented
+
+
+class GroupDBI(GroupDataSource, ABC):
+    """ Group/Member Table """
+
+    @abstractmethod
+    def save_members(self, members: List[ID], identifier: ID) -> bool:
+        raise NotImplemented
+
+    @abstractmethod
+    def save_assistants(self, assistants: List[ID], identifier: ID) -> bool:
+        raise NotImplemented
+
+
+class AccountDBI(PrivateKeyDBI, MetaDBI, DocumentDBI, UserDBI, GroupDBI, ABC):
     """ Account Database """
     pass

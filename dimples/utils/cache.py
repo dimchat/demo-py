@@ -42,7 +42,7 @@ V = TypeVar('V')
 
 class CacheHolder(Generic[V]):
 
-    def __init__(self, value: Optional[V] = None, life_span: float = 3600, now: float = None):
+    def __init__(self, value: V = None, life_span: float = 3600, now: float = None):
         super().__init__()
         self.__value = value
         self.__life_span = life_span
@@ -52,7 +52,7 @@ class CacheHolder(Generic[V]):
         self.__deprecated = now + life_span * 2
 
     @property
-    def value(self) -> V:
+    def value(self) -> Optional[V]:
         return self.__value
 
     def update(self, value: V, now: float = None):

@@ -45,11 +45,10 @@ from dimsdk import Command, BaseCommand
 
 
 class HandshakeState(IntEnum):
-    Init = 0
-    Start = 1    # C -> S, without session key(or session expired)
-    Again = 2    # S -> C, with new session key
-    Restart = 3  # C -> S, with new session key
-    Success = 4  # S -> C, handshake accepted
+    Start = 0    # C -> S, without session key(or session expired)
+    Again = 1    # S -> C, with new session key
+    Restart = 2  # C -> S, with new session key
+    Success = 3  # S -> C, handshake accepted
 
 
 class HandshakeCommand(BaseCommand):
@@ -68,26 +67,27 @@ class HandshakeCommand(BaseCommand):
     """
     HANDSHAKE = 'handshake'
 
-    def __init__(self, content: Optional[Dict[str, Any]] = None,
-                 title: Optional[str] = None, session: Optional[str] = None):
+    def __init__(self, content: Dict[str, Any] = None, title: str = None, session: str = None):
         if content is None:
+            # create with title, session key
             super().__init__(cmd=self.HANDSHAKE)
-        else:
-            super().__init__(content=content)
-        if title is not None:
+            assert title is not None, 'new handshake command error'
             self['title'] = title
-            self['message'] = title  # TODO: remove after all clients upgrade
-        if session is not None:
-            self['session'] = session
+            if session is not None:
+                self['session'] = session
+        else:
+            # create with command content
+            super().__init__(content=content)
+            if title is None:
+                title = content.get('title')
+            if session is None:
+                session = content.get('session')
+        # check state
         self.__state = handshake_state(title=title, session=session)
 
     @property
     def title(self) -> str:
-        text = self.get('title')
-        if text is None:
-            # compatible with v1.0
-            text = self['message']
-        return text
+        return self.get('title')
 
     @property
     def session(self) -> Optional[str]:
@@ -136,13 +136,13 @@ class HandshakeCommand(BaseCommand):
     success = accepted  # (4. S->C) notice the client that handshake accepted
 
 
-def handshake_state(title: Optional[str], session: Optional[str]) -> HandshakeState:
-    if title is None or len(title) == 0:
-        return HandshakeState.Init
-    if title == 'DIM!' or title == 'OK!':
+def handshake_state(title: str, session: str = None) -> HandshakeState:
+    # Server -> Client
+    if title == 'DIM!':  # or title == 'OK!':
         return HandshakeState.Success
     if title == 'DIM?':
         return HandshakeState.Again
+    # Client -> Server: "Hello world!"
     if session is None or len(session) == 0:
         return HandshakeState.Start
     else:

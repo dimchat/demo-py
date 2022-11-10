@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+#
+#   DIMP : Decentralized Instant Messaging Protocol
+#
+#                                Written in 2020 by Moky <albert.moky@gmail.com>
+#
 # ==============================================================================
 # MIT License
 #
@@ -30,7 +35,7 @@
     Report for online/offline, ...
 """
 
-from typing import Optional, Any, Dict
+from typing import Any, Dict
 
 from dimsdk import BaseCommand
 
@@ -55,14 +60,15 @@ class ReportCommand(BaseCommand):
     ONLINE = 'online'
     OFFLINE = 'offline'
 
-    def __init__(self, content: Optional[Dict[str, Any]] = None,
-                 title: Optional[str] = None):
+    def __init__(self, content: Dict[str, Any] = None, title: str = None):
         if content is None:
+            # create with title
             super().__init__(cmd=ReportCommand.REPORT)
+            if title is not None:
+                self['title'] = title
         else:
+            # create with command content
             super().__init__(content=content)
-        if title is not None:
-            self['title'] = title
 
     #
     #   report title

@@ -35,7 +35,7 @@
     As receipt returned to sender to proofing the message's received
 """
 
-from typing import Optional, Any, Dict
+from typing import Optional, Union, Any, Dict
 
 from dimsdk import base64_encode
 from dimsdk import Envelope
@@ -64,33 +64,35 @@ class ReceiptCommand(BaseCommand):
     """
     RECEIPT = 'receipt'
 
-    def __init__(self, content: Optional[Dict[str, Any]] = None,
-                 text: Optional[str] = None,
-                 envelope: Optional[Envelope] = None,
-                 sn: Optional[int] = 0,
-                 signature: Optional[str, bytes] = None):
+    def __init__(self, content: Dict[str, Any] = None, text: str = None,
+                 envelope: Envelope = None, sn: int = 0, signature: Union[str, bytes] = None):
         if content is None:
+            # create with text
+            # create with envelope, sn, signature
             super().__init__(cmd=self.RECEIPT)
+            # text message
+            if text is not None:
+                self['text'] = text
+            self.__envelope = envelope
+            # envelope of the message responding to
+            if envelope is None:
+                original = {}
+            else:
+                original = envelope.copy_dictionary()
+            # sn of the message responding to
+            if sn > 0:
+                original['sn'] = sn
+            # signature of the message responding to
+            if isinstance(signature, str):
+                original['signature'] = signature
+            elif isinstance(signature, bytes):
+                original['signature'] = base64_encode(data=signature)
+            self['original'] = original
         else:
+            # create with command content
             super().__init__(content=content)
-        # text message
-        if text is not None:
-            self['text'] = text
-        self.__envelope = envelope
-        # envelope of the message responding to
-        if envelope is None:
-            original = {}
-        else:
-            original = envelope.copy_dictionary()
-        # sn of the message responding to
-        if sn > 0:
-            original['sn'] = sn
-        # signature of the message responding to
-        if isinstance(signature, str):
-            original['signature'] = signature
-        elif isinstance(signature, bytes):
-            original['signature'] = base64_encode(data=signature)
-        self['original'] = original
+            # lazy load
+            self.__envelope = None
 
     # -------- setters/getters
 
