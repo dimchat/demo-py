@@ -27,8 +27,9 @@ from typing import Optional, List
 
 from dimsdk import PrivateKey, DecryptKey, SignKey
 from dimsdk import ID, Meta, Document
+from dimsdk import ReliableMessage
 
-from ..common import AccountDBI
+from ..common import AccountDBI, LoginCommand
 
 from .t_private import PrivateKeyTable
 from .t_meta import MetaTable
@@ -111,16 +112,24 @@ class AccountDatabase(AccountDBI):
         return self.__user_table.local_users()
 
     # Override
-    def contacts(self, identifier: ID) -> List[ID]:
-        return self.__user_table.contacts(identifier=identifier)
-
-    # Override
     def save_local_users(self, users: List[ID]) -> bool:
         return self.__user_table.save_local_users(users=users)
 
     # Override
+    def contacts(self, identifier: ID) -> List[ID]:
+        return self.__user_table.contacts(identifier=identifier)
+
+    # Override
     def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
         return self.__user_table.save_contacts(contacts=contacts, identifier=identifier)
+
+    # Override
+    def login_command_message(self, identifier: ID) -> (LoginCommand, ReliableMessage):
+        return self.__user_table.login_command_message(identifier=identifier)
+
+    # Override
+    def save_login_command_message(self, identifier: ID, cmd: LoginCommand, msg: ReliableMessage) -> bool:
+        return self.__user_table.save_login_command_message(identifier=identifier, cmd=cmd, msg=msg)
 
     #
     #   Group DBI

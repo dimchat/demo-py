@@ -44,7 +44,7 @@ from .dbi import AccountDBI
 class CommonFacebook(Facebook):
 
     @property
-    def db(self) -> AccountDBI:
+    def database(self) -> AccountDBI:
         """
             Database
             ~~~~~~~~
@@ -59,8 +59,9 @@ class CommonFacebook(Facebook):
 
     @property  # Override
     def local_users(self) -> List[User]:
+        db = self.database
         users = []
-        array = self.db.local_users()
+        array = db.local_users()
         assert array is not None, 'local user not found'
         for item in array:
             usr = self.user(identifier=item)
@@ -70,18 +71,22 @@ class CommonFacebook(Facebook):
 
     # Override
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        return self.db.save_meta(meta=meta, identifier=identifier)
+        db = self.database
+        return db.save_meta(meta=meta, identifier=identifier)
 
     # Override
     def save_document(self, document: Document) -> bool:
-        return self.db.save_document(document=document)
+        db = self.database
+        return db.save_document(document=document)
 
     # Override
     def save_members(self, members: List[ID], identifier: ID) -> bool:
-        raise self.db.save_members(members=members, identifier=identifier)
+        db = self.database
+        return db.save_members(members=members, identifier=identifier)
 
     def save_assistants(self, assistants: List[ID], identifier: ID) -> bool:
-        return self.db.save_assistants(assistants=assistants, identifier=identifier)
+        db = self.database
+        return db.save_assistants(assistants=assistants, identifier=identifier)
 
     # Override
     def create_user(self, identifier: ID) -> Optional[User]:
@@ -103,19 +108,23 @@ class CommonFacebook(Facebook):
 
     # Override
     def contacts(self, identifier: ID) -> List[ID]:
-        raise self.db.contacts(identifier=identifier)
+        db = self.database
+        return db.contacts(identifier=identifier)
 
     # Override
     def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
-        return self.db.private_keys_for_decryption(identifier=identifier)
+        db = self.database
+        return db.private_keys_for_decryption(identifier=identifier)
 
     # Override
     def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
-        return self.db.private_key_for_signature(identifier=identifier)
+        db = self.database
+        return db.private_key_for_signature(identifier=identifier)
 
     # Override
     def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
-        return self.db.private_key_for_visa_signature(identifier=identifier)
+        db = self.database
+        return db.private_key_for_visa_signature(identifier=identifier)
 
     #
     #    GroupDataSource
@@ -123,7 +132,8 @@ class CommonFacebook(Facebook):
 
     # Override
     def founder(self, identifier: ID) -> ID:
-        user = self.db.founder(identifier=identifier)
+        db = self.database
+        user = db.founder(identifier=identifier)
         if user is not None:
             # got from database
             return user
@@ -131,7 +141,8 @@ class CommonFacebook(Facebook):
 
     # Override
     def owner(self, identifier: ID) -> ID:
-        user = self.db.owner(identifier=identifier)
+        db = self.database
+        user = db.owner(identifier=identifier)
         if user is not None:
             # got from database
             return user
@@ -139,7 +150,8 @@ class CommonFacebook(Facebook):
 
     # Override
     def members(self, identifier: ID) -> Optional[List[ID]]:
-        users = self.db.members(identifier=identifier)
+        db = self.database
+        users = db.members(identifier=identifier)
         if users is not None and len(users) > 0:
             # got from database
             return users
@@ -147,7 +159,8 @@ class CommonFacebook(Facebook):
 
     # Override
     def assistants(self, identifier: ID) -> Optional[List[ID]]:
-        bots = self.db.assistants(identifier=identifier)
+        db = self.database
+        bots = db.assistants(identifier=identifier)
         if bots is not None and len(bots) > 0:
             # got from database
             return bots
@@ -162,14 +175,16 @@ class CommonFacebook(Facebook):
         # if identifier.is_broadcast:
         #     # broadcast ID has no meta
         #     return None
-        return self.db.meta(identifier=identifier)
+        db = self.database
+        return db.meta(identifier=identifier)
 
     # Override
     def document(self, identifier: ID, doc_type: str = '*') -> Optional[Document]:
         # if identifier.is_broadcast:
         #     # broadcast ID has no document
         #     return None
-        return self.db.document(identifier=identifier, doc_type=doc_type)
+        db = self.database
+        return db.document(identifier=identifier, doc_type=doc_type)
 
 
 @Singleton

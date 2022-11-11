@@ -43,7 +43,7 @@ class GroupStorage(Storage, GroupDBI):
 
     def show_info(self):
         path = template_replace(self.members_path, 'PRIVATE', self._private)
-        print('!!!  members  path: %s' % path)
+        print('!!!   members path: %s' % path)
 
     def __members_path(self, identifier: ID) -> str:
         path = self.members_path
