@@ -29,7 +29,7 @@
 # ==============================================================================
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Tuple
 
 from dimp import ID
 from dimp import Content
@@ -39,7 +39,8 @@ from dimp import InstantMessage, ReliableMessage
 class Transmitter(ABC):
 
     @abstractmethod
-    def send_content(self, sender: Optional[ID], receiver: ID, content: Content, priority: int) -> bool:
+    def send_content(self, sender: Optional[ID], receiver: ID, content: Content,
+                     priority: int = 0) -> Optional[Tuple[InstantMessage, ReliableMessage]]:
         """
         Send content from sender to receiver with priority
 
@@ -47,14 +48,28 @@ class Transmitter(ABC):
         :param receiver: to where
         :param content:  message content
         :param priority: smaller is faster
-        :return: False on error
+        :return: None on error
         """
         raise NotImplemented
 
     @abstractmethod
-    def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:
+    def send_instant_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
+        """
+        Send instant message with priority
+
+        :param msg:      plain message
+        :param priority: smaller is faster
+        :return: None on error
+        """
         raise NotImplemented
 
     @abstractmethod
-    def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
+    def send_reliable_message(self, msg: ReliableMessage, priority: int = 0) -> bool:
+        """
+        Send reliable message with priority
+
+        :param msg:      encrypted & signed message
+        :param priority: smaller is faster
+        :return: False on error
+        """
         raise NotImplemented

@@ -30,9 +30,7 @@
     Transform and send message
 """
 
-from typing import Optional
-
-# from startrek import DeparturePriority
+from typing import Optional, Tuple
 
 from dimsdk import ID
 from dimsdk import InstantMessage, ReliableMessage
@@ -53,16 +51,17 @@ class CommonMessenger(Messenger, Transmitter):
     #
 
     # Override
-    def send_content(self, sender: Optional[ID], receiver: ID, content: Content, priority: int) -> bool:
+    def send_content(self, sender: Optional[ID], receiver: ID, content: Content,
+                     priority: int = 0) -> Optional[Tuple[InstantMessage, ReliableMessage]]:
         transmitter = self.transmitter
         return transmitter.send_content(sender=sender, receiver=receiver, content=content, priority=priority)
 
     # Override
-    def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:
+    def send_instant_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
         transmitter = self.transmitter
         return transmitter.send_instant_message(msg=msg, priority=priority)
 
     # Override
-    def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
+    def send_reliable_message(self, msg: ReliableMessage, priority: int = 0) -> bool:
         transmitter = self.transmitter
         return transmitter.send_reliable_message(msg=msg, priority=priority)
