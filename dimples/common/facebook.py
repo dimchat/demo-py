@@ -43,6 +43,10 @@ from .dbi import AccountDBI
 
 class CommonFacebook(Facebook):
 
+    def __init__(self, database: AccountDBI):
+        super().__init__()
+        self.__adb = database
+
     @property
     def database(self) -> AccountDBI:
         """
@@ -51,7 +55,7 @@ class CommonFacebook(Facebook):
             PrivateKeys, Metas, Documents,
             Users, Contacts, Groups, Members
         """
-        raise NotImplemented
+        return self.__adb
 
     #
     #   Super

@@ -34,17 +34,32 @@ from typing import Optional, Tuple
 
 from dimsdk import ID
 from dimsdk import InstantMessage, ReliableMessage
-from dimsdk import Content
+from dimsdk import Content, Envelope
+from dimsdk import EntityDelegate
 from dimsdk import Messenger
 
+from .facebook import CommonFacebook
 from .transmitter import Transmitter
 
 
 class CommonMessenger(Messenger, Transmitter):
 
+    def __init__(self, facebook: CommonFacebook, transmitter: Transmitter):
+        super().__init__()
+        self.__facebook = facebook
+        self.__session = transmitter
+
+    @property
+    def barrack(self) -> EntityDelegate:
+        return self.__facebook
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        raise self.__facebook
+
     @property
     def transmitter(self) -> Transmitter:
-        raise NotImplemented
+        return self.__session
 
     #
     #   Interfaces for Transmitting Message
@@ -53,15 +68,40 @@ class CommonMessenger(Messenger, Transmitter):
     # Override
     def send_content(self, sender: Optional[ID], receiver: ID, content: Content,
                      priority: int = 0) -> Optional[Tuple[InstantMessage, ReliableMessage]]:
-        transmitter = self.transmitter
-        return transmitter.send_content(sender=sender, receiver=receiver, content=content, priority=priority)
+        """ Send message content with priority """
+        # Application Layer should make sure user is already login before it send message to server.
+        # Application layer should put message into queue so that it will send automatically after user login
+        if sender is None:
+            user = self.facebook.current_user
+            assert user is not None, 'current user not set'
+            sender = user.identifier
+        env = Envelope.create(sender=sender, receiver=receiver)
+        i_msg = InstantMessage.create(head=env, body=content)
+        r_msg = self.send_instant_message(msg=i_msg, priority=priority)
+        return i_msg, r_msg
 
     # Override
     def send_instant_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
-        transmitter = self.transmitter
-        return transmitter.send_instant_message(msg=msg, priority=priority)
+        """ send instant message with priority """
+        # send message (secured + certified) to target station
+        s_msg = self.encrypt_message(msg=msg)
+        if s_msg is None:
+            # public key not found?
+            return None
+        r_msg = self.sign_message(msg=s_msg)
+        if r_msg is None:
+            # TODO: set msg.state = error
+            raise AssertionError('failed to sign message: %s' % s_msg)
+        if self.send_reliable_message(msg=r_msg, priority=priority):
+            return r_msg
 
     # Override
     def send_reliable_message(self, msg: ReliableMessage, priority: int = 0) -> bool:
-        transmitter = self.transmitter
-        return transmitter.send_reliable_message(msg=msg, priority=priority)
+        """ send reliable message with priority """
+        data = self.serialize_message(msg=msg)
+        return self.send_message_package(msg=msg, data=data, priority=priority)
+
+    # Override
+    def send_message_package(self, msg: ReliableMessage, data: bytes, priority: int = 0) -> bool:
+        session = self.transmitter
+        return session.send_message_package(msg=msg, data=data, priority=priority)
