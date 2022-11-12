@@ -72,22 +72,23 @@ class HandshakeCommand(BaseCommand):
             # create with title, session key
             super().__init__(cmd=self.HANDSHAKE)
             assert title is not None, 'new handshake command error'
-            self['title'] = title
+            # TODO: modify after all clients upgraded
+            # self['title'] = title
+            self['message'] = title
             if session is not None:
                 self['session'] = session
         else:
             # create with command content
             super().__init__(content=content)
-            if title is None:
-                title = content.get('title')
-            if session is None:
-                session = content.get('session')
-        # check state
-        self.__state = handshake_state(title=title, session=session)
 
     @property
     def title(self) -> str:
-        return self.get('title')
+        # TODO: modify after all clients upgraded
+        text = self.get('title')
+        if text is None:
+            # compatible with v1.0
+            text = self.get('message')
+        return text
 
     @property
     def session(self) -> Optional[str]:
@@ -95,7 +96,7 @@ class HandshakeCommand(BaseCommand):
 
     @property
     def state(self) -> HandshakeState:
-        return self.__state
+        return handshake_state(title=self.title, session=self.session)
 
     #
     #   Factories

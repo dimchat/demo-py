@@ -27,7 +27,7 @@ import time
 from typing import List
 
 from dimsdk import ID
-from dkd import ReliableMessage
+from dimsdk import ReliableMessage
 
 from ..utils import CacheHolder, CacheManager
 from ..common import UserDBI, LoginCommand

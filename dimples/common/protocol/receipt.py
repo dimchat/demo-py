@@ -51,9 +51,9 @@ class ReceiptCommand(BaseCommand):
             type : 0x88,
             sn   : 456,
 
-            cmd      : "receipt",
-            text     : "...",  // text message
-            original : {       // envelope of the message responding to
+            cmd    : "receipt",
+            text   : "...",  // text message
+            origin : {         // original message envelope
                 sender    : "...",
                 receiver  : "...",
                 time      : 0,
@@ -76,18 +76,18 @@ class ReceiptCommand(BaseCommand):
             self.__envelope = envelope
             # envelope of the message responding to
             if envelope is None:
-                original = {}
+                origin = {}
             else:
-                original = envelope.copy_dictionary()
+                origin = envelope.copy_dictionary()
             # sn of the message responding to
             if sn > 0:
-                original['sn'] = sn
+                origin['sn'] = sn
             # signature of the message responding to
             if isinstance(signature, str):
-                original['signature'] = signature
+                origin['signature'] = signature
             elif isinstance(signature, bytes):
-                original['signature'] = base64_encode(data=signature)
-            self['original'] = original
+                origin['signature'] = base64_encode(data=signature)
+            self['origin'] = origin
         else:
             # create with command content
             super().__init__(content=content)
@@ -101,24 +101,24 @@ class ReceiptCommand(BaseCommand):
         return self.get('text')
 
     @property  # private
-    def original(self) -> dict:
-        return self.get('original')
+    def origin(self) -> dict:
+        return self.get('origin')
 
     @property
     def original_envelope(self) -> Optional[Envelope]:
         if self.__envelope is None:
-            # original: { sender: "...", receiver: "...", time: 0 }
-            original = self.original
-            if original is not None and 'sender' in original:
-                self.__envelope = Envelope.parse(envelope=original)
+            # origin: { sender: "...", receiver: "...", time: 0 }
+            origin = self.origin
+            if origin is not None and 'sender' in origin:
+                self.__envelope = Envelope.parse(envelope=origin)
         return self.__envelope
 
     @property
     def original_sn(self) -> int:
-        original = self.original
-        return 0 if original is None else original.get('sn')
+        origin = self.origin
+        return 0 if origin is None else origin.get('sn')
 
     @property
     def original_signature(self) -> Optional[str]:
-        original = self.original
-        return None if original is None else original.get('signature')
+        origin = self.origin
+        return None if origin is None else origin.get('signature')
