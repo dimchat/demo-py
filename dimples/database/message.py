@@ -23,31 +23,41 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    Database Interfaces
-    ~~~~~~~~~~~~~~~~~~~
+from typing import List
 
-"""
+from dimsdk import ID
+from dimsdk import ReliableMessage
 
-from .account import PrivateKeyDBI, MetaDBI, DocumentDBI
-from .account import UserDBI, GroupDBI
-from .account import AccountDBI
+from ..common import MessageDBI
 
-from .message import ReliableMessageDBI
-from .message import MessageDBI
+from .t_message import ReliableMessageTable
 
 
-__all__ = [
+class MessageDatabase(MessageDBI):
+    """
+        Database for DaoKeDao
+        ~~~~~~~~~~~~~~~~~~~~~
+    """
+
+    def __init__(self, root: str = None, public: str = None, private: str = None):
+        super().__init__()
+        self.__msg_table = ReliableMessageTable(root=root, public=public, private=private)
+
+    def show_info(self):
+        self.__msg_table.show_info()
+
     #
-    #   Account
+    #   ReliableMessage DBI
     #
-    'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
-    'UserDBI', 'GroupDBI',
-    'AccountDBI',
 
-    #
-    #   Message
-    #
-    'ReliableMessageDBI',
-    'MessageDBI',
-]
+    # Override
+    def reliable_messages(self, receiver: ID) -> List[ReliableMessage]:
+        return self.__msg_table.reliable_messages(receiver=receiver)
+
+    # Override
+    def save_reliable_message(self, msg: ReliableMessage) -> bool:
+        return self.__msg_table.save_reliable_message(msg=msg)
+
+    # Override
+    def remove_reliable_message(self, msg: ReliableMessage) -> bool:
+        return self.__msg_table.remove_reliable_message(msg=msg)

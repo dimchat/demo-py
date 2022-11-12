@@ -23,31 +23,28 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    Database Interfaces
-    ~~~~~~~~~~~~~~~~~~~
+from abc import ABC, abstractmethod
+from typing import List
 
-"""
-
-from .account import PrivateKeyDBI, MetaDBI, DocumentDBI
-from .account import UserDBI, GroupDBI
-from .account import AccountDBI
-
-from .message import ReliableMessageDBI
-from .message import MessageDBI
+from dimsdk import ID, ReliableMessage
 
 
-__all__ = [
-    #
-    #   Account
-    #
-    'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
-    'UserDBI', 'GroupDBI',
-    'AccountDBI',
+class ReliableMessageDBI(ABC):
+    """ ReliableMessage Table """
 
-    #
-    #   Message
-    #
-    'ReliableMessageDBI',
-    'MessageDBI',
-]
+    @abstractmethod
+    def reliable_messages(self, receiver: ID) -> List[ReliableMessage]:
+        raise NotImplemented
+
+    @abstractmethod
+    def save_reliable_message(self, msg: ReliableMessage) -> bool:
+        raise NotImplemented
+
+    @abstractmethod
+    def remove_reliable_message(self, msg: ReliableMessage) -> bool:
+        raise NotImplemented
+
+
+class MessageDBI(ReliableMessageDBI, ABC):
+    """ Message Database """
+    pass

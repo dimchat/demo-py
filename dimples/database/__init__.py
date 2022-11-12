@@ -32,6 +32,7 @@
 from .dos import *
 
 from .account import AccountDatabase
+from .message import MessageDatabase
 
 __all__ = [
 
@@ -46,4 +47,5 @@ __all__ = [
     #   Database
     #
     'AccountDatabase',
+    'MessageDatabase',
 ]

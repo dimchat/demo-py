@@ -53,6 +53,9 @@ __all__ = [
     'UserDBI', 'GroupDBI',
     'AccountDBI',
 
+    'ReliableMessageDBI',
+    'MessageDBI',
+
     #
     #   common
     #
