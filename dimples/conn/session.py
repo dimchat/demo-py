@@ -38,7 +38,7 @@
 import socket
 import weakref
 from abc import ABC
-from typing import Optional, Tuple
+from typing import Optional
 
 from dimsdk import ID, Content
 from dimsdk import InstantMessage, ReliableMessage
@@ -97,7 +97,7 @@ class Session(GateKeeper, Transmitter, ABC):
 
     # Override
     def send_content(self, sender: Optional[ID], receiver: ID, content: Content,
-                     priority: int = 0) -> Optional[Tuple[InstantMessage, ReliableMessage]]:
+                     priority: int = 0) -> (InstantMessage, Optional[ReliableMessage]):
         messenger = self.messenger
         return messenger.send_content(sender=sender, receiver=receiver, content=content, priority=priority)
 

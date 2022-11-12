@@ -30,7 +30,7 @@
     Transform and send message
 """
 
-from typing import Optional, Tuple
+from typing import Optional
 
 from dimsdk import ID
 from dimsdk import InstantMessage, ReliableMessage
@@ -72,13 +72,29 @@ class CommonMessenger(Messenger, Transmitter):
     def transmitter(self) -> Transmitter:
         return self.__session
 
+    # # Override
+    # def serialize_key(self, key: Union[dict, SymmetricKey], msg: InstantMessage) -> Optional[bytes]:
+    #     # try to reuse message key
+    #     reused = key.get('reused')
+    #     if reused is not None:
+    #         if msg.receiver.is_group:
+    #             # reuse key for grouped message
+    #             return None
+    #         # remove before serialize key
+    #         key.pop('reused', None)
+    #     data = super().serialize_key(key=key, msg=msg)
+    #     if reused is not None:
+    #         # put it back
+    #         key['reused'] = reused
+    #     return data
+
     #
     #   Interfaces for Transmitting Message
     #
 
     # Override
     def send_content(self, sender: Optional[ID], receiver: ID, content: Content,
-                     priority: int = 0) -> Optional[Tuple[InstantMessage, ReliableMessage]]:
+                     priority: int = 0) -> (InstantMessage, Optional[ReliableMessage]):
         """ Send message content with priority """
         # Application Layer should make sure user is already login before it send message to server.
         # Application layer should put message into queue so that it will send automatically after user login
@@ -110,6 +126,7 @@ class CommonMessenger(Messenger, Transmitter):
     def send_reliable_message(self, msg: ReliableMessage, priority: int = 0) -> bool:
         """ send reliable message with priority """
         data = self.serialize_message(msg=msg)
+        assert data is not None, 'failed to serialize message: %s' % msg
         return self.send_message_package(msg=msg, data=data, priority=priority)
 
     # Override
