@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
+#
+#   DIM-SDK : Decentralized Instant Messaging Software Development Kit
+#
+#                                Written in 2021 by Moky <albert.moky@gmail.com>
+#
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2019 Albert Moky
+# Copyright (c) 2021 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,30 +28,27 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    Utils
-    ~~~~~
+from abc import ABC
 
-    I'm too lazy to write codes for demo project, so I borrow some utils here
-    from the <dimsdk> packages, but I don't suggest you to do it also, because
-    I won't promise these private utils will not be changed. Hia hia~ :P
-                                             -- Albert Moky @ Jan. 23, 2019
-"""
+from startrek import Departure
 
-from startrek.fsm import Runnable, Runner
+from .ws import WebSocket
+from .mars import NetMsg, NetMsgHead, NetMsgSeq
 
-from .singleton import Singleton
-from .log import Log, Logging
-from .dos import Path, File, TextFile, JSONFile
-from .cache import CachePool, CacheHolder, CacheManager
+
+class DeparturePacker(ABC):
+
+    def pack(self, payload: bytes, priority: int = 0) -> Departure:
+        raise NotImplemented
 
 
 __all__ = [
 
-    'Runnable', 'Runner',
+    'DeparturePacker',
 
-    'Singleton',
-    'Log', 'Logging',
-    'Path', 'File', 'TextFile', 'JSONFile',
-    'CachePool', 'CacheHolder', 'CacheManager',
+    # Web Socket
+    'WebSocket',
+
+    # Tencent Mars
+    'NetMsg', 'NetMsgHead', 'NetMsgSeq',
 ]
