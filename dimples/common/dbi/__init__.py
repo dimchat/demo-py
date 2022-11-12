@@ -33,7 +33,7 @@ from .account import PrivateKeyDBI, MetaDBI, DocumentDBI
 from .account import UserDBI, GroupDBI
 from .account import AccountDBI
 
-from .message import ReliableMessageDBI
+from .message import ReliableMessageDBI, CipherKeyDBI
 from .message import MessageDBI
 
 
@@ -48,6 +48,6 @@ __all__ = [
     #
     #   Message
     #
-    'ReliableMessageDBI',
+    'ReliableMessageDBI', 'CipherKeyDBI',
     'MessageDBI',
 ]

@@ -45,7 +45,6 @@ from dimsdk import InstantMessage, ReliableMessage
 
 from startrek import Docker, Departure
 
-from ..common import MessageDBI
 from ..common import Transmitter
 from ..common import CommonMessenger
 
@@ -56,15 +55,10 @@ from .queue import MessageWrapper
 
 class Session(GateKeeper, Transmitter, ABC):
 
-    def __init__(self, remote_address: tuple, sock: Optional[socket.socket], database: MessageDBI):
+    def __init__(self, remote_address: tuple, sock: Optional[socket.socket]):
         super().__init__(remote_address=remote_address, sock=sock)
-        self.__database = database
         self.__messenger: Optional[weakref.ReferenceType] = None
         self.__identifier: Optional[ID] = None
-
-    @property
-    def database(self) -> MessageDBI:
-        return self.__database
 
     @property
     def messenger(self) -> CommonMessenger:
@@ -142,6 +136,8 @@ class Session(GateKeeper, Transmitter, ABC):
                 sig = msg.get('signature')
                 sig = sig[-8:]  # last 6 bytes (signature in base64)
                 print('[QUEUE] message sent, remove from db: %s, %s -> %s' % (sig, msg.sender, msg.receiver))
-                db = self.database
+                messenger = self.messenger
+                assert messenger is not None, 'messenger not set yet'
+                db = messenger.database
                 db.remove_reliable_message(msg=msg)
             ship.on_sent()

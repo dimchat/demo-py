@@ -23,32 +23,28 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import List, Optional
+import time
+from typing import Optional
 
-from dimsdk import SymmetricKey
-from dimsdk import ID
-from dimsdk import ReliableMessage
+from dimsdk import ID, SymmetricKey
+from dimplugins import PlainKey
 
-from ..common import MessageDBI
-
-from .t_cipherkey import CipherKeyTable
-from .t_message import ReliableMessageTable
+from ..utils import CacheManager
+from ..common import CipherKeyDBI
 
 
-class MessageDatabase(MessageDBI):
-    """
-        Database for DaoKeDao
-        ~~~~~~~~~~~~~~~~~~~~~
-    """
+class CipherKeyTable(CipherKeyDBI):
+    """ Implementations of CipherKeyDBI """
 
+    # noinspection PyUnusedLocal
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
-        self.__cipher_table = CipherKeyTable(root=root, public=public, private=private)
-        self.__msg_table = ReliableMessageTable(root=root, public=public, private=private)
+        man = CacheManager()
+        self.__cipher_cache = man.get_pool(name='cipher')
 
+    # noinspection PyMethodMayBeStatic
     def show_info(self):
-        self.__cipher_table.show_info()
-        self.__msg_table.show_info()
+        print('!!!      cipher key in memory only !!!')
 
     #
     #   CipherKey DBI
@@ -56,24 +52,25 @@ class MessageDatabase(MessageDBI):
 
     # Override
     def cipher_key(self, sender: ID, receiver: ID, generate: bool = False) -> Optional[SymmetricKey]:
-        return self.__cipher_table.cipher_key(sender=sender, receiver=receiver, generate=generate)
+        if receiver.is_broadcast:
+            return plain_key
+        now = time.time()
+        key, _ = self.__cipher_cache.fetch(key=(sender, receiver), now=now)
+        if key is None and generate:
+            # generate and cache it
+            key = SymmetricKey.generate(algorithm=SymmetricKey.AES)
+            assert key is not None, 'failed to generate symmetric key'
+            self.__cipher_cache.update(key=(sender, receiver), value=key, life_span=3600*24*7, now=now)
+        return key
 
     # Override
     def cache_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
-        return self.cache_cipher_key(key=key, sender=sender, receiver=receiver)
+        if receiver.is_broadcast:
+            # no need to store cipher key for broadcast message
+            return False
+        now = time.time()
+        self.__cipher_cache.update(key=(sender, receiver), value=key, life_span=3600*24*7, now=now)
+        return True
 
-    #
-    #   ReliableMessage DBI
-    #
 
-    # Override
-    def reliable_messages(self, receiver: ID) -> List[ReliableMessage]:
-        return self.__msg_table.reliable_messages(receiver=receiver)
-
-    # Override
-    def save_reliable_message(self, msg: ReliableMessage) -> bool:
-        return self.__msg_table.save_reliable_message(msg=msg)
-
-    # Override
-    def remove_reliable_message(self, msg: ReliableMessage) -> bool:
-        return self.__msg_table.remove_reliable_message(msg=msg)
+plain_key = PlainKey({'algorithm': PlainKey.PLAIN})

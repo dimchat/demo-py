@@ -35,8 +35,10 @@ from typing import Optional, Tuple
 from dimsdk import ID
 from dimsdk import InstantMessage, ReliableMessage
 from dimsdk import Content, Envelope
-from dimsdk import EntityDelegate
+from dimsdk import EntityDelegate, CipherKeyDelegate
 from dimsdk import Messenger
+
+from .dbi import MessageDBI
 
 from .facebook import CommonFacebook
 from .transmitter import Transmitter
@@ -44,10 +46,19 @@ from .transmitter import Transmitter
 
 class CommonMessenger(Messenger, Transmitter):
 
-    def __init__(self, facebook: CommonFacebook, transmitter: Transmitter):
+    def __init__(self, database: MessageDBI, facebook: CommonFacebook, transmitter: Transmitter):
         super().__init__()
+        self.__database = database
         self.__facebook = facebook
         self.__session = transmitter
+
+    @property
+    def database(self) -> MessageDBI:
+        return self.__database
+
+    @property
+    def key_cache(self) -> CipherKeyDelegate:
+        return self.__database
 
     @property
     def barrack(self) -> EntityDelegate:

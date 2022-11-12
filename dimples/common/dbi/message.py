@@ -26,7 +26,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from dimsdk import ID, ReliableMessage
+from dimsdk import ID, ReliableMessage, CipherKeyDelegate
 
 
 class ReliableMessageDBI(ABC):
@@ -45,6 +45,11 @@ class ReliableMessageDBI(ABC):
         raise NotImplemented
 
 
-class MessageDBI(ReliableMessageDBI, ABC):
+class CipherKeyDBI(CipherKeyDelegate, ABC):
+    """ CipherKey Table """
+    pass
+
+
+class MessageDBI(ReliableMessageDBI, CipherKeyDBI, ABC):
     """ Message Database """
     pass

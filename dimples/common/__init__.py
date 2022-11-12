@@ -53,7 +53,7 @@ __all__ = [
     'UserDBI', 'GroupDBI',
     'AccountDBI',
 
-    'ReliableMessageDBI',
+    'ReliableMessageDBI', 'CipherKeyDBI',
     'MessageDBI',
 
     #
