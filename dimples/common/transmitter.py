@@ -73,15 +73,3 @@ class Transmitter(ABC):
         :return: False on error
         """
         raise NotImplemented
-
-    @abstractmethod
-    def send_message_package(self, msg: ReliableMessage, data: bytes, priority: int = 0) -> bool:
-        """
-        Send data package with priority
-
-        :param msg:      reliable message
-        :param data:     serialized reliable message
-        :param priority: smaller is faster
-        :return: False on error
-        """
-        raise NotImplemented

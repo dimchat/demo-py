@@ -29,14 +29,23 @@
 # ==============================================================================
 
 """
-    Session
-    ~~~~~~~
+    Architecture Diagram
+    ~~~~~~~~~~~~~~~~~~~~
 
-    Gate keeper
+        ConnectionDelegate   DockerDelegate
+            +--------+      +--------------+
+            |  Gate  |------|  GateKeeper  |         +--------------+
+            +--------+      +-------A------+         |   Facebook   |
+                                    |                +--------------+
+                                    |                      |  AccountDB
+                            //=============\\              |
+                            ||             ||        +---------------+
+                      ------||   Session   ||--------|   Messenger   |
+                            ||             ||        +---------------+
+                            \\=============//                 MessageDB
 """
 
 import socket
-import weakref
 from abc import ABC
 from typing import Optional
 
@@ -48,27 +57,20 @@ from startrek import Docker, Departure
 from ..common import Transmitter
 from ..common import CommonMessenger
 
-from .protocol import DeparturePacker
 from .gatekeeper import GateKeeper
 from .queue import MessageWrapper
 
 
-class Session(GateKeeper, Transmitter, ABC):
+class BaseSession(GateKeeper, Transmitter, ABC):
 
-    def __init__(self, remote_address: tuple, sock: Optional[socket.socket]):
-        super().__init__(remote_address=remote_address, sock=sock)
-        self.__messenger: Optional[weakref.ReferenceType] = None
+    def __init__(self, remote: tuple, sock: Optional[socket.socket], messenger: CommonMessenger):
+        super().__init__(remote=remote, sock=sock)
+        self.__messenger = messenger
         self.__identifier: Optional[ID] = None
 
     @property
     def messenger(self) -> CommonMessenger:
-        ref = self.__messenger
-        if ref is not None:
-            return ref()
-
-    @messenger.setter
-    def messenger(self, transceiver: CommonMessenger):
-        self.__messenger = weakref.ref(transceiver)
+        return self.__messenger
 
     @property
     def identifier(self) -> Optional[ID]:
@@ -111,18 +113,6 @@ class Session(GateKeeper, Transmitter, ABC):
         messenger = self.messenger
         return messenger.send_reliable_message(msg=msg, priority=priority)
 
-    # Override
-    def send_message_package(self, msg: ReliableMessage, data: bytes, priority: int = 0) -> bool:
-        if not self.active:
-            # FIXME: connection lost?
-            print('session inactive: %s' % self)
-        # sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
-        # self.debug(msg='sending reliable message (%s) to: %s, priority: %d' % (sig, msg.receiver, priority))
-        docker = self.__gate.get_docker(remote=self.remote_address, local=None, advance_party=[])
-        assert isinstance(docker, DeparturePacker), 'departure packer error: %s' % docker
-        ship = docker.pack(payload=data, priority=priority)
-        return self.__queue.append(msg=msg, ship=ship)
-
     #
     #   Docker Delegate
     #
@@ -136,8 +126,6 @@ class Session(GateKeeper, Transmitter, ABC):
                 sig = msg.get('signature')
                 sig = sig[-8:]  # last 6 bytes (signature in base64)
                 print('[QUEUE] message sent, remove from db: %s, %s -> %s' % (sig, msg.sender, msg.receiver))
-                messenger = self.messenger
-                assert messenger is not None, 'messenger not set yet'
-                db = messenger.database
+                db = self.messenger.database
                 db.remove_reliable_message(msg=msg)
             ship.on_sent()

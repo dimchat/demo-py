@@ -30,6 +30,7 @@
     Transform and send message
 """
 
+from abc import ABC, abstractmethod
 from typing import Optional
 
 from dimsdk import ID
@@ -44,13 +45,12 @@ from .facebook import CommonFacebook
 from .transmitter import Transmitter
 
 
-class CommonMessenger(Messenger, Transmitter):
+class CommonMessenger(Messenger, Transmitter, ABC):
 
-    def __init__(self, database: MessageDBI, facebook: CommonFacebook, transmitter: Transmitter):
+    def __init__(self, database: MessageDBI, facebook: CommonFacebook):
         super().__init__()
         self.__database = database
         self.__facebook = facebook
-        self.__session = transmitter
 
     @property
     def database(self) -> MessageDBI:
@@ -67,10 +67,6 @@ class CommonMessenger(Messenger, Transmitter):
     @property
     def facebook(self) -> CommonFacebook:
         raise self.__facebook
-
-    @property
-    def transmitter(self) -> Transmitter:
-        return self.__session
 
     # # Override
     # def serialize_key(self, key: Union[dict, SymmetricKey], msg: InstantMessage) -> Optional[bytes]:
@@ -129,7 +125,7 @@ class CommonMessenger(Messenger, Transmitter):
         assert data is not None, 'failed to serialize message: %s' % msg
         return self.send_message_package(msg=msg, data=data, priority=priority)
 
-    # Override
+    @abstractmethod
     def send_message_package(self, msg: ReliableMessage, data: bytes, priority: int = 0) -> bool:
-        session = self.transmitter
-        return session.send_message_package(msg=msg, data=data, priority=priority)
+        """ call gate keeper to send the message data package """
+        raise NotImplemented

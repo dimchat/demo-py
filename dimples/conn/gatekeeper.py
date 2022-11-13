@@ -31,6 +31,8 @@
 import socket
 from typing import Optional
 
+from dimsdk import ReliableMessage
+
 from startrek.net.channel import get_remote_address, get_local_address
 from startrek import Hub
 from startrek import BaseChannel
@@ -42,6 +44,8 @@ from tcp import StreamChannel
 from tcp import ServerHub, ClientHub
 
 from ..utils import Runner
+
+from .protocol import DeparturePacker
 
 from .gate import CommonGate, TCPServerGate, TCPClientGate
 from .queue import MessageQueue, MessageWrapper
@@ -90,20 +94,21 @@ SEND_BUFFER_SIZE = 64 * 1024  # 64 KB
 
 
 class GateKeeper(Runner, DockerDelegate):
+    """ Keep a gate to remote address """
 
-    def __init__(self, remote_address: tuple, sock: Optional[socket.socket]):
+    def __init__(self, remote: tuple, sock: Optional[socket.socket]):
         super().__init__()
-        self.__remote = remote_address
-        self.__gate = self._create_gate(address=remote_address, sock=sock)
+        self.__remote = remote
+        self.__gate = self._create_gate(remote=remote, sock=sock)
         self.__queue = MessageQueue()
         self.__active = False
 
-    def _create_gate(self, address: tuple, sock: Optional[socket.socket]) -> CommonGate:
+    def _create_gate(self, remote: tuple, sock: Optional[socket.socket]) -> CommonGate:
         if sock is None:
-            gate = TCPClientGate(delegate=self, remote=address)
+            gate = TCPClientGate(delegate=self, remote=remote)
         else:
             gate = TCPServerGate(delegate=self)
-        gate.hub = self._create_hub(delegate=gate, address=address, sock=sock)
+        gate.hub = self._create_hub(delegate=gate, address=remote, sock=sock)
         return gate
 
     # noinspection PyMethodMayBeStatic
@@ -190,6 +195,25 @@ class GateKeeper(Runner, DockerDelegate):
             error = IOError('gate error, failed to send data')
             wrapper.on_error(error=error)
         return True
+
+    def send_message_package(self, msg: ReliableMessage, data: bytes, priority: int = 0) -> bool:
+        """
+        Send message package to remote address
+
+        :param msg:      network message
+        :param data:     serialized message
+        :param priority: smaller is faster
+        :return: False on error
+        """
+        if not self.active:
+            # FIXME: connection lost?
+            print('session inactive: %s' % self)
+        # sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
+        # self.debug(msg='sending reliable message (%s) to: %s, priority: %d' % (sig, msg.receiver, priority))
+        docker = self.__gate.get_docker(remote=self.remote_address, local=None, advance_party=[])
+        assert isinstance(docker, DeparturePacker), 'departure packer error: %s' % docker
+        ship = docker.pack(payload=data, priority=priority)
+        return self.__queue.append(msg=msg, ship=ship)
 
     #
     #   Docker Delegate

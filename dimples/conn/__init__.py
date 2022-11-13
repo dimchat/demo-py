@@ -49,7 +49,7 @@ from .mtp import MTPStreamArrival, MTPStreamDeparture, MTPStreamDocker
 from .gate import CommonGate, TCPServerGate, TCPClientGate, UDPServerGate, UDPClientGate
 # from .gatekeeper import GateKeeper
 from .queue import MessageWrapper, MessageQueue
-from .session import Session
+from .session import BaseSession
 
 
 __all__ = [
@@ -93,5 +93,5 @@ __all__ = [
     'CommonGate', 'TCPServerGate', 'TCPClientGate', 'UDPServerGate', 'UDPClientGate',
     # 'GateKeeper',
     'MessageWrapper', 'MessageQueue',
-    'Session',
+    'BaseSession',
 ]
