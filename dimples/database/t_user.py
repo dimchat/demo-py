@@ -27,10 +27,9 @@ import time
 from typing import List
 
 from dimsdk import ID
-from dimsdk import ReliableMessage
 
 from ..utils import CacheHolder, CacheManager
-from ..common import UserDBI, LoginCommand
+from ..common import UserDBI
 
 from .dos import UserStorage
 
@@ -43,7 +42,6 @@ class UserTable(UserDBI):
         man = CacheManager()
         self.__dim_cache = man.get_pool(name='dim')
         self.__contacts_cache = man.get_pool(name='contacts')
-        self.__login_cache = man.get_pool(name='login')
         self.__user_storage = UserStorage(root=root, public=public, private=private)
 
     def show_info(self):
@@ -118,36 +116,3 @@ class UserTable(UserDBI):
         self.__contacts_cache.update(key=identifier, value=contacts, life_span=3600)
         # 2. store into local storage
         return self.__user_storage.save_contacts(contacts=contacts, identifier=identifier)
-
-    # Override
-    def login_command_message(self, identifier: ID) -> (LoginCommand, ReliableMessage):
-        """ get login command message for user """
-        now = time.time()
-        # 1. check memory cache
-        value, holder = self.__login_cache.fetch(key=identifier, now=now)
-        if value is None:
-            # cache empty
-            if holder is None:
-                # login command not load yet, wait to load
-                self.__login_cache.update(key=identifier, life_span=128, now=now)
-            else:
-                assert isinstance(holder, CacheHolder), 'login command cache error'
-                if holder.is_alive(now=now):
-                    # login command not exists
-                    return None, None
-                # login command expired, wait to reload
-                holder.renewal(duration=128, now=now)
-            # 2. check local storage
-            value = self.__user_storage.login_command_message(identifier=identifier)
-            # 3. update memory cache
-            if value is not None:
-                self.__login_cache.update(key=identifier, value=value, life_span=36000, now=now)
-        # OK, return cached value
-        return value
-
-    # Override
-    def save_login_command_message(self, identifier: ID, cmd: LoginCommand, msg: ReliableMessage) -> bool:
-        # 1. store into memory cache
-        self.__login_cache.update(key=identifier, value=(cmd, msg), life_span=3600)
-        # 2. store into local storage
-        return self.__user_storage.save_login_command_message(identifier=identifier, cmd=cmd, msg=msg)

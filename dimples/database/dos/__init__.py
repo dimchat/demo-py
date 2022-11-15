@@ -38,6 +38,8 @@ from .document import DocumentStorage
 from .user import UserStorage
 from .group import GroupStorage
 
+from .login import LoginStorage
+
 __all__ = [
 
     'Storage',
@@ -48,4 +50,6 @@ __all__ = [
 
     'UserStorage',
     'GroupStorage',
+
+    'LoginStorage',
 ]

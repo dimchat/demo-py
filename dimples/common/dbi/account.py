@@ -28,9 +28,6 @@ from typing import Optional, List
 
 from dimsdk import PrivateKey, SignKey, DecryptKey
 from dimsdk import ID, Meta, Document
-from dimsdk import ReliableMessage
-
-from ..protocol import LoginCommand
 
 
 class PrivateKeyDBI(ABC):
@@ -101,17 +98,6 @@ class UserDBI(ABC):
 
     @abstractmethod
     def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
-        raise NotImplemented
-
-    #
-    #   login command message
-    #
-    @abstractmethod
-    def login_command_message(self, identifier: ID) -> (LoginCommand, ReliableMessage):
-        raise NotImplemented
-
-    @abstractmethod
-    def save_login_command_message(self, identifier: ID, cmd: LoginCommand, msg: ReliableMessage) -> bool:
         raise NotImplemented
 
 

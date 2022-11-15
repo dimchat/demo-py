@@ -23,46 +23,46 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    Database module
-    ~~~~~~~~~~~~~~~
+from abc import ABC, abstractmethod
+from typing import Optional
 
-"""
+from dimsdk import ID
+from dimsdk import ReliableMessage
 
-from ..common.dbi import *
-
-from .dos import *
-
-from .account import AccountDatabase
-from .message import MessageDatabase
-from .session import SessionDatabase
+from ..protocol import LoginCommand
+from ..protocol import ReportCommand
 
 
-__all__ = [
-    #
-    #   DBI
-    #
-    'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
-    'UserDBI', 'GroupDBI',
-    'AccountDBI',
-
-    'ReliableMessageDBI', 'CipherKeyDBI',
-    'MessageDBI',
-
-    'LoginDBI', 'ReportDBI',
-    'SessionDBI',
+class LoginDBI(ABC):
+    """ Login Command Table """
 
     #
-    #   DOS
+    #   login command message
     #
-    'Storage',
-    'PrivateKeyStorage', 'MetaStorage', 'DocumentStorage',
-    'UserStorage', 'GroupStorage',
+    @abstractmethod
+    def login_command_message(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
+        raise NotImplemented
+
+    @abstractmethod
+    def save_login_command_message(self, identifier: ID, cmd: LoginCommand, msg: ReliableMessage) -> bool:
+        raise NotImplemented
+
+
+class ReportDBI(ABC):
+    """ Report(online/offline) Command Table """
 
     #
-    #   Database
+    #   online/offline command message
     #
-    'AccountDatabase',
-    'MessageDatabase',
-    'SessionDatabase',
-]
+    @abstractmethod
+    def report_command_message(self, identifier: ID) -> (Optional[ReportCommand], Optional[ReliableMessage]):
+        raise NotImplemented
+
+    @abstractmethod
+    def save_report_command_message(self, identifier: ID, cmd: ReportCommand, msg: ReliableMessage) -> bool:
+        raise NotImplemented
+
+
+class SessionDBI(LoginDBI, ReportDBI, ABC):
+    """ Session Database """
+    pass
