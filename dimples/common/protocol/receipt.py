@@ -37,7 +37,7 @@
 
 from typing import Optional, Union, Any, Dict
 
-from dimsdk import Envelope
+from dimsdk import Envelope, ReliableMessage
 from dimsdk import BaseCommand
 
 from ...utils import base64_encode
@@ -79,7 +79,7 @@ class ReceiptCommand(BaseCommand):
             if envelope is None:
                 origin = {}
             else:
-                origin = envelope.copy_dictionary()
+                origin = envelope.dictionary
             # sn of the message responding to
             if sn > 0:
                 origin['sn'] = sn
@@ -88,7 +88,8 @@ class ReceiptCommand(BaseCommand):
                 origin['signature'] = signature
             elif isinstance(signature, bytes):
                 origin['signature'] = base64_encode(data=signature)
-            self['origin'] = origin
+            if len(origin) > 0:
+                self['origin'] = origin
         else:
             # create with command content
             super().__init__(content=content)
@@ -123,3 +124,29 @@ class ReceiptCommand(BaseCommand):
     def original_signature(self) -> Optional[str]:
         origin = self.origin
         return None if origin is None else origin.get('signature')
+
+    #
+    #   Factory method
+    #
+
+    @classmethod
+    def response(cls, text: str = None, msg: ReliableMessage = None):
+        """
+        Create receipt with text message and origin message envelope
+
+        :param text: text message
+        :param msg:  origin message
+        :return: ReceiptCommand
+        """
+        if msg is None:
+            envelope = None
+        else:
+            ignores = ['data', 'key', 'keys']
+            env = {}
+            info = msg.dictionary
+            for key in info:
+                if key not in ignores:
+                    env[key] = info[key]
+            assert 'sender' in env, 'message envelope error: %s' % env
+            envelope = Envelope.parse(envelope=env)
+        return cls(text=text, envelope=envelope)
