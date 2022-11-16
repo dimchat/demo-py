@@ -31,14 +31,14 @@
 import threading
 from typing import Optional, List
 
-from dimsdk import utf8_encode, utf8_decode, base64_encode, base64_decode
-
 from startrek import Connection
 from startrek import Arrival, ArrivalShip
 from startrek import Departure, DepartureShip, DeparturePriority
 
 from udp.ba import Data
 from tcp import PlainDocker
+
+from ..utils import utf8_encode, utf8_decode, base64_encode, base64_decode
 
 from .protocol import NetMsg, NetMsgHead, NetMsgSeq
 from .protocol import DeparturePacker

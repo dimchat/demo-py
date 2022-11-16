@@ -29,11 +29,12 @@
 """
 from typing import Optional
 
-from dimsdk import base64_encode, sha256
 from dimsdk import SymmetricKey
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import DocumentCommand
 from dimsdk import Messenger, MessagePacker
+
+from ..utils import base64_encode, sha256
 
 from .messenger import CommonMessenger
 

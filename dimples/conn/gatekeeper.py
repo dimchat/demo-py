@@ -129,16 +129,20 @@ class GateKeeper(Runner, DockerDelegate):
         return hub
 
     @property
+    def remote_address(self) -> tuple:
+        return self.__remote
+
+    @property
+    def gate(self) -> CommonGate:
+        return self.__gate
+
+    @property
     def active(self) -> bool:
         raise self.__active
 
     @active.setter
     def active(self, flag: bool):
         self.__active = flag
-
-    @property
-    def remote_address(self) -> tuple:
-        return self.__remote
 
     @property  # Override
     def running(self) -> bool:
@@ -198,18 +202,13 @@ class GateKeeper(Runner, DockerDelegate):
 
     def send_message_package(self, msg: ReliableMessage, data: bytes, priority: int = 0) -> bool:
         """
-        Send message package to remote address
+        Pack message into a waiting queue
 
         :param msg:      network message
         :param data:     serialized message
         :param priority: smaller is faster
         :return: False on error
         """
-        if not self.active:
-            # FIXME: connection lost?
-            print('session inactive: %s' % self)
-        # sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
-        # self.debug(msg='sending reliable message (%s) to: %s, priority: %d' % (sig, msg.receiver, priority))
         docker = self.__gate.get_docker(remote=self.remote_address, local=None, advance_party=[])
         assert isinstance(docker, DeparturePacker), 'departure packer error: %s' % docker
         ship = docker.pack(payload=data, priority=priority)

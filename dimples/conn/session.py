@@ -28,23 +28,6 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    Architecture Diagram
-    ~~~~~~~~~~~~~~~~~~~~
-
-        ConnectionDelegate   DockerDelegate
-            +--------+      +--------------+
-            |  Gate  |------|  GateKeeper  |         +--------------+
-            +--------+      +-------A------+         |   Facebook   |
-                                    |                +--------------+
-                                    |                      |  AccountDB
-                            //=============\\              |
-                            ||             ||        +---------------+
-                      ------||   Session   ||--------|   Messenger   |
-                            ||             ||        +---------------+
-                            \\=============//                 MessageDB
-"""
-
 import socket
 from abc import ABC
 from typing import Optional

@@ -37,9 +37,10 @@
 
 from typing import Optional, Union, Any, Dict
 
-from dimsdk import base64_encode
 from dimsdk import Envelope
 from dimsdk import BaseCommand
+
+from ...utils import base64_encode
 
 
 class ReceiptCommand(BaseCommand):

@@ -23,6 +23,23 @@
 # SOFTWARE.
 # ==============================================================================
 
+"""
+    Architecture Diagram
+    ~~~~~~~~~~~~~~~~~~~~
+
+        +--------------+
+        |   Facebook   |
+        +--------------+         DockerDelegate        ConnectionDelegate
+              :  AccountDB       +--------------+         +----------+
+              :                  |  GateKeeper  | . . . . |   Gate   |
+        +--------------+         +--------------+         +----------+
+        |   Messenger  | . . . . |   Session    |             Hub (Connection)
+        +--------------+         +--------------+             Docker
+                 MessageDB
+                 Filters
+                 Dispatcher
+"""
+
 from startrek import Hub, Channel, Connection, ConnectionDelegate
 from startrek import ConnectionState, ConnectionStateMachine
 from startrek import BaseChannel, ChannelReader, ChannelWriter
