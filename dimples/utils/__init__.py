@@ -33,6 +33,13 @@
                                              -- Albert Moky @ Jan. 23, 2019
 """
 
+from dimsdk import md5, sha1, sha256
+from dimsdk import base64_encode, base64_decode
+from dimsdk import utf8_encode, utf8_decode
+from dimsdk import hex_encode, hex_decode
+from dimsdk import json_encode, json_decode
+from dimplugins.aes import random_bytes
+
 from startrek.fsm import Runnable, Runner
 
 from .singleton import Singleton
@@ -42,6 +49,13 @@ from .cache import CachePool, CacheHolder, CacheManager
 
 
 __all__ = [
+
+    'md5', 'sha1', 'sha256',
+    'base64_encode', 'base64_decode',
+    'utf8_encode', 'utf8_decode',
+    'hex_encode', 'hex_decode',
+    'json_encode', 'json_decode',
+    'random_bytes',
 
     'Runnable', 'Runner',
 
