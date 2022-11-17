@@ -63,20 +63,20 @@ class Filter(ABC):
         raise NotImplemented
 
 
-class BaseFilter(Filter):
+class DefaultFilter(Filter):
 
-    def __init__(self, facebook: Facebook, session: Session):
+    def __init__(self, session: Session, facebook: Facebook):
         super().__init__()
-        self.__facebook = weakref.ref(facebook)
         self.__session = weakref.ref(session)
-
-    @property
-    def facebook(self) -> Facebook:
-        return self.__facebook()
+        self.__facebook = weakref.ref(facebook)
 
     @property
     def session(self) -> Session:
         return self.__session()
+
+    @property
+    def facebook(self) -> Facebook:
+        return self.__facebook()
 
     # Override
     def trusted_sender(self, sender: ID) -> bool:

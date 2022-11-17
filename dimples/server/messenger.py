@@ -42,7 +42,7 @@ from ..common import MessageDBI
 from ..common import CommonMessenger, CommonFacebook
 from ..common import Session
 
-from .filter import Filter
+from .filter import Filter, DefaultFilter
 from .dispatcher import Dispatcher
 
 
@@ -50,7 +50,8 @@ class ServerMessenger(CommonMessenger):
 
     def __init__(self, session: Session, facebook: CommonFacebook, database: MessageDBI):
         super().__init__(session=session, facebook=facebook, database=database)
-        self.__filter = None  # NOTICE: create Filter by RequestHandler
+        # NOTICE: create Filter by RequestHandler
+        self.__filter = DefaultFilter(session=session, facebook=facebook)
 
     @property
     def filter(self) -> Filter:
@@ -116,11 +117,19 @@ class ServerMessenger(CommonMessenger):
         #    broadcast message should deliver to other stations;
         #    group message should deliver to group assistants.
         dispatcher = Dispatcher()
-        dispatcher.deliver(msg=msg)
         if receiver.is_broadcast:
-            # current station is also a broadcast message's target
-            # so return it for processing
+            # call dispatcher to broadcast to neighbour station(s);
+            # current station is also a broadcast message's target,
+            # so return it to let this station process it.
+            dispatcher.deliver_message(msg=msg)
             return s_msg
+        else:
+            # this message is not for this station,
+            # store and deliver to the real destination.
+            db = self.database
+            db.save_reliable_message(msg=msg)
+            dispatcher.deliver_message(msg=msg)
+            return None
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
