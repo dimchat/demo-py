@@ -45,7 +45,7 @@ class CommonFacebook(Facebook):
 
     def __init__(self, database: AccountDBI):
         super().__init__()
-        self.__adb = database
+        self.__database = database
 
     @property
     def database(self) -> AccountDBI:
@@ -55,7 +55,7 @@ class CommonFacebook(Facebook):
             PrivateKeys, Metas, Documents,
             Users, Contacts, Groups, Members
         """
-        return self.__adb
+        return self.__database
 
     #
     #   Super

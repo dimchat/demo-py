@@ -62,7 +62,7 @@ class PushService(ABC):
         raise NotImplemented
 
 
-class Task:
+class PushTask:
 
     def __init__(self, sender: ID, receiver: ID, info: PushInfo):
         super().__init__()
@@ -77,7 +77,7 @@ class PushCenter(Runner, Logging, PushService):
     def __init__(self):
         super().__init__()
         self.__services = set()
-        self.__queue: List[Task] = []
+        self.__tasks: List[PushTask] = []
         self.__lock = threading.Lock()
 
     def add_service(self, service: PushService):
@@ -88,18 +88,18 @@ class PushCenter(Runner, Logging, PushService):
         """ remove service handler """
         self.__services.remove(service)
 
-    def __append(self, task: Task):
+    def __append(self, task: PushTask):
         with self.__lock:
-            self.__queue.append(task)
+            self.__tasks.append(task)
 
-    def __pop(self) -> Optional[Task]:
+    def __pop(self) -> Optional[PushTask]:
         with self.__lock:
-            if len(self.__queue) > 0:
-                return self.__queue.pop(0)
+            if len(self.__tasks) > 0:
+                return self.__tasks.pop(0)
 
     def __count(self) -> int:
         with self.__lock:
-            return len(self.__queue)
+            return len(self.__tasks)
 
     def start(self):
         thread = threading.Thread(target=self.run, daemon=True)
@@ -150,7 +150,7 @@ class PushCenter(Runner, Logging, PushService):
         # build push info and append to a waiting queue
         if info is None:
             info = PushInfo.create(title=title, content=content, image=image, badge=badge, sound=sound)
-        task = Task(sender=sender, receiver=receiver, info=info)
+        task = PushTask(sender=sender, receiver=receiver, info=info)
         self.__append(task=task)
         return True
 

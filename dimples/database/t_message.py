@@ -71,7 +71,11 @@ class ReliableMessageTable(ReliableMessageDBI):
             # duplicated
             return False
         else:
-            assert isinstance(holder, CacheHolder), 'msg cache error'
+            assert isinstance(holder, CacheHolder), 'msg cache holder error: %s' % holder
+            assert isinstance(messages, list), 'msg cache list error: %s' % messages
+            while len(messages) > 65535:
+                # overflow
+                messages.pop(0)
             # append to tail
             messages.append(msg)
             holder.update(value=messages, now=now)
