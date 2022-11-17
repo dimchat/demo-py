@@ -55,6 +55,24 @@ def generate_session_key() -> str:
 
 
 class ServerSession(BaseSession, Logging):
+    """
+        Session for Connection
+        ~~~~~~~~~~~~~~~~~~~~~~
+
+        'key' - Session Key
+                A random string generated when session initialized.
+                It's used in handshaking for authentication.
+
+        'ID' - Remote User ID
+                It will be set after handshake accepted.
+                So we can trust all message from this sender after that.
+
+        'active' - Session Status
+                It will be set to True after connection build.
+                After receive 'offline' command, it will be set to False;
+                and when receive 'online' it will be True again.
+                Only push message when it's True.
+    """
 
     def __init__(self, remote: tuple, sock: socket.socket, database: SessionDBI):
         super().__init__(remote=remote, sock=sock, database=database)
@@ -88,11 +106,11 @@ class ServerSession(BaseSession, Logging):
             # })
         elif current == DockerStatus.READY:
             # connected/reconnected
+            self.active = True
             # TODO: post notification - CONNECTED
             # NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
             #     'session': self,
             # })
-            pass
 
     # Override
     def docker_received(self, ship: Arrival, docker: Docker):

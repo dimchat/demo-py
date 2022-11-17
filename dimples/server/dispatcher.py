@@ -44,7 +44,7 @@ from ..common import ReceiptCommand
 from ..common import SharedFacebook
 from ..common import MessageDBI
 
-from .session_server import SessionServer
+from .session_center import SessionCenter
 
 
 @Singleton
@@ -142,7 +142,7 @@ class Dispatcher(Runner, Logging):
 
 def push_message(msg: ReliableMessage, receiver: ID) -> int:
     cnt = 0
-    center = SessionServer()
+    center = SessionCenter()
     sessions = center.active_sessions(identifier=receiver)
     for sess in sessions:
         if sess.send_reliable_message(msg=msg):

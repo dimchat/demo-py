@@ -64,9 +64,9 @@ class SessionDatabase(SessionDBI):
     #
 
     # Override
-    def report_command_message(self, identifier: ID) -> (Optional[ReportCommand], Optional[ReliableMessage]):
-        return self.__report_table.report_command_message(identifier=identifier)
+    def online_command(self, identifier: ID) -> Optional[ReportCommand]:
+        return self.__report_table.online_command(identifier=identifier)
 
     # Override
-    def save_report_command_message(self, identifier: ID, cmd: ReportCommand, msg: ReliableMessage) -> bool:
-        return self.__report_table.save_report_command_message(identifier=identifier, cmd=cmd, msg=msg)
+    def save_online_command(self, identifier: ID, cmd: ReportCommand) -> bool:
+        return self.__report_table.save_online_command(identifier=identifier, cmd=cmd)

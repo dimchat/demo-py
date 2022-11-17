@@ -95,7 +95,7 @@ class SessionPool:
 
 
 @Singleton
-class SessionServer:
+class SessionCenter:
 
     def __init__(self):
         super().__init__()
@@ -153,7 +153,7 @@ class SessionServer:
 
     def active_sessions(self, identifier: ID) -> Set[Session]:
         """ Get all active sessions with user ID """
-        sessions: Set[Session] = set()
+        actives: Set[Session] = set()
         with self.__lock:
             discarded = set()
             # get all addresses with ID
@@ -162,10 +162,11 @@ class SessionServer:
                 # get session by each address
                 session = self.__pool.get_session(remote=address)
                 if session is None:
+                    # session gone, discard this address
                     discarded.add(address)
                 elif session.active:
-                    sessions.add(session)
+                    actives.add(session)
             # remove discarded addresses
             for address in discarded:
                 all_addresses.discard(address)
-        return sessions
+        return actives

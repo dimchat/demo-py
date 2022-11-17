@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2022 Albert Moky
+# Copyright (c) 2019 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,46 +23,39 @@
 # SOFTWARE.
 # ==============================================================================
 
-from abc import ABC, abstractmethod
-from typing import Optional
+"""
+    Server Module
+    ~~~~~~~~~~~~~
 
-from dimsdk import ID
-from dimsdk import ReliableMessage
+"""
 
-from ..protocol import LoginCommand
-from ..protocol import ReportCommand
+from .cpu import *
 
+from .push_info import PushAlert, PushInfo
+from .push_service import PushService, PushCenter
 
-class LoginDBI(ABC):
-    """ Login Command Table """
+from .session import ServerSession
+from .session_center import SessionCenter  # SessionPool
 
-    #
-    #   login command message
-    #
-    @abstractmethod
-    def login_command_message(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
-        raise NotImplemented
+from .dispatcher import Dispatcher
+from .filter import Filter, BaseFilter
 
-    @abstractmethod
-    def save_login_command_message(self, identifier: ID, cmd: LoginCommand, msg: ReliableMessage) -> bool:
-        raise NotImplemented
+from .messenger import ServerMessenger
+from .processor import ServerProcessor, ServerContentProcessorCreator
 
 
-class ReportDBI(ABC):
-    """ Report(online/offline) Command Table """
+__all__ = [
 
-    #
-    #   online/offline command
-    #
-    @abstractmethod
-    def online_command(self, identifier: ID) -> Optional[ReportCommand]:
-        raise NotImplemented
+    # Push Notification
+    'PushAlert', 'PushInfo', 'PushService', 'PushCenter',
 
-    @abstractmethod
-    def save_online_command(self, identifier: ID, cmd: ReportCommand) -> bool:
-        raise NotImplemented
+    # Session
+    'ServerSession', 'SessionCenter',  # 'SessionPool',
 
+    'Dispatcher',
+    'Filter', 'BaseFilter',
 
-class SessionDBI(LoginDBI, ReportDBI, ABC):
-    """ Session Database """
-    pass
+    'ServerMessenger',
+    'ServerProcessor',
+    'ServerContentProcessorCreator',
+]

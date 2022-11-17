@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2022 Albert Moky
+# Copyright (c) 2019 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,44 +23,22 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional
+"""
+    Command Processing Unites
+    ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-from dimsdk import ID
+    Processors for commands
+"""
 
-from ..utils import CacheManager
-from ..common import ReportDBI
-from ..common import ReportCommand
+from .handshake import HandshakeCommandProcessor
+from .login import LoginCommandProcessor
+from .report import ReportCommandProcessor
+from .document import DocumentCommandProcessor
 
 
-class ReportTable(ReportDBI):
-    """ Implementations of ReportDBI """
-
-    # noinspection PyUnusedLocal
-    def __init__(self, root: str = None, public: str = None, private: str = None):
-        super().__init__()
-        man = CacheManager()
-        self.__online_cache = man.get_pool(name='report.online')
-
-    # noinspection PyMethodMayBeStatic
-    def show_info(self):
-        print('!!!  online/offline in memory only !!!')
-
-    #
-    #   Report DBI
-    #
-
-    # Override
-    def online_command(self, identifier: ID) -> Optional[ReportCommand]:
-        value, _ = self.__online_cache.fetch(key=identifier)
-        return value
-
-    # Override
-    def save_online_command(self, identifier: ID, cmd: ReportCommand) -> bool:
-        # 1. check old record
-        old, _ = self.online_command(identifier=identifier)
-        if isinstance(old, ReportCommand) and old.time >= cmd.time > 0:
-            # command expired
-            return False
-        # 2. store into memory cache
-        self.__online_cache.update(key=identifier, value=cmd, life_span=36000)
-        return True
+__all__ = [
+    'HandshakeCommandProcessor',
+    'LoginCommandProcessor',
+    'ReportCommandProcessor',
+    'DocumentCommandProcessor',
+]
