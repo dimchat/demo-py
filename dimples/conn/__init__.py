@@ -29,14 +29,14 @@
 
         +--------------+
         |   Facebook   |
-        +--------------+         DockerDelegate        ConnectionDelegate
-              :  AccountDB       +--------------+         +----------+
-              :                  |  GateKeeper  | . . . . |   Gate   |
-        +--------------+         +--------------+         +----------+
-        |   Messenger  | . . . . |   Session    |             Hub (Connection)
-        +--------------+         +--------------+             Docker
-                 MessageDB
-                 Filters
+        +--------------+         DockerDelegate      ConnectionDelegate
+              :  AccountDB      +--------------+        +----------+
+              :                 |  GateKeeper  | . . . >|   Gate   |
+        +--------------+        +--------------+        +----------+
+        |   Messenger  | . . . >|   Session    |            Hub (Connection)
+        +--------------+        +--------------+            Docker
+                 MessageDB               SessionDB
+                 Filter
                  Dispatcher
 """
 

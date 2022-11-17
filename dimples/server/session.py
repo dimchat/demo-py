@@ -44,7 +44,7 @@ from startrek import Arrival
 
 from ..utils import hex_encode, random_bytes
 from ..utils import Logging
-from ..common import CommonMessenger
+from ..common import SessionDBI
 from ..conn import BaseSession
 from ..conn import WSArrival, MarsStreamArrival, MTPStreamArrival
 
@@ -56,8 +56,8 @@ def generate_session_key() -> str:
 
 class ServerSession(BaseSession, Logging):
 
-    def __init__(self, remote: tuple, sock: socket.socket, messenger: CommonMessenger):
-        super().__init__(remote=remote, sock=sock, messenger=messenger)
+    def __init__(self, remote: tuple, sock: socket.socket, database: SessionDBI):
+        super().__init__(remote=remote, sock=sock, database=database)
         self.__key = generate_session_key()
 
     @property

@@ -130,7 +130,7 @@ class ReceiptCommand(BaseCommand):
     #
 
     @classmethod
-    def response(cls, text: str = None, msg: ReliableMessage = None):
+    def create(cls, text: str = None, msg: ReliableMessage = None):
         """
         Create receipt with text message and origin message envelope
 
@@ -139,9 +139,10 @@ class ReceiptCommand(BaseCommand):
         :return: ReceiptCommand
         """
         if msg is None:
+            assert text is not None, 'cannot create empty receipt command'
             envelope = None
         else:
-            ignores = ['data', 'key', 'keys']
+            ignores = ['data', 'key', 'keys', 'meta', 'visa']
             env = {}
             info = msg.dictionary
             for key in info:

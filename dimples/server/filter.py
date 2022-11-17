@@ -37,7 +37,7 @@ from dimsdk import EntityType, ID
 from dimsdk import ReliableMessage
 from dimsdk import Facebook
 
-from ..conn import BaseSession
+from ..common import Session
 
 
 class Filter(ABC):
@@ -65,7 +65,7 @@ class Filter(ABC):
 
 class BaseFilter(Filter):
 
-    def __init__(self, facebook: Facebook, session: BaseSession):
+    def __init__(self, facebook: Facebook, session: Session):
         super().__init__()
         self.__facebook = weakref.ref(facebook)
         self.__session = weakref.ref(session)
@@ -75,7 +75,7 @@ class BaseFilter(Filter):
         return self.__facebook()
 
     @property
-    def session(self) -> BaseSession:
+    def session(self) -> Session:
         return self.__session()
 
     # Override

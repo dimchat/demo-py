@@ -43,7 +43,7 @@ from typing import Optional, Dict, Set
 from dimsdk import ID
 
 from ..utils import Singleton
-from ..conn import BaseSession as Session
+from ..common import Session
 
 
 class SessionPool:

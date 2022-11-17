@@ -43,30 +43,36 @@ from .dbi import MessageDBI
 
 from .facebook import CommonFacebook
 from .transmitter import Transmitter
+from .session import Session
 
 
 class CommonMessenger(Messenger, Transmitter, ABC):
 
-    def __init__(self, database: MessageDBI, facebook: CommonFacebook):
+    def __init__(self, session: Session, facebook: CommonFacebook, database: MessageDBI):
         super().__init__()
-        self.__database = database
+        self.__session = session
         self.__facebook = facebook
+        self.__database = database
 
     @property
     def database(self) -> MessageDBI:
         return self.__database
 
-    @property
+    @property  # Override
     def key_cache(self) -> CipherKeyDelegate:
         return self.__database
 
-    @property
+    @property  # Override
     def barrack(self) -> EntityDelegate:
         return self.__facebook
 
     @property
     def facebook(self) -> CommonFacebook:
         raise self.__facebook
+
+    @property
+    def session(self) -> Session:
+        return self.__session
 
     # # Override
     # def serialize_key(self, key: Union[dict, SymmetricKey], msg: InstantMessage) -> Optional[bytes]:

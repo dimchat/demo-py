@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2022 Albert Moky
+# Copyright (c) 2021 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,51 +24,14 @@
 # ==============================================================================
 
 """
-    Common module
-    ~~~~~~~~~~~~~
-
+    Common extensions for MessageProcessor
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
-from .protocol import *
-from .dbi import *
-
-from .facebook import CommonFacebook, SharedFacebook
-from .messenger import CommonMessenger
-from .packer import CommonPacker
-from .processor import CommonProcessor, CommonContentProcessorCreator
-from .transmitter import Transmitter
-from .session import Session
+from dimsdk import MessageProcessor
+from dimsdk import BaseContentProcessorCreator
 
 
-__all__ = [
-    #
-    #   protocol
-    #
-    'HandshakeCommand', 'HandshakeState',
-    'ReceiptCommand',
-    'LoginCommand',
-    'ReportCommand',
+CommonProcessor = MessageProcessor
 
-    #
-    #   Database Interface
-    #
-    'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
-    'UserDBI', 'GroupDBI',
-    'AccountDBI',
-
-    'LoginDBI', 'ReportDBI',
-    'SessionDBI',
-
-    'ReliableMessageDBI', 'CipherKeyDBI',
-    'MessageDBI',
-
-    #
-    #   common
-    #
-    'CommonFacebook', 'SharedFacebook',
-    'CommonMessenger',
-    'CommonPacker',
-    'CommonProcessor', 'CommonContentProcessorCreator',
-    'Transmitter',
-    'Session',
-]
+CommonContentProcessorCreator = BaseContentProcessorCreator

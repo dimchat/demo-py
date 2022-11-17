@@ -29,6 +29,7 @@
 # ==============================================================================
 
 import socket
+import weakref
 from abc import ABC
 from typing import Optional
 
@@ -37,44 +38,47 @@ from dimsdk import InstantMessage, ReliableMessage
 
 from startrek import Docker, Departure
 
-from ..common import Transmitter
 from ..common import CommonMessenger
+from ..common import Session, SessionDBI
 
 from .gatekeeper import GateKeeper
 from .queue import MessageWrapper
 
 
-class BaseSession(GateKeeper, Transmitter, ABC):
+class BaseSession(GateKeeper, Session, ABC):
 
-    def __init__(self, remote: tuple, sock: Optional[socket.socket], messenger: CommonMessenger):
+    def __init__(self, remote: tuple, sock: Optional[socket.socket], database: SessionDBI):
         super().__init__(remote=remote, sock=sock)
-        self.__messenger = messenger
+        self.__database = database
         self.__identifier: Optional[ID] = None
+        self.__messenger: Optional[weakref.ReferenceType] = None
 
-    @property
-    def messenger(self) -> CommonMessenger:
-        return self.__messenger
+    @property  # Override
+    def database(self) -> SessionDBI:
+        return self.__database
 
-    @property
+    @property  # Override
     def identifier(self) -> Optional[ID]:
         return self.__identifier
 
-    @identifier.setter
+    @identifier.setter  # Override
     def identifier(self, user: ID):
         self.__identifier = user
 
     @property
-    def key(self) -> Optional[str]:
-        """ session key """
-        raise NotImplemented
+    def messenger(self) -> CommonMessenger:
+        ref = self.__messenger
+        assert ref is not None, 'messenger not set yet'
+        return ref()
 
-    def __str__(self) -> str:
-        clazz = self.__class__.__name__
-        return '<%s:%s %s|%s active=%s />' % (clazz, self.key, self.remote_address, self.identifier, self.active)
+    @messenger.setter
+    def messenger(self, transceiver: CommonMessenger):
+        self.__messenger = weakref.ref(transceiver)
 
-    def __repr__(self) -> str:
-        clazz = self.__class__.__name__
-        return '<%s:%s %s|%s active=%s />' % (clazz, self.key, self.remote_address, self.identifier, self.active)
+    # Override
+    def queue_message_package(self, msg: ReliableMessage, data: bytes, priority: int = 0) -> bool:
+        ship = self._docker_pack(payload=data, priority=priority)
+        return self._queue_append(msg=msg, ship=ship)
 
     #
     #   Transmitter

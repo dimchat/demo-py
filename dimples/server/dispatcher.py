@@ -53,7 +53,7 @@ class Dispatcher(Runner, Logging):
     def __init__(self):
         super().__init__()
         self.__database = None
-        self.__queue: List[ReliableMessage] = []
+        self.__messages: List[ReliableMessage] = []
         self.__lock = threading.Lock()
 
     @property
@@ -66,12 +66,12 @@ class Dispatcher(Runner, Logging):
 
     def __append(self, msg: ReliableMessage):
         with self.__lock:
-            self.__queue.append(msg)
+            self.__messages.append(msg)
 
     def __pop(self) -> Optional[ReliableMessage]:
         with self.__lock:
-            if len(self.__queue) > 0:
-                return self.__queue.pop(0)
+            if len(self.__messages) > 0:
+                return self.__messages.pop(0)
 
     def deliver(self, msg: ReliableMessage) -> Optional[Content]:
         # check sender
@@ -90,7 +90,7 @@ class Dispatcher(Runner, Logging):
         else:
             text = 'Message delivering'
         # response
-        return ReceiptCommand.response(text=text, msg=msg)
+        return ReceiptCommand.create(text=text, msg=msg)
 
     def start(self):
         thread = threading.Thread(target=self.run, daemon=True)

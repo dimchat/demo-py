@@ -200,18 +200,12 @@ class GateKeeper(Runner, DockerDelegate):
             wrapper.on_error(error=error)
         return True
 
-    def send_message_package(self, msg: ReliableMessage, data: bytes, priority: int = 0) -> bool:
-        """
-        Pack message into a waiting queue
-
-        :param msg:      network message
-        :param data:     serialized message
-        :param priority: smaller is faster
-        :return: False on error
-        """
+    def _docker_pack(self, payload: bytes, priority: int = 0) -> Departure:
         docker = self.__gate.get_docker(remote=self.remote_address, local=None, advance_party=[])
         assert isinstance(docker, DeparturePacker), 'departure packer error: %s' % docker
-        ship = docker.pack(payload=data, priority=priority)
+        return docker.pack(payload=payload, priority=priority)
+
+    def _queue_append(self, msg: ReliableMessage, ship: Departure) -> bool:
         return self.__queue.append(msg=msg, ship=ship)
 
     #
