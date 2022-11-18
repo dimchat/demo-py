@@ -77,12 +77,8 @@ class GroupStorage(Storage, GroupDBI):
 
     # Override
     def assistants(self, identifier: ID) -> List[ID]:
-        # get from ANS
-        bot = ID.parse(identifier='assistant')
-        if bot is None:
-            return []
-        else:
-            return [bot]
+        # TODO: load group assistants
+        pass
 
     # Override
     def save_members(self, members: List[ID], identifier: ID) -> bool:

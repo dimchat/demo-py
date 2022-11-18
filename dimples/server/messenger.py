@@ -117,18 +117,15 @@ class ServerMessenger(CommonMessenger):
         #    broadcast message should deliver to other stations;
         #    group message should deliver to group assistants.
         dispatcher = Dispatcher()
+        dispatcher.deliver_message(msg=msg)
         if receiver.is_broadcast:
             # call dispatcher to broadcast to neighbour station(s);
             # current station is also a broadcast message's target,
             # so return it to let this station process it.
-            dispatcher.deliver_message(msg=msg)
             return s_msg
         else:
             # this message is not for this station,
-            # store and deliver to the real destination.
-            db = self.database
-            db.save_reliable_message(msg=msg)
-            dispatcher.deliver_message(msg=msg)
+            # let dispatcher deliver to the real receiver.
             return None
 
     # Override
