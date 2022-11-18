@@ -69,7 +69,9 @@ class UserStorage(Storage, UserDBI):
         path = self.__users_path()
         self.info('Loading users from: %s' % path)
         users = self.read_json(path=path)
-        assert isinstance(users, list), 'local users not found: %s' % users
+        if users is None:
+            # local users not found
+            return []
         return ID.convert(members=users)
 
     # Override

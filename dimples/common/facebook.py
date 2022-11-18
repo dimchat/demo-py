@@ -43,9 +43,9 @@ from .dbi import AccountDBI
 
 class CommonFacebook(Facebook):
 
-    def __init__(self, database: AccountDBI):
+    def __init__(self):
         super().__init__()
-        self.__database = database
+        self.__database: Optional[AccountDBI] = None
         self.__current: Optional[User] = None
 
     @property
@@ -58,6 +58,10 @@ class CommonFacebook(Facebook):
         """
         return self.__database
 
+    @database.setter
+    def database(self, db: AccountDBI):
+        self.__database = db
+
     #
     #   Super
     #
@@ -67,10 +71,15 @@ class CommonFacebook(Facebook):
         db = self.database
         users = []
         array = db.local_users()
-        assert array is not None, 'local user not found'
+        # 'users.js' empty?
+        if array is None or len(array) == 0:
+            current = self.__current
+            return [] if current is None else [current]
+        # create users
         for item in array:
             usr = self.user(identifier=item)
             assert usr is not None, 'failed to create user: %s' % item
+            # assert self.private_key_for_signature(identifier=item) is not None
             users.append(usr)
         return users
 

@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 #   DIMS : DIM Station
@@ -29,8 +30,74 @@
 # ==============================================================================
 
 
+import os
+import sys
+import getopt
+
+path = os.path.abspath(__file__)
+path = os.path.dirname(path)
+path = os.path.dirname(path)
+path = os.path.dirname(path)
+sys.path.insert(0, path)
+
+from dimples.utils import Log
+from dimples.database import Storage
+
+from dimples.station.config import ConfigLoader
+from dimples.station.config import init_database, init_facebook
+
+
+#
+# show logs
+#
+Log.LEVEL = Log.DEVELOP
+
+
+def show_help():
+    cmd = sys.argv[0]
+    print('')
+    print('    DIM Station')
+    print('')
+    print('usages:')
+    print('    %s' % cmd)
+    print('    %s [--config=<FILE>]' % cmd)
+    print('')
+    print('optional arguments:')
+    print('    --help, -h      show this help message and exit')
+    print('    --config        config file path (default: "./config.ini")')
+    print('')
+
+
 def main():
-    print('TODO: DIM station starting...')
+    try:
+        opts, args = getopt.getopt(args=sys.argv[1:],
+                                   shortopts='hf:',
+                                   longopts=['help', 'config='])
+    except getopt.GetoptError:
+        show_help()
+        sys.exit(1)
+    # check options
+    config = None
+    for opt, arg in opts:
+        if opt == '--config':
+            config = arg
+        else:
+            show_help()
+            sys.exit(0)
+    # check config filepath
+    if config is None:
+        config = './config.ini'
+    if not Storage.exists(path=config):
+        show_help()
+        print('')
+        print('!!! config file not exists: %s' % config)
+        print('')
+        sys.exit(0)
+    # load config
+    config = ConfigLoader(file=config).load()
+    # initializing
+    init_database(config=config)
+    init_facebook(config=config)
 
 
 if __name__ == '__main__':
