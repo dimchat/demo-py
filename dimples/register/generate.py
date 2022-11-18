@@ -155,7 +155,10 @@ def gen_user(network: int, version: int, seed: str) -> AccountInfo:
     doc.key = msg_private_key.public_key
     name = input('>>> please input user name: ')
     doc.name = name
-    print('!!! user info: %s "%s"' % (identifier, name))
+    avatar = input('>>> please input avatar url: ')
+    if len(avatar) > 0:
+        doc.avatar = avatar
+    print('!!! user info: %s "%s" %s' % (identifier, name, avatar))
     # sign
     doc.sign(private_key=id_private_key)
     if msg_private_key == id_private_key:
@@ -181,7 +184,6 @@ def gen_group(network: int, seed: str, founder: ID, sign_key: SignKey) -> Accoun
 
 def generate(db: AccountDatabase) -> bool:
     print('Generating DIM account...')
-    db.show_info()
     #
     # Step 1: get entity type
     #

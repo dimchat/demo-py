@@ -103,13 +103,20 @@ def modify_station(document: Document, sign_key: SignKey, msg_keys: List[Decrypt
 def modify_user(document: Document, sign_key: SignKey, msg_keys: List[DecryptKey]) -> AccountInfo:
     assert isinstance(document, Visa), 'visa error: %s' % document
     visa = document
-    # update name
+    # update name, avatar
     default_name = visa.name
     if default_name is None:
         default_name = ''
+    default_avatar = visa.avatar
+    if default_avatar is None:
+        default_avatar = ''
     name = input('>>> please input user name (default is "%s"): ' % default_name)
     if len(name) > 0:
         visa.name = name
+    avatar = input('>>> please input avatar url (default is "%s"): ' % default_avatar)
+    if len(avatar) > 0:
+        visa.avatar = avatar
+    print('!!! user info: %s "%s" %s' % (visa.identifier, name, avatar))
     # update msg keys
     if msg_keys is None:
         msg_keys = []
@@ -133,7 +140,6 @@ def modify_group(document: Document, sign_key: SignKey) -> AccountInfo:
 
 def modify(identifier: ID, db: AccountDatabase) -> bool:
     print('Modifying DIM account...')
-    db.show_info()
     #
     # Step 1: check meta & private keys
     #

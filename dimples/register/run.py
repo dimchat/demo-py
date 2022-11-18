@@ -31,14 +31,17 @@ import getopt
 
 from mkm import ID
 
-cur = os.path.abspath(__file__)
-cur = os.path.dirname(cur)
-cur = os.path.dirname(cur)
-cur = os.path.dirname(cur)
-sys.path.insert(0, cur)
+path = os.path.abspath(__file__)
+path = os.path.dirname(path)
+path = os.path.dirname(path)
+path = os.path.dirname(path)
+sys.path.insert(0, path)
 
 from dimples.utils import Log
-from dimples.database import AccountDatabase
+from dimples.database import Storage
+
+from dimples.register.config import ConfigLoader
+from dimples.register.config import init_database
 from dimples.register.generate import generate
 from dimples.register.modify import modify
 
@@ -55,8 +58,8 @@ def show_help():
     print('    DIM account generate/modify')
     print('')
     print('usages:')
-    print('    %s [--root=<DIR>] generate' % cmd)
-    print('    %s [--root=<DIR>] modify <ID>' % cmd)
+    print('    %s [--config=<FILE>] generate' % cmd)
+    print('    %s [--config=<FILE>] modify <ID>' % cmd)
     print('    %s [-h|--help]' % cmd)
     print('')
     print('actions:')
@@ -64,43 +67,47 @@ def show_help():
     print('    modify <ID>     edit document with ID')
     print('')
     print('optional arguments:')
+    print('    --config        config file path (default: "./config.ini")')
     print('    --help, -h      show this help message and exit')
-    print('    --root          set root directory (default: "/var/.dim")')
-    print('    --public        set directory for meta & document')
-    print('    --private       set directory for private keys')
     print('')
 
 
 def main():
     try:
         opts, args = getopt.getopt(args=sys.argv[1:],
-                                   shortopts='hr:p:s:',
-                                   longopts=['help', 'root=', 'public=', 'private='])
+                                   shortopts='hf:',
+                                   longopts=['help', 'config='])
     except getopt.GetoptError:
         show_help()
         sys.exit(1)
     # check options
-    root_dir = None
-    pub_dir = None
-    pri_dir = None
+    config = None
     for opt, arg in opts:
-        if opt == '--root':
-            root_dir = arg
-        elif opt == '--private':
-            pri_dir = arg
-        elif opt == '--public':
-            pub_dir = arg
+        if opt == '--config':
+            config = arg
         else:
             show_help()
             sys.exit(0)
-    db = AccountDatabase(root=root_dir, public=pub_dir, private=pri_dir)
+    # check config filepath
+    if config is None:
+        config = './config.ini'
+    if not Storage.exists(path=config):
+        show_help()
+        print('')
+        print('!!! config file not exists: %s' % config)
+        print('')
+        sys.exit(0)
+    # load config
+    config = ConfigLoader(file=config).load()
+    # initializing
+    shared = init_database(config=config)
     # check actions
     if len(args) == 1 and args[0] == 'generate':
-        generate(db=db)
+        generate(db=shared.adb)
     elif len(args) == 2 and args[0] == 'modify':
         identifier = ID.parse(identifier=args[1])
         assert identifier is not None, 'ID error: %s' % args[1]
-        modify(identifier=identifier, db=db)
+        modify(identifier=identifier, db=shared.adb)
     else:
         show_help()
 
