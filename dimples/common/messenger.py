@@ -101,9 +101,9 @@ class CommonMessenger(Messenger, Transmitter, ABC):
         # Application Layer should make sure user is already login before it send message to server.
         # Application layer should put message into queue so that it will send automatically after user login
         if sender is None:
-            user = self.facebook.current_user
-            assert user is not None, 'current user not set'
-            sender = user.identifier
+            current = self.facebook.current_user
+            assert current is not None, 'current user not set'
+            sender = current.identifier
         env = Envelope.create(sender=sender, receiver=receiver)
         i_msg = InstantMessage.create(head=env, body=content)
         r_msg = self.send_instant_message(msg=i_msg, priority=priority)

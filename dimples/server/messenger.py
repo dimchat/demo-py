@@ -139,11 +139,12 @@ class ServerMessenger(CommonMessenger):
             # if this message sent to 'station@anywhere', or with group ID 'stations@everywhere',
             # it means the client doesn't have the station's meta or visa (e.g.: first handshaking),
             # so respond them as message attachments.
-            user = self.facebook.current_user
+            current = self.facebook.current_user
+            uid = current.identifier
             for res in responses:
-                if res.sender == user.identifier:
+                if res.sender == uid:
                     # let the first responding message to carry the station's meta & visa
-                    res.meta = user.meta
-                    res.visa = user.visa
+                    res.meta = current.meta
+                    res.visa = current.visa
                     break
         return responses

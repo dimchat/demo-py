@@ -55,14 +55,12 @@ class DocumentCommandProcessor(SuperCommandProcessor):
             # this is a request, check DocumentCommand & LoginCommand
             if has_document(contents=responses):
                 db = self.session.database
-                station = self.facebook.current_user
+                current = self.facebook.current_user
+                sid = current.identifier
                 assert db is not None, 'session DB not found'
-                assert station is not None, 'current station not found'
+                assert sid is not None, 'current station not found: %s' % current
                 # forward login message after document command
-                res = forward_login_msg(doc_id=content.identifier,
-                                        sender=msg.sender,
-                                        node=station.identifier,
-                                        database=db)
+                res = forward_login_msg(doc_id=content.identifier, sender=msg.sender, node=sid, database=db)
                 if res is not None:
                     responses.append(res)
         return responses

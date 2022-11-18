@@ -46,6 +46,7 @@ class CommonFacebook(Facebook):
     def __init__(self, database: AccountDBI):
         super().__init__()
         self.__database = database
+        self.__current: Optional[User] = None
 
     @property
     def database(self) -> AccountDBI:
@@ -72,6 +73,21 @@ class CommonFacebook(Facebook):
             assert usr is not None, 'failed to create user: %s' % item
             users.append(usr)
         return users
+
+    @property  # Override
+    def current_user(self) -> Optional[User]:
+        """ Get current user (for signing and sending message) """
+        current = self.__current
+        if current is None:
+            # current = super().current_user
+            users = self.local_users
+            if users is not None and len(users) > 0:
+                current = users[0]
+        return current
+
+    @current_user.setter
+    def current_user(self, user: User):
+        self.__current = user
 
     # Override
     def save_meta(self, meta: Meta, identifier: ID) -> bool:

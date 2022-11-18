@@ -82,13 +82,14 @@ class CommonPacker(MessagePacker):
             if err_msg.find('failed to decrypt key in msg') >= 0:
                 # visa.key expired?
                 # send new visa to the sender
-                user = self.facebook.current_user
-                visa = user.visa
-                assert visa is not None and visa.valid, 'user visa error: %s' % user
-                cmd = DocumentCommand.response(document=visa, identifier=user.identifier)
+                current = self.facebook.current_user
+                uid = current.identifier
+                visa = current.visa
+                assert visa is not None and visa.valid, 'user visa error: %s' % current
+                cmd = DocumentCommand.response(document=visa, identifier=uid)
                 messenger = self.messenger
                 assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
-                messenger.send_content(sender=user.identifier, receiver=msg.sender, content=cmd)
+                messenger.send_content(sender=uid, receiver=msg.sender, content=cmd)
             else:
                 raise error
 
