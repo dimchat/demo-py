@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2022 Albert Moky
+# Copyright (c) 2019 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,46 +24,24 @@
 # ==============================================================================
 
 """
-    Database module
-    ~~~~~~~~~~~~~~~
+    Receipt Command Processor
+    ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 """
 
-from ..common.dbi import *
+from typing import List
 
-from .dos import *
+from dimsdk import ReliableMessage
+from dimsdk import Content
+from dimsdk import BaseCommandProcessor
 
-from .account import AccountDatabase
-from .message import MessageDatabase
-from .session import SessionDatabase
+from ...common import ReceiptCommand
 
 
-__all__ = [
-    #
-    #   DBI
-    #
-    'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
-    'UserDBI', 'GroupDBI',
-    'AccountDBI',
+class ReceiptCommandProcessor(BaseCommandProcessor):
 
-    'ReliableMessageDBI', 'CipherKeyDBI',
-    'MessageDBI',
-
-    'LoginDBI', 'ReportDBI',
-    'SessionDBI',
-
-    #
-    #   DOS
-    #
-    'Storage',
-    'PrivateKeyStorage', 'MetaStorage', 'DocumentStorage',
-    'UserStorage', 'GroupStorage',
-    'LoginStorage',
-
-    #
-    #   Database
-    #
-    'AccountDatabase',
-    'MessageDatabase',
-    'SessionDatabase',
-]
+    # Override
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, ReceiptCommand), 'receipt command error: %s' % content
+        # nickname = self.facebook.name(identifier=sender)
+        return []

@@ -84,6 +84,9 @@ class AccountDatabase(AccountDBI):
 
     # Override
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
+        # check meta with ID
+        if not Meta.matches(meta=meta, identifier=identifier):
+            raise ValueError('meta not match: %s => %s' % (identifier, meta))
         return self.__meta_table.save_meta(meta=meta, identifier=identifier)
 
     # Override
@@ -96,6 +99,12 @@ class AccountDatabase(AccountDBI):
 
     # Override
     def save_document(self, document: Document) -> bool:
+        # check with exists
+        meta = self.__meta_table.meta(identifier=document.identifier)
+        if meta is None:
+            raise LookupError('meta not exists: %s' % document.identifier)
+        if not (document.valid or document.verify(public_key=meta.key)):
+            raise ValueError('document error: %s' % document.identifier)
         return self.__doc_table.save_document(document=document)
 
     # Override

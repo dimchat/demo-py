@@ -60,7 +60,7 @@ class MessageDatabase(MessageDBI):
 
     # Override
     def cache_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
-        return self.cache_cipher_key(key=key, sender=sender, receiver=receiver)
+        return self.__cipher_table.cache_cipher_key(key=key, sender=sender, receiver=receiver)
 
     #
     #   ReliableMessage DBI

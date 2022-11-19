@@ -33,12 +33,18 @@
 from .handshake import HandshakeCommandProcessor
 from .login import LoginCommandProcessor
 from .report import ReportCommandProcessor
+
 from .document import DocumentCommandProcessor
+
+from .receipt import ReceiptCommandProcessor
 
 
 __all__ = [
     'HandshakeCommandProcessor',
     'LoginCommandProcessor',
     'ReportCommandProcessor',
+
     'DocumentCommandProcessor',
+
+    'ReceiptCommandProcessor',
 ]

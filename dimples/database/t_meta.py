@@ -52,7 +52,6 @@ class MetaTable(MetaDBI):
 
     # Override
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        assert Meta.matches(meta=meta, identifier=identifier), 'meta invalid: %s, %s' % (identifier, meta)
         # 0. check old record
         old = self.meta(identifier=identifier)
         if old is not None:

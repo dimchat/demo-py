@@ -138,7 +138,7 @@ class GateKeeper(Runner, DockerDelegate):
 
     @property
     def active(self) -> bool:
-        raise self.__active
+        return self.__active
 
     @active.setter
     def active(self, flag: bool):

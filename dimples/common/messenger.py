@@ -86,7 +86,7 @@ class CommonMessenger(Messenger, Transmitter, ABC):
 
     @property
     def facebook(self) -> CommonFacebook:
-        raise self.__facebook
+        return self.__facebook
 
     @property
     def session(self) -> Session:

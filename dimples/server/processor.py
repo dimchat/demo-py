@@ -41,10 +41,12 @@ from ..common import HandshakeCommand, LoginCommand
 from ..common import ReceiptCommand, ReportCommand
 from ..common import CommonProcessor, CommonContentProcessorCreator
 
-from .cpu import DocumentCommandProcessor
 from .cpu import HandshakeCommandProcessor
 from .cpu import LoginCommandProcessor
 from .cpu import ReportCommandProcessor
+
+from .cpu import DocumentCommandProcessor
+from .cpu import ReceiptCommandProcessor
 
 from .messenger import ServerMessenger
 
@@ -114,5 +116,8 @@ class ServerContentProcessorCreator(CommonContentProcessorCreator):
         # report
         if cmd_name == ReportCommand.REPORT:
             return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        # receipt
+        if cmd_name == ReceiptCommand.RECEIPT:
+            return ReceiptCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
         return super().create_command_processor(msg_type=msg_type, cmd_name=cmd_name)

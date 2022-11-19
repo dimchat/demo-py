@@ -27,7 +27,6 @@ from typing import Optional
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
-from dimsdk import Command
 
 from ...common import LoginDBI, LoginCommand
 
@@ -68,7 +67,7 @@ class LoginStorage(Storage, LoginDBI):
             return None, None
         cmd = info.get('cmd')
         msg = info.get('msg')
-        return Command.parse(content=cmd), ReliableMessage.parse(msg=msg)
+        return LoginCommand(content=cmd), ReliableMessage.parse(msg=msg)
 
     # Override
     def save_login_command_message(self, identifier: ID, cmd: LoginCommand, msg: ReliableMessage) -> bool:
