@@ -101,7 +101,8 @@ def main():
     config = ConfigLoader(file=ini_file).load()
     # initializing
     print('[DB] init with config: %s => %s' % (ini_file, config))
-    shared = GlobalVariable(config=config)
+    shared = GlobalVariable()
+    shared.config = config
     init_database(shared=shared)
     # check actions
     if len(args) == 1 and args[0] == 'generate':

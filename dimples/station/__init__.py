@@ -37,8 +37,13 @@
 """
 
 from .config import Config, ConfigLoader
+from .handler import RequestHandler
 
 
 __all__ = [
-    'Config', 'ConfigLoader',
+
+    'Config',
+    'ConfigLoader',
+
+    'RequestHandler',
 ]

@@ -37,7 +37,7 @@ from dimsdk import ID
 from dimsdk import InstantMessage, ReliableMessage
 from dimsdk import Content, Envelope
 from dimsdk import EntityDelegate, CipherKeyDelegate
-from dimsdk import Messenger
+from dimsdk import Messenger, Packer, Processor
 
 from .dbi import MessageDBI
 
@@ -53,6 +53,24 @@ class CommonMessenger(Messenger, Transmitter, ABC):
         self.__session = session
         self.__facebook = facebook
         self.__database = database
+        self.__packer: Optional[Packer] = None
+        self.__processor: Optional[Processor] = None
+
+    @property  # Override
+    def packer(self) -> Packer:
+        return self.__packer
+
+    @packer.setter
+    def packer(self, delegate: Packer):
+        self.__packer = delegate
+
+    @property  # Override
+    def processor(self) -> Processor:
+        return self.__processor
+
+    @processor.setter
+    def processor(self, delegate: Processor):
+        self.__processor = delegate
 
     @property
     def database(self) -> MessageDBI:

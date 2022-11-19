@@ -99,9 +99,9 @@ class ConfigLoader:
 @Singleton
 class GlobalVariable:
 
-    def __init__(self, config: Config):
+    def __init__(self):
         super().__init__()
-        self.config = config
+        self.config: Optional[Config] = None
         self.adb: Optional[AccountDBI] = None
 
 

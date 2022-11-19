@@ -33,6 +33,7 @@
 import os
 import sys
 import getopt
+from socketserver import ThreadingTCPServer
 
 path = os.path.abspath(__file__)
 path = os.path.dirname(path)
@@ -44,7 +45,9 @@ from dimples.utils import Log
 from dimples.database import Storage
 
 from dimples.station.config import ConfigLoader, GlobalVariable
-from dimples.station.config import init_database, init_facebook, init_dispatcher
+from dimples.station.config import init_database, init_facebook
+from dimples.station.config import init_dispatcher, stop_dispatcher
+from dimples.station.handler import RequestHandler
 
 
 #
@@ -97,10 +100,29 @@ def main():
     config = ConfigLoader(file=ini_file).load()
     # initializing
     print('[DB] init with config: %s => %s' % (ini_file, config))
-    shared = GlobalVariable(config=config)
+    shared = GlobalVariable()
+    shared.config = config
     init_database(shared=shared)
     init_facebook(shared=shared)
     init_dispatcher(shared=shared)
+
+    # start TCP server
+    try:
+        # ThreadingTCPServer.allow_reuse_address = True
+        server = ThreadingTCPServer(server_address=(config.host, config.port),
+                                    RequestHandlerClass=RequestHandler,
+                                    bind_and_activate=False)
+        Log.info('>>> TCP server (%s:%d) starting...' % (config.host, config.port))
+        server.allow_reuse_address = True
+        server.server_bind()
+        server.server_activate()
+        Log.info('>>> TCP server (%s:%d) is listening...' % (config.host, config.port))
+        server.serve_forever()
+    except KeyboardInterrupt as ex:
+        Log.info('~~~~~~~~ %s' % ex)
+    finally:
+        stop_dispatcher(shared=shared)
+        Log.info('======== station shutdown!')
 
 
 if __name__ == '__main__':

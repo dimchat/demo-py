@@ -135,8 +135,3 @@ class Dispatcher(Runner, Deliver, Logging):
             return True
         except Exception as e:
             self.error(msg='failed to deliver message: %s, %s => %s' % (e, msg.sender, receiver))
-
-
-# start as daemon
-g_dispatcher = Dispatcher()
-g_dispatcher.start()

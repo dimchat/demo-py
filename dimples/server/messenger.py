@@ -42,7 +42,7 @@ from ..common import MessageDBI
 from ..common import CommonMessenger, CommonFacebook
 from ..common import Session
 
-from .filter import Filter, DefaultFilter
+from .filter import Filter
 from .dispatcher import Dispatcher
 
 
@@ -51,7 +51,7 @@ class ServerMessenger(CommonMessenger):
     def __init__(self, session: Session, facebook: CommonFacebook, database: MessageDBI):
         super().__init__(session=session, facebook=facebook, database=database)
         # NOTICE: create Filter by RequestHandler
-        self.__filter = DefaultFilter(session=session, facebook=facebook)
+        self.__filter: Optional[Filter] = None
 
     @property
     def filter(self) -> Filter:

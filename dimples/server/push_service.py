@@ -165,8 +165,3 @@ class PushCenter(Runner, Logging, PushService):
         task = PushTask(sender=sender, receiver=receiver, info=info)
         self.__append(task=task)
         return True
-
-
-# start as daemon
-g_center = PushCenter()
-g_center.start()

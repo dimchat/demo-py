@@ -151,9 +151,9 @@ class ConfigLoader:
 @Singleton
 class GlobalVariable:
 
-    def __init__(self, config: Config):
+    def __init__(self):
         super().__init__()
-        self.config = config
+        self.config: Optional[Config] = None
         self.adb: Optional[AccountDBI] = None
         self.mdb: Optional[MessageDBI] = None
         self.sdb: Optional[SessionDBI] = None
@@ -193,7 +193,18 @@ def init_facebook(shared: GlobalVariable) -> CommonFacebook:
 def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
     facebook = SharedFacebook()
     dispatcher = Dispatcher()
+    # TODO: create pusher for DefaultDeliver
+    #       and call 'PushCenter().start()'
     dispatcher.deliver = DefaultDeliver(database=shared.mdb)
     dispatcher.group_deliver = GroupDeliver(database=shared.mdb, facebook=facebook)
     dispatcher.broadcast_deliver = BroadcastDeliver(facebook=facebook)
+    dispatcher.start()
     return dispatcher
+
+
+# noinspection PyUnusedLocal
+def stop_dispatcher(shared: GlobalVariable) -> bool:
+    dispatcher = Dispatcher()
+    dispatcher.stop()
+    # TODO: stop PushCenter
+    return True
