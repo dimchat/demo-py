@@ -41,7 +41,8 @@ class Path:
         Paths for main script
         ~~~~~~~~~~~~~~~~~~~~~
         #! /usr/bin/env python3
-
+        import os
+        import sys
         path = os.path.abspath(__file__)
         path = os.path.dirname(path)
         path = os.path.dirname(path)

@@ -33,8 +33,8 @@ from mkm import Document, Visa, Bulletin
 
 from dimplugins.network import NetworkType, network_to_type
 
+from ..common import AccountDBI
 from ..database import PrivateKeyStorage
-from ..database import AccountDatabase
 
 
 class AccountInfo:
@@ -65,7 +65,7 @@ class AccountInfo:
                 array.append(key.algorithm)
             print('!!! private key: %s, msg keys: %s' % (private_key.algorithm, array))
 
-    def save(self, db: AccountDatabase) -> bool:
+    def save(self, db: AccountDBI) -> bool:
         identifier = self.identifier
         # save keys
         private_key = self.private_key
@@ -182,7 +182,7 @@ def gen_group(network: int, seed: str, founder: ID, sign_key: SignKey) -> Accoun
     return AccountInfo(identifier=identifier, meta=meta, document=doc)
 
 
-def generate(db: AccountDatabase) -> bool:
+def generate(db: AccountDBI) -> bool:
     print('Generating DIM account...')
     #
     # Step 1: get entity type

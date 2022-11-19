@@ -29,6 +29,7 @@ from typing import Optional
 
 from ..utils import json_encode
 from ..utils import Singleton
+from ..common import AccountDBI
 from ..database import AccountDatabase
 
 
@@ -96,22 +97,18 @@ class ConfigLoader:
 
 
 @Singleton
-class SharedDatabase:
+class GlobalVariable:
 
-    def __init__(self):
+    def __init__(self, config: Config):
         super().__init__()
-        self.config: Optional[Config] = None
-        self.adb: Optional[AccountDatabase] = None
-
-    def show_info(self):
-        self.adb.show_info()
+        self.config = config
+        self.adb: Optional[AccountDBI] = None
 
 
-def init_database(config: Config) -> SharedDatabase:
-    shared = SharedDatabase()
-    shared.config = config
+def init_database(shared: GlobalVariable):
+    config = shared.config
     # create database
     print('[DB] init with config: %s' % config)
-    shared.adb = AccountDatabase(root=config.root, public=config.public, private=config.private)
-    shared.show_info()
-    return shared
+    adb = AccountDatabase(root=config.root, public=config.public, private=config.private)
+    adb.show_info()
+    shared.adb = adb

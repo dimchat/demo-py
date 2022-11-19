@@ -40,7 +40,7 @@ sys.path.insert(0, path)
 from dimples.utils import Log
 from dimples.database import Storage
 
-from dimples.register.config import ConfigLoader
+from dimples.register.config import ConfigLoader, GlobalVariable
 from dimples.register.config import init_database
 from dimples.register.generate import generate
 from dimples.register.modify import modify
@@ -67,7 +67,7 @@ def show_help():
     print('    modify <ID>     edit document with ID')
     print('')
     print('optional arguments:')
-    print('    --config        config file path (default: "./config.ini")')
+    print('    --config        config file path (default: "/etc/dim/config.ini")')
     print('    --help, -h      show this help message and exit')
     print('')
 
@@ -90,7 +90,7 @@ def main():
             sys.exit(0)
     # check config filepath
     if config is None:
-        config = './config.ini'
+        config = '/etc/dim/config.ini'
     if not Storage.exists(path=config):
         show_help()
         print('')
@@ -100,7 +100,8 @@ def main():
     # load config
     config = ConfigLoader(file=config).load()
     # initializing
-    shared = init_database(config=config)
+    shared = GlobalVariable(config=config)
+    init_database(shared=shared)
     # check actions
     if len(args) == 1 and args[0] == 'generate':
         generate(db=shared.adb)

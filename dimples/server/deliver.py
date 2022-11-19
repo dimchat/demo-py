@@ -31,17 +31,17 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, List
+from typing import List
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
 
 from ..utils import Logging
 from ..common import MessageDBI
-from ..common import SharedFacebook
+from ..common import CommonFacebook
 
 from .session_center import SessionCenter
-from .pusher import DefaultPusher
+from .pusher import Pusher
 
 
 class Deliver(ABC):
@@ -52,6 +52,14 @@ class Deliver(ABC):
 
 
 class BroadcastDeliver(Deliver, Logging):
+
+    def __init__(self, facebook: CommonFacebook):
+        super().__init__()
+        self.__facebook = facebook
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        return self.__facebook
 
     @classmethod
     def get_sent_nodes(cls, msg: ReliableMessage) -> List[ID]:
@@ -74,7 +82,7 @@ class BroadcastDeliver(Deliver, Logging):
 
     # noinspection PyMethodMayBeStatic
     def _get_current_station(self) -> ID:
-        facebook = SharedFacebook()
+        facebook = self.facebook
         current = facebook.current_user
         return current.identifier
 
@@ -111,13 +119,22 @@ class BroadcastDeliver(Deliver, Logging):
 
 class GroupDeliver(Deliver, Logging):
 
-    def __init__(self):
+    def __init__(self, database: MessageDBI, facebook: CommonFacebook):
         super().__init__()
-        self.database: Optional[MessageDBI] = None
+        self.__database = database
+        self.__facebook = facebook
+
+    @property
+    def database(self) -> MessageDBI:
+        return self.__database
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        return self.__facebook
 
     # noinspection PyMethodMayBeStatic
     def _get_assistants(self, group: ID) -> List[ID]:
-        facebook = SharedFacebook()
+        facebook = self.facebook
         assistants = facebook.assistants(identifier=group)
         if assistants is None:
             # get from ANS
@@ -169,10 +186,18 @@ class GroupDeliver(Deliver, Logging):
 
 class DefaultDeliver(Deliver, Logging):
 
-    def __init__(self):
+    def __init__(self, database: MessageDBI, pusher: Pusher):
         super().__init__()
-        self.pusher = DefaultPusher()
-        self.database: Optional[MessageDBI] = None
+        self.__database = database
+        self.__pusher = pusher
+
+    @property
+    def database(self) -> MessageDBI:
+        return self.__database
+
+    @property
+    def pusher(self) -> Pusher:
+        return self.__pusher
 
     def _save_message(self, msg: ReliableMessage, receiver: ID) -> int:
         db = self.database

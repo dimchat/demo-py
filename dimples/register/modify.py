@@ -30,8 +30,8 @@ from mkm.protocol import entity_is_group
 from mkm import EntityType, ID
 from mkm import Document, Visa
 
+from ..common import AccountDBI
 from ..database import PrivateKeyStorage
-from ..database import AccountDatabase
 
 
 class AccountInfo:
@@ -55,7 +55,7 @@ class AccountInfo:
             array.append(key.algorithm)
         print('!!! private msg keys: %s' % str(array))
 
-    def save(self, db: AccountDatabase) -> bool:
+    def save(self, db: AccountDBI) -> bool:
         doc = self.document
         identifier = doc.identifier
         # save keys
@@ -138,7 +138,7 @@ def modify_group(document: Document, sign_key: SignKey) -> AccountInfo:
     pass
 
 
-def modify(identifier: ID, db: AccountDatabase) -> bool:
+def modify(identifier: ID, db: AccountDBI) -> bool:
     print('Modifying DIM account...')
     #
     # Step 1: check meta & private keys

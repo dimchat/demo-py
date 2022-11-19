@@ -40,8 +40,7 @@ from ..utils import Singleton
 from ..utils import Logging
 from ..utils import Runner
 
-from .deliver import Deliver, DefaultDeliver
-from .deliver import GroupDeliver, BroadcastDeliver
+from .deliver import Deliver
 
 
 @Singleton
@@ -49,13 +48,44 @@ class Dispatcher(Runner, Deliver, Logging):
 
     def __init__(self):
         super().__init__()
-        # delivers
-        self.deliver = DefaultDeliver()
-        self.group_deliver = GroupDeliver()
-        self.broadcast_deliver = BroadcastDeliver()
+        self.__deliver: Optional[Deliver] = None
+        self.__group_deliver: Optional[Deliver] = None
+        self.__broadcast_deliver: Optional[Deliver] = None
         # locked message queue
         self.__messages: List[ReliableMessage] = []
         self.__lock = threading.Lock()
+
+    #
+    #   Deliver delegates
+    #
+
+    @property
+    def deliver(self) -> Deliver:
+        return self.__deliver
+
+    @deliver.setter
+    def deliver(self, delegate: Deliver):
+        self.__deliver = delegate
+
+    @property
+    def group_deliver(self) -> Deliver:
+        return self.__group_deliver
+
+    @group_deliver.setter
+    def group_deliver(self, delegate: Deliver):
+        self.__group_deliver = delegate
+
+    @property
+    def broadcast_deliver(self) -> Deliver:
+        return self.__broadcast_deliver
+
+    @broadcast_deliver.setter
+    def broadcast_deliver(self, delegate: Deliver):
+        self.__broadcast_deliver = delegate
+
+    #
+    #   Message Queue
+    #
 
     def __append(self, msg: ReliableMessage):
         with self.__lock:

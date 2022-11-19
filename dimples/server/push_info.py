@@ -48,10 +48,26 @@ class PushAlert:
 
     def __init__(self, title: Optional[str], subtitle: Optional[str], body: str, image: Optional[str]):
         super().__init__()
-        self.title = title
-        self.subtitle = subtitle
-        self.body = body
-        self.image = image  # URL
+        self.__title = title
+        self.__subtitle = subtitle
+        self.__body = body
+        self.__image = image  # URL
+
+    @property
+    def title(self) -> Optional[str]:
+        return self.__title
+
+    @property
+    def subtitle(self) -> Optional[str]:
+        return self.__subtitle
+
+    @property
+    def body(self) -> str:
+        return self.__body
+
+    @property
+    def image(self) -> Optional[str]:
+        return self.__image
 
     def __str__(self) -> str:
         return self.to_json()
@@ -61,14 +77,14 @@ class PushAlert:
 
     def to_json(self) -> str:
         info = {
-            'body': self.body
+            'body': self.__body
         }
-        if self.title is not None:
-            info['title'] = self.title
-        if self.subtitle is not None:
-            info['subtitle'] = self.subtitle
-        if self.image is not None:
-            info['image'] = self.image
+        if self.__title is not None:
+            info['title'] = self.__title
+        if self.__subtitle is not None:
+            info['subtitle'] = self.__subtitle
+        if self.__image is not None:
+            info['image'] = self.__image
         # encode
         return json_encode(obj=info)
 
@@ -107,12 +123,47 @@ class PushInfo:
     def __init__(self, alert: PushAlert,
                  title: str = None, content: str = None, sound: str = None, badge: int = 0, category: str = None):
         super().__init__()
-        self.alert = alert
+        self.__alert = alert
         self.__title = title
         self.__content = content
-        self.sound = sound  # URL
-        self.badge = badge
-        self.category = category
+        self.__sound = sound  # URL
+        self.__badge = badge
+        self.__category = category
+
+    @property
+    def alert(self) -> PushAlert:
+        return self.__alert
+
+    @property
+    def title(self) -> Optional[str]:
+        text = self.__title
+        if text is None:
+            text = self.__alert.title
+        return text
+
+    @property
+    def content(self) -> str:
+        text = self.__content
+        if text is None:
+            text = self.__alert.body
+        return text
+
+    @property
+    def image(self) -> Optional[str]:
+        return self.__alert.image
+
+    @property
+    def sound(self) -> Optional[str]:
+        return self.__sound
+
+    @property
+    def badge(self) -> int:
+        cnt = self.__badge
+        return 0 if cnt is None else cnt
+
+    @property
+    def category(self) -> Optional[str]:
+        return self.__category
 
     def __str__(self) -> str:
         return self.to_json()
@@ -122,18 +173,18 @@ class PushInfo:
 
     def to_json(self) -> str:
         info = {
-            'alert': self.alert
+            'alert': self.__alert
         }
         if self.__title is not None:
             info['title'] = self.__title
         if self.__content is not None:
             info['content'] = self.__content
-        if self.sound is not None:
-            info['sound'] = self.sound
-        if self.badge != 0:
-            info['badge'] = self.badge
-        if self.category is not None:
-            info['category'] = self.category
+        if self.__sound is not None:
+            info['sound'] = self.__sound
+        if self.__badge > 0:
+            info['badge'] = self.__badge
+        if self.__category is not None:
+            info['category'] = self.__category
         # encode
         return json_encode(obj=info)
 
@@ -155,24 +206,6 @@ class PushInfo:
             badge = 0
         return cls(alert=PushAlert.from_dict(dictionary=alert),
                    title=title, content=content, sound=sound, badge=badge, category=category)
-
-    @property
-    def title(self) -> Optional[str]:
-        text = self.__title
-        if text is None:
-            text = self.alert.title
-        return text
-
-    @property
-    def content(self) -> str:
-        text = self.__content
-        if text is None:
-            text = self.alert.body
-        return text
-
-    @property
-    def image(self) -> Optional[str]:
-        return self.alert.image
 
     @classmethod
     def create(cls, content: str, title: str = None, image: str = None, badge: int = 0, sound: str = None):

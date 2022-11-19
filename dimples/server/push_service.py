@@ -66,9 +66,21 @@ class PushTask:
 
     def __init__(self, sender: ID, receiver: ID, info: PushInfo):
         super().__init__()
-        self.sender = sender
-        self.receiver = receiver
-        self.info = info
+        self.__sender = sender
+        self.__receiver = receiver
+        self.__info = info
+
+    @property
+    def sender(self) -> ID:
+        return self.__sender
+
+    @property
+    def receiver(self) -> ID:
+        return self.__receiver
+
+    @property
+    def info(self) -> PushInfo:
+        return self.__info
 
 
 @Singleton

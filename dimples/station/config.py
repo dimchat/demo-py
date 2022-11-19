@@ -31,8 +31,12 @@ from dimsdk import ID
 
 from ..utils import json_encode
 from ..utils import Singleton
-from ..common import SharedFacebook
+from ..common import CommonFacebook, SharedFacebook
+from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
+from ..server import Dispatcher
+from ..server import DefaultPusher
+from ..server import DefaultDeliver, GroupDeliver, BroadcastDeliver
 
 
 class Config:
@@ -146,39 +150,48 @@ class ConfigLoader:
 
 
 @Singleton
-class SharedDatabase:
+class GlobalVariable:
 
-    def __init__(self):
+    def __init__(self, config: Config):
         super().__init__()
-        self.config: Optional[Config] = None
-        self.adb: Optional[AccountDatabase] = None
-        self.mdb: Optional[MessageDatabase] = None
-        self.sdb: Optional[SessionDatabase] = None
-
-    def show_info(self):
-        self.adb.show_info()
-        self.mdb.show_info()
-        self.sdb.show_info()
+        self.config = config
+        self.adb: Optional[AccountDBI] = None
+        self.mdb: Optional[MessageDBI] = None
+        self.sdb: Optional[SessionDBI] = None
 
 
-def init_database(config: Config):
-    shared = SharedDatabase()
-    shared.config = config
+def init_database(shared: GlobalVariable):
+    config = shared.config
     # create database
     print('[DB] init with config: %s' % config)
-    shared.adb = AccountDatabase(root=config.root, public=config.public, private=config.private)
-    shared.mdb = MessageDatabase(root=config.root, public=config.public, private=config.private)
-    shared.sdb = SessionDatabase(root=config.root, public=config.public, private=config.private)
-    shared.show_info()
+    adb = AccountDatabase(root=config.root, public=config.public, private=config.private)
+    mdb = MessageDatabase(root=config.root, public=config.public, private=config.private)
+    sdb = SessionDatabase(root=config.root, public=config.public, private=config.private)
+    adb.show_info()
+    mdb.show_info()
+    sdb.show_info()
+    shared.adb = adb
+    shared.mdb = mdb
+    shared.sdb = sdb
 
 
-def init_facebook(config: Config):
-    shared = SharedDatabase()
+def init_facebook(shared: GlobalVariable) -> CommonFacebook:
     # set account database
     facebook = SharedFacebook()
     facebook.database = shared.adb
     # set current station
-    station = config.station
+    station = shared.config.station
     if station is not None:
         print('set current user: %s' % station)
         facebook.current_user = facebook.user(identifier=station)
+    return facebook
+
+
+def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
+    facebook = SharedFacebook()
+    pusher = DefaultPusher()
+    dispatcher = Dispatcher()
+    dispatcher.deliver = DefaultDeliver(database=shared.mdb, pusher=pusher)
+    dispatcher.group_deliver = GroupDeliver(database=shared.mdb, facebook=facebook)
+    dispatcher.broadcast_deliver = BroadcastDeliver(facebook=facebook)
+    return dispatcher

@@ -43,8 +43,8 @@ sys.path.insert(0, path)
 from dimples.utils import Log
 from dimples.database import Storage
 
-from dimples.station.config import ConfigLoader
-from dimples.station.config import init_database, init_facebook
+from dimples.station.config import ConfigLoader, GlobalVariable
+from dimples.station.config import init_database, init_facebook, init_dispatcher
 
 
 #
@@ -59,12 +59,12 @@ def show_help():
     print('    DIM Station')
     print('')
     print('usages:')
-    print('    %s' % cmd)
     print('    %s [--config=<FILE>]' % cmd)
+    print('    %s [-h|--help]' % cmd)
     print('')
     print('optional arguments:')
+    print('    --config        config file path (default: "/etc/dim/config.ini")')
     print('    --help, -h      show this help message and exit')
-    print('    --config        config file path (default: "./config.ini")')
     print('')
 
 
@@ -86,7 +86,7 @@ def main():
             sys.exit(0)
     # check config filepath
     if config is None:
-        config = './config.ini'
+        config = '/etc/dim/config.ini'
     if not Storage.exists(path=config):
         show_help()
         print('')
@@ -96,8 +96,10 @@ def main():
     # load config
     config = ConfigLoader(file=config).load()
     # initializing
-    init_database(config=config)
-    init_facebook(config=config)
+    shared = GlobalVariable(config=config)
+    init_database(shared=shared)
+    init_facebook(shared=shared)
+    init_dispatcher(shared=shared)
 
 
 if __name__ == '__main__':

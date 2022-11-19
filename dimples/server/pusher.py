@@ -134,7 +134,8 @@ def build_message(sender: ID, receiver: ID, group: ID, msg_type: int) -> (str, s
 
 
 def get_name(identifier: ID) -> str:
-    doc = g_facebook.document(identifier=identifier)
+    facebook = SharedFacebook()
+    doc = facebook.document(identifier=identifier)
     if doc is not None:
         name = doc.name
         if name is not None and len(name) > 0:
@@ -143,6 +144,3 @@ def get_name(identifier: ID) -> str:
     if name is not None and len(name) > 0:
         return name
     return str(identifier.address)
-
-
-g_facebook = SharedFacebook()
