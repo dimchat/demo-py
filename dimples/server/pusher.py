@@ -38,7 +38,7 @@ from dimsdk import ContentType
 from dimsdk import Envelope, ReliableMessage
 
 from ..utils import Logging
-from ..common import SharedFacebook
+from ..common import CommonFacebook
 
 from .push_service import PushCenter
 
@@ -53,6 +53,14 @@ class Pusher(ABC):
 
 
 class DefaultPusher(Pusher, Logging):
+
+    def __init__(self, facebook: CommonFacebook):
+        super().__init__()
+        self.__facebook = facebook
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        return self.__facebook
 
     # Override
     def push_notification(self, msg: ReliableMessage):
@@ -96,10 +104,11 @@ class DefaultPusher(Pusher, Logging):
     # noinspection PyMethodMayBeStatic
     def _build_message(self, sender: ID, receiver: ID, group: ID, msg_type: int) -> (str, str):
         """ build title, content for notification """
-        return build_message(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
+        facebook = self.facebook
+        return build_message(sender=sender, receiver=receiver, group=group, msg_type=msg_type, facebook=facebook)
 
 
-def build_message(sender: ID, receiver: ID, group: ID, msg_type: int) -> (str, str):
+def build_message(sender: ID, receiver: ID, group: ID, msg_type: int, facebook: CommonFacebook) -> (str, str):
     """ PNs: build text message for msg """
     if msg_type == 0:
         title = 'Message'
@@ -125,16 +134,15 @@ def build_message(sender: ID, receiver: ID, group: ID, msg_type: int) -> (str, s
     else:
         # unknown type
         return None, None
-    from_name = get_name(identifier=sender)
-    to_name = get_name(identifier=receiver)
+    from_name = get_name(identifier=sender, facebook=facebook)
+    to_name = get_name(identifier=receiver, facebook=facebook)
     text = 'Dear %s: %s sent you %s' % (to_name, from_name, something)
     if group is not None:
-        text += ' in group [%s]' % get_name(identifier=group)
+        text += ' in group [%s]' % get_name(identifier=group, facebook=facebook)
     return title, text
 
 
-def get_name(identifier: ID) -> str:
-    facebook = SharedFacebook()
+def get_name(identifier: ID, facebook: CommonFacebook) -> str:
     doc = facebook.document(identifier=identifier)
     if doc is not None:
         name = doc.name

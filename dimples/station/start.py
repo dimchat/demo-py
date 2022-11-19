@@ -77,25 +77,26 @@ def main():
         show_help()
         sys.exit(1)
     # check options
-    config = None
+    ini_file = None
     for opt, arg in opts:
         if opt == '--config':
-            config = arg
+            ini_file = arg
         else:
             show_help()
             sys.exit(0)
     # check config filepath
-    if config is None:
-        config = '/etc/dim/config.ini'
-    if not Storage.exists(path=config):
+    if ini_file is None:
+        ini_file = '/etc/dim/config.ini'
+    if not Storage.exists(path=ini_file):
         show_help()
         print('')
-        print('!!! config file not exists: %s' % config)
+        print('!!! config file not exists: %s' % ini_file)
         print('')
         sys.exit(0)
     # load config
-    config = ConfigLoader(file=config).load()
+    config = ConfigLoader(file=ini_file).load()
     # initializing
+    print('[DB] init with config: %s => %s' % (ini_file, config))
     shared = GlobalVariable(config=config)
     init_database(shared=shared)
     init_facebook(shared=shared)

@@ -27,3 +27,18 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ==============================================================================
+
+
+"""
+    DIM Station
+    ~~~~~~~~~~~
+
+    DIM network server node
+"""
+
+from .config import Config, ConfigLoader
+
+
+__all__ = [
+    'Config', 'ConfigLoader',
+]

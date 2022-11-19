@@ -48,7 +48,11 @@ setup(
         ]
     },
     install_requires=[
+        # 'pycryptodome',  # 3.14.1
+        # 'base58',  # 1.0.3
+        # 'ecdsa',   # 0.16.1
         'dimplugins>=0.1.0',
+
         'dimsdk>=0.8.0',
         'dimp>=0.12.2',
         'dkd>=0.12.2',

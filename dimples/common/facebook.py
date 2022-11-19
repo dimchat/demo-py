@@ -36,8 +36,6 @@ from dimsdk import SignKey, DecryptKey
 from dimsdk import ID, Meta, Document, User, Group
 from dimsdk import Facebook
 
-from ..utils import Singleton
-
 from .dbi import AccountDBI
 
 
@@ -214,8 +212,3 @@ class CommonFacebook(Facebook):
         #     return None
         db = self.database
         return db.document(identifier=identifier, doc_type=doc_type)
-
-
-@Singleton
-class SharedFacebook(CommonFacebook):
-    pass

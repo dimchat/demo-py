@@ -186,7 +186,7 @@ class GroupDeliver(Deliver, Logging):
 
 class DefaultDeliver(Deliver, Logging):
 
-    def __init__(self, database: MessageDBI, pusher: Pusher):
+    def __init__(self, database: MessageDBI, pusher: Pusher = None):
         super().__init__()
         self.__database = database
         self.__pusher = pusher

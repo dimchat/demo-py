@@ -31,11 +31,10 @@ from dimsdk import ID
 
 from ..utils import json_encode
 from ..utils import Singleton
-from ..common import CommonFacebook, SharedFacebook
+from ..common import CommonFacebook
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
 from ..server import Dispatcher
-from ..server import DefaultPusher
 from ..server import DefaultDeliver, GroupDeliver, BroadcastDeliver
 
 
@@ -160,10 +159,14 @@ class GlobalVariable:
         self.sdb: Optional[SessionDBI] = None
 
 
+@Singleton
+class SharedFacebook(CommonFacebook):
+    pass
+
+
 def init_database(shared: GlobalVariable):
     config = shared.config
     # create database
-    print('[DB] init with config: %s' % config)
     adb = AccountDatabase(root=config.root, public=config.public, private=config.private)
     mdb = MessageDatabase(root=config.root, public=config.public, private=config.private)
     sdb = SessionDatabase(root=config.root, public=config.public, private=config.private)
@@ -189,9 +192,8 @@ def init_facebook(shared: GlobalVariable) -> CommonFacebook:
 
 def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
     facebook = SharedFacebook()
-    pusher = DefaultPusher()
     dispatcher = Dispatcher()
-    dispatcher.deliver = DefaultDeliver(database=shared.mdb, pusher=pusher)
+    dispatcher.deliver = DefaultDeliver(database=shared.mdb)
     dispatcher.group_deliver = GroupDeliver(database=shared.mdb, facebook=facebook)
     dispatcher.broadcast_deliver = BroadcastDeliver(facebook=facebook)
     return dispatcher

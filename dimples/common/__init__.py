@@ -32,7 +32,7 @@
 from .protocol import *
 from .dbi import *
 
-from .facebook import CommonFacebook, SharedFacebook
+from .facebook import CommonFacebook
 from .messenger import CommonMessenger
 from .packer import CommonPacker
 from .processor import CommonProcessor, CommonContentProcessorCreator
@@ -65,7 +65,7 @@ __all__ = [
     #
     #   common
     #
-    'CommonFacebook', 'SharedFacebook',
+    'CommonFacebook',
     'CommonMessenger',
     'CommonPacker',
     'CommonProcessor', 'CommonContentProcessorCreator',
