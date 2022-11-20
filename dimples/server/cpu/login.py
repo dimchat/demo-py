@@ -78,9 +78,13 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         #     'station': str(roaming),
         #     'time': content.time,
         # })
-        if roaming != current:
+        if roaming != current.identifier:
             # user roaming to other station
             self.info('user roaming: %s -> %s' % (sender, roaming))
+            return []
+        if sender != session.identifier:
+            # forwarded login command
+            self.info(msg='user login: %s -> %s, forwarded by %s' % (sender, roaming, session.identifier))
             return []
         # 3. update user online time
         cmd = ReportCommand(title=ReportCommand.ONLINE)

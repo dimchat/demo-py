@@ -56,6 +56,7 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
         session = self.session
         db = session.database
         sender = msg.sender
+        assert sender == session.identifier, 'report sender error: %s not %s' % (sender, session.identifier)
         title = content.title
         if title == ReportCommand.ONLINE:
             # online

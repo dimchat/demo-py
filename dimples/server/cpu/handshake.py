@@ -74,15 +74,15 @@ class HandshakeCommandProcessor(BaseCommandProcessor):
 
 
 def handshake_accepted(identifier: ID, session: Session):
-    # 1. update user online time
+    # 1. update session ID
+    from ..session_center import SessionCenter
+    center = SessionCenter()
+    center.update_session(session=session, identifier=identifier)
+    # 2. update user online time
     cmd = ReportCommand(title=ReportCommand.ONLINE)
     db = session.database
     if db.save_online_command(identifier=identifier, cmd=cmd):
         session.active = True
-    # 2. update session ID
-    from ..session_center import SessionCenter
-    center = SessionCenter()
-    center.update_session(session=session, identifier=identifier)
     # TODO: post notification: USER_LOGIN
     # NotificationCenter().post(name=NotificationNames.USER_LOGIN, sender=self, info={
     #     'ID': str(identifier),
