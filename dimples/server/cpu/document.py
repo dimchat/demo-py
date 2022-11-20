@@ -36,10 +36,17 @@ from dimsdk import ReliableMessage
 from dimsdk import Content, ForwardContent, DocumentCommand
 from dimsdk import DocumentCommandProcessor as SuperCommandProcessor
 
-from ...common import CommonMessenger, Session, SessionDBI
+from ...common import CommonFacebook, CommonMessenger
+from ...common import Session, SessionDBI
 
 
 class DocumentCommandProcessor(SuperCommandProcessor):
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
 
     @property
     def session(self) -> Session:

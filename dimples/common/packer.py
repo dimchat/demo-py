@@ -36,10 +36,17 @@ from dimsdk import Messenger, MessagePacker
 
 from ..utils import base64_encode, sha256
 
+from .facebook import CommonFacebook
 from .messenger import CommonMessenger
 
 
 class CommonPacker(MessagePacker):
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
 
     # Override
     def serialize_message(self, msg: ReliableMessage) -> bytes:

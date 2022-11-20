@@ -110,9 +110,16 @@ class BaseSession(GateKeeper, Session, ABC):
             msg = ship.msg
             if isinstance(msg, ReliableMessage):
                 # remove sent message
-                sig = msg.get('signature')
-                sig = sig[-8:]  # last 6 bytes (signature in base64)
+                sig = get_sig(msg=msg)
                 print('[QUEUE] message sent, remove from db: %s, %s -> %s' % (sig, msg.sender, msg.receiver))
                 db = self.messenger.database
                 db.remove_reliable_message(msg=msg)
             ship.on_sent()
+
+
+def get_sig(msg: ReliableMessage) -> str:
+    """ last 6 bytes (signature in base64) """
+    sig = msg.get('signature')
+    # assert isinstance(sig, str), 'signature error: %s' % sig
+    sig = sig.strip()
+    return sig[-8:]  # last 6 bytes (signature in base64)

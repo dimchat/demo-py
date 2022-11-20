@@ -39,6 +39,7 @@ from dimsdk import ReliableMessage
 from ..utils import Logging
 from ..common import MessageDBI
 from ..common import CommonFacebook
+from ..conn.session import get_sig
 
 from .session_center import SessionCenter
 from .pusher import Pusher
@@ -238,8 +239,3 @@ def session_push(msg: ReliableMessage, receiver: ID) -> int:
         if sess.send_reliable_message(msg=msg):
             cnt += 1
     return cnt
-
-
-def get_sig(msg: ReliableMessage) -> str:
-    sig = msg.get('signature')
-    return sig[-8:]  # last 6 bytes (signature in base64)

@@ -82,8 +82,8 @@ class RequestHandler(StreamRequestHandler, Logging):
             center = SessionCenter()
             center.add_session(session=session)
             self.info('client connected: %s' % session)
-            if isinstance(session, Runner):
-                session.setup()
+            assert isinstance(session, Runner), 'session error: %s' % session
+            session.setup()
         except Exception as error:
             self.error('setup request handler error: %s' % error)
             traceback.print_exc()
@@ -95,8 +95,8 @@ class RequestHandler(StreamRequestHandler, Logging):
             self.info('client disconnected: %s' % session)
             center = SessionCenter()
             center.remove_session(session=session)
-            if isinstance(session, Runner):
-                session.finish()
+            assert isinstance(session, Runner), 'session error: %s' % session
+            session.finish()
             self.__messenger = None
         except Exception as error:
             self.error('finish request handler error: %s' % error)
@@ -113,8 +113,8 @@ class RequestHandler(StreamRequestHandler, Logging):
         try:
             self.info('session started: %s' % str(self.client_address))
             session = self.messenger.session
-            if isinstance(session, Runner):
-                session.handle()
+            assert isinstance(session, Runner), 'session error: %s' % session
+            session.handle()
             self.info('session finished: %s' % str(self.client_address))
         except Exception as error:
             self.error('request handler error: %s' % error)

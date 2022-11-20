@@ -35,6 +35,7 @@ from dimsdk import EntityType
 from dimsdk import ReliableMessage
 from dimsdk import Content, ContentType, TextContent, Command
 from dimsdk import ContentProcessor, ContentProcessorCreator
+from dimsdk import BaseContentProcessor
 
 from ..utils import Logging
 from ..common import HandshakeCommand, LoginCommand
@@ -119,5 +120,8 @@ class ServerContentProcessorCreator(CommonContentProcessorCreator):
         # receipt
         if cmd_name == ReceiptCommand.RECEIPT:
             return ReceiptCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        # default
+        if msg_type == 0:
+            return BaseContentProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
         return super().create_command_processor(msg_type=msg_type, cmd_name=cmd_name)

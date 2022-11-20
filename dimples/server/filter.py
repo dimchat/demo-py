@@ -35,8 +35,8 @@ from abc import ABC, abstractmethod
 
 from dimsdk import EntityType, ID
 from dimsdk import ReliableMessage
-from dimsdk import Facebook
 
+from ..common import CommonFacebook
 from ..common import Session
 
 
@@ -65,7 +65,7 @@ class Filter(ABC):
 
 class DefaultFilter(Filter):
 
-    def __init__(self, session: Session, facebook: Facebook):
+    def __init__(self, session: Session, facebook: CommonFacebook):
         super().__init__()
         self.__session = weakref.ref(session)
         self.__facebook = weakref.ref(facebook)
@@ -75,7 +75,7 @@ class DefaultFilter(Filter):
         return self.__session()
 
     @property
-    def facebook(self) -> Facebook:
+    def facebook(self) -> CommonFacebook:
         return self.__facebook()
 
     # Override

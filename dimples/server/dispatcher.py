@@ -33,7 +33,6 @@
 import threading
 from typing import Optional, List
 
-from dimsdk import EntityType
 from dimsdk import ReliableMessage
 
 from ..utils import Singleton
@@ -100,11 +99,6 @@ class Dispatcher(Runner, Deliver, Logging):
     def deliver_message(self, msg: ReliableMessage) -> int:
         # append message to waiting queue
         self.__append(msg=msg)
-        # check sender
-        sender = msg.sender
-        if sender.type == EntityType.STATION:
-            # no need to respond receipt to station
-            return -1
         return 0
 
     def start(self):

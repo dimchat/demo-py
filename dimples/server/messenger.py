@@ -32,12 +32,12 @@
 
 from typing import Optional, List
 
-from dimsdk import EntityType
+from dimsdk import EntityType, ANYONE
 from dimsdk import Station
 from dimsdk import SecureMessage, ReliableMessage
 from dimsdk import Processor
 
-from ..common import HandshakeCommand
+from ..common import HandshakeCommand, ReceiptCommand
 from ..common import MessageDBI
 from ..common import CommonMessenger, CommonFacebook
 from ..common import Session
@@ -101,26 +101,47 @@ class ServerMessenger(CommonMessenger):
         if receiver == current.identifier:
             # message to this station
             return s_msg
+        elif receiver.is_broadcast and receiver.is_user:
+            # broadcast message to single destination
+            if receiver == Station.ANY:
+                # message to 'station@anywhere'
+                # for first handshake without station ID
+                return s_msg
+            elif receiver == ANYONE:
+                # message to 'anyone@anywhere'
+                # other plain message without encryption?
+                return s_msg
         # 3. check session for delivering
         session = self.session
         if session.identifier is None or not session.active:
-            # not login
-            if receiver.is_broadcast:
-                # first handshake without station ID?
-                # return it for processing
-                return s_msg
-            # ask client to handshake (with session key) again
+            # not login? ask client to handshake again (with session key)
+            # this message won't be delivered before handshake accepted
             cmd = HandshakeCommand.ask(session=session.key)
             self.send_content(sender=current.identifier, receiver=sender, content=cmd)
+            # DISCUSS: suspend this message for waiting handshake accepted
+            #          or let the client to send it again?
             return None
-        # 4. deliver message
+        # 4. deliver message and respond to sender
         #    broadcast message should deliver to other stations;
-        #    group message should deliver to group assistants.
+        #    group message should deliver to group assistant(s).
         dispatcher = Dispatcher()
         dispatcher.deliver_message(msg=msg)
-        if receiver.is_broadcast:
-            # call dispatcher to broadcast to neighbour station(s);
-            # current station is also a broadcast message's target,
+        if sender.type == EntityType.STATION:
+            # no need to respond receipt to station
+            text = None
+        elif receiver.is_broadcast:
+            text = 'Message broadcasting'
+        elif receiver.is_group:
+            text = 'Group message delivering'
+        else:
+            text = 'Message delivering'
+        if text is not None:
+            cmd = ReceiptCommand.create(text=text, msg=msg)
+            self.send_content(sender=current.identifier, receiver=sender, content=cmd)
+        # 5. OK
+        if receiver.is_broadcast and receiver.is_group:
+            # broadcast message to multiple destinations,
+            # current station is it's receiver too,
             # so return it to let this station process it.
             return s_msg
         else:

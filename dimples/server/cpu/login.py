@@ -39,10 +39,17 @@ from dimsdk import BaseCommandProcessor
 
 from ...utils import Logging
 from ...common import LoginCommand, ReportCommand
-from ...common import CommonMessenger, Session
+from ...common import CommonFacebook, CommonMessenger
+from ...common import Session
 
 
 class LoginCommandProcessor(BaseCommandProcessor, Logging):
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
 
     @property
     def session(self) -> Session:
