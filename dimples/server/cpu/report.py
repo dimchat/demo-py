@@ -52,11 +52,15 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ReportCommand), 'report command error: %s' % content
-        # report title
+        # check session sender
         session = self.session
-        db = session.database
         sender = msg.sender
+        if session.identifier is None:
+            self.error(msg='session not login, drop report command: %s => %s' % (sender, content))
+            return []
         assert sender == session.identifier, 'report sender error: %s not %s' % (sender, session.identifier)
+        db = session.database
+        # check report title
         title = content.title
         if title == ReportCommand.ONLINE:
             # online

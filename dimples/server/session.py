@@ -37,13 +37,15 @@
 
 import socket
 import traceback
-from typing import List
+from typing import List, Optional
+
+from dimsdk import ID
 
 from startrek import Docker, DockerStatus
 from startrek import Arrival
 
 from ..utils import hex_encode, random_bytes
-from ..utils import Logging
+from ..utils import Log, Logging
 from ..common import SessionDBI
 from ..conn import BaseSession
 from ..conn import WSArrival, MarsStreamArrival, MTPStreamArrival
@@ -81,6 +83,32 @@ class ServerSession(BaseSession, Logging):
     @property
     def key(self) -> str:
         return self.__key
+
+    @property  # Override
+    def identifier(self) -> Optional[ID]:
+        return super().identifier
+
+    @identifier.setter  # Override
+    def identifier(self, user: ID):
+        old = super().identifier
+        if user == old:
+            return
+        # noinspection PyUnresolvedReferences
+        super(ServerSession, ServerSession).identifier.__set__(self, user)
+        load_cached_messages(session=self)
+
+    @property  # Override
+    def active(self) -> bool:
+        return super().active
+
+    @active.setter  # Override
+    def active(self, flag: bool):
+        old = super().active
+        if flag == old:
+            return
+        # noinspection PyUnresolvedReferences
+        super(ServerSession, ServerSession).active.__set__(self, flag)
+        load_cached_messages(session=self)
 
     @property  # Override
     def running(self) -> bool:
@@ -163,3 +191,18 @@ def get_data_packages(ship: Arrival) -> List[bytes]:
     else:
         # TODO: other format?
         return [payload]
+
+
+def load_cached_messages(session: ServerSession) -> int:
+    identifier = session.identifier
+    if identifier is None or not session.active:
+        return -1
+    messenger = session.messenger
+    db = messenger.database
+    messages = db.reliable_messages(receiver=identifier)
+    cnt = len(messages)
+    Log.info(msg='[DB] %d cached message(s) loaded for: %s' % (cnt, identifier))
+    for msg in messages:
+        data = messenger.serialize_message(msg=msg)
+        session.queue_message_package(msg=msg, data=data, priority=1)
+    return cnt
