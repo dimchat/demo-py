@@ -38,8 +38,8 @@ from .push_info import PushAlert, PushInfo
 from .push_service import PushService, PushCenter
 from .pusher import Pusher, DefaultPusher
 
-from .deliver import Deliver, DefaultDeliver
-from .deliver import GroupDeliver, BroadcastDeliver
+from .deliver import Deliver
+from .delivers import DefaultDeliver, GroupDeliver, BroadcastDeliver
 from .dispatcher import Dispatcher
 from .filter import Filter, DefaultFilter
 

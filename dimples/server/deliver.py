@@ -30,212 +30,138 @@
     A dispatcher to decide which way to deliver message.
 """
 
+import threading
 from abc import ABC, abstractmethod
-from typing import List
+from typing import Optional, List
 
-from dimsdk import ID
+from dimsdk import EntityType, ID
+from dimsdk import Content
 from dimsdk import ReliableMessage
 
 from ..utils import Logging
-from ..common import MessageDBI
-from ..common import CommonFacebook
+from ..utils import Runner
 from ..conn.session import get_sig
 
-from .session_center import SessionCenter
-from .pusher import Pusher
+
+class DeliverTask:
+
+    def __init__(self, msg: ReliableMessage, rcpt: List[ID]):
+        super().__init__()
+        self.msg = msg
+        self.rcpt = rcpt
 
 
-class Deliver(ABC):
+class DeliverQueue:
+
+    def __init__(self):
+        super().__init__()
+        # locked queue
+        self.__tasks: List[DeliverTask] = []
+        self.__lock = threading.Lock()
+
+    def append(self, task: DeliverTask):
+        with self.__lock:
+            self.__tasks.append(task)
+
+    def next(self) -> Optional[DeliverTask]:
+        with self.__lock:
+            if len(self.__tasks) > 0:
+                return self.__tasks.pop(0)
+
+
+class Deliver(Runner, Logging, ABC):
+
+    def __init__(self):
+        super().__init__()
+        self.__queue = DeliverQueue()  # locked queue
+
+    def __append(self, msg: ReliableMessage, rcpt: List[ID]):
+        task = DeliverTask(msg=msg, rcpt=rcpt)
+        self.__queue.append(task=task)
+
+    def __next(self) -> (Optional[ReliableMessage], Optional[List[ID]]):
+        task = self.__queue.next()
+        if task is None:
+            return None, None
+        else:
+            return task.msg, task.rcpt
 
     @abstractmethod
-    def deliver_message(self, msg: ReliableMessage) -> int:
+    def _get_recipients(self, receiver: ID) -> List[ID]:
+        """
+        Get actual receivers
+
+            1. neighbour stations
+            2. group assistants
+            3. bots
+
+        :param receiver: original receiver in message
+        :return: actual receivers
+        """
         raise NotImplemented
 
+    @abstractmethod
+    def _respond(self, msg: ReliableMessage, rcpt: List[ID]) -> List[Content]:
+        """
+        Respond receipt command for delivering
 
-class BroadcastDeliver(Deliver, Logging):
+        :param msg:  original message
+        :param rcpt: actual receivers
+        :return: responses
+        """
+        raise NotImplemented
 
-    def __init__(self, facebook: CommonFacebook):
-        super().__init__()
-        self.__facebook = facebook
-
-    @property
-    def facebook(self) -> CommonFacebook:
-        return self.__facebook
-
-    @classmethod
-    def get_sent_nodes(cls, msg: ReliableMessage) -> List[ID]:
-        sent_nodes = msg.get('sent_nodes')
-        if sent_nodes is None:
+    def deliver_message(self, msg: ReliableMessage) -> List[Content]:
+        sender = msg.sender
+        receiver = msg.receiver
+        # get all actual recipients
+        recipients = self._get_recipients(receiver=receiver)
+        self.info(msg='delivering message (%s) from %s to %s, actual receivers: %s'
+                      % (get_sig(msg=msg), sender, receiver, recipients))
+        self.__append(msg=msg, rcpt=recipients)
+        # respond
+        if sender.type == EntityType.STATION:
+            # no need to respond receipt to station
             return []
-        return ID.convert(members=sent_nodes)
-
-    @classmethod
-    def set_sent_nodes(cls, msg: ReliableMessage, sent_nodes: List[ID]):
-        if sent_nodes is None or len(sent_nodes) == 0:
-            msg.pop('sent_nodes', None)
         else:
-            msg['sent_nodes'] = ID.revert(members=sent_nodes)
-
-    # noinspection PyMethodMayBeStatic,PyUnusedLocal
-    def _get_neighbor_stations(self, receiver: ID) -> List[ID]:
-        # TODO: get neighbor stations
-        return []
-
-    # noinspection PyMethodMayBeStatic
-    def _get_current_station(self) -> ID:
-        facebook = self.facebook
-        current = facebook.current_user
-        return current.identifier
+            return self._respond(msg=msg, rcpt=recipients)
 
     # Override
-    def deliver_message(self, msg: ReliableMessage) -> int:
-        receiver = msg.receiver
-        assert receiver.is_broadcast, 'broadcast ID error: %s' % receiver
-        total = 0
-        sent_nodes = self.get_sent_nodes(msg=msg)
-        neighbors = self._get_neighbor_stations(receiver=receiver)
-        current = self._get_current_station()
-        # 1. broadcast to neighbor stations
-        self.info(msg='broadcasting message (%s) for: %s, current: %s, neighbors: %s'
-                      % (get_sig(msg=msg), receiver, current, neighbors))
-        for octopus in neighbors:
-            assert octopus != current, 'neighbour station error: %s => %s' % (current, neighbors)
-            if octopus in sent_nodes:
-                self.info(msg='neighbour station (%s) already sent' % octopus)
+    def process(self) -> bool:
+        msg, recipients = self.__next()
+        if msg is None:  # or recipients is None:
+            # nothing to do
+            return False
+        sig = get_sig(msg=msg)
+        traces = msg.get('traces')
+        assert traces is not None, 'message (%s) traces should have been set by filter.' % sig
+        # push to all recipients
+        for receiver in recipients:
+            if receiver in traces:
                 continue
-            cnt = session_push(msg=msg, receiver=octopus)
-            if cnt > 0:
-                self.info(msg='message (%s) push to %s, %d session(s)' % (get_sig(msg=msg), octopus, cnt))
-                sent_nodes.append(octopus)
-                total += cnt
-        # 2. send to other neighbor(s) via my octopus
-        self.set_sent_nodes(msg=msg, sent_nodes=sent_nodes)
-        assert current is not None, 'current station not found'
-        cnt = session_push(msg=msg, receiver=current)
-        if cnt > 0:
-            self.info(msg='message (%s) push to %s, %d session(s)' % (get_sig(msg=msg), current, cnt))
-            total += cnt
-        return total
+            cnt = self._push_message(msg=msg, receiver=receiver)
+            if cnt > 0 and receiver.type == EntityType.STATION:
+                # append station
+                traces.append(str(receiver))
+            self.info(msg='message (%s) pushed to %s, %d session(s)' % (sig, receiver, cnt))
+        # return True to process next immediately
+        return True
 
+    @abstractmethod
+    def _push_message(self, msg: ReliableMessage, receiver: ID) -> int:
+        """
+        Push message to receiver
 
-class GroupDeliver(Deliver, Logging):
+            1. save message;
+            2. try to push via active session(s);
+            3. push notification on session failed.
 
-    def __init__(self, database: MessageDBI, facebook: CommonFacebook):
-        super().__init__()
-        self.__database = database
-        self.__facebook = facebook
+        :param msg:      network message
+        :param receiver: actual receiver
+        :return: success session count
+        """
+        raise NotImplemented
 
-    @property
-    def database(self) -> MessageDBI:
-        return self.__database
-
-    @property
-    def facebook(self) -> CommonFacebook:
-        return self.__facebook
-
-    # noinspection PyMethodMayBeStatic
-    def _get_assistants(self, group: ID) -> List[ID]:
-        facebook = self.facebook
-        assistants = facebook.assistants(identifier=group)
-        if assistants is None:
-            # get from ANS
-            bot = ID.parse(identifier='assistant')
-            if bot is None:
-                assistants = []
-            else:
-                assistants = [bot]
-        return assistants
-
-    def _save_group_message(self, msg: ReliableMessage, group: ID, assistants: List[ID]) -> int:
-        db = self.database
-        if db is None:
-            self.warning(msg='message db not set, drop message for: %s, %s' % (group, assistants))
-            return -1
-        if len(assistants) > 0:
-            # change group receiver to first bot
-            bot = assistants[0]  # TODO: or let bot = 'assistant@anywhere'?
-            msg['group'] = str(group)
-            msg['receiver'] = str(bot)
-            # save the message for first bot
-            db.save_reliable_message(msg=msg)
-            return 0
-        else:
-            self.warning(msg='assistants not set, drop message for: %s' % group)
-            return -2
-
-    # Override
-    def deliver_message(self, msg: ReliableMessage) -> int:
-        receiver = msg.receiver
-        assert receiver.is_group, 'group ID error: %s' % receiver
-        cnt = 0
-        # 1. redirect to group assistant
-        assistants = self._get_assistants(group=receiver)
-        self.info(msg='redirecting group message (%s) for: %s, assistants: %s'
-                      % (get_sig(msg=msg), receiver, assistants))
-        for bot in assistants:
-            cnt += session_push(msg=msg, receiver=bot)
-            if cnt > 0:
-                # got one group assistant online,
-                # no need to push to other assistant(s).
-                self.info(msg='message (%s) push to %s, %d session(s)' % (get_sig(msg=msg), bot, cnt))
-                break
-        # 2. if no assistant online, store it
-        if cnt == 0:
-            self._save_group_message(msg=msg, group=receiver, assistants=assistants)
-        return cnt
-
-
-class DefaultDeliver(Deliver, Logging):
-
-    def __init__(self, database: MessageDBI, pusher: Pusher = None):
-        super().__init__()
-        self.__database = database
-        self.__pusher = pusher
-
-    @property
-    def database(self) -> MessageDBI:
-        return self.__database
-
-    @property
-    def pusher(self) -> Pusher:
-        return self.__pusher
-
-    def _save_message(self, msg: ReliableMessage, receiver: ID) -> int:
-        db = self.database
-        if db is None:
-            self.warning(msg='message db not set, drop message for: %s' % receiver)
-            return -1
-        db.save_reliable_message(msg=msg)
-        return 0
-
-    # Override
-    def deliver_message(self, msg: ReliableMessage) -> int:
-        receiver = msg.receiver
-        assert receiver.is_user, 'receiver ID error: %s' % receiver
-        # 1. push message to the waiting queue in the receiver's session(s)
-        cnt = session_push(msg=msg, receiver=receiver)
-        if cnt > 0:
-            # success
-            self.info(msg='message (%s) pushed to %s, %d session(s)' % (get_sig(msg=msg), receiver, cnt))
-            return cnt
-        # 2. no session active, store the message
-        if self._save_message(msg=msg, receiver=receiver) < 0:
-            # db error
-            return -1
-        # 3. try to push notification
-        delegate = self.pusher
-        if delegate is None:
-            self.warning(msg='pusher not set yet, drop notification for: %s' % receiver)
-        else:
-            delegate.push_notification(msg=msg)
-        return 0
-
-
-def session_push(msg: ReliableMessage, receiver: ID) -> int:
-    cnt = 0
-    center = SessionCenter()
-    sessions = center.active_sessions(identifier=receiver)
-    for sess in sessions:
-        if sess.send_reliable_message(msg=msg):
-            cnt += 1
-    return cnt
+    def start(self):
+        thread = threading.Thread(target=self.run, daemon=True)
+        thread.start()

@@ -30,29 +30,24 @@
     A dispatcher to decide which way to deliver message.
 """
 
-import threading
 from typing import Optional, List
 
+from dimsdk import Content
 from dimsdk import ReliableMessage
 
 from ..utils import Singleton
-from ..utils import Logging
-from ..utils import Runner
 
 from .deliver import Deliver
 
 
 @Singleton
-class Dispatcher(Runner, Deliver, Logging):
+class Dispatcher:
 
     def __init__(self):
         super().__init__()
         self.__deliver: Optional[Deliver] = None
         self.__group_deliver: Optional[Deliver] = None
         self.__broadcast_deliver: Optional[Deliver] = None
-        # locked message queue
-        self.__messages: List[ReliableMessage] = []
-        self.__lock = threading.Lock()
 
     #
     #   Deliver delegates
@@ -82,50 +77,33 @@ class Dispatcher(Runner, Deliver, Logging):
     def broadcast_deliver(self, delegate: Deliver):
         self.__broadcast_deliver = delegate
 
-    #
-    #   Message Queue
-    #
-
-    def __append(self, msg: ReliableMessage):
-        with self.__lock:
-            self.__messages.append(msg)
-
-    def __pop(self) -> Optional[ReliableMessage]:
-        with self.__lock:
-            if len(self.__messages) > 0:
-                return self.__messages.pop(0)
-
-    # Override
-    def deliver_message(self, msg: ReliableMessage) -> int:
-        # append message to waiting queue
-        self.__append(msg=msg)
-        return 0
-
-    def start(self):
-        thread = threading.Thread(target=self.run, daemon=True)
-        thread.start()
-
-    # Override
-    def process(self) -> bool:
-        # 1. get next message
-        msg = self.__pop()
-        if msg is None:
-            # waiting queue is empty
-            # wait a while to check again
-            return False
-        # 2. get deliver for this message
+    def deliver_message(self, msg: ReliableMessage) -> List[Content]:
         receiver = msg.receiver
         if receiver.is_broadcast:
-            deliver = self.broadcast_deliver
+            return self.broadcast_deliver.deliver_message(msg=msg)
         elif receiver.is_group:
-            deliver = self.group_deliver
+            return self.group_deliver.deliver_message(msg=msg)
         else:
-            deliver = self.deliver
-        # 3. try to deliver
-        try:
-            assert isinstance(deliver, Deliver), 'deliver error: %s' % deliver
-            deliver.deliver_message(msg=msg)
-            # return True to get next task immediately
-            return True
-        except Exception as e:
-            self.error(msg='failed to deliver message: %s, %s => %s' % (e, msg.sender, receiver))
+            return self.deliver.deliver_message(msg=msg)
+
+    def start(self):
+        deliver = self.deliver
+        if deliver is not None:
+            deliver.start()
+        deliver = self.group_deliver
+        if deliver is not None:
+            deliver.start()
+        deliver = self.broadcast_deliver
+        if deliver is not None:
+            deliver.start()
+
+    def stop(self):
+        deliver = self.deliver
+        if deliver is not None:
+            deliver.stop()
+        deliver = self.group_deliver
+        if deliver is not None:
+            deliver.stop()
+        deliver = self.broadcast_deliver
+        if deliver is not None:
+            deliver.stop()

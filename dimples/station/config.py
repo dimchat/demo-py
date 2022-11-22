@@ -197,7 +197,7 @@ def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
     #       and call 'PushCenter().start()'
     dispatcher.deliver = DefaultDeliver(database=shared.mdb)
     dispatcher.group_deliver = GroupDeliver(database=shared.mdb, facebook=facebook)
-    dispatcher.broadcast_deliver = BroadcastDeliver(facebook=facebook)
+    dispatcher.broadcast_deliver = BroadcastDeliver()
     dispatcher.start()
     return dispatcher
 

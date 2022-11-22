@@ -170,3 +170,15 @@ class SessionCenter:
             for address in discarded:
                 all_addresses.discard(address)
         return actives
+
+    def is_active(self, identifier: ID) -> bool:
+        """ check whether user online """
+        with self.__lock:
+            # get all addresses with ID
+            all_addresses = self.__pool.all_addresses(identifier=identifier)
+            for address in all_addresses:
+                # get session by each address
+                session = self.__pool.get_session(remote=address)
+                if session is not None and session.active:
+                    # got one active
+                    return True

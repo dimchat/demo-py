@@ -37,7 +37,7 @@ from dimsdk import Station
 from dimsdk import SecureMessage, ReliableMessage
 from dimsdk import Processor
 
-from ..common import HandshakeCommand, ReceiptCommand
+from ..common import HandshakeCommand
 from ..common import MessageDBI
 from ..common import CommonMessenger, CommonFacebook
 from ..common import Session
@@ -125,19 +125,9 @@ class ServerMessenger(CommonMessenger):
         #    broadcast message should deliver to other stations;
         #    group message should deliver to group assistant(s).
         dispatcher = Dispatcher()
-        dispatcher.deliver_message(msg=msg)
-        if sender.type == EntityType.STATION:
-            # no need to respond receipt to station
-            text = None
-        elif receiver.is_broadcast:
-            text = 'Message broadcasting'
-        elif receiver.is_group:
-            text = 'Group message delivering'
-        else:
-            text = 'Message delivering'
-        if text is not None:
-            cmd = ReceiptCommand.create(text=text, msg=msg)
-            self.send_content(sender=current.identifier, receiver=sender, content=cmd)
+        responses = dispatcher.deliver_message(msg=msg)
+        for res in responses:
+            self.send_content(sender=current.identifier, receiver=sender, content=res)
         # 5. OK
         if receiver.is_broadcast and receiver.is_group:
             # broadcast message to multiple destinations,

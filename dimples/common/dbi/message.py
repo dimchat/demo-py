@@ -37,7 +37,7 @@ class ReliableMessageDBI(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def save_reliable_message(self, msg: ReliableMessage) -> bool:
+    def save_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         raise NotImplemented
 
     @abstractmethod

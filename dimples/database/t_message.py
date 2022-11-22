@@ -26,7 +26,7 @@
 import time
 from typing import List
 
-from dimsdk import EntityType, ID
+from dimsdk import ID
 from dimsdk import ReliableMessage
 
 from ..utils import CacheHolder, CacheManager
@@ -57,11 +57,8 @@ class ReliableMessageTable(ReliableMessageDBI):
         return messages if messages is not None else []
 
     # Override
-    def save_reliable_message(self, msg: ReliableMessage) -> bool:
-        if is_ignored_message(msg=msg):
-            return False
+    def save_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         now = time.time()
-        receiver = msg.receiver
         # assert receiver.is_user, 'message receiver error: %s' % receiver
         messages, holder = self.__msg_cache.fetch(key=receiver, now=now)
         if messages is None:
@@ -98,25 +95,6 @@ class ReliableMessageTable(ReliableMessageDBI):
         assert isinstance(messages, list), 'msg list error: %s' % messages
         messages.pop(index)
         holder.update(value=messages, now=now)
-        return True
-
-
-def is_broadcast_message(msg: ReliableMessage):
-    if msg.receiver.is_broadcast:
-        return True
-    group = msg.group
-    return group is not None and group.is_broadcast
-
-
-def is_ignored_message(msg: ReliableMessage) -> bool:
-    if is_broadcast_message(msg=msg):
-        # ignore broadcast message
-        return True
-    if msg.sender.type == EntityType.STATION:
-        # ignore message from station
-        return True
-    if msg.receiver.type == EntityType.STATION:
-        # ignore message to station
         return True
 
 
