@@ -40,7 +40,6 @@ from dimsdk import BaseCommandProcessor
 from ...utils import Logging
 from ...common import LoginCommand, ReportCommand
 from ...common import CommonFacebook, CommonMessenger
-from ...common import Session
 
 
 class LoginCommandProcessor(BaseCommandProcessor, Logging):
@@ -52,17 +51,17 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         return barrack
 
     @property
-    def session(self) -> Session:
-        messenger = self.messenger
-        assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
-        return messenger.session
+    def messenger(self) -> CommonMessenger:
+        transceiver = super().messenger
+        assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
+        return transceiver
 
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, LoginCommand), 'command error: %s' % content
         sender = content.identifier
         # 1. store login command
-        session = self.session
+        session = self.messenger.session
         db = session.database
         if not db.save_login_command_message(identifier=sender, cmd=content, msg=msg):
             self.error('login command error/expired: %s' % content)
@@ -72,15 +71,13 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         station = content.station
         roaming = ID.parse(identifier=station.get('ID'))
         assert isinstance(roaming, ID), 'login command error: %s' % content
-        # TODO: post notification - USER_ONLINE
-        # NotificationCenter().post(name=NotificationNames.USER_ONLINE, sender=self, info={
-        #     'ID': str(sender),
-        #     'station': str(roaming),
-        #     'time': content.time,
-        # })
         if roaming != current.identifier:
             # user roaming to other station
             self.info('user roaming: %s -> %s' % (sender, roaming))
+            from ..dispatcher import Dispatcher
+            dispatcher = Dispatcher()
+            # let dispatcher to handle cached messages for roaming user
+            dispatcher.add_roaming(user=sender, station=roaming)
             return []
         if sender != session.identifier:
             # forwarded login command

@@ -30,24 +30,116 @@
     A dispatcher to decide which way to deliver message.
 """
 
+import threading
 from typing import Optional, List
 
+from dimsdk import ID
 from dimsdk import Content
 from dimsdk import ReliableMessage
 
-from ..utils import Singleton
+from ..utils import Singleton, Logging, Runner
+from ..common import MessageDBI, CommonFacebook
 
+from .session_center import SessionCenter
 from .deliver import Deliver
 
 
+class RoamingInfo:
+
+    def __init__(self, user: ID, station: ID):
+        super().__init__()
+        self.user = user
+        self.station = station
+
+
 @Singleton
-class Dispatcher:
+class Dispatcher(Runner, Logging):
 
     def __init__(self):
         super().__init__()
+        self.__database: Optional[MessageDBI] = None
+        self.__facebook: Optional[CommonFacebook] = None
+        # roaming (user id, station id)
+        self.__roaming: List[RoamingInfo] = []
+        self.__lock = threading.Lock()
+        # deliver delegates
         self.__deliver: Optional[Deliver] = None
         self.__group_deliver: Optional[Deliver] = None
         self.__broadcast_deliver: Optional[Deliver] = None
+
+    @property
+    def database(self) -> MessageDBI:
+        return self.__database
+
+    @database.setter
+    def database(self, db: MessageDBI):
+        self.__database = db
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        return self.__facebook
+
+    @facebook.setter
+    def facebook(self, barrack: facebook):
+        self.__facebook = barrack
+
+    def __append(self, info: RoamingInfo):
+        with self.__lock:
+            self.__roaming.append(info)
+
+    def __next(self) -> Optional[RoamingInfo]:
+        with self.__lock:
+            if len(self.__roaming) > 0:
+                return self.__roaming.pop(0)
+
+    def add_roaming(self, user: ID, station: ID):
+        info = RoamingInfo(user=user, station=station)
+        self.__append(info=info)
+
+    # Override
+    def process(self) -> bool:
+        info = self.__next()
+        if info is None:
+            # nothing to do
+            return False
+        db = self.database
+        cached_messages = db.reliable_messages(receiver=info.user)
+        if cached_messages is None or len(cached_messages) == 0:
+            # no cached message for this user
+            return True
+        # redirect cached messages to the roaming station
+        current = self.facebook.current_user
+        messages_roam(messages=cached_messages, roaming=info.station, current=current.identifier)
+        # return True to process next immediately
+        return True
+
+    def start(self):
+        thread = threading.Thread(target=self.run, daemon=True)
+        thread.start()
+        # start deliver delegates
+        deliver = self.deliver
+        if deliver is not None:
+            deliver.start()
+        deliver = self.group_deliver
+        if deliver is not None:
+            deliver.start()
+        deliver = self.broadcast_deliver
+        if deliver is not None:
+            deliver.start()
+
+    # Override
+    def stop(self):
+        super().stop()
+        # stop deliver delegates
+        deliver = self.deliver
+        if deliver is not None:
+            deliver.stop()
+        deliver = self.group_deliver
+        if deliver is not None:
+            deliver.stop()
+        deliver = self.broadcast_deliver
+        if deliver is not None:
+            deliver.stop()
 
     #
     #   Deliver delegates
@@ -86,24 +178,34 @@ class Dispatcher:
         else:
             return self.deliver.deliver_message(msg=msg)
 
-    def start(self):
-        deliver = self.deliver
-        if deliver is not None:
-            deliver.start()
-        deliver = self.group_deliver
-        if deliver is not None:
-            deliver.start()
-        deliver = self.broadcast_deliver
-        if deliver is not None:
-            deliver.start()
 
-    def stop(self):
-        deliver = self.deliver
-        if deliver is not None:
-            deliver.stop()
-        deliver = self.group_deliver
-        if deliver is not None:
-            deliver.stop()
-        deliver = self.broadcast_deliver
-        if deliver is not None:
-            deliver.stop()
+def messages_roam(messages: List[ReliableMessage], roaming: ID, current: ID):
+    """ deliver messages to roaming station """
+    center = SessionCenter()
+    failed = []
+    # 1. redirect cached messages to roaming station directly
+    sessions = center.active_sessions(identifier=roaming)
+    for msg in messages:
+        sent = False
+        for sess in sessions:
+            if sess.send_reliable_message(msg=msg, priority=1):
+                # deliver to first active session of roaming station,
+                # actually there is only one session for one neighbour
+                sent = True
+                break
+        if not sent:
+            failed.append(msg)
+    if len(failed) == 0:
+        # all cached messages have bean sent to the roaming station directly
+        return True
+    # 2. roaming station not connected, redirect it via station bridge
+    sessions = center.active_sessions(identifier=current)
+    for msg in failed:
+        # set roaming station ID here to let the bridge know where to go,
+        # and the bridge should remove 'roaming' before deliver it.
+        msg['roaming'] = str(roaming)
+        for sess in sessions:
+            if sess.send_reliable_message(msg=msg, priority=1):
+                # deliver to first active session of station bridge,
+                # actually there is only one session for the bridge
+                break

@@ -195,6 +195,8 @@ def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
     dispatcher = Dispatcher()
     # TODO: create pusher for DefaultDeliver
     #       and call 'PushCenter().start()'
+    dispatcher.database = shared.mdb
+    dispatcher.facebook = facebook
     dispatcher.deliver = DefaultDeliver(database=shared.mdb)
     dispatcher.group_deliver = GroupDeliver(database=shared.mdb, facebook=facebook)
     dispatcher.broadcast_deliver = BroadcastDeliver()
