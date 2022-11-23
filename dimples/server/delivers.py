@@ -43,6 +43,7 @@ from ..common import CommonFacebook
 from .session_center import SessionCenter
 from .pusher import Pusher
 from .deliver import Deliver
+from .dispatcher import Dispatcher
 
 
 class BroadcastDeliver(Deliver, Logging):
@@ -51,7 +52,7 @@ class BroadcastDeliver(Deliver, Logging):
     def _get_recipients(self, receiver: ID) -> List[ID]:
         # get bot for search command
         if receiver in ['archivist@anywhere', 'archivists@everywhere']:
-            self.info('forward search command to archivist: %s -> %s' % receiver)
+            self.info(msg='forward search command to archivist: %s -> %s' % receiver)
             # get from ANS
             bot = ID.parse(identifier='archivist')
             return [] if bot is None else [bot]
@@ -119,14 +120,8 @@ class GroupDeliver(Deliver, Logging):
 
     # Override
     def _push_message(self, msg: ReliableMessage, receiver: ID) -> int:
-        sender = msg.sender
-        if sender.type == EntityType.STATION or receiver.type == EntityType.STATION:
-            # no need to save station message
-            pass
-        else:
-            db = self.database
-            assert db is not None, 'message database not set yet'
-            db.save_reliable_message(msg=msg, receiver=receiver)
+        # save message before push
+        save_message(msg=msg, receiver=receiver, database=self.database)
         # push via active session
         return session_push(msg=msg, receiver=receiver)
 
@@ -161,24 +156,43 @@ class DefaultDeliver(Deliver, Logging):
 
     # Override
     def _push_message(self, msg: ReliableMessage, receiver: ID) -> int:
-        sender = msg.sender
-        if sender.type == EntityType.STATION or receiver.type == EntityType.STATION:
-            # no need to save station message
-            pass
-        else:
-            db = self.database
-            assert db is not None, 'message database not set yet'
-            db.save_reliable_message(msg=msg, receiver=receiver)
+        # save message before push
+        save_message(msg=msg, receiver=receiver, database=self.database)
         # push via active session
+        # 1. try to push via active session
         cnt = session_push(msg=msg, receiver=receiver)
-        if cnt == 0:
-            # user not login, push notification
+        if cnt > 0:
+            # receiver is login to current station, message pushed directly
+            return cnt
+        # 2. check for roaming and redirect
+        if roamer_deliver(msg=msg, receiver=receiver):
+            # receiver is roaming to other station, message redirected
+            return 0
+        # 3. user not roaming and not login, push notification
+        if receiver.type == EntityType.USER:
             pusher = self.pusher
             if pusher is None:
                 self.warning(msg='pusher not set yet, drop notification for: %s' % receiver)
             else:
                 pusher.push_notification(msg=msg)
-        return cnt
+        return 0
+
+
+def save_message(msg: ReliableMessage, receiver: ID, database: MessageDBI) -> bool:
+    sender = msg.sender
+    if sender.type == EntityType.STATION or receiver.type == EntityType.STATION:
+        # no need to save station message
+        return False
+    assert receiver.is_user and not receiver.is_broadcast, 'receiver error: %s' % receiver
+    return database.save_reliable_message(msg=msg, receiver=receiver)
+
+
+def roamer_deliver(msg: ReliableMessage, receiver: ID) -> bool:
+    """ deliver message via roamer """
+    dispatcher = Dispatcher()
+    roamer = dispatcher.roaming_deliver
+    if roamer is not None:
+        return roamer.roam_message(msg=msg, receiver=receiver)
 
 
 def session_push(msg: ReliableMessage, receiver: ID) -> int:

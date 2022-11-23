@@ -34,7 +34,8 @@ from ..utils import Singleton
 from ..common import CommonFacebook
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
-from ..server import Dispatcher
+from ..server import DefaultPusher, PushCenter
+from ..server import Dispatcher, DefaultRoamer
 from ..server import DefaultDeliver, GroupDeliver, BroadcastDeliver
 
 
@@ -193,14 +194,23 @@ def init_facebook(shared: GlobalVariable) -> CommonFacebook:
 def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
     facebook = SharedFacebook()
     dispatcher = Dispatcher()
-    # TODO: create pusher for DefaultDeliver
-    #       and call 'PushCenter().start()'
+    # create deliver delegates
+    pusher = DefaultPusher(facebook=facebook)
+    deliver = DefaultDeliver(database=shared.mdb, pusher=pusher)
+    group_deliver = GroupDeliver(database=shared.mdb, facebook=facebook)
+    broadcast_deliver = BroadcastDeliver()
+    roamer = DefaultRoamer(database=shared.sdb, facebook=facebook)
+    # set delegates and start
     dispatcher.database = shared.mdb
     dispatcher.facebook = facebook
-    dispatcher.deliver = DefaultDeliver(database=shared.mdb)
-    dispatcher.group_deliver = GroupDeliver(database=shared.mdb, facebook=facebook)
-    dispatcher.broadcast_deliver = BroadcastDeliver()
+    dispatcher.deliver = deliver
+    dispatcher.group_deliver = group_deliver
+    dispatcher.broadcast_deliver = broadcast_deliver
+    dispatcher.roaming_deliver = roamer
     dispatcher.start()
+    # start PushCenter
+    center = PushCenter()
+    center.start()
     return dispatcher
 
 
@@ -208,5 +218,7 @@ def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
 def stop_dispatcher(shared: GlobalVariable) -> bool:
     dispatcher = Dispatcher()
     dispatcher.stop()
-    # TODO: stop PushCenter
+    # stop PushCenter
+    center = PushCenter()
+    center.stop()
     return True

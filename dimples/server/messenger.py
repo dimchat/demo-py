@@ -125,7 +125,7 @@ class ServerMessenger(CommonMessenger):
         #    broadcast message should deliver to other stations;
         #    group message should deliver to group assistant(s).
         dispatcher = Dispatcher()
-        responses = dispatcher.deliver_message(msg=msg)
+        responses = dispatcher.deliver_message(msg=msg, receiver=receiver)
         for res in responses:
             self.send_content(sender=current.identifier, receiver=sender, content=res)
         # 5. OK

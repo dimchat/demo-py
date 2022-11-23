@@ -64,7 +64,7 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         session = self.messenger.session
         db = session.database
         if not db.save_login_command_message(identifier=sender, cmd=content, msg=msg):
-            self.error('login command error/expired: %s' % content)
+            self.error(msg='login command error/expired: %s' % content)
             return []
         # 2. check roaming station
         current = self.facebook.current_user
@@ -73,11 +73,9 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         assert isinstance(roaming, ID), 'login command error: %s' % content
         if roaming != current.identifier:
             # user roaming to other station
-            self.info('user roaming: %s -> %s' % (sender, roaming))
-            from ..dispatcher import Dispatcher
-            dispatcher = Dispatcher()
+            self.info(msg='user roaming: %s -> %s' % (sender, roaming))
             # let dispatcher to handle cached messages for roaming user
-            dispatcher.add_roaming(user=sender, station=roaming)
+            add_roaming(user=sender, station=roaming)
             return []
         if sender != session.identifier:
             # forwarded login command
@@ -88,5 +86,12 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         if db.save_online_command(identifier=sender, cmd=cmd):
             session.active = True
         # only respond the user login to this station
-        self.info('user login: %s -> %s' % (sender, roaming))
+        self.info(msg='user login: %s -> %s' % (sender, roaming))
         return self._respond_text(text='Login received.')
+
+
+def add_roaming(user: ID, station: ID):
+    """ add roaming user to dispatcher """
+    from ..dispatcher import Dispatcher
+    dispatcher = Dispatcher()
+    dispatcher.add_roaming(user=user, station=station)

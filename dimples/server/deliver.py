@@ -111,9 +111,8 @@ class Deliver(Runner, Logging, ABC):
         """
         raise NotImplemented
 
-    def deliver_message(self, msg: ReliableMessage) -> List[Content]:
+    def deliver_message(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
         sender = msg.sender
-        receiver = msg.receiver
         # get all actual recipients
         recipients = self._get_recipients(receiver=receiver)
         self.info(msg='delivering message (%s) from %s to %s, actual receivers: %s'
@@ -132,18 +131,21 @@ class Deliver(Runner, Logging, ABC):
         if msg is None:  # or recipients is None:
             # nothing to do
             return False
-        sig = get_sig(msg=msg)
-        traces = msg.get('traces')
-        assert traces is not None, 'message (%s) traces should have been set by filter.' % sig
-        # push to all recipients
-        for receiver in recipients:
-            if receiver in traces:
-                continue
-            cnt = self._push_message(msg=msg, receiver=receiver)
-            if cnt > 0 and receiver.type == EntityType.STATION:
-                # append station
-                traces.append(str(receiver))
-            self.info(msg='message (%s) pushed to %s, %d session(s)' % (sig, receiver, cnt))
+        try:
+            sig = get_sig(msg=msg)
+            traces = msg.get('traces')
+            assert traces is not None, 'message (%s) traces should have been set by filter.' % sig
+            # push to all recipients
+            for receiver in recipients:
+                if receiver in traces:
+                    continue
+                cnt = self._push_message(msg=msg, receiver=receiver)
+                if cnt > 0 and receiver.type == EntityType.STATION:
+                    # append station
+                    traces.append(str(receiver))
+                self.info(msg='message (%s) pushed to %s, %d session(s)' % (sig, receiver, cnt))
+        except Exception as e:
+            self.error(msg='process delivering (%s => %s) error: %s' % (msg.sender, recipients, e))
         # return True to process next immediately
         return True
 
@@ -165,3 +167,29 @@ class Deliver(Runner, Logging, ABC):
     def start(self):
         thread = threading.Thread(target=self.run, daemon=True)
         thread.start()
+
+
+class Roamer(ABC):
+    """ Deliver messages for roaming user """
+
+    @abstractmethod
+    def roam_message(self, msg: ReliableMessage, receiver: ID) -> bool:
+        """
+        Redirect message for other delivers
+
+        :param msg:      received message
+        :param receiver: actual receiver
+        :return: True on redirected
+        """
+        raise NotImplemented
+
+    @abstractmethod
+    def roam_messages(self, messages: List[ReliableMessage], roaming: ID) -> int:
+        """
+        Redirect messages for dispatcher
+
+        :param messages: cached messages
+        :param roaming:  roaming station
+        :return: True on redirected
+        """
+        raise NotImplemented

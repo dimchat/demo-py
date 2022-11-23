@@ -38,7 +38,8 @@ from .push_info import PushAlert, PushInfo
 from .push_service import PushService, PushCenter
 from .pusher import Pusher, DefaultPusher
 
-from .deliver import Deliver
+from .deliver import Deliver, Roamer
+from .delivering import DefaultRoamer
 from .delivers import DefaultDeliver, GroupDeliver, BroadcastDeliver
 from .dispatcher import Dispatcher
 from .filter import Filter, DefaultFilter
@@ -57,7 +58,8 @@ __all__ = [
     'Pusher', 'DefaultPusher',
 
     # Deliver
-    'Deliver', 'DefaultDeliver', 'GroupDeliver', 'BroadcastDeliver',
+    'Deliver', 'Roamer', 'DefaultRoamer',
+    'DefaultDeliver', 'GroupDeliver', 'BroadcastDeliver',
     'Dispatcher',
     'Filter', 'DefaultFilter',
 
