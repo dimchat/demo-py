@@ -93,6 +93,7 @@ class ServerSession(BaseSession, Logging):
         old = super().identifier
         if user == old:
             return
+        session_change_id(session=self, new_id=user, old_id=old)
         # noinspection PyUnresolvedReferences
         super(ServerSession, ServerSession).identifier.__set__(self, user)
         load_cached_messages(session=self)
@@ -106,6 +107,7 @@ class ServerSession(BaseSession, Logging):
         old = super().active
         if flag == old:
             return
+        session_change_active(session=self, flag=flag)
         # noinspection PyUnresolvedReferences
         super(ServerSession, ServerSession).active.__set__(self, flag)
         load_cached_messages(session=self)
@@ -128,17 +130,9 @@ class ServerSession(BaseSession, Logging):
             # connection error or session finished
             self.active = False
             self.stop()
-            # TODO: post notification - DISCONNECTED
-            # NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
-            #     'session': self,
-            # })
         elif current == DockerStatus.READY:
             # connected/reconnected
             self.active = True
-            # TODO: post notification - CONNECTED
-            # NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
-            #     'session': self,
-            # })
 
     # Override
     def docker_received(self, ship: Arrival, docker: Docker):
@@ -156,7 +150,7 @@ class ServerSession(BaseSession, Logging):
                     all_responses.append(res)
             except Exception as error:
                 source = docker.remote_address
-                self.error('parse message failed (%s): %s, %s' % (source, error, pack))
+                self.error(msg='parse message failed (%s): %s, %s' % (source, error, pack))
                 traceback.print_exc()
                 # from dimsdk import TextContent
                 # return TextContent.new(text='parse message failed: %s' % error)
@@ -191,6 +185,28 @@ def get_data_packages(ship: Arrival) -> List[bytes]:
     else:
         # TODO: other format?
         return [payload]
+
+
+def session_change_id(session: ServerSession, new_id: ID, old_id: Optional[ID]):
+    remote = session.remote_address
+    db = session.database
+    if old_id is not None:
+        db.remove_socket_address(identifier=old_id, address=remote)
+    if new_id is not None:  # and session.active:
+        return db.add_socket_address(identifier=new_id, address=remote)
+
+
+def session_change_active(session: ServerSession, flag: bool):
+    identifier = session.identifier
+    if identifier is None:
+        # user not login yet
+        return False
+    remote = session.remote_address
+    db = session.database
+    if flag:
+        return db.add_socket_address(identifier=identifier, address=remote)
+    else:
+        return db.remove_socket_address(identifier=identifier, address=remote)
 
 
 def load_cached_messages(session: ServerSession) -> int:

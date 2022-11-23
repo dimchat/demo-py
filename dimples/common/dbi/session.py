@@ -24,7 +24,7 @@
 # ==============================================================================
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Set
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
@@ -63,6 +63,29 @@ class ReportDBI(ABC):
         raise NotImplemented
 
 
-class SessionDBI(LoginDBI, ReportDBI, ABC):
+class OnlineDBI(ABC):
+    """ Online Status Table """
+
+    #
+    #   online users
+    #
+    @abstractmethod
+    def active_users(self) -> Set[ID]:
+        raise NotImplemented
+
+    @abstractmethod
+    def socket_addresses(self, identifier: ID) -> Set[tuple]:
+        raise NotImplemented
+
+    @abstractmethod
+    def add_socket_address(self, identifier: ID, address: tuple) -> bool:
+        raise NotImplemented
+
+    @abstractmethod
+    def remove_socket_address(self, identifier: ID, address: tuple) -> bool:
+        raise NotImplemented
+
+
+class SessionDBI(LoginDBI, ReportDBI, OnlineDBI, ABC):
     """ Session Database """
     pass

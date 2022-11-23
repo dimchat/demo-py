@@ -52,7 +52,7 @@ class BroadcastDeliver(Deliver, Logging):
     def _get_recipients(self, receiver: ID) -> List[ID]:
         # get bot for search command
         if receiver in ['archivist@anywhere', 'archivists@everywhere']:
-            self.info(msg='forward search command to archivist: %s -> %s' % receiver)
+            self.info(msg='forward search command to archivist: %s' % receiver)
             # get from ANS
             bot = ID.parse(identifier='archivist')
             return [] if bot is None else [bot]

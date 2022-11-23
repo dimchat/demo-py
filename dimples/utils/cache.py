@@ -31,7 +31,7 @@
 
 import time
 from threading import Thread
-from typing import TypeVar, Generic, Optional, Dict
+from typing import TypeVar, Generic, Optional, Dict, Set
 
 from .singleton import Singleton
 
@@ -86,6 +86,9 @@ class CachePool(Generic[K, V]):
     def __init__(self):
         self.__holders: Dict[K, CacheHolder[V]] = {}  # key -> holder(value)
 
+    def all_keys(self) -> Set[K]:
+        return set(self.__holders.keys())
+
     def update(self, key: K, holder: CacheHolder = None,
                value: V = None, life_span: float = None, now: float = None) -> CacheHolder[V]:
         """ update: key -> holder(value) """
@@ -109,7 +112,7 @@ class CachePool(Generic[K, V]):
     def purge(self, now: float = None) -> int:
         """ remove all expired cache holders """
         count = 0
-        keys = list(self.__holders.keys())
+        keys = self.all_keys()
         for key in keys:
             holder = self.__holders.get(key)
             if holder is None or holder.is_deprecated(now=now):
