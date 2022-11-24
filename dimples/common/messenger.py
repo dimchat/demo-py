@@ -30,7 +30,6 @@
     Transform and send message
 """
 
-from abc import ABC, abstractmethod
 from typing import Optional
 
 from dimsdk import ID
@@ -46,7 +45,7 @@ from .transmitter import Transmitter
 from .session import Session
 
 
-class CommonMessenger(Messenger, Transmitter, ABC):
+class CommonMessenger(Messenger, Transmitter):
 
     def __init__(self, session: Session, facebook: CommonFacebook, database: MessageDBI):
         super().__init__()
@@ -145,11 +144,10 @@ class CommonMessenger(Messenger, Transmitter, ABC):
     # Override
     def send_reliable_message(self, msg: ReliableMessage, priority: int = 0) -> bool:
         """ send reliable message with priority """
+        # 1. serialize message
         data = self.serialize_message(msg=msg)
         assert data is not None, 'failed to serialize message: %s' % msg
-        return self.send_message_package(msg=msg, data=data, priority=priority)
-
-    @abstractmethod
-    def send_message_package(self, msg: ReliableMessage, data: bytes, priority: int = 0) -> bool:
-        """ call gate keeper to send the message data package """
-        raise NotImplemented
+        # 2. call gate keeper to send the message data package
+        #    put message package into the waiting queue of current session
+        session = self.session
+        return session.queue_message_package(msg=msg, data=data, priority=priority)

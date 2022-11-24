@@ -129,7 +129,7 @@ class ConfigLoader:
         #
         # 1. get options
         #
-        station = self._get_str(section='dim', option='station')
+        station = self._get_str(section='ans', option='station')
         # server
         host = self._get_str(section='server', option='host')
         port = self._get_int(section='server', option='port')

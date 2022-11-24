@@ -82,19 +82,19 @@ def reset_send_buffer_size(conn: Connection) -> bool:
         print('[SOCKET] socket error: %s, %s' % (sock, conn))
         return False
     size = sock.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF)
-    if size < SEND_BUFFER_SIZE:
-        print('[SOCKET] change send buffer size: %d -> %d, %s' % (size, SEND_BUFFER_SIZE, conn))
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, SEND_BUFFER_SIZE)
+    max_size = GateKeeper.SEND_BUFFER_SIZE
+    if size < max_size:
+        print('[SOCKET] change send buffer size: %d -> %d, %s' % (size, max_size, conn))
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, max_size)
         return True
     else:
         print('[SOCKET] send buffer size: %d, %s' % (size, conn))
 
 
-SEND_BUFFER_SIZE = 64 * 1024  # 64 KB
-
-
 class GateKeeper(Runner, DockerDelegate):
     """ Keep a gate to remote address """
+
+    SEND_BUFFER_SIZE = 64 * 1024  # 64 KB
 
     def __init__(self, remote: tuple, sock: Optional[socket.socket]):
         super().__init__()
@@ -105,7 +105,7 @@ class GateKeeper(Runner, DockerDelegate):
 
     def _create_gate(self, remote: tuple, sock: Optional[socket.socket]) -> CommonGate:
         if sock is None:
-            gate = TCPClientGate(delegate=self, remote=remote)
+            gate = TCPClientGate(delegate=self)
         else:
             gate = TCPServerGate(delegate=self)
         gate.hub = self._create_hub(delegate=gate, address=remote, sock=sock)
@@ -147,26 +147,26 @@ class GateKeeper(Runner, DockerDelegate):
     @property  # Override
     def running(self) -> bool:
         if super().running:
-            return self.__gate.running
+            return self.gate.running
 
     # Override
     def stop(self):
         super().stop()
-        self.__gate.stop()
+        self.gate.stop()
 
     # Override
     def setup(self):
         super().setup()
-        self.__gate.start()
+        self.gate.start()
 
     # Override
     def finish(self):
-        self.__gate.stop()
+        self.gate.stop()
         super().finish()
 
     # Override
     def process(self) -> bool:
-        gate = self.__gate
+        gate = self.gate
         hub = gate.hub
         # from tcp import Hub
         # assert isinstance(hub, Hub), 'hub error: %s' % hub
@@ -192,7 +192,7 @@ class GateKeeper(Runner, DockerDelegate):
             # msg sent?
             return True
         # try to push
-        ok = gate.send_ship(ship=wrapper, remote=self.__remote, local=None)
+        ok = gate.send_ship(ship=wrapper, remote=self.remote_address, local=None)
         if ok:
             wrapper.on_appended()
         else:
@@ -201,7 +201,7 @@ class GateKeeper(Runner, DockerDelegate):
         return True
 
     def _docker_pack(self, payload: bytes, priority: int = 0) -> Departure:
-        docker = self.__gate.get_docker(remote=self.remote_address, local=None, advance_party=[])
+        docker = self.gate.get_docker(remote=self.remote_address, local=None, advance_party=[])
         assert isinstance(docker, DeparturePacker), 'departure packer error: %s' % docker
         return docker.pack(payload=payload, priority=priority)
 

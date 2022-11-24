@@ -249,19 +249,6 @@ class UDPServerGate(CommonGate, Generic[H]):
 
 class TCPClientGate(CommonGate, Generic[H]):
 
-    def __init__(self, delegate: DockerDelegate, remote: tuple, local: Optional[tuple] = None):
-        super().__init__(delegate=delegate)
-        self.__remote = remote
-        self.__local = local
-
-    @property
-    def remote_address(self) -> tuple:
-        return self.__remote
-
-    @property
-    def local_address(self) -> Optional[tuple]:
-        return self.__local
-
     # Override
     def _create_docker(self, connection: Connection, advance_party: List[bytes]) -> Optional[Docker]:
         docker = MTPStreamDocker(connection=connection)
@@ -270,19 +257,6 @@ class TCPClientGate(CommonGate, Generic[H]):
 
 
 class UDPClientGate(CommonGate, Generic[H]):
-
-    def __init__(self, delegate: DockerDelegate, remote: tuple, local: Optional[tuple] = None):
-        super().__init__(delegate=delegate)
-        self.__remote = remote
-        self.__local = local
-
-    @property
-    def remote_address(self) -> tuple:
-        return self.__remote
-
-    @property
-    def local_address(self) -> Optional[tuple]:
-        return self.__local
 
     # Override
     def _create_docker(self, connection: Connection, advance_party: List[bytes]) -> Optional[Docker]:

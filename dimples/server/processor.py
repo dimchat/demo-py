@@ -68,12 +68,11 @@ class ServerProcessor(CommonProcessor, Logging):
         sender = r_msg.sender
         # 1. check login
         session = messenger.session
-        if session is not None:
-            if session.identifier is None or not session.active:
-                # not login yet, force to handshake again
-                if not isinstance(content, HandshakeCommand):
-                    handshake = HandshakeCommand.ask(session=session.key)
-                    responses.insert(0, handshake)
+        if session.identifier is None or not session.active:
+            # not login yet, force to handshake again
+            if not isinstance(content, HandshakeCommand):
+                handshake = HandshakeCommand.ask(session=session.key)
+                responses.insert(0, handshake)
         # 2. check response
         contents = []
         for res in responses:
@@ -84,13 +83,13 @@ class ServerProcessor(CommonProcessor, Logging):
                 if sender.type == EntityType.STATION:
                     # no need to respond receipt to station
                     when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
-                    self.info('drop receipt responding to %s, origin msg time=[%s]' % (sender, when))
+                    self.info(msg='drop receipt responding to %s, origin msg time=[%s]' % (sender, when))
                     continue
             elif isinstance(res, TextContent):
                 if sender.type == EntityType.STATION:
                     # no need to respond text message to station
                     when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
-                    self.info('drop text msg responding to %s, origin time=[%s], text=%s' % (sender, when, res.text))
+                    self.info(msg='drop text responding to %s, origin time=[%s], text=%s' % (sender, when, res.text))
                     continue
             contents.append(res)
         # OK
@@ -104,8 +103,16 @@ class ServerProcessor(CommonProcessor, Logging):
 class ServerContentProcessorCreator(CommonContentProcessorCreator):
 
     # Override
+    def create_content_processor(self, msg_type: Union[int, ContentType]) -> Optional[ContentProcessor]:
+        # default
+        if msg_type == 0:
+            return BaseContentProcessor(facebook=self.facebook, messenger=self.messenger)
+        # others
+        return super().create_content_processor(msg_type=msg_type)
+
+    # Override
     def create_command_processor(self, msg_type: Union[int, ContentType], cmd_name: str) -> Optional[ContentProcessor]:
-        # document commands
+        # document
         if cmd_name == Command.DOCUMENT:
             return DocumentCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # handshake
@@ -120,8 +127,5 @@ class ServerContentProcessorCreator(CommonContentProcessorCreator):
         # receipt
         if cmd_name == ReceiptCommand.RECEIPT:
             return ReceiptCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        # default
-        if msg_type == 0:
-            return BaseContentProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
         return super().create_command_processor(msg_type=msg_type, cmd_name=cmd_name)

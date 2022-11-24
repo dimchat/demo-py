@@ -35,7 +35,6 @@ from typing import Optional, List
 from dimsdk import EntityType, ANYONE
 from dimsdk import Station
 from dimsdk import SecureMessage, ReliableMessage
-from dimsdk import Processor
 
 from ..common import HandshakeCommand
 from ..common import MessageDBI
@@ -60,17 +59,6 @@ class ServerMessenger(CommonMessenger):
     @filter.setter
     def filter(self, checker: Filter):
         self.__filter = checker
-
-    # Override
-    def _create_processor(self) -> Processor:
-        from .processor import ServerProcessor
-        return ServerProcessor(facebook=self.facebook, messenger=self)
-
-    # Override
-    def send_message_package(self, msg: ReliableMessage, data: bytes, priority: int = 0) -> bool:
-        """ put message package into the waiting queue of current session """
-        session = self.session
-        return session.queue_message_package(msg=msg, data=data, priority=priority)
 
     # Override
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:

@@ -72,9 +72,8 @@ class HandshakeCommand(BaseCommand):
             # create with title, session key
             super().__init__(cmd=self.HANDSHAKE)
             assert title is not None, 'new handshake command error'
-            # TODO: modify after all clients upgraded
-            # self['title'] = title
-            self['message'] = title
+            self['title'] = title
+            self['message'] = title  # TODO: remove after all clients upgraded
             if session is not None:
                 self['session'] = session
         else:
