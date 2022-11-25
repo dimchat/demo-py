@@ -23,6 +23,49 @@
 # SOFTWARE.
 # ==============================================================================
 
+
+"""
+    Session States
+    ~~~~~~~~~~~~~~
+
+        +--------------+                +------------------+
+        |  0.Default   | .............> |   1.Connecting   |
+        +--------------+                +------------------+
+            A       A       ................:       :
+            :       :       :                       :
+            :       :       V                       V
+            :   +--------------+        +------------------+
+            :   |   5.Error    | <..... |   2.Connected    |
+            :   +--------------+        +------------------+
+            :       A       A                   A   :
+            :       :       :................   :   :
+            :       :                       :   :   V
+        +--------------+                +------------------+
+        |  4.Running   | <............. |  3.Handshaking   |
+        +--------------+                +------------------+
+
+    Transitions
+    ~~~~~~~~~~~
+
+        0.1 - when session ID was set, change state 'default' to 'connecting';
+
+        1.2 - when connection built, change state 'connecting' to 'connected';
+        1.5 - if connection failed, change state 'connecting' to 'error';
+
+        2.3 - if no error occurs, change state 'connected' to 'handshaking';
+        2.5 - if connection lost, change state 'connected' to 'error';
+
+        3.2 - if handshaking expired, change state 'handshaking' to 'connected';
+        3.4 - when session key was set, change state 'handshaking' to 'running';
+        3.5 - if connection lost, change state 'handshaking' to 'error';
+
+        4.0 - when session ID/key erased, change state 'running' to 'default';
+        4.5 - when connection lost, change state 'running' to 'error';
+
+        5.0 - when connection reset, change state 'error' to 'default'.
+"""
+
+
 import time
 import weakref
 from abc import ABC
@@ -56,6 +99,7 @@ class StateMachine(AutoMachine, Context):
 
     # noinspection PyMethodMayBeStatic
     def _create_state_builder(self):
+        from .transition import TransitionBuilder
         return StateBuilder(transition_builder=TransitionBuilder())
 
     def __set_state(self, state):
@@ -66,7 +110,12 @@ class StateMachine(AutoMachine, Context):
         return self
 
     @property
-    def current_user(self) -> ID:
+    def session_key(self) -> Optional[str]:
+        session = self.session
+        return session.key
+
+    @property
+    def session_id(self) -> ID:
         session = self.session
         return session.identifier
 
@@ -76,16 +125,6 @@ class StateMachine(AutoMachine, Context):
         gate = session.gate
         docker = gate.get_docker(remote=session.remote_address, local=None, advance_party=[])
         return docker.status
-
-    @property
-    def session_key(self) -> Optional[str]:
-        session = self.session
-        return session.key
-
-    @session_key.setter
-    def session_key(self, key: str):
-        session = self.session
-        session.key = key
 
 
 class StateTransition(BaseTransition[StateMachine], ABC):
@@ -237,162 +276,3 @@ class StateBuilder:
         # Error -> Default
         state.add_transition(transition=builder.get_error_default_transition())
         return state
-
-
-class TransitionBuilder:
-
-    # noinspection PyMethodMayBeStatic
-    def get_default_connecting_transition(self):
-        return DefaultConnectingTransition(target=SessionState.CONNECTING)
-
-    # Connecting
-
-    # noinspection PyMethodMayBeStatic
-    def get_connecting_connected_transition(self):
-        return ConnectingConnectedTransition(target=SessionState.CONNECTED)
-
-    # noinspection PyMethodMayBeStatic
-    def get_connecting_error_transition(self):
-        return ConnectingErrorTransition(target=SessionState.ERROR)
-
-    # Connected
-
-    # noinspection PyMethodMayBeStatic
-    def get_connected_handshaking_transition(self):
-        return ConnectedHandshakingTransition(target=SessionState.HANDSHAKING)
-
-    # noinspection PyMethodMayBeStatic
-    def get_connected_error_transition(self):
-        return ConnectedErrorTransition(target=SessionState.ERROR)
-
-    # Handshaking
-
-    # noinspection PyMethodMayBeStatic
-    def get_handshaking_running_transition(self):
-        return HandshakingRunningTransition(target=SessionState.RUNNING)
-
-    # noinspection PyMethodMayBeStatic
-    def get_handshaking_connected_transition(self):
-        return HandshakingConnectedTransition(target=SessionState.CONNECTED)
-
-    # noinspection PyMethodMayBeStatic
-    def get_handshaking_error_transition(self):
-        return HandshakingErrorTransition(target=SessionState.ERROR)
-
-    # Running
-
-    # noinspection PyMethodMayBeStatic
-    def get_running_default_transition(self):
-        return RunningDefaultTransition(target=SessionState.DEFAULT)
-
-    # noinspection PyMethodMayBeStatic
-    def get_running_error_transition(self):
-        return RunningErrorTransition(target=SessionState.ERROR)
-
-    # Error
-
-    # noinspection PyMethodMayBeStatic
-    def get_error_default_transition(self):
-        return ErrorDefaultTransition(target=SessionState.DEFAULT)
-
-
-#
-#   Transitions
-#
-
-class DefaultConnectingTransition(StateTransition):
-    """ Default -> Connecting """
-
-    def evaluate(self, ctx: StateMachine) -> bool:
-        if ctx.current_user is None:
-            return False
-        status = ctx.status
-        return status == DockerStatus.PREPARING or status == DockerStatus.READY
-
-
-class ConnectingConnectedTransition(StateTransition):
-    """ Connecting -> Connected """
-
-    def evaluate(self, ctx: StateMachine) -> bool:
-        assert ctx.current_user is not None, 'current user error'
-        return ctx.status == DockerStatus.READY
-
-
-class ConnectingErrorTransition(StateTransition):
-    """ Connecting -> Error """
-
-    def evaluate(self, ctx: StateMachine) -> bool:
-        return ctx.status == DockerStatus.ERROR
-
-
-class ConnectedHandshakingTransition(StateTransition):
-    """ Connected -> Handshaking """
-
-    def evaluate(self, ctx: StateMachine) -> bool:
-        assert ctx.current_user is not None, 'current user error'
-        return ctx.session_key is None
-
-
-class ConnectedErrorTransition(StateTransition):
-    """ Connected -> Error """
-
-    def evaluate(self, ctx: StateMachine) -> bool:
-        return ctx.status == DockerStatus.ERROR
-
-
-class HandshakingRunningTransition(StateTransition):
-    """ Handshaking -> Running """
-
-    def evaluate(self, ctx: StateMachine) -> bool:
-        assert ctx.current_user is not None, 'current user error'
-        # when current user changed, the session key will cleared, so
-        # if it's set again, it means handshake success
-        return ctx.session_key is not None
-
-
-class HandshakingConnectedTransition(StateTransition):
-    """ Handshaking -> Connected """
-
-    def evaluate(self, ctx: StateMachine) -> bool:
-        state = ctx.current_state
-        assert isinstance(state, SessionState)
-        enter_time = state.enter_time
-        if enter_time == 0:
-            # not enter yet
-            return False
-        expired = enter_time + 30
-        now = time.time()
-        if now < expired:
-            # not expired yet
-            return False
-        # handshake expired, return to connect to do it again
-        return ctx.status == DockerStatus.READY
-
-
-class HandshakingErrorTransition(StateTransition):
-    """ Handshaking -> Error """
-
-    def evaluate(self, ctx: StateMachine) -> bool:
-        return ctx.status == DockerStatus.ERROR
-
-
-class RunningDefaultTransition(StateTransition):
-    """ Running -> Default """
-
-    def evaluate(self, ctx: StateMachine) -> bool:
-        # user switched?
-        return ctx.session_key is None
-
-
-class RunningErrorTransition(StateTransition):
-    """ Running -> Error """
-
-    def evaluate(self, ctx: StateMachine) -> bool:
-        return ctx.status == DockerStatus.ERROR
-
-
-class ErrorDefaultTransition(StateTransition):
-    """ Error -> Default """
-
-    def evaluate(self, ctx: StateMachine) -> bool:
-        return ctx.status != DockerStatus.ERROR
