@@ -47,11 +47,11 @@ from .config import SharedFacebook
 
 
 def create_messenger(remote: tuple, sock: socket.socket) -> ServerMessenger:
-    # 1. create session with SessionDB
     shared = GlobalVariable()
+    facebook = SharedFacebook()
+    # 1. create session with SessionDB
     session = ServerSession(remote=remote, sock=sock, database=shared.sdb)
     # 2. create messenger with session and MessageDB
-    facebook = SharedFacebook()
     messenger = ServerMessenger(session=session, facebook=facebook, database=shared.mdb)
     # 3. create packer, processor, filter for messenger
     #    they have weak references to session, facebook & messenger
@@ -81,25 +81,25 @@ class RequestHandler(StreamRequestHandler, Logging):
             session = self.messenger.session
             center = SessionCenter()
             center.add_session(session=session)
-            self.info('client connected: %s' % session)
+            self.info(msg='client connected: %s' % session)
             assert isinstance(session, Runner), 'session error: %s' % session
             session.setup()
         except Exception as error:
-            self.error('setup request handler error: %s' % error)
+            self.error(msg='setup request handler error: %s' % error)
             traceback.print_exc()
 
     # Override
     def finish(self):
         try:
             session = self.messenger.session
-            self.info('client disconnected: %s' % session)
+            self.info(msg='client disconnected: %s' % session)
             center = SessionCenter()
             center.remove_session(session=session)
             assert isinstance(session, Runner), 'session error: %s' % session
             session.finish()
             self.__messenger = None
         except Exception as error:
-            self.error('finish request handler error: %s' % error)
+            self.error(msg='finish request handler error: %s' % error)
             traceback.print_exc()
         super().finish()
 
@@ -111,11 +111,11 @@ class RequestHandler(StreamRequestHandler, Logging):
     def handle(self):
         super().handle()
         try:
-            self.info('session started: %s' % str(self.client_address))
+            self.info(msg='session started: %s' % str(self.client_address))
             session = self.messenger.session
             assert isinstance(session, Runner), 'session error: %s' % session
             session.handle()
-            self.info('session finished: %s' % str(self.client_address))
+            self.info(msg='session finished: %s' % str(self.client_address))
         except Exception as error:
-            self.error('request handler error: %s' % error)
+            self.error(msg='request handler error: %s' % error)
             traceback.print_exc()

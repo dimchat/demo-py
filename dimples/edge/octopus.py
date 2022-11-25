@@ -38,6 +38,7 @@ from typing import Optional, List, Set
 
 from dimsdk import ContentType
 from dimsdk import EntityType, ID
+from dimsdk import Station
 from dimsdk import ReliableMessage
 
 from ..utils import Logging
@@ -155,45 +156,51 @@ class OuterMessenger(OctopusMessenger):
         octopus.add_index(identifier=station.identifier, terminal=self.terminal)
 
 
-def create_messenger(remote: tuple, octopus, clazz) -> OctopusMessenger:
-    # 1. create session with SessionDB
+def create_messenger(user: ID, host: str, port: int, octopus, clazz) -> OctopusMessenger:
     shared = GlobalVariable()
-    session = ClientSession(remote=remote, database=shared.sdb)
-    # 2. create messenger with session and MessageDB
     facebook = SharedFacebook()
+    # 0. create station with remote host & port
+    station = Station(host=host, port=port)
+    station.data_source = facebook
+    # 1. create session with SessionDB
+    session = ClientSession(station=station, database=shared.sdb)
+    session.identifier = user
+    # 2. create messenger with session and MessageDB
     messenger = clazz(session=session, facebook=facebook, database=shared.mdb)
     assert isinstance(messenger, OctopusMessenger)
-    # 3. create packer, processor, filter for messenger
-    #    they have weak references to session, facebook & messenger
+    # 3. create packer, processor for messenger
+    #    they have weak references to facebook & messenger
     messenger.packer = CommonPacker(facebook=facebook, messenger=messenger)
     messenger.processor = ClientProcessor(facebook=facebook, messenger=messenger)
     messenger.octopus = octopus
-    # 4. set weak reference messenger in session
+    # 4. set weak reference to messenger
     session.messenger = messenger
     return messenger
 
 
-def create_inner_terminal(octopus, host: str, port: int) -> Terminal:
-    messenger = create_messenger(remote=(host, port), octopus=octopus, clazz=InnerMessenger)
+def create_terminal(messenger: ClientMessenger) -> Terminal:
     terminal = Terminal(messenger=messenger)
     messenger.terminal = terminal
     terminal.start()
     return terminal
 
 
-def create_outer_terminal(octopus, host: str, port: int) -> Terminal:
-    messenger = create_messenger(remote=(host, port), octopus=octopus, clazz=OuterMessenger)
-    terminal = Terminal(messenger=messenger)
-    messenger.terminal = terminal
-    terminal.start()
-    return terminal
+def create_inner_terminal(user: ID, host: str, port: int, octopus) -> Terminal:
+    messenger = create_messenger(user=user, host=host, port=port, octopus=octopus, clazz=InnerMessenger)
+    return create_terminal(messenger=messenger)
+
+
+def create_outer_terminal(octopus, user: ID, host: str, port: int) -> Terminal:
+    messenger = create_messenger(user=user, host=host, port=port, octopus=octopus, clazz=OuterMessenger)
+    return create_terminal(messenger=messenger)
 
 
 class Octopus(Runner, Logging):
 
-    def __init__(self, local_host: str = '127.0.0.1', local_port: int = 9394):
+    def __init__(self, local_user: ID, local_host: str = '127.0.0.1', local_port: int = 9394):
         super().__init__()
-        self.__inner = create_inner_terminal(host=local_host, port=local_port, octopus=self)
+        self.__user = local_user
+        self.__inner = create_inner_terminal(user=local_user, host=local_host, port=local_port, octopus=self)
         self.__outers: Set[Terminal] = set()
         self.__outer_map = weakref.WeakValueDictionary()
         self.__outer_lock = threading.Lock()
@@ -214,13 +221,14 @@ class Octopus(Runner, Logging):
             # self.__outers.add(terminal)
             self.__outer_map[identifier] = terminal
 
-    def connect(self, host: str, port: int):
-        terminal = create_outer_terminal(octopus=self, host=host, port=port)
+    def connect(self, host: str, port: int = 9394):
+        user = self.__user
+        terminal = create_outer_terminal(octopus=self, user=user, host=host, port=port)
         with self.__outer_lock:
             self.__outers.add(terminal)
 
     def start(self):
-        thread = threading.Thread(target=self.run, daemon=True)
+        thread = threading.Thread(target=self.run)
         thread.start()
 
     # Override

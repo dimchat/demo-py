@@ -34,6 +34,7 @@ from typing import Optional
 
 from dimsdk import EVERYONE
 from dimsdk import Station
+from dimsdk import Envelope, InstantMessage
 from dimsdk import DocumentCommand
 
 from ..utils import Logging
@@ -53,14 +54,24 @@ class ClientMessenger(CommonMessenger, Logging):
 
     def handshake(self, session_key: Optional[str]):
         """ send handshake command to current station """
-        # 1. create handshake command
+        session = self.session
+        station = session.station
+        srv_id = station.identifier
         if session_key is None:
+            # first handshake
+            user = self.facebook.current_user
+            assert user is not None, 'current user not found'
             cmd = HandshakeCommand.start()
+            env = Envelope.create(sender=user.identifier, receiver=srv_id)
+            # create instant message with meta & visa
+            i_msg = InstantMessage.create(head=env, body=cmd)
+            i_msg['meta'] = user.meta.dictionary
+            i_msg['visa'] = user.visa.dictionary
+            self.send_instant_message(msg=i_msg, priority=-1)
         else:
+            # handshake again
             cmd = HandshakeCommand.restart(session=session_key)
-        # 2. send to remote station
-        station = self.session.station
-        self.send_content(sender=None, receiver=station.identifier, content=cmd, priority=-1)
+            self.send_content(sender=None, receiver=srv_id, content=cmd, priority=-1)
 
     def handshake_success(self):
         """ callback for handshake success """

@@ -29,8 +29,81 @@
 # ==============================================================================
 
 
+import os
+import sys
+import getopt
+
+path = os.path.abspath(__file__)
+path = os.path.dirname(path)
+path = os.path.dirname(path)
+path = os.path.dirname(path)
+sys.path.insert(0, path)
+
+from dimples.utils import Log
+from dimples.database import Storage
+
+from dimples.edge.config import ConfigLoader, GlobalVariable
+from dimples.edge.config import init_database, init_facebook
+from dimples.edge.octopus import Octopus
+
+
+#
+# show logs
+#
+Log.LEVEL = Log.DEVELOP
+
+
+def show_help():
+    cmd = sys.argv[0]
+    print('')
+    print('    DIM Network Edge')
+    print('')
+    print('usages:')
+    print('    %s [--config=<FILE>]' % cmd)
+    print('    %s [-h|--help]' % cmd)
+    print('')
+    print('optional arguments:')
+    print('    --config        config file path (default: "/etc/dim/config.ini")')
+    print('    --help, -h      show this help message and exit')
+    print('')
+
+
 def main():
-    print('TODO: DIM edge starting...')
+    try:
+        opts, args = getopt.getopt(args=sys.argv[1:],
+                                   shortopts='hf:',
+                                   longopts=['help', 'config='])
+    except getopt.GetoptError:
+        show_help()
+        sys.exit(1)
+    # check options
+    ini_file = None
+    for opt, arg in opts:
+        if opt == '--config':
+            ini_file = arg
+        else:
+            show_help()
+            sys.exit(0)
+    # check config filepath
+    if ini_file is None:
+        ini_file = '/etc/dim/config.ini'
+    if not Storage.exists(path=ini_file):
+        show_help()
+        print('')
+        print('!!! config file not exists: %s' % ini_file)
+        print('')
+        sys.exit(0)
+    # load config
+    config = ConfigLoader(file=ini_file).load()
+    # initializing
+    print('[DB] init with config: %s => %s' % (ini_file, config))
+    shared = GlobalVariable()
+    shared.config = config
+    init_database(shared=shared)
+    init_facebook(shared=shared)
+    # create octopus
+    octopus = Octopus(local_user=config.station, local_port=config.port)
+    octopus.start()
 
 
 if __name__ == '__main__':

@@ -74,9 +74,9 @@ class ClientSession(BaseSession, Logging):
                 all messages from this ID after that.
     """
 
-    def __init__(self, remote: tuple, database: SessionDBI):
-        super().__init__(remote=remote, sock=None, database=database)
-        self.__station = Station(host=remote[0], port=remote[1])
+    def __init__(self, station: Station, database: SessionDBI):
+        super().__init__(remote=(station.host, station.port), sock=None, database=database)
+        self.__station = station
         self.__key: Optional[str] = None
         self.__thread: Optional[Thread] = None
 

@@ -124,7 +124,10 @@ class StateMachine(AutoMachine, Context):
         session = self.session
         gate = session.gate
         docker = gate.get_docker(remote=session.remote_address, local=None, advance_party=[])
-        return docker.status
+        if docker is None:
+            return DockerStatus.ERROR
+        else:
+            return docker.status
 
 
 class StateTransition(BaseTransition[StateMachine], ABC):
