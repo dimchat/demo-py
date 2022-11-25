@@ -31,6 +31,7 @@
 """
 
 import threading
+import time
 
 from startrek.fsm import StateDelegate
 
@@ -50,6 +51,8 @@ class Terminal(Runner, StateDelegate, Logging):
         fsm = StateMachine(session=messenger.session)
         fsm.delegate = self
         self.__fsm = fsm
+        # default online time
+        self.__last_time = time.time()
 
     @property
     def messenger(self) -> ClientMessenger:
@@ -60,6 +63,17 @@ class Terminal(Runner, StateDelegate, Logging):
         sess = self.messenger.session
         assert isinstance(sess, ClientSession), 'session error: %s' % sess
         return sess
+
+    @property
+    def state(self) -> SessionState:
+        return self.__fsm.current_state
+
+    @property
+    def is_alive(self) -> bool:
+        # if more than 10 minutes no online command sent
+        # means this terminal is dead
+        now = time.time()
+        return now < (self.__last_time + 600)
 
     def start(self):
         thread = threading.Thread(target=self.run, daemon=True)
@@ -78,8 +92,26 @@ class Terminal(Runner, StateDelegate, Logging):
         super().finish()
 
     # Override
+    def _idle(self):
+        time.sleep(60)
+
+    # Override
     def process(self) -> bool:
-        pass
+        now = time.time()
+        if now < (self.__last_time + 300):
+            # last sent within 5 minutes
+            return False
+        # check session state
+        messenger = self.messenger
+        session = messenger.session
+        usr_id = session.identifier
+        if usr_id is None or self.state != SessionState.RUNNING:
+            # handshake not accepted
+            return False
+        # report every 5 minutes to keep user online
+        messenger.report_online()
+        # update last online time
+        self.__last_time = now
 
     #
     #   StateDelegate
@@ -107,6 +139,8 @@ class Terminal(Runner, StateDelegate, Logging):
             # broadcast current meta & visa document to all stations
             messenger = self.messenger
             messenger.handshake_success()
+            # update last online time
+            self.__last_time = time.time()
 
     # Override
     def pause_state(self, state: SessionState, ctx: StateMachine):

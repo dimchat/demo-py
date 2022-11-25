@@ -30,6 +30,8 @@
     Edges for neighbour stations
 """
 
+import threading
+import time
 import weakref
 from abc import ABC, abstractmethod
 from typing import Optional, List, Set
@@ -39,6 +41,7 @@ from dimsdk import EntityType, ID
 from dimsdk import ReliableMessage
 
 from ..utils import Logging
+from ..utils import Runner
 from ..common import CommonPacker
 from ..common import CommonFacebook
 from ..common import MessageDBI
@@ -186,13 +189,14 @@ def create_outer_terminal(octopus, host: str, port: int) -> Terminal:
     return terminal
 
 
-class Octopus(Logging):
+class Octopus(Runner, Logging):
 
     def __init__(self, local_host: str = '127.0.0.1', local_port: int = 9394):
         super().__init__()
         self.__inner = create_inner_terminal(host=local_host, port=local_port, octopus=self)
         self.__outers: Set[Terminal] = set()
         self.__outer_map = weakref.WeakValueDictionary()
+        self.__outer_lock = threading.Lock()
 
     @property
     def inner_messenger(self) -> ClientMessenger:
@@ -200,23 +204,53 @@ class Octopus(Logging):
         return terminal.messenger
 
     def get_outer_messenger(self, identifier: ID) -> Optional[ClientMessenger]:
-        terminal = self.__outer_map.get(identifier)
+        with self.__outer_lock:
+            terminal = self.__outer_map.get(identifier)
         if terminal is not None:
             return terminal.messenger
 
     def add_index(self, identifier: ID, terminal: Terminal):
-        self.__outer_map[identifier] = terminal
+        with self.__outer_lock:
+            # self.__outers.add(terminal)
+            self.__outer_map[identifier] = terminal
 
     def connect(self, host: str, port: int):
         terminal = create_outer_terminal(octopus=self, host=host, port=port)
-        self.__outers.add(terminal)
+        with self.__outer_lock:
+            self.__outers.add(terminal)
 
-    def stop_all(self):
+    def start(self):
+        thread = threading.Thread(target=self.run, daemon=True)
+        thread.start()
+
+    # Override
+    def stop(self):
+        super().stop()
         inner = self.__inner
         inner.stop()
-        outers = set(self.__outers)
+        with self.__outer_lock:
+            outers = set(self.__outers)
         for out in outers:
             out.stop()
+
+    # Override
+    def _idle(self):
+        time.sleep(60)
+
+    # Override
+    def process(self) -> bool:
+        with self.__outer_lock:
+            outers = set(self.__outers)
+        for out in outers:
+            if out.is_alive:
+                continue
+            # remove dead terminal
+            sid = out.session.station.identifier
+            with self.__outer_lock:
+                self.__outers.discard(out)
+                if sid is not None:
+                    self.__outer_map.pop(sid, None)
+        return False
 
     def income_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         """ redirect message from remote station """

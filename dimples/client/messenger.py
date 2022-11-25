@@ -33,10 +33,11 @@
 from typing import Optional
 
 from dimsdk import EVERYONE
+from dimsdk import Station
 from dimsdk import DocumentCommand
 
 from ..utils import Logging
-from ..common import HandshakeCommand
+from ..common import HandshakeCommand, ReportCommand
 from ..common import CommonMessenger
 
 from .session import ClientSession
@@ -75,3 +76,13 @@ class ClientMessenger(CommonMessenger, Logging):
         visa = current.visa
         cmd = DocumentCommand.response(identifier=identifier, meta=meta, document=visa)
         self.send_content(sender=None, receiver=EVERYONE, content=cmd, priority=-1)
+
+    def report_online(self):
+        """ send report command to keep user online """
+        cmd = ReportCommand(title=ReportCommand.ONLINE)
+        self.send_content(sender=None, receiver=Station.ANY, content=cmd, priority=1)
+
+    def report_offline(self):
+        """ set report command to let user offline """
+        cmd = ReportCommand(title=ReportCommand.OFFLINE)
+        self.send_content(sender=None, receiver=Station.ANY, content=cmd, priority=1)
