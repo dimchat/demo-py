@@ -41,13 +41,14 @@ from dimsdk import ReliableMessage
 from ..utils import Logging
 from ..common import CommonPacker
 from ..common import CommonFacebook
-from ..common import MessageDBI, SessionDBI
-from ..common import HandshakeCommand, LoginCommand
+from ..common import MessageDBI
+from ..common import HandshakeCommand
 from ..conn.session import get_sig
 
 from ..client import ClientSession
 from ..client import ClientMessenger
 from ..client import ClientProcessor
+from ..client import Terminal
 
 from .config import GlobalVariable
 from .config import SharedFacebook
@@ -58,43 +59,32 @@ class OctopusMessenger(ClientMessenger, ABC):
 
     def __init__(self, session: ClientSession, facebook: CommonFacebook, database: MessageDBI):
         super().__init__(session=session, facebook=facebook, database=database)
-        self.__accepted = False
+        self.__terminal: Optional[weakref.ReferenceType] = None
         self.__octopus: Optional[weakref.ReferenceType] = None
-        self.__local_station: Optional[ID] = None
 
     @property
-    def accepted(self) -> bool:
-        return self.__accepted
+    def terminal(self) -> Terminal:
+        return self.__terminal()
+
+    @terminal.setter
+    def terminal(self, client: Terminal):
+        self.__terminal = weakref.ref(client)
 
     @property
     def octopus(self):
-        client = self.__octopus()
-        assert isinstance(client, Octopus), 'octopus error: %s' % client
-        return client
+        bot = self.__octopus()
+        assert isinstance(bot, Octopus), 'octopus error: %s' % bot
+        return bot
 
     @octopus.setter
-    def octopus(self, client):
-        self.__octopus = weakref.ref(client)
+    def octopus(self, bot):
+        self.__octopus = weakref.ref(bot)
 
     @property
     def local_station(self) -> ID:
-        return self.__local_station
-
-    @local_station.setter
-    def local_station(self, station: ID):
-        self.__local_station = station
-
-    @property
-    def remote_station(self) -> ID:
-        session = self.session
-        station = session.station
-        return station.identifier
-
-    # Override
-    def handshake_success(self):
-        self.__accepted = True
-        self.info(msg='start bridge for: %s' % self.remote_station)
-        super().handshake_success()
+        facebook = self.facebook
+        current = facebook.current_user
+        return current.identifier
 
     def __is_handshaking(self, msg: ReliableMessage) -> bool:
         """ check HandshakeCommand sent to this station """
@@ -118,17 +108,23 @@ class OctopusMessenger(ClientMessenger, ABC):
         # check for cycled message
         if msg.receiver == msg.sender:
             self.error(msg='drop cycled msg(type=%d): %s -> %s | from %s, traces: %s'
-                       % (msg.type, msg.sender, msg.receiver, self.remote_station, msg.get('traces')))
+                       % (msg.type, msg.sender, msg.receiver, get_remote_station(messenger=self), msg.get('traces')))
             return []
         # handshake accepted, redirecting message
         self.info(msg='redirect msg(type=%d): %s -> %s | from %s, traces: %s'
-                  % (msg.type, msg.sender, msg.receiver, self.remote_station, msg.get('traces')))
+                  % (msg.type, msg.sender, msg.receiver, get_remote_station(messenger=self), msg.get('traces')))
         return self.deliver_message(msg=msg)
 
     @abstractmethod
     def deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         """ call octopus to redirect message """
         pass
+
+
+def get_remote_station(messenger: ClientMessenger) -> ID:
+    session = messenger.session
+    station = session.station
+    return station.identifier
 
 
 class InnerMessenger(OctopusMessenger):
@@ -148,63 +144,77 @@ class OuterMessenger(OctopusMessenger):
         octopus = self.octopus
         return octopus.income_message(msg=msg)
 
+    # Override
+    def handshake_success(self):
+        super().handshake_success()
+        station = self.session.station
+        octopus = self.octopus
+        octopus.add_index(identifier=station.identifier, terminal=self.terminal)
 
-def create_messenger(remote: tuple, clazz, octopus) -> OctopusMessenger:
+
+def create_messenger(remote: tuple, octopus, clazz) -> OctopusMessenger:
     # 1. create session with SessionDB
     shared = GlobalVariable()
     session = ClientSession(remote=remote, database=shared.sdb)
     # 2. create messenger with session and MessageDB
     facebook = SharedFacebook()
     messenger = clazz(session=session, facebook=facebook, database=shared.mdb)
-    messenger.octopus = octopus
+    assert isinstance(messenger, OctopusMessenger)
     # 3. create packer, processor, filter for messenger
     #    they have weak references to session, facebook & messenger
     messenger.packer = CommonPacker(facebook=facebook, messenger=messenger)
     messenger.processor = ClientProcessor(facebook=facebook, messenger=messenger)
+    messenger.octopus = octopus
     # 4. set weak reference messenger in session
     session.messenger = messenger
-    messenger.start()
     return messenger
+
+
+def create_inner_terminal(octopus, host: str, port: int) -> Terminal:
+    messenger = create_messenger(remote=(host, port), octopus=octopus, clazz=InnerMessenger)
+    terminal = Terminal(messenger=messenger)
+    messenger.terminal = terminal
+    terminal.start()
+    return terminal
+
+
+def create_outer_terminal(octopus, host: str, port: int) -> Terminal:
+    messenger = create_messenger(remote=(host, port), octopus=octopus, clazz=OuterMessenger)
+    terminal = Terminal(messenger=messenger)
+    messenger.terminal = terminal
+    terminal.start()
+    return terminal
 
 
 class Octopus(Logging):
 
-    def __init__(self, local_station: ID, local_host: str = '127.0.0.1', local_port: int = 9394):
+    def __init__(self, local_host: str = '127.0.0.1', local_port: int = 9394):
         super().__init__()
-        self.__local_station = local_station
-        self.__inner_messenger = create_messenger(remote=(local_host, local_port), clazz=InnerMessenger, octopus=self)
-        self.__outer_messengers: Set[OctopusMessenger] = set()
-        self.__outer_messenger_map = weakref.WeakValueDictionary()
-        self.__database: Optional[SessionDBI] = None
+        self.__inner = create_inner_terminal(host=local_host, port=local_port, octopus=self)
+        self.__outers: Set[Terminal] = set()
+        self.__outer_map = weakref.WeakValueDictionary()
 
     @property
-    def database(self) -> SessionDBI:
-        return self.__database
+    def inner_messenger(self) -> ClientMessenger:
+        terminal = self.__inner
+        return terminal.messenger
 
-    @database.setter
-    def database(self, db: SessionDBI):
-        self.__database = db
+    def get_outer_messenger(self, identifier: ID) -> Optional[ClientMessenger]:
+        terminal = self.__outer_map.get(identifier)
+        if terminal is not None:
+            return terminal.messenger
 
-    @property
-    def local_station(self) -> ID:
-        return self.__local_station
+    def add_index(self, identifier: ID, terminal: Terminal):
+        self.__outer_map[identifier] = terminal
 
-    @property
-    def inner_messenger(self) -> OctopusMessenger:
-        return self.__inner_messenger
-
-    def add_outer_messenger(self, identifier: ID, host: str, port: int):
-        messenger = create_messenger(remote=(host, port), clazz=OuterMessenger, octopus=self)
-        self.__outer_messengers.add(messenger)
-        self.__outer_messenger_map[identifier] = messenger
-
-    def get_outer_messenger(self, identifier: ID):
-        return self.__outer_messenger_map[identifier]
+    def connect(self, host: str, port: int):
+        terminal = create_outer_terminal(octopus=self, host=host, port=port)
+        self.__outers.add(terminal)
 
     def stop_all(self):
-        inner = self.inner_messenger
+        inner = self.__inner
         inner.stop()
-        outers = set(self.__outer_messengers)
+        outers = set(self.__outers)
         for out in outers:
             out.stop()
 
@@ -224,7 +234,7 @@ class Octopus(Logging):
     def outgo_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         """ redirect message to remote station """
         receiver = msg.receiver
-        roaming = get_roaming_station(receiver=receiver, database=self.database)
+        roaming = ID.parse(identifier=msg.get('roaming'))
         if roaming is None:
             # roaming station not found
             self.info(msg='cannot get roaming station for receiver (%s)' % receiver)
@@ -242,12 +252,3 @@ class Octopus(Logging):
         sig = get_sig(msg=msg)
         self.error(msg='failed to redirect msg (%s) to (%s) for roaming receiver (%s)' % (sig, roaming, receiver))
         return []
-
-
-def get_roaming_station(receiver: ID, database: SessionDBI) -> Optional[ID]:
-    """ get login command for roaming station """
-    cmd, msg = database.login_command_message(identifier=receiver)
-    if isinstance(cmd, LoginCommand):
-        station = cmd.station
-        assert isinstance(station, dict), 'login command error: %s' % cmd
-        return ID.parse(identifier=station.get('ID'))

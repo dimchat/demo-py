@@ -35,39 +35,20 @@ from typing import Optional
 from dimsdk import EVERYONE
 from dimsdk import DocumentCommand
 
-from startrek.fsm import StateDelegate
-
 from ..utils import Logging
 from ..common import HandshakeCommand
-from ..common import CommonFacebook, CommonMessenger
-from ..common import MessageDBI
+from ..common import CommonMessenger
 
 from .session import ClientSession
-from .state import StateMachine, SessionState
 
 
-class ClientMessenger(CommonMessenger, StateDelegate, Logging):
-
-    def __init__(self, session: ClientSession, facebook: CommonFacebook, database: MessageDBI):
-        super().__init__(session=session, facebook=facebook, database=database)
-        # session state
-        fsm = StateMachine(session=session)
-        fsm.delegate = self
-        self.__fsm = fsm
+class ClientMessenger(CommonMessenger, Logging):
 
     @property
     def session(self) -> ClientSession:
         sess = super().session
         assert isinstance(sess, ClientSession), 'session error: %s' % sess
         return sess
-
-    def start(self):
-        self.session.start()
-        self.__fsm.start()
-
-    def stop(self):
-        self.session.stop()
-        self.__fsm.stop()
 
     def handshake(self, session_key: Optional[str]):
         """ send handshake command to current station """
@@ -94,38 +75,3 @@ class ClientMessenger(CommonMessenger, StateDelegate, Logging):
         visa = current.visa
         cmd = DocumentCommand.response(identifier=identifier, meta=meta, document=visa)
         self.send_content(sender=None, receiver=EVERYONE, content=cmd, priority=-1)
-
-    #
-    #   StateDelegate
-    #
-
-    # Override
-    def enter_state(self, state: SessionState, ctx: StateMachine):
-        # called before state changed
-        session = self.session
-        assert isinstance(session, ClientSession), 'session error: %s' % session
-        station = session.station
-        self.info(msg='enter state: %s, %s => %s' % (state, session.identifier, station.identifier))
-
-    # Override
-    def exit_state(self, state: SessionState, ctx: StateMachine):
-        # called after state changed
-        current = ctx.current_state
-        self.info(msg='server state changed: %s -> %s' % (state, current))
-        if current is None:
-            return
-        elif current == SessionState.HANDSHAKING:
-            # start handshake
-            self.handshake(session_key=None)
-        elif current == SessionState.RUNNING:
-            # broadcast current meta & visa document to all stations
-            self.handshake_success()
-
-    # Override
-    def pause_state(self, state: SessionState, ctx: StateMachine):
-        pass
-
-    # Override
-    def resume_state(self, state: SessionState, ctx: StateMachine):
-        # TODO: clear session key for re-login?
-        pass
