@@ -30,48 +30,97 @@
     Transform and send message
 """
 
-import time
-from typing import List
+from typing import Optional
 
-from dimsdk import EntityType, EVERYONE
+from dimsdk import EVERYONE
+from dimsdk import DocumentCommand
 
-from ..common import LoginCommand
+from startrek.fsm import StateDelegate
+
+from ..utils import Logging
+from ..common import HandshakeCommand
+from ..common import CommonFacebook, CommonMessenger
 from ..common import MessageDBI
-from ..common import CommonMessenger, CommonFacebook
-from ..common import Session
+
+from .session import ClientSession
+from .state import StateMachine, SessionState
 
 
-class ClientMessenger(CommonMessenger):
+class ClientMessenger(CommonMessenger, StateDelegate, Logging):
 
-    USER_AGENT = 'DIMP/0.12 (Server; Linux; en-US) DIMCoreKit/0.8 (Terminal) DIM-by-GSP/2.0'
-
-    def __init__(self, session: Session, facebook: CommonFacebook, database: MessageDBI):
+    def __init__(self, session: ClientSession, facebook: CommonFacebook, database: MessageDBI):
         super().__init__(session=session, facebook=facebook, database=database)
-        self.__last_login = 0
+        # session state
+        fsm = StateMachine(session=session)
+        fsm.delegate = self
+        self.__fsm = fsm
+
+    @property
+    def session(self) -> ClientSession:
+        sess = super().session
+        assert isinstance(sess, ClientSession), 'session error: %s' % sess
+        return sess
+
+    def start(self):
+        self.session.start()
+        self.__fsm.start()
+
+    def stop(self):
+        self.session.stop()
+        self.__fsm.stop()
+
+    def handshake(self, session_key: Optional[str]):
+        """ send handshake command to current station """
+        # 1. create handshake command
+        if session_key is None:
+            cmd = HandshakeCommand.start()
+        else:
+            cmd = HandshakeCommand.restart(session=session_key)
+        # 2. send to remote station
+        station = self.session.station
+        self.send_content(sender=None, receiver=station.identifier, content=cmd, priority=-1)
+
+    def broadcast_document(self):
+        """ broadcast meta & visa document to all stations """
+        facebook = self.facebook
+        current = facebook.current_user
+        identifier = current.identifier
+        meta = current.meta
+        visa = current.visa
+        cmd = DocumentCommand.response(identifier=identifier, meta=meta, document=visa)
+        self.send_content(sender=None, receiver=EVERYONE, content=cmd, priority=-1)
+
+    #
+    #   StateDelegate
+    #
 
     # Override
-    def process_package(self, data: bytes) -> List[bytes]:
-        responses = super().process_package(data=data)
-        if responses is None or len(responses) == 0:
-            # nothing response, check last login time
-            now = int(time.time())
-            if 0 < self.__last_login < now - 3600:
-                self.broadcast_login_command()
-        return responses
-
-    def broadcast_login_command(self):
+    def enter_state(self, state: SessionState, ctx: StateMachine):
+        # called before state changed
         session = self.session
-        uid = session.identifier
-        assert uid is not None, 'user not login'
-        if uid.type == EntityType.STATION:
-            # the current user is a station,
-            # it would not login to another station.
-            return False
-        from .session import ClientSession
         assert isinstance(session, ClientSession), 'session error: %s' % session
-        self.__last_login = time.time()
-        # create login command with station info
-        cmd = LoginCommand(identifier=uid)
-        cmd.agent = self.USER_AGENT
-        cmd.station = session.station
-        self.send_content(sender=uid, receiver=EVERYONE, content=cmd)
+        station = session.station
+        self.info(msg='enter state: %s, %s => %s' % (state, session.identifier, station.identifier))
+
+    # Override
+    def exit_state(self, state: SessionState, ctx: StateMachine):
+        # called after state changed
+        current = ctx.current_state
+        self.info('server state changed: %s -> %s' % (state, current))
+        if current is None:
+            return
+        elif current == SessionState.HANDSHAKING:
+            # start handshake
+            self.handshake(session_key=None)
+        elif current == SessionState.RUNNING:
+            # broadcast current meta & visa document to all stations
+            self.broadcast_document()
+
+    # Override
+    def pause_state(self, state: SessionState, ctx: StateMachine):
+        pass
+
+    # Override
+    def resume_state(self, state: SessionState, ctx: StateMachine):
+        # TODO: clear session key for re-login?
+        pass
