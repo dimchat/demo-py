@@ -80,6 +80,11 @@ class ClientMessenger(CommonMessenger, StateDelegate, Logging):
         station = self.session.station
         self.send_content(sender=None, receiver=station.identifier, content=cmd, priority=-1)
 
+    def handshake_success(self):
+        """ callback for handshake success """
+        # broadcast current documents after handshake success
+        self.broadcast_document()
+
     def broadcast_document(self):
         """ broadcast meta & visa document to all stations """
         facebook = self.facebook
@@ -106,7 +111,7 @@ class ClientMessenger(CommonMessenger, StateDelegate, Logging):
     def exit_state(self, state: SessionState, ctx: StateMachine):
         # called after state changed
         current = ctx.current_state
-        self.info('server state changed: %s -> %s' % (state, current))
+        self.info(msg='server state changed: %s -> %s' % (state, current))
         if current is None:
             return
         elif current == SessionState.HANDSHAKING:
@@ -114,7 +119,7 @@ class ClientMessenger(CommonMessenger, StateDelegate, Logging):
             self.handshake(session_key=None)
         elif current == SessionState.RUNNING:
             # broadcast current meta & visa document to all stations
-            self.broadcast_document()
+            self.handshake_success()
 
     # Override
     def pause_state(self, state: SessionState, ctx: StateMachine):
