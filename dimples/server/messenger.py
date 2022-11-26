@@ -32,10 +32,13 @@
 
 from typing import Optional, List
 
-from dimsdk import EntityType, ANYONE
+from dimsdk import EntityType, ID, ANYONE
 from dimsdk import Station
+from dimsdk import Envelope, DocumentCommand
+from dimsdk import InstantMessage
 from dimsdk import SecureMessage, ReliableMessage
 
+from ..common import QueryFrequencyChecker
 from ..common import HandshakeCommand
 from ..common import MessageDBI
 from ..common import CommonMessenger, CommonFacebook
@@ -59,6 +62,24 @@ class ServerMessenger(CommonMessenger):
     @filter.setter
     def filter(self, checker: Filter):
         self.__filter = checker
+
+    # Override
+    def query_document(self, identifier: ID) -> bool:
+        checker = QueryFrequencyChecker()
+        if not checker.document_query_expired(identifier=identifier):
+            # query not expired yet
+            return False
+        current = self.facebook.current_user
+        stations = ID.parse(identifier='stations@everywhere')
+        cmd = DocumentCommand.query(identifier=identifier)
+        env = Envelope.create(sender=current.identifier, receiver=stations)
+        i_msg = InstantMessage.create(head=env, body=cmd)
+        # pack & deliver message
+        s_msg = self.encrypt_message(msg=i_msg)
+        r_msg = self.sign_message(msg=s_msg)
+        dispatcher = Dispatcher()
+        dispatcher.deliver_message(msg=r_msg, receiver=stations)
+        return True
 
     # Override
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:

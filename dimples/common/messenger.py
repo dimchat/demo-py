@@ -30,22 +30,25 @@
     Transform and send message
 """
 
+from abc import ABC, abstractmethod
 from typing import Optional
 
 from dimsdk import ID
 from dimsdk import InstantMessage, ReliableMessage
 from dimsdk import Content, Envelope
+from dimsdk import GroupCommand
 from dimsdk import EntityDelegate, CipherKeyDelegate
 from dimsdk import Messenger, Packer, Processor
 
 from .dbi import MessageDBI
 
+from .sync import QueryFrequencyChecker
 from .facebook import CommonFacebook
 from .transmitter import Transmitter
 from .session import Session
 
 
-class CommonMessenger(Messenger, Transmitter):
+class CommonMessenger(Messenger, Transmitter, ABC):
 
     def __init__(self, session: Session, facebook: CommonFacebook, database: MessageDBI):
         super().__init__()
@@ -129,11 +132,14 @@ class CommonMessenger(Messenger, Transmitter):
     # Override
     def send_instant_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
         """ send instant message with priority """
+        if is_waiting(msg=msg, messenger=self):
+            # receiver not ready
+            return None
         # send message (secured + certified) to target station
         s_msg = self.encrypt_message(msg=msg)
         if s_msg is None:
-            # public key not found?
-            return None
+            # TODO: set msg.state = error
+            raise AssertionError('failed to encrypt message: %s' % s_msg)
         r_msg = self.sign_message(msg=s_msg)
         if r_msg is None:
             # TODO: set msg.state = error
@@ -151,3 +157,73 @@ class CommonMessenger(Messenger, Transmitter):
         #    put message package into the waiting queue of current session
         session = self.session
         return session.queue_message_package(msg=msg, data=data, priority=priority)
+
+    @abstractmethod
+    def query_document(self, identifier: ID) -> bool:
+        """ request for meta & visa document with entity ID """
+        raise NotImplemented
+
+    def query_members(self, identifier: ID) -> bool:
+        """ request for group members with group ID """
+        checker = QueryFrequencyChecker()
+        if not checker.members_query_expired(identifier=identifier):
+            # query not expired yet
+            return False
+        assert identifier.is_group, 'group ID error: %s' % identifier
+        group = self.facebook.group(identifier=identifier)
+        # request to group bots
+        assistants = group.assistants
+        if assistants is None or len(assistants) == 0:
+            # self.warning(msg='group assistants not found: %s' % identifier)
+            return False
+        cmd = GroupCommand.query(group=identifier)
+        for bot in assistants:
+            self.send_content(sender=None, receiver=bot, content=cmd)
+        return True
+
+
+def is_waiting(msg: InstantMessage, messenger: CommonMessenger) -> bool:
+    """ check whether receiver is ready """
+    receiver = msg.receiver
+    facebook = messenger.facebook
+    if receiver.is_user:
+        # check user's meta & document
+        user = facebook.user(identifier=receiver)
+        if user is None:
+            messenger.query_document(identifier=receiver)
+            msg['error'] = {
+                'message': 'encrypt key not found',
+                'user': str(receiver),
+            }
+            return True
+    else:
+        # check group's meta
+        group = facebook.group(identifier=receiver)
+        if group is None:
+            messenger.query_document(identifier=receiver)
+            msg['error'] = {
+                'message': 'group meta not found',
+                'group': str(receiver),
+            }
+            return True
+        # check group members
+        members = group.members
+        if members is None or len(members) == 0:
+            messenger.query_members(identifier=receiver)
+            msg['error'] = {
+                'message': 'members not found',
+                'group': str(receiver),
+            }
+            return True
+        waiting = set()
+        for item in members:
+            user = facebook.user(identifier=item)
+            if user is None:
+                waiting.add(user)
+        if len(waiting) > 0:
+            msg['error'] = {
+                'message': 'encrypt keys not found',
+                'group': str(receiver),
+                'members': ID.revert(members=waiting)
+            }
+            return True

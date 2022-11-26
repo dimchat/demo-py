@@ -32,12 +32,13 @@
 
 from typing import Optional
 
-from dimsdk import EVERYONE
+from dimsdk import ID, EVERYONE
 from dimsdk import Station
 from dimsdk import Envelope, InstantMessage
 from dimsdk import DocumentCommand
 
 from ..utils import Logging
+from ..common import QueryFrequencyChecker
 from ..common import HandshakeCommand, ReportCommand
 from ..common import CommonMessenger
 
@@ -97,3 +98,14 @@ class ClientMessenger(CommonMessenger, Logging):
         """ set report command to let user offline """
         cmd = ReportCommand(title=ReportCommand.OFFLINE)
         self.send_content(sender=None, receiver=Station.ANY, content=cmd, priority=1)
+
+    # Override
+    def query_document(self, identifier: ID) -> bool:
+        checker = QueryFrequencyChecker()
+        if not checker.document_query_expired(identifier=identifier):
+            # query not expired yet
+            return False
+        self.info(msg='querying document: %s' % identifier)
+        cmd = DocumentCommand.query(identifier=identifier)
+        self.send_content(sender=None, receiver=Station.ANY, content=cmd)
+        return True

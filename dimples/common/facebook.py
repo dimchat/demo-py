@@ -117,16 +117,18 @@ class CommonFacebook(Facebook):
 
     # Override
     def create_user(self, identifier: ID) -> Optional[User]:
-        if not identifier.is_broadcast and self.meta(identifier=identifier) is None:
-            # meta not found
-            return None
+        if not identifier.is_broadcast:
+            if self.public_key_for_encryption(identifier=identifier) is None:
+                # visa.key not found
+                return None
         return super().create_user(identifier=identifier)
 
     # Override
     def create_group(self, identifier: ID) -> Optional[Group]:
-        if not identifier.is_broadcast and self.meta(identifier=identifier) is None:
-            # meta not found
-            return None
+        if not identifier.is_broadcast:
+            if self.meta(identifier=identifier) is None:
+                # meta not found
+                return None
         return super().create_group(identifier=identifier)
 
     #
