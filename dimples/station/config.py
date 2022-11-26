@@ -60,15 +60,17 @@ class Config:
 
     def to_json(self) -> str:
         info = {
-            'station': str(self.station),
-            'server': {
-                'host': self.host,
-                'port': self.port,
-            },
             'database': {
                 'root': self.root,
                 'public': self.public,
                 'private': self.private,
+            },
+            'server': {
+                'host': self.host,
+                'port': self.port,
+            },
+            'ans': {
+                'station': str(self.station),
             },
         }
         return json_encode(obj=info)
@@ -198,7 +200,7 @@ def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
     pusher = DefaultPusher(facebook=facebook)
     deliver = DefaultDeliver(database=shared.mdb, pusher=pusher)
     group_deliver = GroupDeliver(database=shared.mdb, facebook=facebook)
-    broadcast_deliver = BroadcastDeliver()
+    broadcast_deliver = BroadcastDeliver(database=shared.sdb)
     roamer = DefaultRoamer(database=shared.sdb, facebook=facebook)
     # set delegates and start
     dispatcher.database = shared.mdb

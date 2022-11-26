@@ -102,7 +102,7 @@ def main():
     init_database(shared=shared)
     init_facebook(shared=shared)
     # create octopus
-    octopus = Octopus(local_user=config.station, local_port=config.port)
+    octopus = Octopus(database=shared.sdb, local_user=config.station, local_port=config.port)
     octopus.start()
 
 

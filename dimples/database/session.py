@@ -23,7 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, Set
+from typing import Optional, Set, Tuple
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
@@ -33,6 +33,7 @@ from ..common import SessionDBI, LoginCommand, ReportCommand
 from .t_login import LoginTable
 from .t_report import ReportTable
 from .t_online import OnlineTable
+from .t_provider import ProviderTable
 
 
 class SessionDatabase(SessionDBI):
@@ -46,11 +47,13 @@ class SessionDatabase(SessionDBI):
         self.__login_table = LoginTable(root=root, public=public, private=private)
         self.__report_table = ReportTable(root=root, public=public, private=private)
         self.__online_table = OnlineTable(root=root, public=public, private=private)
+        self.__provider_table = ProviderTable(root=root, public=public, private=private)
 
     def show_info(self):
         self.__login_table.show_info()
         self.__report_table.show_info()
         self.__online_table.show_info()
+        self.__provider_table.show_info()
 
     #
     #   Login DBI
@@ -93,3 +96,23 @@ class SessionDatabase(SessionDBI):
     # Override
     def remove_socket_address(self, identifier: ID, address: tuple) -> bool:
         return self.__online_table.remove_socket_address(identifier=identifier, address=address)
+
+    #
+    #   Provider DBI
+    #
+
+    # Override
+    def all_neighbors(self) -> Set[Tuple[str, int, Optional[ID]]]:
+        return self.__provider_table.all_neighbors()
+
+    # Override
+    def get_neighbor(self, host: str, port: int) -> Optional[ID]:
+        return self.__provider_table.get_neighbor(host=host, port=port)
+
+    # Override
+    def add_neighbor(self, host: str, port: int, identifier: ID = None) -> bool:
+        return self.__provider_table.add_neighbor(host=host, port=port, identifier=identifier)
+
+    # Override
+    def del_neighbor(self, host: str, port: int) -> Optional[ID]:
+        return self.__provider_table.del_neighbor(host=host, port=port)

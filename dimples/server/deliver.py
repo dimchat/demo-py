@@ -32,7 +32,7 @@
 
 import threading
 from abc import ABC, abstractmethod
-from typing import Optional, List
+from typing import Optional, List, Set
 
 from dimsdk import EntityType, ID
 from dimsdk import Content
@@ -45,7 +45,7 @@ from ..conn.session import get_sig
 
 class DeliverTask:
 
-    def __init__(self, msg: ReliableMessage, rcpt: List[ID]):
+    def __init__(self, msg: ReliableMessage, rcpt: Set[ID]):
         super().__init__()
         self.msg = msg
         self.rcpt = rcpt
@@ -75,11 +75,11 @@ class Deliver(Runner, Logging, ABC):
         super().__init__()
         self.__queue = DeliverQueue()  # locked queue
 
-    def __append(self, msg: ReliableMessage, rcpt: List[ID]):
+    def __append(self, msg: ReliableMessage, rcpt: Set[ID]):
         task = DeliverTask(msg=msg, rcpt=rcpt)
         self.__queue.append(task=task)
 
-    def __next(self) -> (Optional[ReliableMessage], Optional[List[ID]]):
+    def __next(self) -> (Optional[ReliableMessage], Optional[Set[ID]]):
         task = self.__queue.next()
         if task is None:
             return None, None
@@ -87,11 +87,11 @@ class Deliver(Runner, Logging, ABC):
             return task.msg, task.rcpt
 
     @abstractmethod
-    def _get_recipients(self, receiver: ID) -> List[ID]:
+    def _get_recipients(self, receiver: ID) -> Set[ID]:
         """
         Get actual receivers
 
-            1. neighbour stations
+            1. neighbor stations
             2. group assistants
             3. bots
 
@@ -101,7 +101,7 @@ class Deliver(Runner, Logging, ABC):
         raise NotImplemented
 
     @abstractmethod
-    def _respond(self, msg: ReliableMessage, rcpt: List[ID]) -> List[Content]:
+    def _respond(self, msg: ReliableMessage, rcpt: Set[ID]) -> List[Content]:
         """
         Respond receipt command for delivering
 
@@ -116,7 +116,7 @@ class Deliver(Runner, Logging, ABC):
         # get all actual recipients
         recipients = self._get_recipients(receiver=receiver)
         self.info(msg='delivering message (%s) from %s to %s, actual receivers: %s'
-                      % (get_sig(msg=msg), sender, receiver, recipients))
+                      % (get_sig(msg=msg), sender, receiver, ID.revert(recipients)))
         self.__append(msg=msg, rcpt=recipients)
         # respond
         if sender.type == EntityType.STATION:

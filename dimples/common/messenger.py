@@ -34,7 +34,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from dimsdk import ID
-from dimsdk import InstantMessage, ReliableMessage
+from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import Content, Envelope
 from dimsdk import GroupCommand
 from dimsdk import EntityDelegate, CipherKeyDelegate
@@ -110,6 +110,13 @@ class CommonMessenger(Messenger, Transmitter, ABC):
     #         key['reused'] = reused
     #     return data
 
+    # Override
+    def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
+        if is_waiting(msg=msg, messenger=self):
+            # receiver not ready
+            return None
+        return super().encrypt_message(msg=msg)
+
     #
     #   Interfaces for Transmitting Message
     #
@@ -132,14 +139,11 @@ class CommonMessenger(Messenger, Transmitter, ABC):
     # Override
     def send_instant_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
         """ send instant message with priority """
-        if is_waiting(msg=msg, messenger=self):
-            # receiver not ready
-            return None
         # send message (secured + certified) to target station
         s_msg = self.encrypt_message(msg=msg)
         if s_msg is None:
-            # TODO: set msg.state = error
-            raise AssertionError('failed to encrypt message: %s' % s_msg)
+            # public key not found?
+            return None
         r_msg = self.sign_message(msg=s_msg)
         if r_msg is None:
             # TODO: set msg.state = error

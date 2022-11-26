@@ -24,7 +24,7 @@
 # ==============================================================================
 
 from abc import ABC, abstractmethod
-from typing import Optional, Set
+from typing import Optional, Set, Tuple
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
@@ -86,6 +86,30 @@ class OnlineDBI(ABC):
         raise NotImplemented
 
 
-class SessionDBI(LoginDBI, ReportDBI, OnlineDBI, ABC):
+class ProviderDBI(ABC):
+    """ Provider Stations Table """
+
+    #
+    #   neighbor stations
+    #
+    @abstractmethod
+    def all_neighbors(self) -> Set[Tuple[str, int, Optional[ID]]]:
+        """ get a set of (host, port, ID) """
+        raise NotImplemented
+
+    @abstractmethod
+    def get_neighbor(self, host: str, port: int) -> Optional[ID]:
+        raise NotImplemented
+
+    @abstractmethod
+    def add_neighbor(self, host: str, port: int, identifier: ID = None) -> bool:
+        raise NotImplemented
+
+    @abstractmethod
+    def del_neighbor(self, host: str, port: int) -> Optional[ID]:
+        raise NotImplemented
+
+
+class SessionDBI(LoginDBI, ReportDBI, OnlineDBI, ProviderDBI, ABC):
     """ Session Database """
     pass

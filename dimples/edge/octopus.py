@@ -27,7 +27,7 @@
     Octopus
     ~~~~~~~
 
-    Edges for neighbour stations
+    Edges for neighbor stations
 """
 
 import threading
@@ -45,7 +45,7 @@ from ..utils import Logging
 from ..utils import Runner
 from ..common import CommonPacker
 from ..common import CommonFacebook
-from ..common import MessageDBI
+from ..common import MessageDBI, SessionDBI
 from ..common import HandshakeCommand
 from ..conn.session import get_sig
 
@@ -197,13 +197,18 @@ def create_outer_terminal(octopus, user: ID, host: str, port: int) -> Terminal:
 
 class Octopus(Runner, Logging):
 
-    def __init__(self, local_user: ID, local_host: str = '127.0.0.1', local_port: int = 9394):
+    def __init__(self, database: SessionDBI, local_user: ID, local_host: str = '127.0.0.1', local_port: int = 9394):
         super().__init__()
+        self.__database = database
         self.__user = local_user
         self.__inner = create_inner_terminal(user=local_user, host=local_host, port=local_port, octopus=self)
         self.__outers: Set[Terminal] = set()
         self.__outer_map = weakref.WeakValueDictionary()
         self.__outer_lock = threading.Lock()
+
+    @property
+    def database(self) -> SessionDBI:
+        return self.__database
 
     @property
     def inner_messenger(self) -> ClientMessenger:
@@ -247,17 +252,38 @@ class Octopus(Runner, Logging):
 
     # Override
     def process(self) -> bool:
+        # get all neighbor stations
+        db = self.database
+        neighbors = db.all_neighbors()
+        # get all outer terminals
         with self.__outer_lock:
             outers = set(self.__outers)
         for out in outers:
+            # check station
+            station = out.session.station
+            host = station.host
+            port = station.port
+            for item in neighbors:
+                if item[0] == host and item[1] == port:
+                    # got
+                    neighbors.discard(item)
+                    break
             if out.is_alive:
+                # outer terminal alive, ignore it
                 continue
             # remove dead terminal
-            sid = out.session.station.identifier
+            sid = station.identifier
             with self.__outer_lock:
                 self.__outers.discard(out)
                 if sid is not None:
                     self.__outer_map.pop(sid, None)
+        # check new neighbors
+        for item in neighbors:
+            host = item[0]
+            port = item[1]
+            sid = item[2]
+            self.info(msg='connecting neighbor station "%s" (%s:%d)' % (sid, host, port))
+            self.connect(host=host, port=port)
         return False
 
     def income_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
@@ -283,8 +309,8 @@ class Octopus(Runner, Logging):
             return []
         messenger = self.get_outer_messenger(identifier=roaming)
         if messenger is None:
-            # roaming station not my neighbour
-            self.info(msg='receiver (%s) is roaming to (%s), but not my neighbour' % (receiver, roaming))
+            # roaming station not my neighbor
+            self.info(msg='receiver (%s) is roaming to (%s), but not my neighbor' % (receiver, roaming))
             return []
         if messenger.send_reliable_message(msg=msg):
             sig = get_sig(msg=msg)

@@ -30,14 +30,14 @@
     A dispatcher to decide which way to deliver message.
 """
 
-from typing import Optional, List
+from typing import Optional, Set
 
 from dimsdk import EntityType, ID
 from dimsdk import ReliableMessage
 
 from ..utils import Logging
 from ..common import ReceiptCommand
-from ..common import MessageDBI
+from ..common import MessageDBI, SessionDBI
 from ..common import CommonFacebook
 
 from .session_center import SessionCenter
@@ -48,19 +48,39 @@ from .dispatcher import Dispatcher
 
 class BroadcastDeliver(Deliver, Logging):
 
+    def __init__(self, database: SessionDBI):
+        super().__init__()
+        self.__database = database
+
+    @property
+    def database(self) -> Optional[SessionDBI]:
+        return self.__database
+
     # Override
-    def _get_recipients(self, receiver: ID) -> List[ID]:
-        # get bot for search command
+    def _get_recipients(self, receiver: ID) -> Set[ID]:
+        recipients = set()
         if receiver in ['archivist@anywhere', 'archivists@everywhere']:
+            # get bot for search command
             self.info(msg='forward search command to archivist: %s' % receiver)
             # get from ANS
             bot = ID.parse(identifier='archivist')
-            return [] if bot is None else [bot]
-        # TODO: get neighbor stations
-        return []
+            if bot is not None:
+                recipients.add(bot)
+        elif receiver in ['stations@everywhere', 'everyone@everywhere']:
+            # get neighbor stations
+            self.info(msg='forward broadcast msg to neighbors: %s' % receiver)
+            db = self.database
+            neighbors = db.all_neighbors()
+            for item in neighbors:
+                sid = item[2]
+                if sid is not None:
+                    recipients.add(sid)
+        else:
+            self.info(msg='unknown broadcast ID: %s' % receiver)
+        return recipients
 
     # Override
-    def _respond(self, msg: ReliableMessage, rcpt: List[ID]):
+    def _respond(self, msg: ReliableMessage, rcpt: Set[ID]):
         text = 'Broadcast message delivering'
         cmd = ReceiptCommand.create(text=text, msg=msg)
         cmd['recipients'] = ID.revert(members=rcpt)
@@ -103,16 +123,19 @@ class GroupDeliver(Deliver, Logging):
         return assistants[0]
 
     # Override
-    def _get_recipients(self, receiver: ID) -> List[ID]:
+    def _get_recipients(self, receiver: ID) -> Set[ID]:
         assert not receiver.is_broadcast, 'group ID error: %s' % receiver
         bot = self._get_assistant(group=receiver)
         if bot is None:
             # get from ANS
             bot = ID.parse(identifier='assistant')
-        return [] if bot is None else [bot]
+        assistants = set()
+        if bot is not None:
+            assistants.add(bot)
+        return assistants
 
     # Override
-    def _respond(self, msg: ReliableMessage, rcpt: List[ID]):
+    def _respond(self, msg: ReliableMessage, rcpt: Set[ID]):
         text = 'Group message delivering'
         cmd = ReceiptCommand.create(text=text, msg=msg)
         cmd['assistants'] = ID.revert(members=rcpt)
@@ -142,13 +165,15 @@ class DefaultDeliver(Deliver, Logging):
         return self.__pusher
 
     # Override
-    def _get_recipients(self, receiver: ID) -> List[ID]:
+    def _get_recipients(self, receiver: ID) -> Set[ID]:
         assert not receiver.is_broadcast, 'receiver ID error: %s' % receiver
         assert not receiver.is_group, 'receiver ID error: %s' % receiver
-        return [receiver]
+        users = set()
+        users.add(receiver)
+        return users
 
     # Override
-    def _respond(self, msg: ReliableMessage, rcpt: List[ID]):
+    def _respond(self, msg: ReliableMessage, rcpt: Set[ID]):
         text = 'Message delivering'
         cmd = ReceiptCommand.create(text=text, msg=msg)
         # cmd['recipients'] = ID.revert(members=rcpt)
