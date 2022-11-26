@@ -32,7 +32,7 @@
 
 from typing import Optional, List, Set
 
-from dimsdk import ID
+from dimsdk import EntityType, ID
 from dimsdk import ReliableMessage
 
 from ..common import LoginCommand
@@ -63,24 +63,29 @@ class DefaultRoamer(Roamer):
     # Override
     def roam_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         """ Redirect message for other delivers """
+        assert receiver.is_user, 'receiver error: %s' % receiver
         # get roaming station
-        roaming = get_roaming_station(receiver=receiver, database=self.database)
-        if roaming is None:
-            # login command not found
-            return False
+        if receiver.type == EntityType.STATION:
+            # station won't roaming to other station
+            roaming = receiver
+        else:
+            # get roaming station from stored LoginCommand
+            roaming = get_roaming_station(receiver=receiver, database=self.database)
+            if roaming is None:
+                # LoginCommand not found
+                return False
         # get current station
         current = self.facebook.current_user.identifier
         assert current is not None, 'current station not set'
         if current == roaming:
-            # the receiver is login to current station, no need to roam message
+            # same station, no need to redirect message
             return False
-        center = SessionCenter()
-        roaming_sessions = center.active_sessions(identifier=roaming)
-        bridge_sessions = center.active_sessions(identifier=current)
-        return roam_msg(msg=msg, roaming=roaming, roaming_sessions=roaming_sessions, bridge_sessions=bridge_sessions)
+        # try to push to neighbor station directly,
+        # if failed, try to push via the bridge
+        return push_twice(msg=msg, target=receiver, roaming=roaming, bridge=current)
 
     # Override
-    def roam_messages(self, messages: List[ReliableMessage], roaming: ID) -> int:
+    def roam_messages(self, messages: List[ReliableMessage], receiver: ID, roaming: ID) -> int:
         """ Redirect messages for dispatcher """
         current = self.facebook.current_user.identifier
         assert current is not None, 'current station not set'
@@ -90,7 +95,8 @@ class DefaultRoamer(Roamer):
         bridge_sessions = center.active_sessions(identifier=current)
         cnt = 0
         for msg in messages:
-            if roam_msg(msg=msg, roaming=roaming, roaming_sessions=roaming_sessions, bridge_sessions=bridge_sessions):
+            if push_twice(msg=msg, target=receiver, roaming=roaming, bridge=current,
+                          neighbor_sessions=roaming_sessions, bridge_sessions=bridge_sessions):
                 cnt += 1
         return cnt
 
@@ -105,25 +111,41 @@ def get_roaming_station(receiver: ID, database: SessionDBI) -> Optional[ID]:
 
 
 def push_once(msg: ReliableMessage, sessions: Set[Session]) -> bool:
-    """ push message to other station """
+    """ push message to neighbor station """
     for sess in sessions:
         if sess.send_reliable_message(msg=msg, priority=1):
             # delivered to first active session of other station,
-            # actually there is only one session for one neighbour
+            # actually there is only one session for one neighbor
             return True
 
 
-def roam_msg(msg: ReliableMessage, roaming: ID, roaming_sessions: Set[Session], bridge_sessions: Set[Session]) -> bool:
-    """ deliver message to roaming station """
+def push_twice(msg: ReliableMessage, target: ID, roaming: ID, bridge: ID,
+               neighbor_sessions: Set[Session] = None, bridge_sessions: Set[Session] = None) -> bool:
+    """
+    Deliver message to target station directly or via the station bridge
+
+    :param msg:               network message
+    :param target:            actual receiver
+    :param roaming:           neighbor station ID
+    :param bridge:            current station ID
+    :param neighbor_sessions: for roaming station
+    :param bridge_sessions:   for station bridge
+    :return: True on pushed
+    """
+    center = SessionCenter()
     # 1. redirect cached messages to roaming station directly
-    if push_once(msg=msg, sessions=roaming_sessions):
+    if neighbor_sessions is None:
+        neighbor_sessions = center.active_sessions(identifier=roaming)
+    if push_once(msg=msg, sessions=neighbor_sessions):
         # deliver to first active session of roaming station,
-        # actually there is only one session for one neighbour
+        # actually there is only one session for one neighbor
         return True
     # 2. roaming station not connected, redirect it via station bridge
     #    set roaming station ID here to let the bridge know where to go,
-    #    and the bridge should remove 'roaming' before deliver it.
-    msg['roaming'] = str(roaming)
+    #    and the bridge should remove 'target' before deliver it.
+    msg['target'] = str(target)
+    if bridge_sessions is None:
+        bridge_sessions = center.active_sessions(identifier=bridge)
     if push_once(msg=msg, sessions=bridge_sessions):
         # deliver to first active session of station bridge,
         # actually there is only one session for the bridge

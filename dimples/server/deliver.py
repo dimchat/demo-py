@@ -184,11 +184,12 @@ class Roamer(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def roam_messages(self, messages: List[ReliableMessage], roaming: ID) -> int:
+    def roam_messages(self, messages: List[ReliableMessage], receiver: ID, roaming: ID) -> int:
         """
         Redirect messages for dispatcher
 
         :param messages: cached messages
+        :param receiver: actual receiver
         :param roaming:  roaming station
         :return: True on redirected
         """

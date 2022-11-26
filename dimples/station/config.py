@@ -200,7 +200,7 @@ def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
     pusher = DefaultPusher(facebook=facebook)
     deliver = DefaultDeliver(database=shared.mdb, pusher=pusher)
     group_deliver = GroupDeliver(database=shared.mdb, facebook=facebook)
-    broadcast_deliver = BroadcastDeliver(database=shared.sdb)
+    broadcast_deliver = BroadcastDeliver(database=shared.sdb, facebook=facebook)
     roamer = DefaultRoamer(database=shared.sdb, facebook=facebook)
     # set delegates and start
     dispatcher.database = shared.mdb

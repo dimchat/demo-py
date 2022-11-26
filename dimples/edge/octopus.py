@@ -302,7 +302,7 @@ class Octopus(Runner, Logging):
     def outgo_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         """ redirect message to remote station """
         receiver = msg.receiver
-        roaming = ID.parse(identifier=msg.get('roaming'))
+        roaming = ID.parse(identifier=msg.get('target'))
         if roaming is None:
             # roaming station not found
             self.info(msg='cannot get roaming station for receiver (%s)' % receiver)
@@ -312,6 +312,7 @@ class Octopus(Runner, Logging):
             # roaming station not my neighbor
             self.info(msg='receiver (%s) is roaming to (%s), but not my neighbor' % (receiver, roaming))
             return []
+        msg.pop('target', None)
         if messenger.send_reliable_message(msg=msg):
             sig = get_sig(msg=msg)
             self.info(msg='redirected msg (%s) to (%s) for roaming receiver (%s)' % (sig, roaming, receiver))

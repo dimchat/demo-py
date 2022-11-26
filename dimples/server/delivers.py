@@ -48,13 +48,18 @@ from .dispatcher import Dispatcher
 
 class BroadcastDeliver(Deliver, Logging):
 
-    def __init__(self, database: SessionDBI):
+    def __init__(self, database: SessionDBI, facebook: CommonFacebook):
         super().__init__()
         self.__database = database
+        self.__facebook = facebook
 
     @property
     def database(self) -> Optional[SessionDBI]:
         return self.__database
+
+    @property
+    def facebook(self) -> Optional[CommonFacebook]:
+        return self.__facebook
 
     # Override
     def _get_recipients(self, receiver: ID) -> Set[ID]:
@@ -89,8 +94,17 @@ class BroadcastDeliver(Deliver, Logging):
     # Override
     def _push_message(self, msg: ReliableMessage, receiver: ID) -> int:
         # node need to store broadcast message
-        # push via active session directly
-        return session_push(msg=msg, receiver=receiver)
+        # 1. try to push via active session directly
+        cnt = session_push(msg=msg, receiver=receiver)
+        if cnt > 0:
+            # receiver is login to current station, message pushed directly
+            return cnt
+        # 2. check for roaming and redirect
+        if roamer_deliver(msg=msg, receiver=receiver):
+            # receiver is roaming to other station, message redirected
+            return 0
+        # 3. no need to push notification for a bot
+        return -1
 
 
 class GroupDeliver(Deliver, Logging):
@@ -143,10 +157,20 @@ class GroupDeliver(Deliver, Logging):
 
     # Override
     def _push_message(self, msg: ReliableMessage, receiver: ID) -> int:
-        # save message before push
+        # assert receiver.type == EntityType.BOT, 'receiver error: %s' % receiver
+        # 0. save message before push
         save_message(msg=msg, receiver=receiver, database=self.database)
-        # push via active session
-        return session_push(msg=msg, receiver=receiver)
+        # 1. try to push via active session directly
+        cnt = session_push(msg=msg, receiver=receiver)
+        if cnt > 0:
+            # receiver is login to current station, message pushed directly
+            return cnt
+        # 2. check for roaming and redirect
+        if roamer_deliver(msg=msg, receiver=receiver):
+            # receiver is roaming to other station, message redirected
+            return 0
+        # 3. no need to push notification for a bot
+        return -1
 
 
 class DefaultDeliver(Deliver, Logging):
@@ -181,7 +205,8 @@ class DefaultDeliver(Deliver, Logging):
 
     # Override
     def _push_message(self, msg: ReliableMessage, receiver: ID) -> int:
-        # save message before push
+        assert receiver.is_user, 'receiver error: %s' % receiver
+        # 0. save message before push
         save_message(msg=msg, receiver=receiver, database=self.database)
         # push via active session
         # 1. try to push via active session
@@ -200,7 +225,7 @@ class DefaultDeliver(Deliver, Logging):
                 self.warning(msg='pusher not set yet, drop notification for: %s' % receiver)
             else:
                 pusher.push_notification(msg=msg)
-        return 0
+        return -1
 
 
 def save_message(msg: ReliableMessage, receiver: ID, database: MessageDBI) -> bool:

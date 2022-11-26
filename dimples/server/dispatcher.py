@@ -106,7 +106,7 @@ class Dispatcher(Runner, Logging):
             if roamer is None:
                 self.error(msg='roamer not found for receiver: %s' % receiver)
             else:
-                roamer.roam_messages(messages=cached_messages, roaming=roaming)
+                roamer.roam_messages(messages=cached_messages, receiver=receiver, roaming=roaming)
         except Exception as e:
             self.error(msg='process roaming user (%s => %s) error: %s' % (receiver, roaming, e))
         # return True to process next immediately
