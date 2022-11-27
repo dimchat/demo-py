@@ -24,10 +24,10 @@
 # ==============================================================================
 
 """
-    Message Dispatcher
-    ~~~~~~~~~~~~~~~~~~
+    Message Deliver
+    ~~~~~~~~~~~~~~~
 
-    A dispatcher to decide which way to deliver message.
+    A deliver to decide which way to redirect message.
 """
 
 import threading
@@ -134,7 +134,9 @@ class Deliver(Runner, Logging, ABC):
         try:
             sig = get_sig(msg=msg)
             traces = msg.get('traces')
-            assert traces is not None, 'message (%s) traces should have been set by filter.' % sig
+            if traces is None:
+                traces = []
+                msg['traces'] = traces
             # push to all recipients
             for receiver in recipients:
                 if receiver in traces:

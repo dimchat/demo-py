@@ -144,6 +144,13 @@ class OuterMessenger(OctopusMessenger):
     """ Messenger for remote station """
 
     # Override
+    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+        if msg.sender == self.local_station:
+            self.debug(msg='cycled message from this station: %s => %s' % (msg.sender, msg.receiver))
+            return []
+        return super().process_reliable_message(msg=msg)
+
+    # Override
     def deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         octopus = self.octopus
         return octopus.income_message(msg=msg)
@@ -292,32 +299,32 @@ class Octopus(Runner, Logging):
         messenger = self.inner_messenger
         if messenger.send_reliable_message(msg=msg):
             sig = get_sig(msg=msg)
-            self.info(msg='redirected msg (%s) for roaming receiver (%s)' % (sig, receiver))
+            self.info(msg='redirected msg (%s) for receiver (%s)' % (sig, receiver))
             # no need to respond receipt for station
             return []
         sig = get_sig(msg=msg)
-        self.error(msg='failed to redirect msg (%s) for roaming receiver (%s)' % (sig, receiver))
+        self.error(msg='failed to redirect msg (%s) for receiver (%s)' % (sig, receiver))
         return []
 
     def outgo_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         """ redirect message to remote station """
         receiver = msg.receiver
-        roaming = ID.parse(identifier=msg.get('target'))
-        if roaming is None:
-            # roaming station not found
-            self.info(msg='cannot get roaming station for receiver (%s)' % receiver)
+        target = ID.parse(identifier=msg.get('target'))
+        if target is None:
+            # target station not found
+            self.info(msg='cannot get target station for receiver (%s)' % receiver)
             return []
-        messenger = self.get_outer_messenger(identifier=roaming)
+        messenger = self.get_outer_messenger(identifier=target)
         if messenger is None:
-            # roaming station not my neighbor
-            self.info(msg='receiver (%s) is roaming to (%s), but not my neighbor' % (receiver, roaming))
+            # target station not my neighbor
+            self.info(msg='receiver (%s) is targeted to (%s), but not my neighbor' % (receiver, target))
             return []
         msg.pop('target', None)
         if messenger.send_reliable_message(msg=msg):
             sig = get_sig(msg=msg)
-            self.info(msg='redirected msg (%s) to (%s) for roaming receiver (%s)' % (sig, roaming, receiver))
+            self.info(msg='redirected msg (%s) to target (%s) for receiver (%s)' % (sig, target, receiver))
             # no need to respond receipt for station
             return []
         sig = get_sig(msg=msg)
-        self.error(msg='failed to redirect msg (%s) to (%s) for roaming receiver (%s)' % (sig, roaming, receiver))
+        self.error(msg='failed to redirect msg (%s) to target (%s) for receiver (%s)' % (sig, target, receiver))
         return []
