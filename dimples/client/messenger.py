@@ -37,7 +37,6 @@ from dimsdk import Station
 from dimsdk import Envelope, InstantMessage
 from dimsdk import DocumentCommand
 
-from ..utils import Logging
 from ..common import QueryFrequencyChecker
 from ..common import HandshakeCommand, ReportCommand
 from ..common import CommonMessenger
@@ -45,7 +44,7 @@ from ..common import CommonMessenger
 from .session import ClientSession
 
 
-class ClientMessenger(CommonMessenger, Logging):
+class ClientMessenger(CommonMessenger):
 
     @property
     def session(self) -> ClientSession:
@@ -100,12 +99,13 @@ class ClientMessenger(CommonMessenger, Logging):
         self.send_content(sender=None, receiver=Station.ANY, content=cmd, priority=1)
 
     # Override
-    def query_document(self, identifier: ID) -> bool:
+    def _query_document(self, identifier: ID) -> bool:
         checker = QueryFrequencyChecker()
         if not checker.document_query_expired(identifier=identifier):
             # query not expired yet
+            self.debug(msg='document query not expired yet: %s' % identifier)
             return False
-        self.info(msg='querying document: %s' % identifier)
+        self.info(msg='querying document: %s from any station' % identifier)
         cmd = DocumentCommand.query(identifier=identifier)
         self.send_content(sender=None, receiver=Station.ANY, content=cmd)
         return True

@@ -48,26 +48,36 @@ class HandshakeCommandProcessor(BaseCommandProcessor, Logging):
         assert isinstance(content, HandshakeCommand), 'handshake command error: %s' % content
         messenger = get_client_messenger(cpu=self)
         client_session = get_client_session(messenger=messenger)
+        # update station's default ID ('station@anywhere') to sender (real ID)
+        station = client_session.station
+        oid = station.identifier
         sender = msg.sender
+        if oid is None or oid == Station.ANY:
+            station.identifier = sender
+        else:
+            # make sure handshake command from current station
+            assert oid == sender, 'station ID not match: %s, %s' % (oid, sender)
+        # handle handshake command with title & session key
         title = content.title
         new_sess_key = content.session
         if 'DIM?' == title:
             # S -> C: station ask client to handshake again
             self.info(msg='handshake again, session key: %s' % new_sess_key)
-            # 1. replace station id (default is 'station@anywhere')
-            station = client_session.station
-            oid = station.identifier
-            if oid is None or oid == Station.ANY:
-                station.identifier = sender
-            else:
-                assert oid == sender, 'station ID not match: %s, %s' % (oid, sender)
-            assert client_session.key is None, 'session key should be empty while handshaking'
-            # 2. send handshake command with new session key
+            # clear client session key while handshake again
+            if client_session.key is not None:
+                self.info(msg='session key already set: %s => %s' % (client_session.key, new_sess_key))
+                client_session.key = None
+            # send handshake command with new session key
             messenger.handshake(session_key=new_sess_key)
         elif 'DIM!' == title:
             # S -> C: handshake accepted by station
-            self.info(msg='handshake success!')
-            assert client_session.key is None, 'session key should be empty while handshaking'
+            self.info(msg='handshake success: %s, local: %s' % (station.identifier, client_session.identifier))
+            # check session key
+            if client_session.key is not None:
+                # FIXME: duplicated handshake command?
+                assert client_session.key == new_sess_key, 'session key from %s not matched: %s => %s' \
+                                                           % (sender, client_session.key, new_sess_key)
+                self.error(msg='session key from %s already set: %s' % (sender, new_sess_key))
             # update session key to change session state to 'running'
             client_session.key = new_sess_key
         else:

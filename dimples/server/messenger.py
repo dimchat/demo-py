@@ -64,11 +64,13 @@ class ServerMessenger(CommonMessenger):
         self.__filter = checker
 
     # Override
-    def query_document(self, identifier: ID) -> bool:
+    def _query_document(self, identifier: ID) -> bool:
         checker = QueryFrequencyChecker()
         if not checker.document_query_expired(identifier=identifier):
             # query not expired yet
+            self.debug(msg='document query not expired yet: %s' % identifier)
             return False
+        self.info(msg='querying document of %s from neighbor stations' % identifier)
         current = self.facebook.current_user
         stations = ID.parse(identifier='stations@everywhere')
         cmd = DocumentCommand.query(identifier=identifier)

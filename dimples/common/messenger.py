@@ -40,15 +40,17 @@ from dimsdk import GroupCommand
 from dimsdk import EntityDelegate, CipherKeyDelegate
 from dimsdk import Messenger, Packer, Processor
 
+from ..utils import Logging
+
 from .dbi import MessageDBI
 
-from .sync import QueryFrequencyChecker
+from .checker import QueryFrequencyChecker
 from .facebook import CommonFacebook
 from .transmitter import Transmitter
 from .session import Session
 
 
-class CommonMessenger(Messenger, Transmitter, ABC):
+class CommonMessenger(Messenger, Transmitter, Logging, ABC):
 
     def __init__(self, session: Session, facebook: CommonFacebook, database: MessageDBI):
         super().__init__()
@@ -94,6 +96,97 @@ class CommonMessenger(Messenger, Transmitter, ABC):
     def session(self) -> Session:
         return self.__session
 
+    @abstractmethod
+    def _query_document(self, identifier: ID) -> bool:
+        """ request for meta & visa document with entity ID """
+        raise NotImplemented
+
+    def _query_members(self, identifier: ID) -> bool:
+        """ request for group members with group ID """
+        checker = QueryFrequencyChecker()
+        if not checker.members_query_expired(identifier=identifier):
+            # query not expired yet
+            self.debug(msg='members query not expired yet: %s' % identifier)
+            return False
+        assert identifier.is_group, 'group ID error: %s' % identifier
+        group = self.facebook.group(identifier=identifier)
+        # request to group bots
+        assistants = group.assistants
+        if assistants is None or len(assistants) == 0:
+            self.error(msg='group assistants not found: %s' % identifier)
+            return False
+        self.info(msg='querying members of %s from assistants: %s' % (identifier, ID.revert(members=assistants)))
+        cmd = GroupCommand.query(group=identifier)
+        for bot in assistants:
+            self.send_content(sender=None, receiver=bot, content=cmd)
+        return True
+
+    def _check_sender(self, msg: ReliableMessage) -> bool:
+        """ check whether msg.sender is ready """
+        sender = msg.sender
+        assert sender.is_user, 'sender error: %s' % sender
+        facebook = self.facebook
+        # check user's meta & document
+        user = facebook.user(identifier=sender)
+        if user is None:
+            self._query_document(identifier=sender)
+            msg['error'] = {
+                'message': 'verify key not found',
+                'user': str(sender),
+            }
+            return False
+        else:
+            # sender is OK
+            return True
+
+    def _check_receiver(self, msg: InstantMessage) -> bool:
+        """ check whether msg.receiver is ready """
+        receiver = msg.receiver
+        facebook = self.facebook
+        if receiver.is_user:
+            # check user's meta & document
+            user = facebook.user(identifier=receiver)
+            if user is None:
+                self._query_document(identifier=receiver)
+                msg['error'] = {
+                    'message': 'encrypt key not found',
+                    'user': str(receiver),
+                }
+                return False
+        else:
+            # check group's meta
+            group = facebook.group(identifier=receiver)
+            if group is None:
+                self._query_document(identifier=receiver)
+                msg['error'] = {
+                    'message': 'group meta not found',
+                    'group': str(receiver),
+                }
+                return False
+            # check group members
+            members = group.members
+            if members is None or len(members) == 0:
+                self._query_members(identifier=receiver)
+                msg['error'] = {
+                    'message': 'members not found',
+                    'group': str(receiver),
+                }
+                return False
+            waiting = set()
+            for item in members:
+                user = facebook.user(identifier=item)
+                if user is None:
+                    waiting.add(user)
+            if len(waiting) > 0:
+                msg['error'] = {
+                    'message': 'encrypt keys not found',
+                    'group': str(receiver),
+                    'members': ID.revert(members=waiting)
+                }
+                return False
+        # receiver is OK
+        return True
+
     # # Override
     # def serialize_key(self, key: Union[dict, SymmetricKey], msg: InstantMessage) -> Optional[bytes]:
     #     # try to reuse message key
@@ -112,10 +205,17 @@ class CommonMessenger(Messenger, Transmitter, ABC):
 
     # Override
     def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
-        if is_waiting(msg=msg, messenger=self):
-            # receiver not ready
-            return None
-        return super().encrypt_message(msg=msg)
+        if self._check_receiver(msg=msg):
+            return super().encrypt_message(msg=msg)
+        else:
+            self.warning(msg='receiver not ready: %s' % msg.receiver)
+
+    # Override
+    def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
+        if self._check_sender(msg=msg):
+            return super().verify_message(msg=msg)
+        else:
+            self.warning(msg='sender not ready: %s' % msg.sender)
 
     #
     #   Interfaces for Transmitting Message
@@ -161,73 +261,3 @@ class CommonMessenger(Messenger, Transmitter, ABC):
         #    put message package into the waiting queue of current session
         session = self.session
         return session.queue_message_package(msg=msg, data=data, priority=priority)
-
-    @abstractmethod
-    def query_document(self, identifier: ID) -> bool:
-        """ request for meta & visa document with entity ID """
-        raise NotImplemented
-
-    def query_members(self, identifier: ID) -> bool:
-        """ request for group members with group ID """
-        checker = QueryFrequencyChecker()
-        if not checker.members_query_expired(identifier=identifier):
-            # query not expired yet
-            return False
-        assert identifier.is_group, 'group ID error: %s' % identifier
-        group = self.facebook.group(identifier=identifier)
-        # request to group bots
-        assistants = group.assistants
-        if assistants is None or len(assistants) == 0:
-            # self.warning(msg='group assistants not found: %s' % identifier)
-            return False
-        cmd = GroupCommand.query(group=identifier)
-        for bot in assistants:
-            self.send_content(sender=None, receiver=bot, content=cmd)
-        return True
-
-
-def is_waiting(msg: InstantMessage, messenger: CommonMessenger) -> bool:
-    """ check whether receiver is ready """
-    receiver = msg.receiver
-    facebook = messenger.facebook
-    if receiver.is_user:
-        # check user's meta & document
-        user = facebook.user(identifier=receiver)
-        if user is None:
-            messenger.query_document(identifier=receiver)
-            msg['error'] = {
-                'message': 'encrypt key not found',
-                'user': str(receiver),
-            }
-            return True
-    else:
-        # check group's meta
-        group = facebook.group(identifier=receiver)
-        if group is None:
-            messenger.query_document(identifier=receiver)
-            msg['error'] = {
-                'message': 'group meta not found',
-                'group': str(receiver),
-            }
-            return True
-        # check group members
-        members = group.members
-        if members is None or len(members) == 0:
-            messenger.query_members(identifier=receiver)
-            msg['error'] = {
-                'message': 'members not found',
-                'group': str(receiver),
-            }
-            return True
-        waiting = set()
-        for item in members:
-            user = facebook.user(identifier=item)
-            if user is None:
-                waiting.add(user)
-        if len(waiting) > 0:
-            msg['error'] = {
-                'message': 'encrypt keys not found',
-                'group': str(receiver),
-                'members': ID.revert(members=waiting)
-            }
-            return True
