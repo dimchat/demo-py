@@ -24,56 +24,52 @@
 # ==============================================================================
 
 """
-    Message Dispatcher
-    ~~~~~~~~~~~~~~~~~~
+    Special Delivers
+    ~~~~~~~~~~~~~~~~
 
-    A dispatcher to decide which way to deliver message.
+    Delegates for broadcast or grouped message
 """
 
-from typing import Optional, Set
+from typing import Optional, Set, List
 
-from dimsdk import EntityType, ID
+from dimsdk import ID
 from dimsdk import ReliableMessage
+from dimsdk import Content
 
 from ..utils import Logging
 from ..common import ReceiptCommand
-from ..common import MessageDBI, SessionDBI
+from ..common import SessionDBI
 from ..common import CommonFacebook
+from ..conn.session import get_sig
 
 from .session_center import SessionCenter
-from .pusher import Pusher
-from .deliver import Deliver
+from .dispatcher import Deliver
 from .dispatcher import Dispatcher
 
 
 class BroadcastDeliver(Deliver, Logging):
+    """ Special deliver for broadcast message """
 
-    def __init__(self, database: SessionDBI, facebook: CommonFacebook):
+    def __init__(self, database: SessionDBI):
         super().__init__()
         self.__database = database
-        self.__facebook = facebook
 
     @property
     def database(self) -> Optional[SessionDBI]:
         return self.__database
 
-    @property
-    def facebook(self) -> Optional[CommonFacebook]:
-        return self.__facebook
-
-    # Override
-    def _get_recipients(self, receiver: ID) -> Set[ID]:
+    def __get_recipients(self, receiver: ID) -> Set[ID]:
         recipients = set()
         if receiver in ['archivist@anywhere', 'archivists@everywhere']:
             # get bot for search command
-            self.info(msg='forward search command to archivist: %s' % receiver)
+            self.debug(msg='forward to archivist: %s' % receiver)
             # get from ANS
             bot = ID.parse(identifier='archivist')
             if bot is not None:
                 recipients.add(bot)
         elif receiver in ['stations@everywhere', 'everyone@everywhere']:
             # get neighbor stations
-            self.info(msg='forward broadcast msg to neighbors: %s' % receiver)
+            self.debug(msg='forward to neighbors: %s' % receiver)
             db = self.database
             neighbors = db.all_neighbors()
             for item in neighbors:
@@ -81,53 +77,54 @@ class BroadcastDeliver(Deliver, Logging):
                 if sid is not None:
                     recipients.add(sid)
         else:
-            self.info(msg='unknown broadcast ID: %s' % receiver)
+            self.warning(msg='unknown broadcast ID: %s' % receiver)
         return recipients
 
     # Override
-    def _respond(self, msg: ReliableMessage, rcpt: Set[ID]):
+    def deliver_message(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
+        assert receiver.is_broadcast, 'broadcast ID error: %s' % receiver
+        sender = msg.sender
+        # get all actual recipients
+        recipients = self.__get_recipients(receiver=receiver)
+        if recipients is None or len(recipients) == 0:
+            # # error
+            # text = 'Broadcast not deliver'
+            # cmd = ReceiptCommand.create(text=text, msg=msg)
+            # return [cmd]
+            return []
+        # deliver to all recipients one by one
+        self.info(msg='delivering message (%s) from %s to %s, actual receivers: %s'
+                      % (get_sig(msg=msg), sender, receiver, ID.revert(recipients)))
+        dispatcher = Dispatcher()
+        for target in recipients:
+            assert not target.is_broadcast, 'target ID error: %s, %s => %s'\
+                                            % (target, receiver, ID.revert(members=recipients))
+            dispatcher.deliver_message(msg=msg, receiver=target)
+        # responses
         text = 'Broadcast message delivering'
         cmd = ReceiptCommand.create(text=text, msg=msg)
-        cmd['recipients'] = ID.revert(members=rcpt)
+        cmd['recipients'] = ID.revert(members=recipients)
         return [cmd]
-
-    # Override
-    def _push_message(self, msg: ReliableMessage, receiver: ID) -> int:
-        # node need to store broadcast message
-        # 1. try to push via active session directly
-        cnt = session_push(msg=msg, receiver=receiver)
-        if cnt > 0:
-            # receiver is login to current station, message pushed directly
-            return cnt
-        # 2. check for roaming and redirect
-        if roamer_deliver(msg=msg, receiver=receiver):
-            # receiver is roaming to other station, message redirected
-            return 0
-        # 3. no need to push notification for a bot
-        return -1
 
 
 class GroupDeliver(Deliver, Logging):
+    """ Special deliver for grouped message """
 
-    def __init__(self, database: MessageDBI, facebook: CommonFacebook):
+    def __init__(self, facebook: CommonFacebook):
         super().__init__()
-        self.__database = database
         self.__facebook = facebook
-
-    @property
-    def database(self) -> Optional[MessageDBI]:
-        return self.__database
 
     @property
     def facebook(self) -> Optional[CommonFacebook]:
         return self.__facebook
 
-    def _get_assistant(self, group: ID) -> Optional[ID]:
+    def __get_assistant(self, group: ID) -> Optional[ID]:
         facebook = self.facebook
         assistants = facebook.assistants(identifier=group)
         if assistants is None or len(assistants) == 0:
             # group assistant not found
-            return None
+            # get from ANS?
+            return ID.parse(identifier='assistant')
         center = SessionCenter()
         for bot in assistants:
             if center.is_active(identifier=bot):
@@ -137,120 +134,24 @@ class GroupDeliver(Deliver, Logging):
         return assistants[0]
 
     # Override
-    def _get_recipients(self, receiver: ID) -> Set[ID]:
-        assert not receiver.is_broadcast, 'group ID error: %s' % receiver
-        bot = self._get_assistant(group=receiver)
+    def deliver_message(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
+        assert receiver.is_group, 'group ID error: %s' % receiver
+        sender = msg.sender
+        # get first assistant
+        bot = self.__get_assistant(group=receiver)
         if bot is None:
-            # get from ANS
-            bot = ID.parse(identifier='assistant')
-        assistants = set()
-        if bot is not None:
-            assistants.add(bot)
-        return assistants
-
-    # Override
-    def _respond(self, msg: ReliableMessage, rcpt: Set[ID]):
+            # error
+            self.error(msg='group assistant not found: %s' % receiver)
+            text = 'Group assistant not found'
+            cmd = ReceiptCommand.create(text=text, msg=msg)
+            return [cmd]
+        self.info(msg='delivering message (%s) from %s to %s, bot: %s'
+                      % (get_sig(msg=msg), sender, receiver, bot))
+        # deliver to all recipients one by one
+        dispatcher = Dispatcher()
+        dispatcher.deliver_message(msg=msg, receiver=bot)
+        # responses
         text = 'Group message delivering'
         cmd = ReceiptCommand.create(text=text, msg=msg)
-        cmd['assistants'] = ID.revert(members=rcpt)
+        cmd['recipients'] = [str(bot)]
         return [cmd]
-
-    # Override
-    def _push_message(self, msg: ReliableMessage, receiver: ID) -> int:
-        # assert receiver.type == EntityType.BOT, 'receiver error: %s' % receiver
-        # 0. save message before push
-        save_message(msg=msg, receiver=receiver, database=self.database)
-        # 1. try to push via active session directly
-        cnt = session_push(msg=msg, receiver=receiver)
-        if cnt > 0:
-            # receiver is login to current station, message pushed directly
-            return cnt
-        # 2. check for roaming and redirect
-        if roamer_deliver(msg=msg, receiver=receiver):
-            # receiver is roaming to other station, message redirected
-            return 0
-        # 3. no need to push notification for a bot
-        return -1
-
-
-class DefaultDeliver(Deliver, Logging):
-
-    def __init__(self, database: MessageDBI, pusher: Pusher = None):
-        super().__init__()
-        self.__database = database
-        self.__pusher = pusher
-
-    @property
-    def database(self) -> Optional[MessageDBI]:
-        return self.__database
-
-    @property
-    def pusher(self) -> Optional[Pusher]:
-        return self.__pusher
-
-    # Override
-    def _get_recipients(self, receiver: ID) -> Set[ID]:
-        assert not receiver.is_broadcast, 'receiver ID error: %s' % receiver
-        assert not receiver.is_group, 'receiver ID error: %s' % receiver
-        users = set()
-        users.add(receiver)
-        return users
-
-    # Override
-    def _respond(self, msg: ReliableMessage, rcpt: Set[ID]):
-        text = 'Message delivering'
-        cmd = ReceiptCommand.create(text=text, msg=msg)
-        # cmd['recipients'] = ID.revert(members=rcpt)
-        return [cmd]
-
-    # Override
-    def _push_message(self, msg: ReliableMessage, receiver: ID) -> int:
-        assert receiver.is_user, 'receiver error: %s' % receiver
-        # 0. save message before push
-        save_message(msg=msg, receiver=receiver, database=self.database)
-        # push via active session
-        # 1. try to push via active session
-        cnt = session_push(msg=msg, receiver=receiver)
-        if cnt > 0:
-            # receiver is login to current station, message pushed directly
-            return cnt
-        # 2. check for roaming and redirect
-        if roamer_deliver(msg=msg, receiver=receiver):
-            # receiver is roaming to other station, message redirected
-            return 0
-        # 3. user not roaming and not login, push notification
-        if receiver.type == EntityType.USER:
-            pusher = self.pusher
-            if pusher is None:
-                self.warning(msg='pusher not set yet, drop notification for: %s' % receiver)
-            else:
-                pusher.push_notification(msg=msg)
-        return -1
-
-
-def save_message(msg: ReliableMessage, receiver: ID, database: MessageDBI) -> bool:
-    sender = msg.sender
-    if sender.type == EntityType.STATION or receiver.type == EntityType.STATION:
-        # no need to save station message
-        return False
-    assert receiver.is_user and not receiver.is_broadcast, 'receiver error: %s' % receiver
-    return database.save_reliable_message(msg=msg, receiver=receiver)
-
-
-def roamer_deliver(msg: ReliableMessage, receiver: ID) -> bool:
-    """ deliver message via roamer """
-    dispatcher = Dispatcher()
-    roamer = dispatcher.roaming_deliver
-    if roamer is not None:
-        return roamer.roam_message(msg=msg, receiver=receiver)
-
-
-def session_push(msg: ReliableMessage, receiver: ID) -> int:
-    """ push message via active session(s) of receiver """
-    cnt = 0
-    center = SessionCenter()
-    sessions = center.active_sessions(identifier=receiver)
-    for sess in sessions:
-        if sess.send_reliable_message(msg=msg):
-            cnt += 1
-    return cnt

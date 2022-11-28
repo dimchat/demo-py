@@ -24,28 +24,31 @@
 # ==============================================================================
 
 """
-    Message Dispatcher
-    ~~~~~~~~~~~~~~~~~~
+    Deliver Worker
+    ~~~~~~~~~~~~~~
 
-    A dispatcher to decide which way to deliver message.
+    Real worker
 """
 
-from typing import Optional, List, Set
+import threading
+from typing import Optional, List
 
 from dimsdk import EntityType, ID
 from dimsdk import ReliableMessage
+from dkd import Content
 
-from ..common import LoginCommand
+from ..utils import Runner, Logging
+from ..common import LoginCommand, ReceiptCommand
 from ..common import CommonFacebook
-from ..common import SessionDBI
-from ..common import Session
+from ..common import MessageDBI, SessionDBI
 
 from .session_center import SessionCenter
-from .deliver import Roamer
+from .dispatcher import Worker, Roamer
+from .dispatcher import Dispatcher
 
 
-class DefaultRoamer(Roamer):
-    """ Deliver messages for roaming user """
+class DeliverWorker(Worker):
+    """ Real Worker """
 
     def __init__(self, database: SessionDBI, facebook: CommonFacebook):
         super().__init__()
@@ -61,44 +64,55 @@ class DefaultRoamer(Roamer):
         return self.__facebook
 
     # Override
-    def roam_message(self, msg: ReliableMessage, receiver: ID) -> bool:
-        """ Redirect message for other delivers """
-        assert receiver.is_user, 'receiver error: %s' % receiver
-        # get roaming station
+    def push_message(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
+        """ Push message to receiver """
+        assert receiver.is_user, 'receiver ID error: %s' % receiver
         if receiver.type == EntityType.STATION:
-            # station won't roaming to other station
-            roaming = receiver
-        else:
-            # get roaming station from stored LoginCommand
-            roaming = get_roaming_station(receiver=receiver, database=self.database)
-            if roaming is None:
-                # LoginCommand not found
-                return False
-        # get current station
-        current = self.facebook.current_user.identifier
-        assert current is not None, 'current station not set'
-        if current == roaming:
-            # same station, no need to redirect message
-            return False
-        # try to push to neighbor station directly,
-        # if failed, try to push via the bridge
-        return push_twice(msg=msg, target=receiver, roaming=roaming, bridge=current)
+            # station won't roam to other station,
+            # push message for it directly
+            return self.redirect_message(msg=msg, neighbor=receiver)
+        # try to push message directly
+        if session_push(msg=msg, receiver=receiver) > 0:
+            text = 'Message pushed'
+            cmd = ReceiptCommand.create(text=text, msg=msg)
+            return [cmd]
+        # get roaming station
+        roaming = get_roaming_station(receiver=receiver, database=self.database)
+        if roaming is not None:
+            return self.redirect_message(msg=msg, neighbor=roaming)
 
     # Override
-    def roam_messages(self, messages: List[ReliableMessage], receiver: ID, roaming: ID) -> int:
-        """ Redirect messages for dispatcher """
+    def redirect_message(self, msg: ReliableMessage, neighbor: ID) -> List[Content]:
+        """ Redirect message to neighbor station """
+        assert neighbor.type == EntityType.STATION, 'neighbor station ID error: %s' % neighbor
+        # try to push message to neighbor station
+        if session_push(msg=msg, receiver=neighbor) > 0:
+            text = 'Message redirected to neighbor station'
+            cmd = ReceiptCommand.create(text=text, msg=msg)
+            cmd['neighbor'] = str(neighbor)
+            return [cmd]
+        else:
+            # try to push message to bridge
+            return self.bridge_message(msg=msg, neighbor=neighbor)
+
+    def bridge_message(self, msg: ReliableMessage, neighbor: ID) -> Optional[List[Content]]:
+        """
+        Push message to station bridge
+
+        :param msg:      network message
+        :param neighbor: neighbor station
+        :return: None on failed
+        """
         current = self.facebook.current_user.identifier
-        assert current is not None, 'current station not set'
-        assert roaming != current, 'roaming station error: %s' % roaming
-        center = SessionCenter()
-        roaming_sessions = center.active_sessions(identifier=roaming)
-        bridge_sessions = center.active_sessions(identifier=current)
-        cnt = 0
-        for msg in messages:
-            if push_twice(msg=msg, target=receiver, roaming=roaming, bridge=current,
-                          neighbor_sessions=roaming_sessions, bridge_sessions=bridge_sessions):
-                cnt += 1
-        return cnt
+        assert current.type == EntityType.STATION, 'current station ID error: %s' % current
+        assert neighbor.type == EntityType.STATION, 'neighbor station ID error: %s' % neighbor
+        # try to push message to bridge
+        msg['target'] = str(neighbor)
+        if session_push(msg=msg, receiver=current) > 0:
+            text = 'Message pushing to neighbor station via the bridge'
+            cmd = ReceiptCommand.create(text=text, msg=msg)
+            cmd['neighbor'] = str(neighbor)
+            return [cmd]
 
 
 def get_roaming_station(receiver: ID, database: SessionDBI) -> Optional[ID]:
@@ -110,43 +124,88 @@ def get_roaming_station(receiver: ID, database: SessionDBI) -> Optional[ID]:
         return ID.parse(identifier=station.get('ID'))
 
 
-def push_once(msg: ReliableMessage, sessions: Set[Session]) -> bool:
-    """ push message to neighbor station """
-    for sess in sessions:
-        if sess.send_reliable_message(msg=msg, priority=1):
-            # delivered to first active session of other station,
-            # actually there is only one session for one neighbor
-            return True
-
-
-def push_twice(msg: ReliableMessage, target: ID, roaming: ID, bridge: ID,
-               neighbor_sessions: Set[Session] = None, bridge_sessions: Set[Session] = None) -> bool:
-    """
-    Deliver message to target station directly or via the station bridge
-
-    :param msg:               network message
-    :param target:            actual receiver
-    :param roaming:           neighbor station ID
-    :param bridge:            current station ID
-    :param neighbor_sessions: for roaming station
-    :param bridge_sessions:   for station bridge
-    :return: True on pushed
-    """
+def session_push(msg: ReliableMessage, receiver: ID) -> int:
+    """ push message via active session(s) of receiver """
+    success = 0
     center = SessionCenter()
-    # 1. redirect cached messages to roaming station directly
-    if neighbor_sessions is None:
-        neighbor_sessions = center.active_sessions(identifier=roaming)
-    if push_once(msg=msg, sessions=neighbor_sessions):
-        # deliver to first active session of roaming station,
-        # actually there is only one session for one neighbor
+    active_sessions = center.active_sessions(identifier=receiver)
+    for session in active_sessions:
+        if session.send_reliable_message(msg=msg):
+            success += 1
+    return success
+
+
+#
+#   Roamer
+#
+
+class RoamingInfo:
+
+    def __init__(self, user: ID, station: ID):
+        super().__init__()
+        self.user = user
+        self.station = station
+
+
+class DefaultRoamer(Runner, Roamer, Logging):
+    """ Deliver messages for roaming user """
+
+    def __init__(self, database: MessageDBI):
+        super().__init__()
+        self.__database = database
+        # roaming (user id => station id)
+        self.__queue: List[RoamingInfo] = []
+        self.__lock = threading.Lock()
+
+    @property
+    def database(self) -> Optional[MessageDBI]:
+        return self.__database
+
+    def __append(self, info: RoamingInfo):
+        with self.__lock:
+            self.__queue.append(info)
+
+    def __next(self) -> Optional[RoamingInfo]:
+        with self.__lock:
+            if len(self.__queue) > 0:
+                return self.__queue.pop(0)
+
+    # Override
+    def add_roaming(self, user: ID, station: ID) -> bool:
+        info = RoamingInfo(user=user, station=station)
+        self.__append(info=info)
         return True
-    # 2. roaming station not connected, redirect it via station bridge
-    #    set roaming station ID here to let the bridge know where to go,
-    #    and the bridge should remove 'target' before deliver it.
-    msg['target'] = str(target)
-    if bridge_sessions is None:
-        bridge_sessions = center.active_sessions(identifier=bridge)
-    if push_once(msg=msg, sessions=bridge_sessions):
-        # deliver to first active session of station bridge,
-        # actually there is only one session for the bridge
+
+    # Override
+    def process(self) -> bool:
+        info = self.__next()
+        if info is None:
+            # nothing to do
+            return False
+        receiver = info.user
+        roaming = info.station
+        try:
+            db = self.database
+            cached_messages = db.reliable_messages(receiver=receiver)
+            if cached_messages is None or len(cached_messages) == 0:
+                self.debug(msg='no cached message for this user: %s' % receiver)
+                return True
+            # get deliver delegate for receiver
+            dispatcher = Dispatcher()
+            if receiver.type == EntityType.STATION:
+                deliver = dispatcher.station_deliver
+            elif receiver.type == EntityType.BOT:
+                deliver = dispatcher.bot_deliver
+            else:
+                deliver = dispatcher.user_deliver
+            # deliver cached messages one by one
+            for msg in cached_messages:
+                deliver.deliver_message(msg=msg, receiver=receiver)
+        except Exception as e:
+            self.error(msg='process roaming user (%s => %s) error: %s' % (receiver, roaming, e))
+        # return True to process next immediately
         return True
+
+    def start(self):
+        thread = threading.Thread(target=self.run, daemon=True)
+        thread.start()

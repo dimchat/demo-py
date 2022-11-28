@@ -32,7 +32,7 @@
 
 import threading
 from abc import ABC, abstractmethod
-from typing import Optional, List, Set
+from typing import Optional, List
 
 from dimsdk import EntityType, ID
 from dimsdk import Content
@@ -40,15 +40,20 @@ from dimsdk import ReliableMessage
 
 from ..utils import Logging
 from ..utils import Runner
-from ..conn.session import get_sig
+from ..common import MessageDBI
+from ..common import CommonFacebook
+
+from .pusher import Pusher
+from .dispatcher import Deliver
+from .dispatcher import Dispatcher
 
 
 class DeliverTask:
 
-    def __init__(self, msg: ReliableMessage, rcpt: Set[ID]):
+    def __init__(self, msg: ReliableMessage, receiver: ID):
         super().__init__()
         self.msg = msg
-        self.rcpt = rcpt
+        self.receiver = receiver
 
 
 class DeliverQueue:
@@ -69,101 +74,49 @@ class DeliverQueue:
                 return self.__tasks.pop(0)
 
 
-class Deliver(Runner, Logging, ABC):
+class BaseDeliver(Runner, Deliver, Logging, ABC):
 
     def __init__(self):
         super().__init__()
         self.__queue = DeliverQueue()  # locked queue
 
-    def __append(self, msg: ReliableMessage, rcpt: Set[ID]):
-        task = DeliverTask(msg=msg, rcpt=rcpt)
+    def __append(self, msg: ReliableMessage, receiver: ID):
+        task = DeliverTask(msg=msg, receiver=receiver)
         self.__queue.append(task=task)
 
-    def __next(self) -> (Optional[ReliableMessage], Optional[Set[ID]]):
+    def __next(self) -> (Optional[ReliableMessage], Optional[ID]):
         task = self.__queue.next()
         if task is None:
             return None, None
         else:
-            return task.msg, task.rcpt
+            return task.msg, task.receiver
 
-    @abstractmethod
-    def _get_recipients(self, receiver: ID) -> Set[ID]:
-        """
-        Get actual receivers
-
-            1. neighbor stations
-            2. group assistants
-            3. bots
-
-        :param receiver: original receiver in message
-        :return: actual receivers
-        """
-        raise NotImplemented
-
-    @abstractmethod
-    def _respond(self, msg: ReliableMessage, rcpt: Set[ID]) -> List[Content]:
-        """
-        Respond receipt command for delivering
-
-        :param msg:  original message
-        :param rcpt: actual receivers
-        :return: responses
-        """
-        raise NotImplemented
-
+    # Override
     def deliver_message(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
-        sender = msg.sender
-        # get all actual recipients
-        recipients = self._get_recipients(receiver=receiver)
-        self.info(msg='delivering message (%s) from %s to %s, actual receivers: %s'
-                      % (get_sig(msg=msg), sender, receiver, ID.revert(recipients)))
-        self.__append(msg=msg, rcpt=recipients)
-        # respond
-        if sender.type == EntityType.STATION:
-            # no need to respond receipt to station
-            return []
-        else:
-            return self._respond(msg=msg, rcpt=recipients)
+        assert receiver.is_user and not receiver.is_broadcast, 'receiver error: %s' % receiver
+        self.__append(msg=msg, receiver=receiver)
+        return []
 
     # Override
     def process(self) -> bool:
-        msg, recipients = self.__next()
+        msg, receiver = self.__next()
         if msg is None:  # or recipients is None:
             # nothing to do
             return False
         try:
-            sig = get_sig(msg=msg)
-            traces = msg.get('traces')
-            if traces is None:
-                traces = []
-                msg['traces'] = traces
-            # push to all recipients
-            for receiver in recipients:
-                if receiver in traces:
-                    continue
-                cnt = self._push_message(msg=msg, receiver=receiver)
-                if cnt > 0 and receiver.type == EntityType.STATION:
-                    # append station
-                    traces.append(str(receiver))
-                self.info(msg='message (%s) pushed to %s, %d session(s)' % (sig, receiver, cnt))
+            responses = self._dispatch(msg=msg, receiver=receiver)
+            self._respond(responses=responses)
         except Exception as e:
-            self.error(msg='process delivering (%s => %s) error: %s' % (msg.sender, recipients, e))
+            self.error(msg='process delivering (%s => %s) error: %s' % (msg.sender, receiver, e))
         # return True to process next immediately
         return True
 
+    def _respond(self, responses: Optional[List[Content]]):
+        pass
+
     @abstractmethod
-    def _push_message(self, msg: ReliableMessage, receiver: ID) -> int:
-        """
-        Push message to receiver
-
-            1. save message;
-            2. try to push via active session(s);
-            3. push notification on session failed.
-
-        :param msg:      network message
-        :param receiver: actual receiver
-        :return: success session count
-        """
+    def _dispatch(self, msg: ReliableMessage, receiver: ID) -> Optional[List[Content]]:
+        """ deliver message by dispatcher """
         raise NotImplemented
 
     def start(self):
@@ -171,28 +124,80 @@ class Deliver(Runner, Logging, ABC):
         thread.start()
 
 
-class Roamer(ABC):
-    """ Deliver messages for roaming user """
+class StationDeliver(BaseDeliver):
 
-    @abstractmethod
-    def roam_message(self, msg: ReliableMessage, receiver: ID) -> bool:
-        """
-        Redirect message for other delivers
+    # Override
+    def _dispatch(self, msg: ReliableMessage, receiver: ID) -> Optional[List[Content]]:
+        assert receiver.type == EntityType.STATION, 'station ID error: %s' % receiver
+        dispatcher = Dispatcher()
+        worker = dispatcher.deliver_worker
+        return worker.redirect_message(msg=msg, neighbor=receiver)
 
-        :param msg:      received message
-        :param receiver: actual receiver
-        :return: True on redirected
-        """
-        raise NotImplemented
 
-    @abstractmethod
-    def roam_messages(self, messages: List[ReliableMessage], receiver: ID, roaming: ID) -> int:
-        """
-        Redirect messages for dispatcher
+class BotDeliver(BaseDeliver):
 
-        :param messages: cached messages
-        :param receiver: actual receiver
-        :param roaming:  roaming station
-        :return: True on redirected
-        """
-        raise NotImplemented
+    def __init__(self, database: MessageDBI):
+        super().__init__()
+        self.__database = database
+
+    @property
+    def database(self) -> Optional[MessageDBI]:
+        return self.__database
+
+    # Override
+    def _dispatch(self, msg: ReliableMessage, receiver: ID) -> Optional[List[Content]]:
+        assert receiver.type == EntityType.BOT, 'bot ID error: %s' % receiver
+        # 1. save message for group assistant
+        save_message(msg=msg, receiver=receiver, database=self.database)
+        # 2. push message
+        dispatcher = Dispatcher()
+        worker = dispatcher.deliver_worker
+        return worker.push_message(msg=msg, receiver=receiver)
+
+
+class UserDeliver(BaseDeliver):
+
+    def __init__(self, database: MessageDBI, facebook: CommonFacebook, pusher: Pusher = None):
+        super().__init__()
+        self.__database = database
+        self.__facebook = facebook
+        self.__pusher = pusher
+
+    @property
+    def database(self) -> Optional[MessageDBI]:
+        return self.__database
+
+    @property
+    def facebook(self) -> Optional[CommonFacebook]:
+        return self.__facebook
+
+    @property
+    def pusher(self) -> Optional[Pusher]:
+        return self.__pusher
+
+    # Override
+    def _dispatch(self, msg: ReliableMessage, receiver: ID) -> Optional[List[Content]]:
+        assert receiver.type != EntityType.STATION, 'user ID error: %s' % receiver
+        assert receiver.type != EntityType.BOT, 'user ID error: %s' % receiver
+        # 1. save message for receiver
+        save_message(msg=msg, receiver=receiver, database=self.database)
+        # 2. push message
+        dispatcher = Dispatcher()
+        worker = dispatcher.deliver_worker
+        responses = worker.push_message(msg=msg, receiver=receiver)
+        if responses is not None:
+            # pushed to active session, or redirect to neighbor station
+            return responses
+        # 3. push notification
+        pusher = self.pusher
+        if pusher is None:
+            self.warning(msg='pusher not set yet, drop notification for: %s' % receiver)
+        else:
+            pusher.push_notification(msg=msg)
+
+
+def save_message(msg: ReliableMessage, receiver: ID, database: MessageDBI) -> bool:
+    if receiver.type == EntityType.STATION or msg.sender.type == EntityType.STATION:
+        # no need to save station message
+        return False
+    return database.save_reliable_message(msg=msg, receiver=receiver)

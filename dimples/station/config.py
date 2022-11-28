@@ -35,8 +35,10 @@ from ..common import CommonFacebook
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
 from ..server import DefaultPusher, PushCenter
-from ..server import Dispatcher, DefaultRoamer
-from ..server import DefaultDeliver, GroupDeliver, BroadcastDeliver
+from ..server import Dispatcher
+from ..server import UserDeliver, BotDeliver, StationDeliver
+from ..server import GroupDeliver, BroadcastDeliver
+from ..server import DeliverWorker, DefaultRoamer
 
 
 class Config:
@@ -196,20 +198,31 @@ def init_facebook(shared: GlobalVariable) -> CommonFacebook:
 def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
     facebook = SharedFacebook()
     dispatcher = Dispatcher()
-    # create deliver delegates
-    pusher = DefaultPusher(facebook=facebook)
-    deliver = DefaultDeliver(database=shared.mdb, pusher=pusher)
-    group_deliver = GroupDeliver(database=shared.mdb, facebook=facebook)
-    broadcast_deliver = BroadcastDeliver(database=shared.sdb, facebook=facebook)
-    roamer = DefaultRoamer(database=shared.sdb, facebook=facebook)
-    # set delegates and start
     dispatcher.database = shared.mdb
     dispatcher.facebook = facebook
-    dispatcher.deliver = deliver
-    dispatcher.group_deliver = group_deliver
-    dispatcher.broadcast_deliver = broadcast_deliver
-    dispatcher.roaming_deliver = roamer
-    dispatcher.start()
+    # set base deliver delegates
+    pusher = DefaultPusher(facebook=facebook)
+    user_deliver = UserDeliver(database=shared.mdb, facebook=facebook, pusher=pusher)
+    bot_deliver = BotDeliver(database=shared.mdb)
+    station_deliver = StationDeliver()
+    dispatcher.set_user_deliver(deliver=user_deliver)
+    dispatcher.set_bot_deliver(deliver=bot_deliver)
+    dispatcher.set_station_deliver(deliver=station_deliver)
+    # set special deliver delegates
+    group_deliver = GroupDeliver(facebook=facebook)
+    broadcast_deliver = BroadcastDeliver(database=shared.sdb)
+    dispatcher.set_group_deliver(deliver=group_deliver)
+    dispatcher.set_broadcast_deliver(deliver=broadcast_deliver)
+    # set roamer & worker
+    roamer = DefaultRoamer(database=shared.mdb)
+    worker = DeliverWorker(database=shared.sdb, facebook=facebook)
+    dispatcher.set_roamer(roamer=roamer)
+    dispatcher.set_deliver_worker(worker=worker)
+    # start all delegates
+    user_deliver.start()
+    bot_deliver.start()
+    station_deliver.start()
+    roamer.start()
     # start PushCenter
     center = PushCenter()
     center.start()

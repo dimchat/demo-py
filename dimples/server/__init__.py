@@ -38,10 +38,11 @@ from .push_info import PushAlert, PushInfo
 from .push_service import PushService, PushCenter
 from .pusher import Pusher, DefaultPusher
 
-from .deliver import Deliver, Roamer
-from .delivering import DefaultRoamer
-from .delivers import DefaultDeliver, GroupDeliver, BroadcastDeliver
+from .dispatcher import Roamer, Deliver, Worker
 from .dispatcher import Dispatcher
+from .deliver import UserDeliver, BotDeliver, StationDeliver
+from .delivers import GroupDeliver, BroadcastDeliver
+from .delivering import DeliverWorker, DefaultRoamer
 from .filter import Filter, DefaultFilter
 
 from .messenger import ServerMessenger
@@ -58,9 +59,11 @@ __all__ = [
     'Pusher', 'DefaultPusher',
 
     # Deliver
-    'Deliver', 'Roamer', 'DefaultRoamer',
-    'DefaultDeliver', 'GroupDeliver', 'BroadcastDeliver',
+    'Roamer', 'Deliver', 'Worker',
     'Dispatcher',
+    'UserDeliver', 'BotDeliver', 'StationDeliver',
+    'GroupDeliver', 'BroadcastDeliver',
+    'DeliverWorker', 'DefaultRoamer',
     'Filter', 'DefaultFilter',
 
     'ServerMessenger',

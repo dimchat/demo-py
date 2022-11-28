@@ -30,160 +30,165 @@
     A dispatcher to decide which way to deliver message.
 """
 
-import threading
+from abc import ABC, abstractmethod
 from typing import Optional, List
 
-from dimsdk import ID
+from dimsdk import EntityType, ID
 from dimsdk import Content
 from dimsdk import ReliableMessage
 
-from ..utils import Singleton, Logging, Runner
-from ..common import MessageDBI
-
-from .deliver import Deliver, Roamer
+from ..utils import Singleton
 
 
-class RoamingInfo:
+class Roamer(ABC):
+    """ Delegate for redirect cached messages to roamed station """
 
-    def __init__(self, user: ID, station: ID):
-        super().__init__()
-        self.user = user
-        self.station = station
+    @abstractmethod
+    def add_roaming(self, user: ID, station: ID) -> bool:
+        """
+        Add roaming user with station
+
+        :param user:    roaming user
+        :param station: station roamed to
+        :return: False on error
+        """
+        raise NotImplemented
+
+
+class Deliver(ABC):
+    """ Delegate for deliver message """
+
+    @abstractmethod
+    def deliver_message(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
+        """
+        Deliver message to destination
+
+        :param msg:      message delivering
+        :param receiver: message destination
+        :return: responses
+        """
+        raise NotImplemented
+
+
+class Worker(ABC):
+    """ Actual deliver worker """
+
+    @abstractmethod
+    def push_message(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
+        """
+        Push message to receiver
+
+        :param msg:      network message
+        :param receiver: actual receiver
+        :return: None on failed
+        """
+        raise NotImplemented
+
+    @abstractmethod
+    def redirect_message(self, msg: ReliableMessage, neighbor: ID) -> List[Content]:
+        """
+        Redirect message to neighbor station
+
+        :param msg:      network message
+        :param neighbor: neighbor station
+        :return: None on failed
+        """
+        raise NotImplemented
 
 
 @Singleton
-class Dispatcher(Runner, Logging):
+class Dispatcher(Deliver, Roamer):
 
     def __init__(self):
         super().__init__()
-        self.__database: Optional[MessageDBI] = None
-        # roaming (user id => station id)
-        self.__roaming_queue: List[RoamingInfo] = []
-        self.__roaming_lock = threading.Lock()
-        self.__roaming_deliver: Optional[Roamer] = None
+        # roaming user receptionist
+        self.__roamer: Optional[Roamer] = None
         # deliver delegates
-        self.__deliver: Optional[Deliver] = None
-        self.__group_deliver: Optional[Deliver] = None
         self.__broadcast_deliver: Optional[Deliver] = None
+        self.__group_deliver: Optional[Deliver] = None
+        self.__station_deliver: Optional[Deliver] = None
+        self.__bot_deliver: Optional[Deliver] = None
+        self.__user_deliver: Optional[Deliver] = None
+        # actually deliver worker
+        self.__deliver_worker: Optional[Worker] = None
+
+    def set_roamer(self, roamer: Roamer):
+        self.__roamer = roamer
+
+    def set_broadcast_deliver(self, deliver: Deliver):
+        self.__broadcast_deliver = deliver
+
+    def set_group_deliver(self, deliver: Deliver):
+        self.__group_deliver = deliver
 
     @property
-    def database(self) -> MessageDBI:
-        return self.__database
+    def station_deliver(self) -> Deliver:
+        """ deliver message for other stations """
+        return self.__station_deliver
 
-    @database.setter
-    def database(self, db: MessageDBI):
-        self.__database = db
-
-    def __append(self, info: RoamingInfo):
-        with self.__roaming_lock:
-            self.__roaming_queue.append(info)
-
-    def __next(self) -> Optional[RoamingInfo]:
-        with self.__roaming_lock:
-            if len(self.__roaming_queue) > 0:
-                return self.__roaming_queue.pop(0)
-
-    def add_roaming(self, user: ID, station: ID):
-        info = RoamingInfo(user=user, station=station)
-        self.__append(info=info)
-
-    # Override
-    def process(self) -> bool:
-        info = self.__next()
-        if info is None:
-            # nothing to do
-            return False
-        receiver = info.user
-        roaming = info.station
-        db = self.database
-        try:
-            cached_messages = db.reliable_messages(receiver=receiver)
-            if cached_messages is None or len(cached_messages) == 0:
-                self.debug(msg='no cached message for this user: %s' % receiver)
-                return True
-            # redirect cached messages to the roaming station
-            roamer = self.roaming_deliver
-            if roamer is None:
-                self.error(msg='roamer not found for receiver: %s' % receiver)
-            else:
-                roamer.roam_messages(messages=cached_messages, receiver=receiver, roaming=roaming)
-        except Exception as e:
-            self.error(msg='process roaming user (%s => %s) error: %s' % (receiver, roaming, e))
-        # return True to process next immediately
-        return True
-
-    def start(self):
-        thread = threading.Thread(target=self.run, daemon=True)
-        thread.start()
-        # start deliver delegates
-        deliver = self.deliver
-        if deliver is not None:
-            deliver.start()
-        deliver = self.group_deliver
-        if deliver is not None:
-            deliver.start()
-        deliver = self.broadcast_deliver
-        if deliver is not None:
-            deliver.start()
-
-    # Override
-    def stop(self):
-        super().stop()
-        # stop deliver delegates
-        deliver = self.deliver
-        if deliver is not None:
-            deliver.stop()
-        deliver = self.group_deliver
-        if deliver is not None:
-            deliver.stop()
-        deliver = self.broadcast_deliver
-        if deliver is not None:
-            deliver.stop()
+    def set_station_deliver(self, deliver: Deliver):
+        self.__station_deliver = deliver
 
     @property
-    def roaming_deliver(self) -> Roamer:
-        return self.__roaming_deliver
+    def bot_deliver(self) -> Deliver:
+        """ deliver message for bots """
+        return self.__bot_deliver
 
-    @roaming_deliver.setter
-    def roaming_deliver(self, delegate: Roamer):
-        self.__roaming_deliver = delegate
+    def set_bot_deliver(self, deliver: Deliver):
+        self.__bot_deliver = deliver
+
+    @property
+    def user_deliver(self) -> Deliver:
+        """ deliver message for users """
+        return self.__user_deliver
+
+    def set_user_deliver(self, deliver: Deliver):
+        self.__user_deliver = deliver
+
+    @property
+    def deliver_worker(self) -> Worker:
+        """ actual worker """
+        return self.__deliver_worker
+
+    def set_deliver_worker(self, worker: Worker):
+        self.__deliver_worker = worker
 
     #
-    #   Deliver delegates
+    #   Deliver
     #
 
-    @property
-    def deliver(self) -> Deliver:
-        return self.__deliver
-
-    @deliver.setter
-    def deliver(self, delegate: Deliver):
-        self.__deliver = delegate
-
-    @property
-    def group_deliver(self) -> Deliver:
-        return self.__group_deliver
-
-    @group_deliver.setter
-    def group_deliver(self, delegate: Deliver):
-        self.__group_deliver = delegate
-
-    @property
-    def broadcast_deliver(self) -> Deliver:
-        return self.__broadcast_deliver
-
-    @broadcast_deliver.setter
-    def broadcast_deliver(self, delegate: Deliver):
-        self.__broadcast_deliver = delegate
-
+    # Override
     def deliver_message(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
+        """ Deliver message to destination """
+        # get actual deliver
         if receiver.is_broadcast:
-            deliver = self.broadcast_deliver
+            # broadcast message
+            deliver = self.__broadcast_deliver
         elif receiver.is_group:
-            deliver = self.group_deliver
+            # message to group assistants
+            deliver = self.__group_deliver
+        elif receiver.type == EntityType.STATION:
+            # message to other stations
+            deliver = self.__station_deliver
+        elif receiver.type == EntityType.BOT:
+            # message to a bot
+            deliver = self.__bot_deliver
         else:
-            deliver = self.deliver
+            # message to user
+            deliver = self.__user_deliver
+        # check deliver
         if deliver is None:
-            self.error(msg='deliver not found for message: %s => %s' % (msg.sender, receiver))
-        else:
-            return deliver.deliver_message(msg=msg, receiver=receiver)
+            self.error(msg='deliver not found for message %s: %s => %s' % (receiver, msg.sender, msg.receiver))
+            return []
+        return deliver.deliver_message(msg=msg, receiver=receiver)
+
+    #
+    #   Roamer
+    #
+
+    # Override
+    def add_roaming(self, user: ID, station: ID) -> bool:
+        """ Add roaming user with station """
+        roamer = self.__roamer
+        if roamer is not None:
+            return roamer.add_roaming(user=user, station=station)
