@@ -53,10 +53,10 @@ setup(
         # 'ecdsa',   # 0.16.1
         'dimplugins>=0.1.0',
 
-        'dimsdk>=0.8.0',
+        'dimsdk>=0.8.1',
         'dimp>=0.12.2',
         'dkd>=0.12.2',
-        'mkm>=0.12.2',
+        'mkm>=0.12.3',
 
         'startrek>=0.3.8',
         'tcp>=0.3.8',

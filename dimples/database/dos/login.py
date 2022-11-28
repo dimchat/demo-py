@@ -38,18 +38,18 @@ class LoginStorage(Storage, LoginDBI):
     """
         Login Command Storage
         ~~~~~~~~~~~~~~~~~~~~~
-        file path: '.dim/private/{ADDRESS}/login.js'
+        file path: '.dim/public/{ADDRESS}/login.js'
     """
 
-    login_path = '{PRIVATE}/{ADDRESS}/login.js'
+    login_path = '{PUBLIC}/{ADDRESS}/login.js'
 
     def show_info(self):
-        path = template_replace(self.login_path, 'PRIVATE', self._private)
+        path = template_replace(self.login_path, 'PUBLIC', self._public)
         print('!!! login cmd path: %s' % path)
 
     def __login_path(self, identifier: ID) -> str:
         path = self.login_path
-        path = template_replace(path, 'PRIVATE', self._private)
+        path = template_replace(path, 'PUBLIC', self._public)
         return template_replace(path, 'ADDRESS', str(identifier.address))
 
     #
@@ -60,7 +60,7 @@ class LoginStorage(Storage, LoginDBI):
     def login_command_message(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
         """ load login command from file """
         path = self.__login_path(identifier=identifier)
-        self.info('Loading login command from: %s' % path)
+        self.info(msg='Loading login command from: %s' % path)
         info = self.read_json(path=path)
         if info is None:
             # login command not found
@@ -77,5 +77,5 @@ class LoginStorage(Storage, LoginDBI):
             'msg': msg.dictionary
         }
         path = self.__login_path(identifier=identifier)
-        self.info('Saving login command into: %s' % path)
+        self.info(msg='Saving login command into: %s' % path)
         return self.write_json(container=info, path=path)
