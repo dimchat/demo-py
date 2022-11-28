@@ -40,8 +40,9 @@ sys.path.insert(0, path)
 from dimples.utils import Log
 from dimples.database import Storage
 
-from dimples.register.config import ConfigLoader, GlobalVariable
-from dimples.register.config import init_database
+from dimples.config import ConfigLoader
+from dimples.register.shared import GlobalVariable
+from dimples.register.shared import init_database
 from dimples.register.generate import generate
 from dimples.register.modify import modify
 

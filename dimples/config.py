@@ -25,20 +25,67 @@
 
 from configparser import ConfigParser
 from configparser import NoSectionError, NoOptionError
-from typing import Optional
+from typing import List, Tuple
 
 from dimsdk import ID
 
-from ..utils import json_encode
-from ..utils import Singleton
-from ..common import CommonFacebook
-from ..common import AccountDBI, MessageDBI, SessionDBI
-from ..database import AccountDatabase, MessageDatabase, SessionDatabase
+from .utils import json_encode, json_decode
+
+
+class Node:
+    """ DIM Network Node """
+
+    def __init__(self, name: str, host: str, port: int, identifier: ID):
+        super().__init__()
+        self.name = name
+        self.host = host
+        self.port = port
+        self.identifier = identifier
+
+    def __str__(self) -> str:
+        return self.to_json()
+
+    def __repr__(self) -> str:
+        return self.to_json()
+
+    def to_json(self) -> str:
+        sid = self.identifier
+        if sid is not None:
+            sid = str(sid)
+        info = {
+            'ID': sid,
+            'host': self.host,
+            'port': self.port,
+        }
+        return json_encode(obj=info)
+
+
+def get_socket_address(value: str) -> Tuple[str, int]:
+    pair = value.split(':')
+    if len(pair) == 2:
+        return pair[0].strip(), int(pair[1])
+    else:
+        return pair[0].strip(), 9394
+
+
+def parse_nodes(nodes: List[Tuple[str, str]]) -> List[Node]:
+    """ parse lines with 'name = host:port, ID' format """
+    stations = []
+    for line in nodes:
+        name = line[0]
+        value = line[1]
+        pair = value.split(',')
+        host, port = get_socket_address(value=pair[0])
+        sid = ID.parse(identifier=pair[1].strip())
+        stations.append(Node(name=name, host=host, port=port, identifier=sid))
+    return stations
 
 
 class Config:
 
-    def __init__(self, station: ID, host: str, port: int, root: str, public: str, private: str):
+    def __init__(self, station: ID, host: str, port: int,
+                 root: str, public: str, private: str,
+                 neighbors: List[Node]):
         super().__init__()
         self.station = station
         # server
@@ -48,6 +95,8 @@ class Config:
         self.root = root
         self.public = public
         self.private = private
+        # network nodes
+        self.neighbors = neighbors
 
     def __str__(self) -> str:
         return self.to_json()
@@ -69,12 +118,14 @@ class Config:
             'ans': {
                 'station': str(self.station),
             },
+            'neighbors': json_decode(string=str(self.neighbors)),
         }
         return json_encode(obj=info)
 
     @classmethod
     def create(cls, station: ID = None, host: str = None, port: int = None,
-               root: str = None, public: str = None, private: str = None):
+               root: str = None, public: str = None, private: str = None,
+               neighbors: List[Node] = None):
         # server
         if host is None:
             host = '127.0.0.1'
@@ -87,9 +138,13 @@ class Config:
             public = '%s/public' % root    # /var/.dim/public
         if private is None:
             private = '%s/private' % root  # /var/.dim/private
+        # nodes
+        if neighbors is None:
+            neighbors = []
         # create
         return cls(station=station, host=host, port=port,
-                   root=root, public=public, private=private)
+                   root=root, public=public, private=private,
+                   neighbors=neighbors)
 
 
 class ConfigLoader:
@@ -124,6 +179,12 @@ class ConfigLoader:
         except NoOptionError:
             pass
 
+    def _get_options(self, section: str) -> List[Tuple[str, str]]:
+        try:
+            return self.__parser.items(section=section)
+        except NoSectionError:
+            pass
+
     def load(self) -> Config:
         #
         # 1. get options
@@ -136,55 +197,18 @@ class ConfigLoader:
         root = self._get_str(section='database', option='root')
         public = self._get_str(section='database', option='public')
         private = self._get_str(section='database', option='private')
+        # nodes
+        neighbors = self._get_options(section='neighbors')
         #
         # 2. check options
         #
         if station is not None:
             station = ID.parse(identifier=station)
+        if neighbors is not None:
+            neighbors = parse_nodes(nodes=neighbors)
         #
         # 3. create config
         #
         return Config.create(station=station, host=host, port=port,
-                             root=root, public=public, private=private)
-
-
-@Singleton
-class GlobalVariable:
-
-    def __init__(self):
-        super().__init__()
-        self.config: Optional[Config] = None
-        self.adb: Optional[AccountDBI] = None
-        self.mdb: Optional[MessageDBI] = None
-        self.sdb: Optional[SessionDBI] = None
-
-
-@Singleton
-class SharedFacebook(CommonFacebook):
-    pass
-
-
-def init_database(shared: GlobalVariable):
-    config = shared.config
-    # create database
-    adb = AccountDatabase(root=config.root, public=config.public, private=config.private)
-    mdb = MessageDatabase(root=config.root, public=config.public, private=config.private)
-    sdb = SessionDatabase(root=config.root, public=config.public, private=config.private)
-    adb.show_info()
-    mdb.show_info()
-    sdb.show_info()
-    shared.adb = adb
-    shared.mdb = mdb
-    shared.sdb = sdb
-
-
-def init_facebook(shared: GlobalVariable) -> CommonFacebook:
-    # set account database
-    facebook = SharedFacebook()
-    facebook.database = shared.adb
-    # set current station
-    station = shared.config.station
-    if station is not None:
-        print('set current user: %s' % station)
-        facebook.current_user = facebook.user(identifier=station)
-    return facebook
+                             root=root, public=public, private=private,
+                             neighbors=neighbors)

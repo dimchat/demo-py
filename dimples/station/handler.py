@@ -42,8 +42,8 @@ from ..server import ServerMessenger
 from ..server import ServerProcessor
 from ..server import DefaultFilter
 
-from .config import GlobalVariable
-from .config import SharedFacebook
+from .shared import GlobalVariable
+from .shared import SharedFacebook
 
 
 def create_messenger(remote: tuple, sock: socket.socket) -> ServerMessenger:

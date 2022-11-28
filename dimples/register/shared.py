@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-#
-#   DIME : DIM Edge
-#
-#                                Written in 2022 by Moky <albert.moky@gmail.com>
-#
 # ==============================================================================
 # MIT License
 #
@@ -28,32 +23,27 @@
 # SOFTWARE.
 # ==============================================================================
 
+from typing import Optional
 
-"""
-    DIM Edges for Stations
-    ~~~~~~~~~~~~~~~~~~~~~~
+from ..utils import Singleton
+from ..common import AccountDBI
+from ..database import AccountDatabase
 
-                //===========\\
-                ||           ||
-                ||  Station  ||
-      (Edge)....||           ||.....(Edge)
-           :    \\===========//      :
-           :                         :
-    //===========\\           //===========\\
-    ||           ||           ||           ||
-    ||  Station  ||           ||  Station  ||
-    ||           ||           ||           ||
-    \\===========//           \\===========//
-"""
-
-from .octopus import OctopusMessenger
-from .octopus import InnerMessenger, OuterMessenger
-from .octopus import Octopus
+from ..config import Config
 
 
-__all__ = [
+@Singleton
+class GlobalVariable:
 
-    'OctopusMessenger',
-    'InnerMessenger', 'OuterMessenger',
-    'Octopus',
-]
+    def __init__(self):
+        super().__init__()
+        self.config: Optional[Config] = None
+        self.adb: Optional[AccountDBI] = None
+
+
+def init_database(shared: GlobalVariable):
+    config = shared.config
+    # create database
+    adb = AccountDatabase(root=config.root, public=config.public, private=config.private)
+    adb.show_info()
+    shared.adb = adb

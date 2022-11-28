@@ -42,8 +42,9 @@ sys.path.insert(0, path)
 from dimples.utils import Log
 from dimples.database import Storage
 
-from dimples.edge.config import ConfigLoader, GlobalVariable
-from dimples.edge.config import init_database, init_facebook
+from dimples.config import ConfigLoader
+from dimples.edge.shared import GlobalVariable
+from dimples.edge.shared import init_database, init_facebook
 from dimples.edge.octopus import Octopus
 
 

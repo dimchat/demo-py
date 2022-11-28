@@ -23,13 +23,8 @@
 # SOFTWARE.
 # ==============================================================================
 
-from configparser import ConfigParser
-from configparser import NoSectionError, NoOptionError
 from typing import Optional
 
-from dimsdk import ID
-
-from ..utils import json_encode
 from ..utils import Singleton
 from ..common import CommonFacebook
 from ..common import AccountDBI, MessageDBI, SessionDBI
@@ -40,117 +35,7 @@ from ..server import UserDeliver, BotDeliver, StationDeliver
 from ..server import GroupDeliver, BroadcastDeliver
 from ..server import DeliverWorker, DefaultRoamer
 
-
-class Config:
-
-    def __init__(self, station: ID, host: str, port: int, root: str, public: str, private: str):
-        super().__init__()
-        self.station = station
-        # server
-        self.host = host
-        self.port = port
-        # database
-        self.root = root
-        self.public = public
-        self.private = private
-
-    def __str__(self) -> str:
-        return self.to_json()
-
-    def __repr__(self) -> str:
-        return self.to_json()
-
-    def to_json(self) -> str:
-        info = {
-            'database': {
-                'root': self.root,
-                'public': self.public,
-                'private': self.private,
-            },
-            'server': {
-                'host': self.host,
-                'port': self.port,
-            },
-            'ans': {
-                'station': str(self.station),
-            },
-        }
-        return json_encode(obj=info)
-
-    @classmethod
-    def create(cls, station: ID = None, host: str = None, port: int = None,
-               root: str = None, public: str = None, private: str = None):
-        # server
-        if host is None:
-            host = '127.0.0.1'
-        if port is None:
-            port = 9394
-        # database
-        if root is None:
-            root = '/var/.dim'
-        if public is None:
-            public = '%s/public' % root    # /var/.dim/public
-        if private is None:
-            private = '%s/private' % root  # /var/.dim/private
-        # create
-        return cls(station=station, host=host, port=port,
-                   root=root, public=public, private=private)
-
-
-class ConfigLoader:
-
-    def __init__(self, file: str = None):
-        super().__init__()
-        parser = ConfigParser()
-        parser.read(file)
-        self.__parser = parser
-
-    def _get_str(self, section: str, option: str) -> str:
-        try:
-            return self.__parser.get(section=section, option=option)
-        except NoSectionError:
-            pass
-        except NoOptionError:
-            pass
-
-    def _get_int(self, section: str, option: str) -> int:
-        try:
-            return self.__parser.getint(section=section, option=option)
-        except NoSectionError:
-            pass
-        except NoOptionError:
-            pass
-
-    def _get_bool(self, section: str, option: str) -> bool:
-        try:
-            return self.__parser.getboolean(section=section, option=option)
-        except NoSectionError:
-            pass
-        except NoOptionError:
-            pass
-
-    def load(self) -> Config:
-        #
-        # 1. get options
-        #
-        station = self._get_str(section='ans', option='station')
-        # server
-        host = self._get_str(section='server', option='host')
-        port = self._get_int(section='server', option='port')
-        # database
-        root = self._get_str(section='database', option='root')
-        public = self._get_str(section='database', option='public')
-        private = self._get_str(section='database', option='private')
-        #
-        # 2. check options
-        #
-        if station is not None:
-            station = ID.parse(identifier=station)
-        #
-        # 3. create config
-        #
-        return Config.create(station=station, host=host, port=port,
-                             root=root, public=public, private=private)
+from ..config import Config
 
 
 @Singleton
@@ -181,6 +66,11 @@ def init_database(shared: GlobalVariable):
     shared.adb = adb
     shared.mdb = mdb
     shared.sdb = sdb
+    # add neighbors
+    neighbors = config.neighbors
+    for node in neighbors:
+        print('adding neighbor node: (%s:%d), ID="%s"' % (node.host, node.port, node.identifier))
+        sdb.add_neighbor(host=node.host, port=node.port, identifier=node.identifier)
 
 
 def init_facebook(shared: GlobalVariable) -> CommonFacebook:
@@ -231,9 +121,10 @@ def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
 
 # noinspection PyUnusedLocal
 def stop_dispatcher(shared: GlobalVariable) -> bool:
-    dispatcher = Dispatcher()
-    dispatcher.stop()
     # stop PushCenter
     center = PushCenter()
     center.stop()
+    # stop Dispatcher
+    dispatcher = Dispatcher()
+    dispatcher.stop()
     return True

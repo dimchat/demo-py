@@ -44,9 +44,10 @@ sys.path.insert(0, path)
 from dimples.utils import Log
 from dimples.database import Storage
 
-from dimples.station.config import ConfigLoader, GlobalVariable
-from dimples.station.config import init_database, init_facebook
-from dimples.station.config import init_dispatcher, stop_dispatcher
+from dimples.config import ConfigLoader
+from dimples.station.shared import GlobalVariable
+from dimples.station.shared import init_database, init_facebook
+from dimples.station.shared import init_dispatcher, stop_dispatcher
 from dimples.station.handler import RequestHandler
 
 
@@ -59,7 +60,7 @@ Log.LEVEL = Log.DEVELOP
 def show_help():
     cmd = sys.argv[0]
     print('')
-    print('    DIM Station')
+    print('    DIM Network Station')
     print('')
     print('usages:')
     print('    %s [--config=<FILE>]' % cmd)
@@ -112,17 +113,17 @@ def main():
         server = ThreadingTCPServer(server_address=(config.host, config.port),
                                     RequestHandlerClass=RequestHandler,
                                     bind_and_activate=False)
-        Log.info('>>> TCP server (%s:%d) starting...' % (config.host, config.port))
+        Log.info(msg='>>> TCP server (%s:%d) starting...' % (config.host, config.port))
         server.allow_reuse_address = True
         server.server_bind()
         server.server_activate()
-        Log.info('>>> TCP server (%s:%d) is listening...' % (config.host, config.port))
+        Log.info(msg='>>> TCP server (%s:%d) is listening...' % (config.host, config.port))
         server.serve_forever()
     except KeyboardInterrupt as ex:
-        Log.info('~~~~~~~~ %s' % ex)
+        Log.info(msg='~~~~~~~~ %s' % ex)
     finally:
         stop_dispatcher(shared=shared)
-        Log.info('======== station shutdown!')
+        Log.info(msg='======== station shutdown!')
 
 
 if __name__ == '__main__':

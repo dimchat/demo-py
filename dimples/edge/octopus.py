@@ -54,8 +54,8 @@ from ..client import ClientMessenger
 from ..client import ClientProcessor
 from ..client import Terminal
 
-from .config import GlobalVariable
-from .config import SharedFacebook
+from .shared import GlobalVariable
+from .shared import SharedFacebook
 
 
 class OctopusMessenger(ClientMessenger, ABC):
