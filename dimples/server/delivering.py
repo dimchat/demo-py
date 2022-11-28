@@ -47,7 +47,7 @@ from .dispatcher import Worker, Roamer
 from .dispatcher import Dispatcher
 
 
-class DeliverWorker(Worker):
+class DeliverWorker(Worker, Logging):
     """ Real Worker """
 
     def __init__(self, database: SessionDBI, facebook: CommonFacebook):
@@ -85,29 +85,21 @@ class DeliverWorker(Worker):
     def redirect_message(self, msg: ReliableMessage, neighbor: ID) -> List[Content]:
         """ Redirect message to neighbor station """
         assert neighbor.type == EntityType.STATION, 'neighbor station ID error: %s' % neighbor
-        # try to push message to neighbor station
+        self.info(msg='redirect message %s => %s to neighbor station: %s' % (msg.sender, msg.receiver, neighbor))
+        # 0. check current station
+        current = self.facebook.current_user.identifier
+        assert current.type == EntityType.STATION, 'current station ID error: %s' % current
+        if neighbor == current:
+            self.debug(msg='same destination: %s, msg %s => %s' % (neighbor, msg.sender, msg.receiver))
+            return []
+        # 1. try to push message to neighbor station
         if session_push(msg=msg, receiver=neighbor) > 0:
             text = 'Message redirected to neighbor station'
             cmd = ReceiptCommand.create(text=text, msg=msg)
             cmd['neighbor'] = str(neighbor)
             return [cmd]
-        else:
-            # try to push message to bridge
-            return self.bridge_message(msg=msg, neighbor=neighbor)
-
-    def bridge_message(self, msg: ReliableMessage, neighbor: ID) -> Optional[List[Content]]:
-        """
-        Push message to station bridge
-
-        :param msg:      network message
-        :param neighbor: neighbor station
-        :return: None on failed
-        """
-        current = self.facebook.current_user.identifier
-        assert current.type == EntityType.STATION, 'current station ID error: %s' % current
-        assert neighbor.type == EntityType.STATION, 'neighbor station ID error: %s' % neighbor
-        # try to push message to bridge
-        msg['target'] = str(neighbor)
+        # 2. try to push message to bridge
+        msg['neighbor'] = str(neighbor)
         if session_push(msg=msg, receiver=current) > 0:
             text = 'Message pushing to neighbor station via the bridge'
             cmd = ReceiptCommand.create(text=text, msg=msg)

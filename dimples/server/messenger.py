@@ -154,19 +154,37 @@ class ServerMessenger(CommonMessenger):
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         # call super
         responses = super().process_reliable_message(msg=msg)
-        receiver = msg.receiver
-        group = msg.group
+        current = self.facebook.current_user
+        sid = current.identifier
         # check for first login
-        if receiver == Station.ANY or (group is not None and group.is_broadcast):
+        if msg.receiver == Station.ANY or msg.group == 'stations@everywhere':
             # if this message sent to 'station@anywhere', or with group ID 'stations@everywhere',
-            # it means the client doesn't have the station's meta or visa (e.g.: first handshaking),
-            # so respond them as message attachments.
-            current = self.facebook.current_user
-            uid = current.identifier
+            # it means the client doesn't have the station's meta (e.g.: first handshaking)
+            # or visa maybe expired, here attach them to the first response.
             for res in responses:
-                if res.sender == uid:
+                if res.sender == sid:
                     # let the first responding message to carry the station's meta & visa
                     res.meta = current.meta
                     res.visa = current.visa
                     break
+        else:
+            session = self.session
+            if session.identifier == sid:
+                # station bridge
+                responses = pick_out(messages=responses, bridge=sid)
         return responses
+
+
+def pick_out(messages: List[ReliableMessage], bridge: ID) -> List[ReliableMessage]:
+    responses = []
+    dispatcher = Dispatcher()
+    for msg in messages:
+        receiver = msg.receiver
+        if receiver == bridge:
+            # respond to the bridge
+            responses.append(msg)
+        else:
+            # this message is not respond to the bridge, the receiver may be
+            # roaming to other station, so deliver it via dispatcher here.
+            dispatcher.deliver_message(msg=msg, receiver=receiver)
+    return responses

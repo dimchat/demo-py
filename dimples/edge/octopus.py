@@ -309,7 +309,7 @@ class Octopus(Runner, Logging):
     def outgo_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         """ redirect message to remote station """
         receiver = msg.receiver
-        target = ID.parse(identifier=msg.get('target'))
+        target = ID.parse(identifier=msg.get('neighbor'))
         if target is None:
             # target station not found
             self.info(msg='cannot get target station for receiver (%s)' % receiver)
@@ -319,7 +319,7 @@ class Octopus(Runner, Logging):
             # target station not my neighbor
             self.info(msg='receiver (%s) is targeted to (%s), but not my neighbor' % (receiver, target))
             return []
-        msg.pop('target', None)
+        msg.pop('neighbor', None)
         if messenger.send_reliable_message(msg=msg):
             sig = get_sig(msg=msg)
             self.info(msg='redirected msg (%s) to target (%s) for receiver (%s)' % (sig, target, receiver))
