@@ -92,7 +92,7 @@ def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
     dispatcher.facebook = facebook
     # set base deliver delegates
     pusher = DefaultPusher(facebook=facebook)
-    user_deliver = UserDeliver(database=shared.mdb, facebook=facebook, pusher=pusher)
+    user_deliver = UserDeliver(database=shared.mdb, pusher=pusher)
     bot_deliver = BotDeliver(database=shared.mdb)
     station_deliver = StationDeliver()
     dispatcher.set_user_deliver(deliver=user_deliver)

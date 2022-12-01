@@ -78,7 +78,10 @@ class DeliverWorker(Worker, Logging):
             return [cmd]
         # get roaming station
         roaming = get_roaming_station(receiver=receiver, database=self.database)
-        if roaming is not None:
+        if roaming is None:
+            # login command not found
+            return []
+        else:
             return self.redirect_message(msg=msg, neighbor=roaming)
 
     # Override
@@ -99,12 +102,19 @@ class DeliverWorker(Worker, Logging):
             cmd['neighbor'] = str(neighbor)
             return [cmd]
         # 2. try to push message to bridge
+        # NOTE: the messenger will serialize this message immediately, so
+        #       we don't need to clone this dictionary to avoid 'neighbor'
+        #       be changed to another value before pushing to the bridge.
+        # clone = msg.copy_dictionary()
+        # msg = ReliableMessage.parse(msg=clone)
         msg['neighbor'] = str(neighbor)
         if session_push(msg=msg, receiver=current) > 0:
             text = 'Message pushing to neighbor station via the bridge'
             cmd = ReceiptCommand.create(text=text, msg=msg)
             cmd['neighbor'] = str(neighbor)
             return [cmd]
+        else:
+            return []
 
 
 def get_roaming_station(receiver: ID, database: SessionDBI) -> Optional[ID]:

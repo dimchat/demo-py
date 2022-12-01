@@ -41,7 +41,6 @@ from dimsdk import ReliableMessage
 from ..utils import Logging
 from ..utils import Runner
 from ..common import MessageDBI
-from ..common import CommonFacebook
 
 from .pusher import Pusher
 from .dispatcher import Deliver
@@ -111,11 +110,11 @@ class BaseDeliver(Runner, Deliver, Logging, ABC):
         # return True to process next immediately
         return True
 
-    def _respond(self, responses: Optional[List[Content]]):
+    def _respond(self, responses: List[Content]):
         pass
 
     @abstractmethod
-    def _dispatch(self, msg: ReliableMessage, receiver: ID) -> Optional[List[Content]]:
+    def _dispatch(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
         """ deliver message by dispatcher """
         raise NotImplemented
 
@@ -127,7 +126,7 @@ class BaseDeliver(Runner, Deliver, Logging, ABC):
 class StationDeliver(BaseDeliver):
 
     # Override
-    def _dispatch(self, msg: ReliableMessage, receiver: ID) -> Optional[List[Content]]:
+    def _dispatch(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
         assert receiver.type == EntityType.STATION, 'station ID error: %s' % receiver
         dispatcher = Dispatcher()
         worker = dispatcher.deliver_worker
@@ -141,11 +140,11 @@ class BotDeliver(BaseDeliver):
         self.__database = database
 
     @property
-    def database(self) -> Optional[MessageDBI]:
+    def database(self) -> MessageDBI:
         return self.__database
 
     # Override
-    def _dispatch(self, msg: ReliableMessage, receiver: ID) -> Optional[List[Content]]:
+    def _dispatch(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
         assert receiver.type == EntityType.BOT, 'bot ID error: %s' % receiver
         # 1. save message for group assistant
         save_message(msg=msg, receiver=receiver, database=self.database)
@@ -157,26 +156,21 @@ class BotDeliver(BaseDeliver):
 
 class UserDeliver(BaseDeliver):
 
-    def __init__(self, database: MessageDBI, facebook: CommonFacebook, pusher: Pusher = None):
+    def __init__(self, database: MessageDBI, pusher: Pusher = None):
         super().__init__()
         self.__database = database
-        self.__facebook = facebook
         self.__pusher = pusher
 
     @property
-    def database(self) -> Optional[MessageDBI]:
+    def database(self) -> MessageDBI:
         return self.__database
-
-    @property
-    def facebook(self) -> Optional[CommonFacebook]:
-        return self.__facebook
 
     @property
     def pusher(self) -> Optional[Pusher]:
         return self.__pusher
 
     # Override
-    def _dispatch(self, msg: ReliableMessage, receiver: ID) -> Optional[List[Content]]:
+    def _dispatch(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
         assert receiver.type != EntityType.STATION, 'user ID error: %s' % receiver
         assert receiver.type != EntityType.BOT, 'user ID error: %s' % receiver
         # 1. save message for receiver
@@ -194,6 +188,7 @@ class UserDeliver(BaseDeliver):
             self.warning(msg='pusher not set yet, drop notification for: %s' % receiver)
         else:
             pusher.push_notification(msg=msg)
+        return []
 
 
 def save_message(msg: ReliableMessage, receiver: ID, database: MessageDBI) -> bool:

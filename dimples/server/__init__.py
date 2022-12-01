@@ -51,6 +51,12 @@ from .processor import ServerProcessor, ServerContentProcessorCreator
 
 __all__ = [
 
+    #
+    #   CPU
+    #
+    'HandshakeCommandProcessor', 'LoginCommandProcessor', 'ReportCommandProcessor',
+    'DocumentCommandProcessor', 'ReceiptCommandProcessor',
+
     # Session
     'ServerSession', 'SessionCenter',  # 'SessionPool',
 

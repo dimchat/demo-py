@@ -44,7 +44,7 @@ from .push_service import PushCenter
 
 
 class Pusher(ABC):
-    """ Notification Pusher """
+    """ Notification Pusher for Message """
 
     @abstractmethod
     def push_notification(self, msg: ReliableMessage):
@@ -70,18 +70,18 @@ class DefaultPusher(Pusher, Logging):
         sender = env.sender
         group = env.group
         msg_type = env.type
-        # 2. build title & content text
+        # 2. check mute-list
+        if self._is_mute(sender=sender, receiver=receiver, group=group, msg_type=msg_type):
+            # muted by receiver
+            return
+        # 3. build title & content text
         title, text = self._build_message(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
         if text is None:
             # ignore msg type
             return
-        # 3. check mute-list
-        if self._is_mute(sender=sender, receiver=receiver, group=group):
-            # muted by receiver
-            return
-        # push notification
+        # 4. add notification to a waiting queue in PushCenter
         center = PushCenter()
-        center.push_notification(sender=sender, receiver=receiver, title=title, content=text)
+        center.add_notification(sender=sender, receiver=receiver, title=title, content=text)
 
     # noinspection PyMethodMayBeStatic
     def _origin_envelope(self, msg: ReliableMessage) -> Envelope:
@@ -96,7 +96,7 @@ class DefaultPusher(Pusher, Logging):
         return env
 
     # noinspection PyMethodMayBeStatic,PyUnusedLocal
-    def _is_mute(self, sender: ID, receiver: ID, group: Optional[ID]) -> bool:
+    def _is_mute(self, sender: ID, receiver: ID, group: Optional[ID], msg_type: int) -> bool:
         """ check mute-list """
         # TODO: get mute command from receiver
         return False

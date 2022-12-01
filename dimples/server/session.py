@@ -50,6 +50,8 @@ from ..common import SessionDBI
 from ..conn import BaseSession
 from ..conn import WSArrival, MarsStreamArrival, MTPStreamArrival
 
+from .push_service import PushCenter
+
 
 def generate_session_key() -> str:
     """ generate random string """
@@ -67,12 +69,12 @@ class ServerSession(BaseSession, Logging):
 
         'ID' - Remote User ID
                 It will be set after handshake accepted.
-                So we can trust all message from this sender after that.
+                So we can trust all messages from this sender after that.
 
         'active' - Session Status
                 It will be set to True after connection build.
-                After receive 'offline' command, it will be set to False;
-                and when receive 'online' it will be True again.
+                After received 'offline' command, it will be set to False;
+                and when received 'online' it will be True again.
                 Only push message when it's True.
     """
 
@@ -193,6 +195,10 @@ def session_change_id(session: ServerSession, new_id: ID, old_id: Optional[ID]):
     if old_id is not None:
         db.remove_socket_address(identifier=old_id, address=remote)
     if new_id is not None:  # and session.active:
+        # user online, clear badges
+        center = PushCenter()
+        center.reset_badge(identifier=new_id)
+        # store socket address for this user
         return db.add_socket_address(identifier=new_id, address=remote)
 
 
@@ -204,6 +210,10 @@ def session_change_active(session: ServerSession, flag: bool):
     remote = session.remote_address
     db = session.database
     if flag:
+        # user online, clear badges
+        center = PushCenter()
+        center.reset_badge(identifier=identifier)
+        # store socket address for this user
         return db.add_socket_address(identifier=identifier, address=remote)
     else:
         return db.remove_socket_address(identifier=identifier, address=remote)

@@ -80,7 +80,7 @@ class Worker(ABC):
 
         :param msg:      network message
         :param receiver: actual receiver
-        :return: None on failed
+        :return: responses
         """
         raise NotImplemented
 
@@ -91,7 +91,7 @@ class Worker(ABC):
 
         :param msg:      network message
         :param neighbor: neighbor station
-        :return: None on failed
+        :return: responses
         """
         raise NotImplemented
 

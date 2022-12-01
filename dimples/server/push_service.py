@@ -30,7 +30,7 @@
 
 import threading
 from abc import ABC, abstractmethod
-from typing import Optional, List, Set
+from typing import Optional, List, Dict, Set
 
 from dimsdk import ID
 
@@ -84,13 +84,17 @@ class PushTask:
 
 
 @Singleton
-class PushCenter(Runner, Logging, PushService):
+class PushCenter(Runner, Logging):
 
     def __init__(self):
         super().__init__()
         self.__services = set()
+        # push task
         self.__tasks: List[PushTask] = []
-        self.__lock = threading.Lock()
+        self.__task_lock = threading.Lock()
+        # badges count
+        self.__badges: Dict[ID, int] = {}
+        self.__badge_lock = threading.Lock()
 
     def add_service(self, service: PushService):
         """ add service handler """
@@ -100,18 +104,57 @@ class PushCenter(Runner, Logging, PushService):
         """ remove service handler """
         self.__services.remove(service)
 
+    def reset_badge(self, identifier: ID):
+        """ clear badge for user """
+        with self.__badge_lock:
+            self.__badges.pop(identifier, None)
+
+    def __increase_badge(self, identifier: ID) -> int:
+        """ get self-increasing badge """
+        with self.__badge_lock:
+            num = self.__badges.get(identifier, 0) + 1
+            self.__badges[identifier] = num
+            return num
+
     def __append(self, task: PushTask):
-        with self.__lock:
+        with self.__task_lock:
+            # check overflow
+            count = len(self.__tasks)
+            if count > 65535:
+                self.warning(msg='waiting queue in PushCenter is too long: %d' % count)
+                if count > 100000:
+                    # drop half tasks waiting too long
+                    self.__tasks = self.__tasks[-50000:]
+            # OK, append it to tail
             self.__tasks.append(task)
 
     def __pop(self) -> Optional[PushTask]:
-        with self.__lock:
+        with self.__task_lock:
             if len(self.__tasks) > 0:
                 return self.__tasks.pop(0)
 
-    def __count(self) -> int:
-        with self.__lock:
-            return len(self.__tasks)
+    def add_notification(self, sender: ID, receiver: ID, info: PushInfo = None,
+                         title: str = None, content: str = None, image: str = None,
+                         badge: int = -1, sound: str = None):
+        """
+        Append push info to a waiting queue
+
+        :param sender:   message sender
+        :param receiver: message receiver
+        :param info:     push info (includes title, content, image, badge, sound)
+        :param title:
+        :param content:
+        :param image:
+        :param badge:    -1 means let the PushCenter to manage; 0 means no badge
+        :param sound:
+        :return: False on error
+        """
+        if info is None:
+            # create push info with title, content, image, badge, sound
+            info = PushInfo.create(title=title, content=content, image=image, badge=badge, sound=sound)
+        task = PushTask(sender=sender, receiver=receiver, info=info)
+        self.__append(task=task)
+        return True
 
     def start(self):
         thread = threading.Thread(target=self.run, daemon=True)
@@ -133,6 +176,9 @@ class PushCenter(Runner, Logging, PushService):
         image = info.image
         badge = info.badge
         sound = info.sound
+        # check badge
+        if badge < 0:
+            badge = self.__increase_badge(identifier=receiver)
         # try all services
         services: Set[PushService] = set(self.__services)
         self.debug(msg='pushing from %s to %s: %s, count: %d' % (sender, receiver, content, len(services)))
@@ -144,24 +190,4 @@ class PushCenter(Runner, Logging, PushService):
             except Exception as e:
                 self.error(msg='push error: %s, from %s to %s: %s' % (e, sender, receiver, info))
         # return True to get next task immediately
-        return True
-
-    #
-    #   PushService
-    #
-
-    # Override
-    def push_notification(self, sender: ID, receiver: ID, info: PushInfo = None,
-                          title: str = None, content: str = None, image: str = None,
-                          badge: int = 0, sound: str = None):
-        count = self.__count()
-        if count > 65535:
-            self.warning(msg='waiting queue is too long: %d' % count)
-            if count > 100000:
-                return False
-        # build push info and append to a waiting queue
-        if info is None:
-            info = PushInfo.create(title=title, content=content, image=image, badge=badge, sound=sound)
-        task = PushTask(sender=sender, receiver=receiver, info=info)
-        self.__append(task=task)
         return True
