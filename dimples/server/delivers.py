@@ -32,9 +32,10 @@
 
 from typing import Optional, Set, List
 
-from dimsdk import ID
+from dimsdk import ID, EVERYONE
 from dimsdk import ReliableMessage
 from dimsdk import Content
+from dimsdk import Station
 
 from ..utils import Logging
 from ..common import ReceiptCommand
@@ -67,7 +68,8 @@ class BroadcastDeliver(Deliver, Logging):
             bot = ID.parse(identifier='archivist')
             if bot is not None:
                 recipients.add(bot)
-        elif receiver in ['stations@everywhere', 'everyone@everywhere']:
+        elif receiver in [Station.EVERY, EVERYONE]:
+            # if this message sent to 'stations@everywhere' or 'everyone@everywhere'
             # get neighbor stations
             self.debug(msg='forward to neighbors: %s' % receiver)
             db = self.database
@@ -79,6 +81,11 @@ class BroadcastDeliver(Deliver, Logging):
         else:
             self.warning(msg='unknown broadcast ID: %s' % receiver)
         return recipients
+
+        # TODO: after deliver to connected neighbors, the dispatcher will continue
+        #       delivering via station bridge, should we mark 'sent_neighbors' in
+        #       only one message to the bridge, let the bridge to separate for other
+        #       neighbors which not connect to this station directly?
 
     # Override
     def deliver_message(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
@@ -145,6 +152,15 @@ class GroupDeliver(Deliver, Logging):
             text = 'Group assistant not found'
             cmd = ReceiptCommand.create(text=text, msg=msg)
             return [cmd]
+        else:
+            # replace group ID
+            group = msg.group
+            if group is None:
+                msg['group'] = str(receiver)
+                msg['receiver'] = str(bot)
+            else:
+                assert group == receiver, 'group ID not matched: %s => %s' % (group, receiver)
+                self.warning(msg='group ID exists: %s' % group)
         self.info(msg='delivering message (%s) from %s to %s, bot: %s'
                       % (get_sig(msg=msg), sender, receiver, bot))
         # deliver to all recipients one by one

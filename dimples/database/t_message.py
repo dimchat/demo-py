@@ -40,7 +40,7 @@ class ReliableMessageTable(ReliableMessageDBI):
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         man = CacheManager()
-        self.__msg_cache = man.get_pool(name='message')
+        self.__msg_cache = man.get_pool(name='message')  # ID => List[ReliableMessage]
 
     # noinspection PyMethodMayBeStatic
     def show_info(self):
@@ -79,9 +79,8 @@ class ReliableMessageTable(ReliableMessageDBI):
         return True
 
     # Override
-    def remove_reliable_message(self, msg: ReliableMessage) -> bool:
+    def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         now = time.time()
-        receiver = msg.receiver
         # assert receiver.is_user, 'message receiver error: %s' % receiver
         messages, holder = self.__msg_cache.fetch(key=receiver, now=now)
         if messages is None:

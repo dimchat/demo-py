@@ -75,5 +75,5 @@ class MessageDatabase(MessageDBI):
         return self.__msg_table.save_reliable_message(msg=msg, receiver=receiver)
 
     # Override
-    def remove_reliable_message(self, msg: ReliableMessage) -> bool:
-        return self.__msg_table.remove_reliable_message(msg=msg)
+    def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
+        return self.__msg_table.remove_reliable_message(msg=msg, receiver=receiver)

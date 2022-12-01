@@ -41,7 +41,7 @@ class ReliableMessageDBI(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def remove_reliable_message(self, msg: ReliableMessage) -> bool:
+    def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         raise NotImplemented
 
 

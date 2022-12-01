@@ -72,7 +72,7 @@ class ServerMessenger(CommonMessenger):
             return False
         self.info(msg='querying document of %s from neighbor stations' % identifier)
         current = self.facebook.current_user
-        stations = ID.parse(identifier='stations@everywhere')
+        stations = Station.EVERY
         cmd = DocumentCommand.query(identifier=identifier)
         env = Envelope.create(sender=current.identifier, receiver=stations)
         i_msg = InstantMessage.create(head=env, body=cmd)
@@ -157,7 +157,7 @@ class ServerMessenger(CommonMessenger):
         current = self.facebook.current_user
         sid = current.identifier
         # check for first login
-        if msg.receiver == Station.ANY or msg.group == 'stations@everywhere':
+        if msg.receiver == Station.ANY or msg.group == Station.EVERY:
             # if this message sent to 'station@anywhere', or with group ID 'stations@everywhere',
             # it means the client doesn't have the station's meta (e.g.: first handshaking)
             # or visa maybe expired, here attach them to the first response.

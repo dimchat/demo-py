@@ -33,13 +33,14 @@ import weakref
 from abc import ABC
 from typing import Optional
 
-from dimsdk import ID, Content
+from dimsdk import EntityType, ID, Content
 from dimsdk import InstantMessage, ReliableMessage
 
 from startrek import Docker, Departure
 
 from ..common import CommonMessenger
 from ..common import Session, SessionDBI
+from ..common import MessageDBI
 
 from .gatekeeper import GateKeeper
 from .queue import MessageWrapper
@@ -108,13 +109,31 @@ class BaseSession(GateKeeper, Session, ABC):
     def docker_sent(self, ship: Departure, docker: Docker):
         if isinstance(ship, MessageWrapper):
             msg = ship.msg
-            if isinstance(msg, ReliableMessage):
-                # remove sent message
-                sig = get_sig(msg=msg)
-                print('[QUEUE] message sent, remove from db: %s, %s -> %s' % (sig, msg.sender, msg.receiver))
-                db = self.messenger.database
-                db.remove_reliable_message(msg=msg)
             ship.on_sent()
+            if isinstance(msg, ReliableMessage):
+                # remove from database for actual receiver
+                receiver = self.identifier
+                db = self.messenger.database
+                remove_reliable_message(msg=msg, receiver=receiver, database=db)
+
+
+def remove_reliable_message(msg: ReliableMessage, receiver: ID, database: MessageDBI):
+    # 1. if this session is a station, check original receiver;
+    #    a message to station won't be stored.
+    # 2. if the msg.receiver is a different user ID, means it's
+    #    a roaming message, remove it for actual receiver.
+    # 3. if the original receiver is a group, it must had been
+    #    replaced to the group assistant ID by GroupDeliver.
+    if receiver.type == EntityType.STATION:
+        # if msg.receiver == receiver:
+        #     # station message won't be stored
+        #     return False
+        receiver = msg.receiver
+    sig = get_sig(msg=msg)
+    print('[QUEUE] message (%s) sent, remove from db: %s => %s (%s)'
+          % (sig, msg.sender, msg.receiver, receiver))
+    # remove sent message from database
+    return database.remove_reliable_message(msg=msg, receiver=receiver)
 
 
 def get_sig(msg: ReliableMessage) -> str:
