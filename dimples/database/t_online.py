@@ -89,8 +89,7 @@ class OnlineTable(OnlineDBI):
         assert isinstance(value, set), 'socket addresses error: %s' % value
         value.discard(address)
         if len(value) == 0:
-            life_span = 0  # let the cache pool remove it automatically
+            cache.erase(key=identifier)
         else:
-            life_span = 36000
-        cache.update(key=identifier, value=value, life_span=life_span, now=now)
+            cache.update(key=identifier, value=value, life_span=36000, now=now)
         return True

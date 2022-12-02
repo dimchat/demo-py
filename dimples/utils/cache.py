@@ -42,7 +42,7 @@ V = TypeVar('V')
 
 class CacheHolder(Generic[V]):
 
-    def __init__(self, value: V = None, life_span: float = 3600, now: float = None):
+    def __init__(self, value: Optional[V], life_span: float, now: float):
         super().__init__()
         self.__value = value
         self.__life_span = life_span
@@ -89,15 +89,25 @@ class CachePool(Generic[K, V]):
     def all_keys(self) -> Set[K]:
         return set(self.__holders.keys())
 
-    def update(self, key: K, holder: CacheHolder = None,
-               value: V = None, life_span: float = None, now: float = None) -> CacheHolder[V]:
+    def update(self, key: K, holder: CacheHolder[V] = None,
+               value: V = None, life_span: float = 3600, now: float = None) -> CacheHolder[V]:
         """ update: key -> holder(value) """
         if holder is None:
             holder = CacheHolder(value=value, life_span=life_span, now=now)
         self.__holders[key] = holder
         return holder
 
-    def fetch(self, key: K, now: float = None) -> (V, CacheHolder):
+    def erase(self, key: K, now: float = None) -> (Optional[V], CacheHolder[V]):
+        """ erase value holder with key """
+        if now is None:
+            self.__holders.pop(key, None)
+            return None, None
+        # get exists value before erasing
+        value, holder = self.fetch(key=key, now=now)
+        self.__holders.pop(key, None)
+        return value, None
+
+    def fetch(self, key: K, now: float = None) -> (Optional[V], CacheHolder[V]):
         """ fetch value & holder with key """
         holder = self.__holders.get(key)
         if holder is None:
