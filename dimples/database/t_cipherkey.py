@@ -40,7 +40,7 @@ class CipherKeyTable(CipherKeyDBI):
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         man = CacheManager()
-        self.__cipher_cache = man.get_pool(name='cipher')
+        self.__cipher_cache = man.get_pool(name='cipher')  # (ID, ID) => SymmetricKey
 
     # noinspection PyMethodMayBeStatic
     def show_info(self):

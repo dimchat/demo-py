@@ -40,7 +40,7 @@ class DocumentTable(DocumentDBI):
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         man = CacheManager()
-        self.__doc_cache = man.get_pool(name='document')
+        self.__doc_cache = man.get_pool(name='document')  # ID => Document
         self.__doc_storage = DocumentStorage(root=root, public=public, private=private)
 
     def show_info(self):
@@ -86,7 +86,6 @@ class DocumentTable(DocumentDBI):
             # 2. check local storage
             value = self.__doc_storage.document(identifier=identifier, doc_type=doc_type)
             # 3. update memory cache
-            if value is not None:
-                self.__doc_cache.update(key=identifier, value=value, life_span=3600, now=now)
+            self.__doc_cache.update(key=identifier, value=value, life_span=3600, now=now)
         # OK, return cached value
         return value

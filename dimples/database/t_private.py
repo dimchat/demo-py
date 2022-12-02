@@ -42,8 +42,8 @@ class PrivateKeyTable(PrivateKeyDBI):
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         man = CacheManager()
-        self.__id_key_cache = man.get_pool(name='private_id_key')
-        self.__msg_keys_cache = man.get_pool(name='private_msg_keys')
+        self.__id_key_cache = man.get_pool(name='private_id_key')      # ID => PrivateKey
+        self.__msg_keys_cache = man.get_pool(name='private_msg_keys')  # ID => List[PrivateKey]
         self.__key_storage = PrivateKeyStorage(root=root, public=public, private=private)
 
     def show_info(self):
@@ -93,8 +93,7 @@ class PrivateKeyTable(PrivateKeyDBI):
             # 2. check local storage
             value = self.__key_storage.private_keys_for_decryption(identifier=identifier)
             # 3. update memory cache
-            if value is not None:
-                self.__msg_keys_cache.update(key=identifier, value=value, life_span=36000, now=now)
+            self.__msg_keys_cache.update(key=identifier, value=value, life_span=36000, now=now)
         # OK, return cached value
         return value
 
@@ -124,7 +123,6 @@ class PrivateKeyTable(PrivateKeyDBI):
             # 2. check local storage
             value = self.__key_storage.private_key_for_visa_signature(identifier=identifier)
             # 3. update memory cache
-            if value is not None:
-                self.__id_key_cache.update(key=identifier, value=value, life_span=36000, now=now)
+            self.__id_key_cache.update(key=identifier, value=value, life_span=36000, now=now)
         # OK, return cached value
         return value

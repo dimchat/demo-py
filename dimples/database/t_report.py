@@ -39,7 +39,7 @@ class ReportTable(ReportDBI):
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         man = CacheManager()
-        self.__online_cache = man.get_pool(name='report.online')
+        self.__online_cache = man.get_pool(name='report.online')  # ID => ReportCommand
 
     # noinspection PyMethodMayBeStatic
     def show_info(self):

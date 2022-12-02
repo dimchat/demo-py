@@ -40,7 +40,7 @@ class MetaTable(MetaDBI):
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         man = CacheManager()
-        self.__meta_cache = man.get_pool(name='meta')
+        self.__meta_cache = man.get_pool(name='meta')  # ID => Meta
         self.__meta_storage = MetaStorage(root=root, public=public, private=private)
 
     def show_info(self):
@@ -83,7 +83,6 @@ class MetaTable(MetaDBI):
             # 2. check local storage
             value = self.__meta_storage.meta(identifier=identifier)
             # 3. update memory cache
-            if value is not None:
-                self.__meta_cache.update(key=identifier, value=value, life_span=36000, now=now)
+            self.__meta_cache.update(key=identifier, value=value, life_span=36000, now=now)
         # OK, return cached value
         return value

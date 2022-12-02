@@ -40,10 +40,10 @@ class GroupTable(GroupDBI):
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         man = CacheManager()
-        self.__founder_cache = man.get_pool(name='group.founder')
-        self.__owner_cache = man.get_pool(name='group.owner')
-        self.__members_cache = man.get_pool(name='group.members')
-        self.__assistants_cache = man.get_pool(name='group.assistants')
+        self.__founder_cache = man.get_pool(name='group.founder')        # ID => ID
+        self.__owner_cache = man.get_pool(name='group.owner')            # ID => ID
+        self.__members_cache = man.get_pool(name='group.members')        # ID => List[ID]
+        self.__assistants_cache = man.get_pool(name='group.assistants')  # ID => List[ID]
         self.__group_storage = GroupStorage(root=root, public=public, private=private)
 
     def show_info(self):
@@ -74,8 +74,7 @@ class GroupTable(GroupDBI):
             # 2. check local storage
             value = self.__group_storage.founder(identifier=identifier)
             # 3. update memory cache
-            if value is not None:
-                self.__founder_cache.update(key=identifier, value=value, life_span=3600, now=now)
+            self.__founder_cache.update(key=identifier, value=value, life_span=3600, now=now)
         # OK, return cached value
         return value
 
@@ -100,8 +99,7 @@ class GroupTable(GroupDBI):
             # 2. check local storage
             value = self.__group_storage.owner(identifier=identifier)
             # 3. update memory cache
-            if value is not None:
-                self.__owner_cache.update(key=identifier, value=value, life_span=3600, now=now)
+            self.__owner_cache.update(key=identifier, value=value, life_span=3600, now=now)
         # OK, return cached value
         return value
 
@@ -126,8 +124,7 @@ class GroupTable(GroupDBI):
             # 2. check local storage
             value = self.__group_storage.members(identifier=identifier)
             # 3. update memory cache
-            if value is not None:
-                self.__members_cache.update(key=identifier, value=value, life_span=3600, now=now)
+            self.__members_cache.update(key=identifier, value=value, life_span=3600, now=now)
         # OK, return cached value
         return value
 
@@ -152,8 +149,7 @@ class GroupTable(GroupDBI):
             # 2. check local storage
             value = self.__group_storage.assistants(identifier=identifier)
             # 3. update memory cache
-            if value is not None:
-                self.__assistants_cache.update(key=identifier, value=value, life_span=3600, now=now)
+            self.__assistants_cache.update(key=identifier, value=value, life_span=3600, now=now)
         # OK, return cached value
         return value
 

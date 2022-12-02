@@ -40,8 +40,8 @@ class UserTable(UserDBI):
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         man = CacheManager()
-        self.__dim_cache = man.get_pool(name='dim')
-        self.__contacts_cache = man.get_pool(name='contacts')
+        self.__dim_cache = man.get_pool(name='dim')            # 'local_users' => List[ID]
+        self.__contacts_cache = man.get_pool(name='contacts')  # ID => List[ID]
         self.__user_storage = UserStorage(root=root, public=public, private=private)
 
     def show_info(self):
@@ -72,8 +72,7 @@ class UserTable(UserDBI):
             # 2. check local storage
             value = self.__user_storage.local_users()
             # 3. update memory cache
-            if value is not None:
-                self.__dim_cache.update(key='local_users', value=value, life_span=36000, now=now)
+            self.__dim_cache.update(key='local_users', value=value, life_span=36000, now=now)
         # OK, return cached value
         return value
 
@@ -105,8 +104,7 @@ class UserTable(UserDBI):
             # 2. check local storage
             value = self.__user_storage.contacts(identifier=identifier)
             # 3. update memory cache
-            if value is not None:
-                self.__contacts_cache.update(key=identifier, value=value, life_span=36000, now=now)
+            self.__contacts_cache.update(key=identifier, value=value, life_span=36000, now=now)
         # OK, return cached value
         return value
 

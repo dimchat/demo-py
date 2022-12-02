@@ -41,7 +41,7 @@ class LoginTable(LoginDBI):
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         man = CacheManager()
-        self.__login_cache = man.get_pool(name='login')
+        self.__login_cache = man.get_pool(name='login')  # ID => (LoginCommand, ReliableMessage)
         self.__login_storage = LoginStorage(root=root, public=public, private=private)
 
     def show_info(self):
@@ -69,8 +69,7 @@ class LoginTable(LoginDBI):
             cmd, msg = self.__login_storage.login_command_message(identifier=identifier)
             value = (cmd, msg)
             # 3. update memory cache
-            if cmd is not None:  # and msg is not None:
-                self.__login_cache.update(key=identifier, value=value, life_span=36000, now=now)
+            self.__login_cache.update(key=identifier, value=value, life_span=36000, now=now)
         # OK, return cached value
         return value
 
