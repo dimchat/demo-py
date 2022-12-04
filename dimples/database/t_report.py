@@ -55,12 +55,12 @@ class ReportTable(ReportDBI):
         return value
 
     # Override
-    def save_online_command(self, identifier: ID, cmd: ReportCommand) -> bool:
+    def save_online_command(self, identifier: ID, content: ReportCommand) -> bool:
         # 1. check old record
         old = self.online_command(identifier=identifier)
-        if old is not None and old.time >= cmd.time > 0:
+        if old is not None and old.time >= content.time > 0:
             # command expired
             return False
         # 2. store into memory cache
-        self.__online_cache.update(key=identifier, value=cmd, life_span=36000)
+        self.__online_cache.update(key=identifier, value=content, life_span=36000)
         return True

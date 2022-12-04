@@ -63,7 +63,7 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         # 1. store login command
         session = self.messenger.session
         db = session.database
-        if not db.save_login_command_message(identifier=sender, cmd=content, msg=msg):
+        if not db.save_login_command_message(identifier=sender, content=content, msg=msg):
             self.error(msg='login command error/expired: %s' % content)
             return []
         # 2. check roaming station
@@ -83,7 +83,7 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
             return []
         # 3. update user online time
         cmd = ReportCommand(title=ReportCommand.ONLINE)
-        if db.save_online_command(identifier=sender, cmd=cmd):
+        if db.save_online_command(identifier=sender, content=cmd):
             session.active = True
         # only respond the user login to this station
         self.info(msg='user login: %s -> %s' % (sender, roaming))

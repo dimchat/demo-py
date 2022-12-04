@@ -44,7 +44,7 @@ class LoginDBI(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def save_login_command_message(self, identifier: ID, cmd: LoginCommand, msg: ReliableMessage) -> bool:
+    def save_login_command_message(self, identifier: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
         raise NotImplemented
 
 
@@ -59,7 +59,7 @@ class ReportDBI(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def save_online_command(self, identifier: ID, cmd: ReportCommand) -> bool:
+    def save_online_command(self, identifier: ID, content: ReportCommand) -> bool:
         raise NotImplemented
 
 

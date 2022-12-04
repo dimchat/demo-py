@@ -81,12 +81,5 @@ def handshake_accepted(identifier: ID, session: Session):
     # 2. update user online time
     cmd = ReportCommand(title=ReportCommand.ONLINE)
     db = session.database
-    if db.save_online_command(identifier=identifier, cmd=cmd):
+    if db.save_online_command(identifier=identifier, content=cmd):
         session.active = True
-    # TODO: post notification: USER_LOGIN
-    # NotificationCenter().post(name=NotificationNames.USER_LOGIN, sender=self, info={
-    #     'ID': str(identifier),
-    #     'client_address': client_address,
-    #     'station': str(sid),
-    #     'time': now,
-    # })

@@ -74,13 +74,13 @@ class LoginTable(LoginDBI):
         return value
 
     # Override
-    def save_login_command_message(self, identifier: ID, cmd: LoginCommand, msg: ReliableMessage) -> bool:
+    def save_login_command_message(self, identifier: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
         # 1. check old record
         old, _ = self.login_command_message(identifier=identifier)
-        if isinstance(old, LoginCommand) and old.time >= cmd.time > 0:
+        if isinstance(old, LoginCommand) and old.time >= content.time > 0:
             # command expired
             return False
         # 2. store into memory cache
-        self.__login_cache.update(key=identifier, value=(cmd, msg), life_span=36000)
+        self.__login_cache.update(key=identifier, value=(content, msg), life_span=36000)
         # 3. store into local storage
-        return self.__login_storage.save_login_command_message(identifier=identifier, cmd=cmd, msg=msg)
+        return self.__login_storage.save_login_command_message(identifier=identifier, content=content, msg=msg)

@@ -62,8 +62,8 @@ class SessionDatabase(SessionDBI):
     def login_command_message(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
         return self.__login_table.login_command_message(identifier=identifier)
 
-    def save_login_command_message(self, identifier: ID, cmd: LoginCommand, msg: ReliableMessage) -> bool:
-        return self.__login_table.save_login_command_message(identifier=identifier, cmd=cmd, msg=msg)
+    def save_login_command_message(self, identifier: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
+        return self.__login_table.save_login_command_message(identifier=identifier, content=content, msg=msg)
 
     #
     #   Report DBI
@@ -74,8 +74,8 @@ class SessionDatabase(SessionDBI):
         return self.__report_table.online_command(identifier=identifier)
 
     # Override
-    def save_online_command(self, identifier: ID, cmd: ReportCommand) -> bool:
-        return self.__report_table.save_online_command(identifier=identifier, cmd=cmd)
+    def save_online_command(self, identifier: ID, content: ReportCommand) -> bool:
+        return self.__report_table.save_online_command(identifier=identifier, content=content)
 
     #
     #   Online DBI

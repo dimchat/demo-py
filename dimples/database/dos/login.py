@@ -67,13 +67,15 @@ class LoginStorage(Storage, LoginDBI):
             return None, None
         cmd = info.get('cmd')
         msg = info.get('msg')
-        return LoginCommand(content=cmd), ReliableMessage.parse(msg=msg)
+        if cmd is not None:
+            cmd = LoginCommand(content=cmd)
+        return cmd, ReliableMessage.parse(msg=msg)
 
     # Override
-    def save_login_command_message(self, identifier: ID, cmd: LoginCommand, msg: ReliableMessage) -> bool:
+    def save_login_command_message(self, identifier: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
         """ save login command into file """
         info = {
-            'cmd': cmd.dictionary,
+            'cmd': content.dictionary,
             'msg': msg.dictionary
         }
         path = self.__login_path(identifier=identifier)

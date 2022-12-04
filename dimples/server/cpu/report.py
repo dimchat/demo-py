@@ -64,13 +64,13 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
         title = content.title
         if title == ReportCommand.ONLINE:
             # online
-            if db.save_online_command(identifier=sender, cmd=content):
+            if db.save_online_command(identifier=sender, content=content):
                 session.active = True
             text = 'Online command received.'
             return self._respond_text(text=text)
         elif title == ReportCommand.OFFLINE:
             # offline
-            if db.save_online_command(identifier=sender, cmd=content):
+            if db.save_online_command(identifier=sender, content=content):
                 session.active = False
             text = 'Offline command received.'
             return self._respond_text(text=text)

@@ -57,7 +57,7 @@ class DocumentTable(DocumentDBI):
         doc_type = document.type
         # 0. check old record with time
         old = self.document(identifier=identifier, doc_type=doc_type)
-        if old is not None and old.time > document.time >= 0:
+        if old is not None and old.time >= document.time > 0:
             # document expired, drop it
             return False
         # 1. store into memory cache
