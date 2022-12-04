@@ -43,12 +43,11 @@ from ..server import ServerProcessor
 from ..server import DefaultFilter
 
 from .shared import GlobalVariable
-from .shared import SharedFacebook
 
 
 def create_messenger(remote: tuple, sock: socket.socket) -> ServerMessenger:
     shared = GlobalVariable()
-    facebook = SharedFacebook()
+    facebook = shared.facebook
     # 1. create session with SessionDB
     session = ServerSession(remote=remote, sock=sock, database=shared.sdb)
     # 2. create messenger with session and MessageDB

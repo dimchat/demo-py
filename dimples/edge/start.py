@@ -42,7 +42,7 @@ sys.path.insert(0, path)
 from dimples.utils import Log
 from dimples.database import Storage
 
-from dimples.config import ConfigLoader
+from dimples.config import Config
 from dimples.edge.shared import GlobalVariable
 from dimples.edge.shared import init_database, init_facebook
 from dimples.edge.octopus import Octopus
@@ -95,7 +95,7 @@ def main():
         print('')
         sys.exit(0)
     # load config
-    config = ConfigLoader(file=ini_file).load()
+    config = Config.load(file=ini_file)
     # initializing
     print('[DB] init with config: %s => %s' % (ini_file, config))
     shared = GlobalVariable()

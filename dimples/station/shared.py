@@ -25,17 +25,20 @@
 
 from typing import Optional
 
+from dimsdk import ID
+
 from ..utils import Singleton
 from ..common import CommonFacebook
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
-from ..server import DefaultPusher, PushCenter
+from ..server import Pusher, DefaultPusher, PushCenter
 from ..server import Dispatcher
 from ..server import UserDeliver, BotDeliver, StationDeliver
 from ..server import GroupDeliver, BroadcastDeliver
 from ..server import DeliverWorker, DefaultRoamer
 
 from ..config import Config
+from .ans import AddressNameService, AddressNameServer, ANSFactory
 
 
 @Singleton
@@ -47,11 +50,8 @@ class GlobalVariable:
         self.adb: Optional[AccountDBI] = None
         self.mdb: Optional[MessageDBI] = None
         self.sdb: Optional[SessionDBI] = None
-
-
-@Singleton
-class SharedFacebook(CommonFacebook):
-    pass
+        self.facebook: Optional[CommonFacebook] = None
+        self.pusher: Optional[Pusher] = None
 
 
 def init_database(shared: GlobalVariable):
@@ -75,8 +75,9 @@ def init_database(shared: GlobalVariable):
 
 def init_facebook(shared: GlobalVariable) -> CommonFacebook:
     # set account database
-    facebook = SharedFacebook()
+    facebook = CommonFacebook()
     facebook.database = shared.adb
+    shared.facebook = facebook
     # set current station
     station = shared.config.station
     if station is not None:
@@ -85,27 +86,46 @@ def init_facebook(shared: GlobalVariable) -> CommonFacebook:
     return facebook
 
 
+def init_ans(shared: GlobalVariable) -> AddressNameService:
+    ans = AddressNameServer()
+    factory = ID.factory()
+    ID.register(factory=ANSFactory(factory=factory, ans=ans))
+    # load ANS records from 'config.ini'
+    config = shared.config
+    ans.fix(fixed=config.ans_records)
+    return ans
+
+
+def init_pusher(shared: GlobalVariable) -> Pusher:
+    pusher = DefaultPusher(facebook=shared.facebook)
+    shared.pusher = pusher
+    # start PushCenter
+    center = PushCenter()
+    # TODO: add push services
+    center.start()
+    return pusher
+
+
 def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
-    facebook = SharedFacebook()
+    # create dispatcher
     dispatcher = Dispatcher()
     dispatcher.database = shared.mdb
-    dispatcher.facebook = facebook
+    dispatcher.facebook = shared.facebook
     # set base deliver delegates
-    pusher = DefaultPusher(facebook=facebook)
-    user_deliver = UserDeliver(database=shared.mdb, pusher=pusher)
+    user_deliver = UserDeliver(database=shared.mdb, pusher=shared.pusher)
     bot_deliver = BotDeliver(database=shared.mdb)
     station_deliver = StationDeliver()
     dispatcher.set_user_deliver(deliver=user_deliver)
     dispatcher.set_bot_deliver(deliver=bot_deliver)
     dispatcher.set_station_deliver(deliver=station_deliver)
     # set special deliver delegates
-    group_deliver = GroupDeliver(facebook=facebook)
+    group_deliver = GroupDeliver(facebook=shared.facebook)
     broadcast_deliver = BroadcastDeliver(database=shared.sdb)
     dispatcher.set_group_deliver(deliver=group_deliver)
     dispatcher.set_broadcast_deliver(deliver=broadcast_deliver)
     # set roamer & worker
     roamer = DefaultRoamer(database=shared.mdb)
-    worker = DeliverWorker(database=shared.sdb, facebook=facebook)
+    worker = DeliverWorker(database=shared.sdb, facebook=shared.facebook)
     dispatcher.set_roamer(roamer=roamer)
     dispatcher.set_deliver_worker(worker=worker)
     # start all delegates
@@ -113,18 +133,20 @@ def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
     bot_deliver.start()
     station_deliver.start()
     roamer.start()
-    # start PushCenter
-    center = PushCenter()
-    center.start()
     return dispatcher
 
 
 # noinspection PyUnusedLocal
 def stop_dispatcher(shared: GlobalVariable) -> bool:
-    # stop PushCenter
-    center = PushCenter()
-    center.stop()
     # stop Dispatcher
     dispatcher = Dispatcher()
     dispatcher.stop()
+    return True
+
+
+# noinspection PyUnusedLocal
+def stop_pusher(shared: GlobalVariable) -> bool:
+    # stop PushCenter
+    center = PushCenter()
+    center.stop()
     return True

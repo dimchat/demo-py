@@ -40,7 +40,7 @@ sys.path.insert(0, path)
 from dimples.utils import Log
 from dimples.database import Storage
 
-from dimples.config import ConfigLoader
+from dimples.config import Config
 from dimples.register.shared import GlobalVariable
 from dimples.register.shared import init_database
 from dimples.register.generate import generate
@@ -99,7 +99,7 @@ def main():
         print('')
         sys.exit(0)
     # load config
-    config = ConfigLoader(file=ini_file).load()
+    config = Config.load(file=ini_file)
     # initializing
     print('[DB] init with config: %s => %s' % (ini_file, config))
     shared = GlobalVariable()

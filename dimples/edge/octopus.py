@@ -55,7 +55,6 @@ from ..client import ClientProcessor
 from ..client import Terminal
 
 from .shared import GlobalVariable
-from .shared import SharedFacebook
 
 
 class OctopusMessenger(ClientMessenger, ABC):
@@ -165,7 +164,7 @@ class OuterMessenger(OctopusMessenger):
 
 def create_messenger(user: ID, host: str, port: int, octopus, clazz) -> OctopusMessenger:
     shared = GlobalVariable()
-    facebook = SharedFacebook()
+    facebook = shared.facebook
     # 0. create station with remote host & port
     station = Station(host=host, port=port)
     station.data_source = facebook

@@ -24,40 +24,41 @@
 # ==============================================================================
 
 from configparser import ConfigParser
-from configparser import NoSectionError, NoOptionError
-from typing import List, Tuple
+from typing import Optional, Dict, List, Set, Tuple
 
-from dimsdk import ID
-
-from .utils import json_encode, json_decode
+from mkm.types import Dictionary
+from mkm import ID
 
 
-class Node:
+class Node(Dictionary):
     """ DIM Network Node """
 
-    def __init__(self, name: str, host: str, port: int, identifier: ID):
+    def __init__(self, name: str = None, host: str = None, port: int = 0, identifier: ID = None):
         super().__init__()
-        self.name = name
-        self.host = host
-        self.port = port
-        self.identifier = identifier
+        if name is not None:
+            self['name'] = name
+        if host is not None:
+            self['host'] = host
+        if port > 0:
+            self['port'] = port
+        if identifier is not None:
+            self['ID'] = str(identifier)
 
-    def __str__(self) -> str:
-        return self.to_json()
+    @property
+    def name(self) -> str:
+        return self.get('name')
 
-    def __repr__(self) -> str:
-        return self.to_json()
+    @property
+    def host(self) -> str:
+        return self.get('host')
 
-    def to_json(self) -> str:
-        sid = self.identifier
-        if sid is not None:
-            sid = str(sid)
-        info = {
-            'ID': sid,
-            'host': self.host,
-            'port': self.port,
-        }
-        return json_encode(obj=info)
+    @property
+    def port(self) -> int:
+        return self.get('port')
+
+    @property
+    def identifier(self) -> ID:
+        return ID.parse(identifier=self.get('ID'))
 
 
 def get_socket_address(value: str) -> Tuple[str, int]:
@@ -68,12 +69,11 @@ def get_socket_address(value: str) -> Tuple[str, int]:
         return pair[0].strip(), 9394
 
 
-def parse_nodes(nodes: List[Tuple[str, str]]) -> List[Node]:
+def parse_nodes(nodes: Dict[str, str]) -> List[Node]:
     """ parse lines with 'name = host:port, ID' format """
     stations = []
-    for line in nodes:
-        name = line[0]
-        value = line[1]
+    for name in nodes:
+        value = nodes[name]
         pair = value.split(',')
         host, port = get_socket_address(value=pair[0])
         sid = ID.parse(identifier=pair[1].strip())
@@ -81,134 +81,139 @@ def parse_nodes(nodes: List[Tuple[str, str]]) -> List[Node]:
     return stations
 
 
-class Config:
+def parse_ans(info: Dict[str, str]) -> Set[Tuple[str, ID]]:
+    records = set()
+    for name in info:
+        value = info[name]
+        identifier = ID.parse(identifier=value)
+        assert identifier is not None, 'ANS record error: %s => %s' % (name, value)
+        item = (name, identifier)
+        records.add(item)
+    return records
 
-    def __init__(self, station: ID, host: str, port: int,
-                 root: str, public: str, private: str,
-                 neighbors: List[Node]):
-        super().__init__()
-        self.station = station
-        # server
-        self.host = host
-        self.port = port
-        # database
-        self.root = root
-        self.public = public
-        self.private = private
-        # network nodes
-        self.neighbors = neighbors
 
-    def __str__(self) -> str:
-        return self.to_json()
+def str_to_bool(value: Optional[str]) -> bool:
+    if value is None:
+        return False
+    lower = value.lower()
+    if lower not in ConfigParser.BOOLEAN_STATES:
+        raise ValueError('Not a boolean: %s' % value)
+    return ConfigParser.BOOLEAN_STATES[lower]
 
-    def __repr__(self) -> str:
-        return self.to_json()
 
-    def to_json(self) -> str:
-        info = {
-            'database': {
-                'root': self.root,
-                'public': self.public,
-                'private': self.private,
-            },
-            'server': {
-                'host': self.host,
-                'port': self.port,
-            },
-            'ans': {
-                'station': str(self.station),
-            },
-            'neighbors': json_decode(string=str(self.neighbors)),
-        }
-        return json_encode(obj=info)
+class Config(Dictionary):
+    """ Config info from ini file """
+
+    def get_id(self, section: str, option: str) -> Optional[ID]:
+        sub = self.get(section)
+        if sub is not None:
+            return ID.parse(identifier=sub.get(option))
+
+    def get_str(self, section: str, option: str) -> Optional[str]:
+        sub = self.get(section)
+        if sub is not None:
+            return sub.get(option)
+
+    def get_int(self, section: str, option: str) -> int:
+        sub = self.get(section)
+        if sub is not None:
+            val = sub.get(option)
+            if val is not None:
+                return int(val)
+        return 0
+
+    def get_bool(self, section: str, option: str) -> bool:
+        sub = self.get(section)
+        if sub is not None:
+            val = sub.get(option)
+            return str_to_bool(value=val)
+
+    #
+    #   ans
+    #
+
+    @property
+    def station(self) -> ID:
+        return self.get_id(section='ans', option='station')
+
+    @property
+    def ans_records(self) -> Set[Tuple[str, ID]]:
+        ans = self.get('ans')
+        if ans is None:
+            return set()
+        return parse_ans(info=ans)
+
+    #
+    #   server
+    #
+
+    @property
+    def host(self) -> str:
+        ip = self.get_str(section='server', option='host')
+        return '127.0.0.1' if ip is None else ip
+
+    @property
+    def port(self) -> int:
+        num = self.get_int(section='server', option='port')
+        return num if num > 0 else 9394
+
+    #
+    #   database
+    #
+
+    @property
+    def root(self) -> str:
+        path = self.get_str(section='database', option='root')
+        if path is None:
+            return '/var/.dim'
+        else:
+            return path
+
+    @property
+    def public(self) -> str:
+        path = self.get_str(section='database', option='public')
+        if path is None:
+            return '%s/public' % self.root   # /var/.dim/public
+        else:
+            return path
+
+    @property
+    def private(self) -> str:
+        path = self.get_str(section='database', option='private')
+        if path is None:
+            return '%s/private' % self.root  # /var/.dim/private
+        else:
+            return path
+
+    #
+    #   neighbor stations
+    #
+    @property
+    def neighbors(self) -> List[Node]:
+        nodes = self.get('neighbors')
+        return parse_nodes(nodes=nodes)
 
     @classmethod
-    def create(cls, station: ID = None, host: str = None, port: int = None,
-               root: str = None, public: str = None, private: str = None,
-               neighbors: List[Node] = None):
-        # server
-        if host is None:
-            host = '127.0.0.1'
-        if port is None:
-            port = 9394
-        # database
-        if root is None:
-            root = '/var/.dim'
-        if public is None:
-            public = '%s/public' % root    # /var/.dim/public
-        if private is None:
-            private = '%s/private' % root  # /var/.dim/private
-        # nodes
-        if neighbors is None:
-            neighbors = []
-        # create
-        return cls(station=station, host=host, port=port,
-                   root=root, public=public, private=private,
-                   neighbors=neighbors)
+    def load(cls, file: str):
+        info = load_ini(file=file)
+        return cls(dictionary=info)
 
 
-class ConfigLoader:
-
-    def __init__(self, file: str = None):
-        super().__init__()
-        parser = ConfigParser()
-        parser.read(file)
-        self.__parser = parser
-
-    def _get_str(self, section: str, option: str) -> str:
-        try:
-            return self.__parser.get(section=section, option=option)
-        except NoSectionError:
-            pass
-        except NoOptionError:
-            pass
-
-    def _get_int(self, section: str, option: str) -> int:
-        try:
-            return self.__parser.getint(section=section, option=option)
-        except NoSectionError:
-            pass
-        except NoOptionError:
-            pass
-
-    def _get_bool(self, section: str, option: str) -> bool:
-        try:
-            return self.__parser.getboolean(section=section, option=option)
-        except NoSectionError:
-            pass
-        except NoOptionError:
-            pass
-
-    def _get_options(self, section: str) -> List[Tuple[str, str]]:
-        try:
-            return self.__parser.items(section=section)
-        except NoSectionError:
-            pass
-
-    def load(self) -> Config:
-        #
-        # 1. get options
-        #
-        station = self._get_str(section='ans', option='station')
-        # server
-        host = self._get_str(section='server', option='host')
-        port = self._get_int(section='server', option='port')
-        # database
-        root = self._get_str(section='database', option='root')
-        public = self._get_str(section='database', option='public')
-        private = self._get_str(section='database', option='private')
-        # nodes
-        neighbors = self._get_options(section='neighbors')
-        #
-        # 2. check options
-        #
-        if station is not None:
-            station = ID.parse(identifier=station)
-        if neighbors is not None:
-            neighbors = parse_nodes(nodes=neighbors)
-        #
-        # 3. create config
-        #
-        return Config.create(station=station, host=host, port=port,
-                             root=root, public=public, private=private,
-                             neighbors=neighbors)
+def load_ini(file: str) -> dict:
+    parser = ConfigParser()
+    parser.read(file)
+    # parse all sections
+    info = {}
+    sections = parser.sections()
+    for sec in sections:
+        array = parser.items(section=sec)
+        if array is None or len(array) == 0:
+            # options empty
+            continue
+        lines = {}
+        for item in array:
+            name = item[0]
+            value = item[1]
+            lines[name] = value
+        info[sec] = lines
+    return info

@@ -44,9 +44,10 @@ sys.path.insert(0, path)
 from dimples.utils import Log
 from dimples.database import Storage
 
-from dimples.config import ConfigLoader
+from dimples.config import Config
 from dimples.station.shared import GlobalVariable
-from dimples.station.shared import init_database, init_facebook
+from dimples.station.shared import init_database, init_facebook, init_ans
+from dimples.station.shared import init_pusher, stop_pusher
 from dimples.station.shared import init_dispatcher, stop_dispatcher
 from dimples.station.handler import RequestHandler
 
@@ -98,13 +99,15 @@ def main():
         print('')
         sys.exit(0)
     # load config
-    config = ConfigLoader(file=ini_file).load()
+    config = Config.load(file=ini_file)
     # initializing
     print('[DB] init with config: %s => %s' % (ini_file, config))
     shared = GlobalVariable()
     shared.config = config
     init_database(shared=shared)
     init_facebook(shared=shared)
+    init_ans(shared=shared)
+    init_pusher(shared=shared)
     init_dispatcher(shared=shared)
 
     # start TCP server
@@ -123,6 +126,7 @@ def main():
         Log.info(msg='~~~~~~~~ %s' % ex)
     finally:
         stop_dispatcher(shared=shared)
+        stop_pusher(shared=shared)
         Log.info(msg='======== station shutdown!')
 
 

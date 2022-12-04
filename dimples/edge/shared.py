@@ -42,11 +42,7 @@ class GlobalVariable:
         self.adb: Optional[AccountDBI] = None
         self.mdb: Optional[MessageDBI] = None
         self.sdb: Optional[SessionDBI] = None
-
-
-@Singleton
-class SharedFacebook(CommonFacebook):
-    pass
+        self.facebook: Optional[CommonFacebook] = None
 
 
 def init_database(shared: GlobalVariable):
@@ -70,8 +66,9 @@ def init_database(shared: GlobalVariable):
 
 def init_facebook(shared: GlobalVariable) -> CommonFacebook:
     # set account database
-    facebook = SharedFacebook()
+    facebook = CommonFacebook()
     facebook.database = shared.adb
+    shared.facebook = facebook
     # set current station
     station = shared.config.station
     if station is not None:

@@ -36,10 +36,16 @@
     DIM network server node
 """
 
+from .ans import AddressNameServer
+from .ans import ANSFactory
+
 from .handler import RequestHandler
 
 
 __all__ = [
+
+    'AddressNameServer',
+    'ANSFactory',
 
     'RequestHandler',
 ]
