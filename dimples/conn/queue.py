@@ -207,7 +207,7 @@ class MessageQueue:
                         wrapper.mark()  # got it, mark sent
                         return wrapper
 
-    def __eject(self, now: int) -> Optional[MessageWrapper]:
+    def __eject(self, now: float) -> Optional[MessageWrapper]:
         """ Get any message sent or failed """
         with self.__lock:
             for priority in self.__priorities:
@@ -222,7 +222,7 @@ class MessageQueue:
 
     def purge(self) -> int:
         count = 0
-        now = int(time.time())
+        now = time.time()
         wrapper = self.__eject(now=now)
         while wrapper is not None:
             count += 1

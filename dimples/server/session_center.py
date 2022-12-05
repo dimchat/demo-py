@@ -76,7 +76,7 @@ class SessionPool:
         if all_addresses is not None:
             all_addresses.discard(remote)
             if len(all_addresses) == 0:
-                self.__addresses.pop(identifier)
+                self.__addresses.pop(identifier, None)
 
     def all_users(self) -> Set[ID]:
         return set(self.__addresses.keys())
