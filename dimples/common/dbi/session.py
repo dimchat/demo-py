@@ -74,15 +74,17 @@ class OnlineDBI(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def socket_addresses(self, identifier: ID) -> Set[tuple]:
+    def socket_addresses(self, identifier: ID) -> Set[Tuple[str, int]]:
         raise NotImplemented
 
     @abstractmethod
-    def add_socket_address(self, identifier: ID, address: tuple) -> bool:
+    def add_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
+        """ return new address set """
         raise NotImplemented
 
     @abstractmethod
-    def remove_socket_address(self, identifier: ID, address: tuple) -> bool:
+    def remove_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
+        """ return new address set """
         raise NotImplemented
 
 

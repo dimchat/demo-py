@@ -38,7 +38,7 @@
 import threading
 import weakref
 from typing import MutableMapping, MutableSet
-from typing import Optional, Dict, Set
+from typing import Optional, Dict, Set, Tuple
 
 from dimsdk import ID
 
@@ -51,11 +51,11 @@ class SessionPool:
     def __init__(self):
         super().__init__()
         # ID => remote addresses
-        self.__addresses: Dict[ID, MutableSet[tuple]] = {}
+        self.__addresses: Dict[ID, MutableSet[Tuple[str, int]]] = {}
         # remote address => session
-        self.__sessions: MutableMapping[tuple, Session] = weakref.WeakValueDictionary()
+        self.__sessions: MutableMapping[Tuple[str, int], Session] = weakref.WeakValueDictionary()
 
-    def all_addresses(self, identifier: ID) -> MutableSet[tuple]:
+    def all_addresses(self, identifier: ID) -> MutableSet[Tuple[str, int]]:
         addresses = self.__addresses.get(identifier)
         if addresses is None:
             addresses = set()
@@ -64,14 +64,14 @@ class SessionPool:
             self.__addresses.pop(identifier, None)
         return addresses
 
-    def add_address(self, identifier: ID, remote: tuple):
+    def add_address(self, identifier: ID, remote: Tuple[str, int]):
         all_addresses = self.__addresses.get(identifier)
         if all_addresses is None:
             all_addresses = set()
             self.__addresses[identifier] = all_addresses
         all_addresses.add(remote)
 
-    def remove_address(self, identifier: ID, remote: tuple):
+    def remove_address(self, identifier: ID, remote: Tuple[str, int]):
         all_addresses = self.__addresses.get(identifier)
         if all_addresses is not None:
             all_addresses.discard(remote)
@@ -81,7 +81,7 @@ class SessionPool:
     def all_users(self) -> Set[ID]:
         return set(self.__addresses.keys())
 
-    def get_session(self, remote: tuple) -> Optional[Session]:
+    def get_session(self, remote: Tuple[str, int]) -> Optional[Session]:
         return self.__sessions.get(remote)
 
     def add_session(self, session: Session):
@@ -90,7 +90,7 @@ class SessionPool:
         assert session.identifier is None, 'session ID error: %s' % session
         self.__sessions[address] = session
 
-    def remove_session(self, remote: tuple):
+    def remove_session(self, remote: Tuple[str, int]):
         self.__sessions.pop(remote, None)
 
 
@@ -107,7 +107,7 @@ class SessionCenter:
         with self.__lock:
             return self.__pool.all_users()
 
-    def get_session(self, remote: tuple) -> Optional[Session]:
+    def get_session(self, remote: Tuple[str, int]) -> Optional[Session]:
         """ Get session by remote address """
         with self.__lock:
             return self.__pool.get_session(remote=remote)

@@ -37,7 +37,7 @@ class ProviderTable(ProviderDBI):
     # noinspection PyUnusedLocal
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
-        self.__neighbors: Dict[tuple, ID] = {}
+        self.__neighbors: Dict[Tuple[str, int], ID] = {}
 
     # noinspection PyMethodMayBeStatic
     def show_info(self):

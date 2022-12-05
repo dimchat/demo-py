@@ -37,7 +37,7 @@
 
 import socket
 import traceback
-from typing import List, Optional
+from typing import Optional, List, Tuple
 
 from dimsdk import ID
 
@@ -78,7 +78,7 @@ class ServerSession(BaseSession, Logging):
                 Only push message when it's True.
     """
 
-    def __init__(self, remote: tuple, sock: socket.socket, database: SessionDBI):
+    def __init__(self, remote: Tuple[str, int], sock: socket.socket, database: SessionDBI):
         super().__init__(remote=remote, sock=sock, database=database)
         self.__key = generate_session_key()
 

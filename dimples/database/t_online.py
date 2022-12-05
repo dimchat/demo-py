@@ -23,12 +23,10 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
-from typing import Set
+from typing import Dict, Set, Tuple
 
 from dimsdk import ID
 
-from ..utils import CacheManager
 from ..common import OnlineDBI
 
 
@@ -38,8 +36,7 @@ class OnlineTable(OnlineDBI):
     # noinspection PyUnusedLocal
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
-        man = CacheManager()
-        self.__online_cache = man.get_pool(name='session.online_users')  # ID => Set(Tuple)
+        self.__cache: Dict[ID, Set[Tuple[str, int]]] = {}  # ID => set(socket_address)
 
     # noinspection PyMethodMayBeStatic
     def show_info(self):
@@ -52,44 +49,31 @@ class OnlineTable(OnlineDBI):
     # Override
     def active_users(self) -> Set[ID]:
         users = set()
-        now = time.time()
-        cache = self.__online_cache
-        all_keys = cache.all_keys()
-        for identifier in all_keys:
-            addresses, _ = cache.fetch(key=identifier, now=now)
-            if addresses is not None and len(addresses) > 0:
-                users.add(identifier)
+        all_users = set(self.__cache.keys())
+        for uid in all_users:
+            sockets = self.socket_addresses(identifier=uid)
+            if len(sockets) > 0:
+                users.add(uid)
         return users
 
     # Override
-    def socket_addresses(self, identifier: ID) -> Set[tuple]:
-        now = time.time()
-        cache = self.__online_cache
-        addresses, _ = cache.fetch(key=identifier, now=now)
-        return set() if addresses is None else addresses
+    def socket_addresses(self, identifier: ID) -> Set[Tuple[str, int]]:
+        sockets = self.__cache.get(identifier)
+        return set() if sockets is None else sockets
 
     # Override
-    def add_socket_address(self, identifier: ID, address: tuple) -> bool:
-        now = time.time()
-        cache = self.__online_cache
-        value, _ = cache.fetch(key=identifier, now=now)
-        if value is None:
-            value = set()
-        value.add(address)
-        cache.update(key=identifier, value=value, life_span=36000, now=now)
-        return True
+    def add_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
+        sockets = self.socket_addresses(identifier=identifier)
+        sockets.add(address)
+        self.__cache[identifier] = sockets
+        return sockets
 
     # Override
-    def remove_socket_address(self, identifier: ID, address: tuple) -> bool:
-        now = time.time()
-        cache = self.__online_cache
-        value, _ = cache.fetch(key=identifier, now=now)
-        if value is None:
-            return False
-        assert isinstance(value, set), 'socket addresses error: %s' % value
-        value.discard(address)
-        if len(value) == 0:
-            cache.erase(key=identifier)
+    def remove_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
+        sockets = self.socket_addresses(identifier=identifier)
+        sockets.discard(address)
+        if len(sockets) > 0:
+            self.__cache[identifier] = sockets
         else:
-            cache.update(key=identifier, value=value, life_span=36000, now=now)
-        return True
+            self.__cache.pop(identifier, None)
+        return sockets

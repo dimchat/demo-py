@@ -29,7 +29,7 @@
 # ==============================================================================
 
 import socket
-from typing import Optional
+from typing import Optional, Tuple
 
 from dimsdk import ReliableMessage
 
@@ -57,15 +57,16 @@ class StreamServerHub(ServerHub):
         self._set_channel(remote=channel.remote_address, local=channel.local_address, channel=channel)
 
     # Override
-    def _get_connection(self, remote: tuple, local: Optional[tuple]) -> Optional[Connection]:
+    def _get_connection(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]]) -> Optional[Connection]:
         return super()._get_connection(remote=remote, local=None)
 
     # Override
-    def _set_connection(self, remote: tuple, local: Optional[tuple], connection: Connection):
+    def _set_connection(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]], connection: Connection):
         super()._set_connection(remote=remote, local=None, connection=connection)
 
     # Override
-    def _remove_connection(self, remote: tuple, local: Optional[tuple], connection: Optional[Connection]):
+    def _remove_connection(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]],
+                           connection: Optional[Connection]):
         super()._remove_connection(remote=remote, local=None, connection=connection)
 
 
@@ -96,14 +97,14 @@ class GateKeeper(Runner, DockerDelegate):
 
     SEND_BUFFER_SIZE = 64 * 1024  # 64 KB
 
-    def __init__(self, remote: tuple, sock: Optional[socket.socket]):
+    def __init__(self, remote: Tuple[str, int], sock: Optional[socket.socket]):
         super().__init__()
         self.__remote = remote
         self.__gate = self._create_gate(remote=remote, sock=sock)
         self.__queue = MessageQueue()
         self.__active = False
 
-    def _create_gate(self, remote: tuple, sock: Optional[socket.socket]) -> CommonGate:
+    def _create_gate(self, remote: Tuple[str, int], sock: Optional[socket.socket]) -> CommonGate:
         if sock is None:
             gate = TCPClientGate(delegate=self)
         else:
@@ -112,7 +113,7 @@ class GateKeeper(Runner, DockerDelegate):
         return gate
 
     # noinspection PyMethodMayBeStatic
-    def _create_hub(self, delegate: ConnectionDelegate, address: tuple, sock: Optional[socket.socket]) -> Hub:
+    def _create_hub(self, delegate: ConnectionDelegate, address: Tuple[str, int], sock: Optional[socket.socket]) -> Hub:
         if sock is None:
             assert address is not None, 'remote address empty'
             hub = ClientHub(delegate=delegate)
@@ -129,7 +130,7 @@ class GateKeeper(Runner, DockerDelegate):
         return hub
 
     @property
-    def remote_address(self) -> tuple:
+    def remote_address(self) -> Tuple[str, int]:
         return self.__remote
 
     @property

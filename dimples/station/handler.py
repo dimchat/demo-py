@@ -33,6 +33,7 @@
 import socket
 import traceback
 from socketserver import StreamRequestHandler
+from typing import Tuple
 
 from ..utils import Logging, Runner
 from ..common import CommonPacker
@@ -45,7 +46,7 @@ from ..server import DefaultFilter
 from .shared import GlobalVariable
 
 
-def create_messenger(remote: tuple, sock: socket.socket) -> ServerMessenger:
+def create_messenger(remote: Tuple[str, int], sock: socket.socket) -> ServerMessenger:
     shared = GlobalVariable()
     facebook = shared.facebook
     # 1. create session with SessionDB

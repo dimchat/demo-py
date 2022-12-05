@@ -86,15 +86,15 @@ class SessionDatabase(SessionDBI):
         return self.__online_table.active_users()
 
     # Override
-    def socket_addresses(self, identifier: ID) -> Set[tuple]:
+    def socket_addresses(self, identifier: ID) -> Set[Tuple[str, int]]:
         return self.__online_table.socket_addresses(identifier=identifier)
 
     # Override
-    def add_socket_address(self, identifier: ID, address: tuple) -> bool:
+    def add_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
         return self.__online_table.add_socket_address(identifier=identifier, address=address)
 
     # Override
-    def remove_socket_address(self, identifier: ID, address: tuple) -> bool:
+    def remove_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
         return self.__online_table.remove_socket_address(identifier=identifier, address=address)
 
     #

@@ -33,6 +33,20 @@ from ..common.dbi import *
 
 from .dos import *
 
+from .t_private import PrivateKeyTable
+from .t_meta import MetaTable
+from .t_document import DocumentTable
+from .t_user import UserTable
+from .t_group import GroupTable
+
+from .t_message import ReliableMessageTable
+from .t_cipherkey import CipherKeyTable
+
+from .t_login import LoginTable
+from .t_report import ReportTable
+from .t_online import OnlineTable
+from .t_provider import ProviderTable
+
 from .account import AccountDatabase
 from .message import MessageDatabase
 from .session import SessionDatabase
@@ -49,7 +63,7 @@ __all__ = [
     'ReliableMessageDBI', 'CipherKeyDBI',
     'MessageDBI',
 
-    'LoginDBI', 'ReportDBI', 'OnlineDBI',
+    'LoginDBI', 'ReportDBI', 'OnlineDBI', 'ProviderDBI',
     'SessionDBI',
 
     #
@@ -59,6 +73,14 @@ __all__ = [
     'PrivateKeyStorage', 'MetaStorage', 'DocumentStorage',
     'UserStorage', 'GroupStorage',
     'LoginStorage',
+
+    #
+    #   Table
+    #
+    'PrivateKeyTable', 'MetaTable', 'DocumentTable',
+    'UserTable', 'GroupTable',
+    'ReliableMessageTable', 'CipherKeyTable',
+    'LoginTable', 'ReportTable', 'OnlineTable', 'ProviderTable',
 
     #
     #   Database

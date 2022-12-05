@@ -93,7 +93,7 @@ def parse_ans(info: Dict[str, str]) -> Set[Tuple[str, ID]]:
 
 
 def str_to_bool(value: Optional[str]) -> bool:
-    if value is None:
+    if value is None or len(value) == 0:
         return False
     lower = value.lower()
     if lower not in ConfigParser.BOOLEAN_STATES:

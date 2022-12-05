@@ -29,7 +29,7 @@
 # ==============================================================================
 
 from abc import ABC
-from typing import Optional
+from typing import Optional, Tuple
 
 from dimp import ID, ReliableMessage
 
@@ -46,7 +46,7 @@ class Session(Transmitter, ABC):
         raise NotImplemented
 
     @property
-    def remote_address(self) -> tuple:
+    def remote_address(self) -> Tuple[str, int]:
         """ Remote (host, port) """
         raise NotImplemented
 

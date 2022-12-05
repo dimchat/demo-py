@@ -31,7 +31,7 @@
 import socket
 import weakref
 from abc import ABC
-from typing import Optional
+from typing import Optional, Tuple
 
 from dimsdk import EntityType, ID, Content
 from dimsdk import InstantMessage, ReliableMessage
@@ -48,7 +48,7 @@ from .queue import MessageWrapper
 
 class BaseSession(GateKeeper, Session, ABC):
 
-    def __init__(self, remote: tuple, sock: Optional[socket.socket], database: SessionDBI):
+    def __init__(self, remote: Tuple[str, int], sock: Optional[socket.socket], database: SessionDBI):
         super().__init__(remote=remote, sock=sock)
         self.__database = database
         self.__identifier: Optional[ID] = None
@@ -118,13 +118,16 @@ class BaseSession(GateKeeper, Session, ABC):
 
 
 def remove_reliable_message(msg: ReliableMessage, receiver: ID, database: MessageDBI):
+    # 0. if session ID is empty, means user not login;
+    #    this message must be a handshake command, and
+    #    its receiver must be the targeted user.
     # 1. if this session is a station, check original receiver;
     #    a message to station won't be stored.
     # 2. if the msg.receiver is a different user ID, means it's
     #    a roaming message, remove it for actual receiver.
     # 3. if the original receiver is a group, it must had been
     #    replaced to the group assistant ID by GroupDeliver.
-    if receiver.type == EntityType.STATION:
+    if receiver is None or receiver.type == EntityType.STATION:
         # if msg.receiver == receiver:
         #     # station message won't be stored
         #     return False

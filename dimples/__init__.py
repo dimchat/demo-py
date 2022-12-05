@@ -38,6 +38,7 @@ from dimplugins.network import NetworkType
 from dimplugins.entity import EntityID, EntityIDFactory
 
 from .common import *
+from .config import Config
 
 name = 'DIMPLES'
 
@@ -220,4 +221,6 @@ __all__ = [
     'CommonProcessor', 'CommonContentProcessorCreator',
     'CommonPacker', 'Transmitter',
     'Session',
+
+    'Config',
 ]

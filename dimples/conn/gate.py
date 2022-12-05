@@ -31,7 +31,7 @@
 import socket
 import time
 from abc import ABC
-from typing import Generic, TypeVar, Optional, List, Union
+from typing import Generic, TypeVar, Optional, Union, List, Tuple
 
 from startrek import Connection, ConnectionState, ActiveConnection
 from startrek import Docker, DockerDelegate
@@ -64,7 +64,8 @@ class BaseGate(StarGate, Generic[H], ABC):
     #
     #   Docker
     #
-    def get_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Docker:
+    def get_docker(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]],
+                   advance_party: List[bytes]) -> Docker:
         docker = self._get_docker(remote=remote, local=local)
         if docker is None:
             hub = self.hub
@@ -78,15 +79,15 @@ class BaseGate(StarGate, Generic[H], ABC):
         return docker
 
     # Override
-    def _get_docker(self, remote: tuple, local: Optional[tuple]) -> Optional[Docker]:
+    def _get_docker(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]]) -> Optional[Docker]:
         return super()._get_docker(remote=remote, local=None)
 
     # Override
-    def _set_docker(self, remote: tuple, local: Optional[tuple], docker: Docker):
+    def _set_docker(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]], docker: Docker):
         super()._set_docker(remote=remote, local=None, docker=docker)
 
     # Override
-    def _remove_docker(self, remote: tuple, local: Optional[tuple], docker: Optional[Docker]):
+    def _remove_docker(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]], docker: Optional[Docker]):
         super()._remove_docker(remote=remote, local=None, docker=docker)
 
     # Override
@@ -144,7 +145,7 @@ class CommonGate(BaseGate, Logging, Runnable, Generic[H], ABC):
         if current is None or current == ConnectionState.ERROR:
             self.error(msg='connection lost: %s -> %s, %s' % (previous, current, connection))
         elif current != ConnectionState.EXPIRED and current != ConnectionState.MAINTAINING:
-            self.info(msg='connection state changed: %s -> %s, %s' % (previous, current, connection))
+            self.debug(msg='connection state changed: %s -> %s, %s' % (previous, current, connection))
         super().connection_state_changed(previous=previous, current=current, connection=connection)
 
     # # Override
@@ -168,11 +169,12 @@ class CommonGate(BaseGate, Logging, Runnable, Generic[H], ABC):
         if isinstance(error, IOError) and str(error).startswith('failed to send: '):
             self.warning(msg='ignore socket error: %s, remote=%s' % (error, connection.remote_address))
 
-    def get_connection(self, remote: tuple, local: Optional[tuple]) -> Optional[Connection]:
+    def get_connection(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]]) -> Optional[Connection]:
         hub = self.hub
         return hub.open(remote=remote, local=local)
 
-    def send_response(self, payload: bytes, ship: Arrival, remote: tuple, local: Optional[tuple]) -> bool:
+    def send_response(self, payload: bytes, ship: Arrival,
+                      remote: Tuple[str, int], local: Optional[Tuple[str, int]]) -> bool:
         worker = self.get_docker(remote=remote, local=local, advance_party=[])
         if isinstance(worker, MTPStreamDocker):
             sn = TransactionID.from_data(data=ship.sn)

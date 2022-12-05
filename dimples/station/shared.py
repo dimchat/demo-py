@@ -81,6 +81,9 @@ def init_facebook(shared: GlobalVariable) -> CommonFacebook:
     # set current station
     station = shared.config.station
     if station is not None:
+        # make sure private key exists
+        assert facebook.private_key_for_visa_signature(identifier=station) is not None, \
+            'failed to get sign key for current station: %s' % station
         print('set current user: %s' % station)
         facebook.current_user = facebook.user(identifier=station)
     return facebook
