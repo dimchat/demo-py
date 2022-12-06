@@ -63,31 +63,6 @@ class ReportDBI(ABC):
         raise NotImplemented
 
 
-class OnlineDBI(ABC):
-    """ Online Status Table """
-
-    #
-    #   online users
-    #
-    @abstractmethod
-    def active_users(self) -> Set[ID]:
-        raise NotImplemented
-
-    @abstractmethod
-    def socket_addresses(self, identifier: ID) -> Set[Tuple[str, int]]:
-        raise NotImplemented
-
-    @abstractmethod
-    def add_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
-        """ return new address set """
-        raise NotImplemented
-
-    @abstractmethod
-    def remove_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
-        """ return new address set """
-        raise NotImplemented
-
-
 class ProviderDBI(ABC):
     """ Provider Stations Table """
 
@@ -112,6 +87,6 @@ class ProviderDBI(ABC):
         raise NotImplemented
 
 
-class SessionDBI(LoginDBI, ReportDBI, OnlineDBI, ProviderDBI, ABC):
+class SessionDBI(LoginDBI, ReportDBI, ProviderDBI, ABC):
     """ Session Database """
     pass

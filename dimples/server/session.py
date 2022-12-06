@@ -189,17 +189,12 @@ def get_data_packages(ship: Arrival) -> List[bytes]:
         return [payload]
 
 
+# noinspection PyUnusedLocal
 def session_change_id(session: ServerSession, new_id: ID, old_id: Optional[ID]):
-    remote = session.remote_address
-    db = session.database
-    if old_id is not None:
-        db.remove_socket_address(identifier=old_id, address=remote)
     if new_id is not None:  # and session.active:
         # user online, clear badges
         center = PushCenter()
         center.reset_badge(identifier=new_id)
-        # store socket address for this user
-        return db.add_socket_address(identifier=new_id, address=remote)
 
 
 def session_change_active(session: ServerSession, flag: bool):
@@ -207,16 +202,10 @@ def session_change_active(session: ServerSession, flag: bool):
     if identifier is None:
         # user not login yet
         return False
-    remote = session.remote_address
-    db = session.database
     if flag:
         # user online, clear badges
         center = PushCenter()
         center.reset_badge(identifier=identifier)
-        # store socket address for this user
-        return db.add_socket_address(identifier=identifier, address=remote)
-    else:
-        return db.remove_socket_address(identifier=identifier, address=remote)
 
 
 def load_cached_messages(session: ServerSession) -> int:

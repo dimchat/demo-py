@@ -32,7 +32,6 @@ from ..common import SessionDBI, LoginCommand, ReportCommand
 
 from .t_login import LoginTable
 from .t_report import ReportTable
-from .t_online import OnlineTable
 from .t_provider import ProviderTable
 
 
@@ -46,13 +45,11 @@ class SessionDatabase(SessionDBI):
         super().__init__()
         self.__login_table = LoginTable(root=root, public=public, private=private)
         self.__report_table = ReportTable(root=root, public=public, private=private)
-        self.__online_table = OnlineTable(root=root, public=public, private=private)
         self.__provider_table = ProviderTable(root=root, public=public, private=private)
 
     def show_info(self):
         self.__login_table.show_info()
         self.__report_table.show_info()
-        self.__online_table.show_info()
         self.__provider_table.show_info()
 
     #
@@ -76,26 +73,6 @@ class SessionDatabase(SessionDBI):
     # Override
     def save_online_command(self, identifier: ID, content: ReportCommand) -> bool:
         return self.__report_table.save_online_command(identifier=identifier, content=content)
-
-    #
-    #   Online DBI
-    #
-
-    # Override
-    def active_users(self) -> Set[ID]:
-        return self.__online_table.active_users()
-
-    # Override
-    def socket_addresses(self, identifier: ID) -> Set[Tuple[str, int]]:
-        return self.__online_table.socket_addresses(identifier=identifier)
-
-    # Override
-    def add_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
-        return self.__online_table.add_socket_address(identifier=identifier, address=address)
-
-    # Override
-    def remove_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
-        return self.__online_table.remove_socket_address(identifier=identifier, address=address)
 
     #
     #   Provider DBI

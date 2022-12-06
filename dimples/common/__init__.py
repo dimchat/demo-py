@@ -57,7 +57,7 @@ __all__ = [
     'UserDBI', 'GroupDBI',
     'AccountDBI',
 
-    'LoginDBI', 'ReportDBI', 'OnlineDBI', 'ProviderDBI',
+    'LoginDBI', 'ReportDBI', 'ProviderDBI',
     'SessionDBI',
 
     'ReliableMessageDBI', 'CipherKeyDBI',
