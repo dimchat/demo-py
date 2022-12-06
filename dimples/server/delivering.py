@@ -64,7 +64,7 @@ class DeliverWorker(Worker, Logging):
         return self.__facebook
 
     # Override
-    def push_message(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
+    def push_message(self, msg: ReliableMessage, receiver: ID) -> Optional[List[Content]]:
         """ Push message to receiver """
         assert receiver.is_user, 'receiver ID error: %s' % receiver
         if receiver.type == EntityType.STATION:
@@ -85,7 +85,7 @@ class DeliverWorker(Worker, Logging):
             return self.redirect_message(msg=msg, neighbor=roaming)
 
     # Override
-    def redirect_message(self, msg: ReliableMessage, neighbor: ID) -> List[Content]:
+    def redirect_message(self, msg: ReliableMessage, neighbor: ID) -> Optional[List[Content]]:
         """ Redirect message to neighbor station """
         assert neighbor.type == EntityType.STATION, 'neighbor station ID error: %s' % neighbor
         self.info(msg='redirect message %s => %s to neighbor station: %s' % (msg.sender, msg.receiver, neighbor))
@@ -94,7 +94,9 @@ class DeliverWorker(Worker, Logging):
         assert current.type == EntityType.STATION, 'current station ID error: %s' % current
         if neighbor == current:
             self.debug(msg='same destination: %s, msg %s => %s' % (neighbor, msg.sender, msg.receiver))
-            return []
+            # the user is roaming to current station, but it's not online now
+            # return None to let the pusher to push notification for it.
+            return None
         # 1. try to push message to neighbor station directly
         if session_push(msg=msg, receiver=neighbor) > 0:
             text = 'Message redirected to neighbor station'

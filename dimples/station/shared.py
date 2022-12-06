@@ -144,9 +144,9 @@ def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
 
 # noinspection PyUnusedLocal
 def stop_dispatcher(shared: GlobalVariable) -> bool:
-    # stop Dispatcher
-    dispatcher = Dispatcher()
-    dispatcher.stop()
+    # TODO: stop Dispatcher
+    # dispatcher = Dispatcher()
+    # dispatcher.stop()
     return True
 
 

@@ -74,7 +74,7 @@ class Worker(ABC):
     """ Actual deliver worker """
 
     @abstractmethod
-    def push_message(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
+    def push_message(self, msg: ReliableMessage, receiver: ID) -> Optional[List[Content]]:
         """
         Push message to receiver
 
@@ -85,7 +85,7 @@ class Worker(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def redirect_message(self, msg: ReliableMessage, neighbor: ID) -> List[Content]:
+    def redirect_message(self, msg: ReliableMessage, neighbor: ID) -> Optional[List[Content]]:
         """
         Redirect message to neighbor station
 
