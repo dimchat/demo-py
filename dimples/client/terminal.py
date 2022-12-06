@@ -35,6 +35,8 @@ import time
 
 from startrek.fsm import StateDelegate
 
+from dimples import EntityType
+
 from ..utils import Runner, Logging
 
 from .session import ClientSession
@@ -109,7 +111,15 @@ class Terminal(Runner, StateDelegate, Logging):
             # handshake not accepted
             return False
         # report every 5 minutes to keep user online
-        messenger.report_online()
+        if usr_id.type == EntityType.STATION:
+            # a station won't login to another station, if here is a station,
+            # it must be a station bridge for roaming messages, we just send
+            # report command to the target station to keep session online.
+            messenger.report_online(sender=usr_id)
+        else:
+            # send login command to everyone to provide more information.
+            # this command can keep the user online too.
+            messenger.broadcast_login(sender=usr_id)
         # update last online time
         self.__last_time = now
 

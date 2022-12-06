@@ -32,13 +32,13 @@
 
 from typing import Optional
 
-from dimsdk import ID, EVERYONE
-from dimsdk import Station
-from dimsdk import Envelope, InstantMessage
-from dimsdk import DocumentCommand
+from dimples import EntityType, ID, EVERYONE
+from dimples import Station
+from dimples import Envelope, InstantMessage
+from dimples import DocumentCommand
 
 from ..common import QueryFrequencyChecker
-from ..common import HandshakeCommand, ReportCommand
+from ..common import HandshakeCommand, ReportCommand, LoginCommand
 from ..common import CommonMessenger
 
 from .session import ClientSession
@@ -59,10 +59,15 @@ class ClientMessenger(CommonMessenger):
         srv_id = station.identifier
         if session_key is None:
             # first handshake
-            user = self.facebook.current_user
+            facebook = self.facebook
+            user = facebook.current_user
             assert user is not None, 'current user not found'
-            cmd = HandshakeCommand.start()
             env = Envelope.create(sender=user.identifier, receiver=srv_id)
+            cmd = HandshakeCommand.start()
+            # check for encryption
+            if not srv_id.is_broadcast:  # and facebook.public_key_for_encryption(identifier=srv_id) is None:
+                # send first handshake command as broadcast message
+                cmd.group = Station.EVERY
             # create instant message with meta & visa
             i_msg = InstantMessage.create(head=env, body=cmd)
             i_msg['meta'] = user.meta.dictionary
@@ -86,17 +91,32 @@ class ClientMessenger(CommonMessenger):
         meta = current.meta
         visa = current.visa
         cmd = DocumentCommand.response(identifier=identifier, meta=meta, document=visa)
-        self.send_content(sender=None, receiver=EVERYONE, content=cmd, priority=-1)
+        # broadcast to everyone@everywhere
+        self.send_content(sender=identifier, receiver=EVERYONE, content=cmd, priority=-1)
 
-    def report_online(self):
+    def broadcast_login(self, sender: ID):
+        """ send login command to keep roaming """
+        # get current station
+        session = self.session
+        station = session.station
+        assert sender.type != EntityType.STATION, \
+            'station (%s) would not login to another station: %s' % (sender, station)
+        # create login command
+        cmd = LoginCommand(identifier=sender)
+        cmd.agent = 'DIMP/0.4 (Server; Linux; en-US) DIMCoreKit/0.9 (Terminal) DIM-by-GSP/1.0'
+        cmd.station = station
+        # broadcast to everyone@everywhere
+        self.send_content(sender=sender, receiver=EVERYONE, content=cmd, priority=-1)
+
+    def report_online(self, sender: ID = None):
         """ send report command to keep user online """
         cmd = ReportCommand(title=ReportCommand.ONLINE)
-        self.send_content(sender=None, receiver=Station.ANY, content=cmd, priority=1)
+        self.send_content(sender=sender, receiver=Station.ANY, content=cmd, priority=1)
 
-    def report_offline(self):
+    def report_offline(self, sender: ID = None):
         """ set report command to let user offline """
         cmd = ReportCommand(title=ReportCommand.OFFLINE)
-        self.send_content(sender=None, receiver=Station.ANY, content=cmd, priority=1)
+        self.send_content(sender=sender, receiver=Station.ANY, content=cmd, priority=1)
 
     # Override
     def _query_document(self, identifier: ID) -> bool:
