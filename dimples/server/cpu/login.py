@@ -38,7 +38,7 @@ from dimsdk import Content
 from dimsdk import BaseCommandProcessor
 
 from ...utils import Logging
-from ...common import LoginCommand, ReportCommand
+from ...common import LoginCommand
 from ...common import CommonFacebook, CommonMessenger
 
 
@@ -81,10 +81,8 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
             # forwarded login command
             self.info(msg='user login: %s -> %s, forwarded by %s' % (sender, roaming, session.identifier))
             return []
-        # 3. update user online time
-        cmd = ReportCommand(title=ReportCommand.ONLINE)
-        if db.save_online_command(identifier=sender, content=cmd):
-            session.active = True
+        # 3. update session flag
+        session.set_active(active=True)
         # only respond the user login to this station
         self.info(msg='user login: %s -> %s' % (sender, roaming))
         return self._respond_text(text='Login received.')

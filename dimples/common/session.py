@@ -28,7 +28,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
 from dimp import ID, ReliableMessage
@@ -60,8 +60,8 @@ class Session(Transmitter, ABC):
         """ Login User ID """
         raise NotImplemented
 
-    @identifier.setter
-    def identifier(self, user: ID):
+    def set_identifier(self, identifier: ID) -> bool:
+        """ Update ID and return True on changed """
         raise NotImplemented
 
     @property
@@ -69,8 +69,9 @@ class Session(Transmitter, ABC):
         """ Session active """
         raise NotImplemented
 
-    @active.setter
-    def active(self, flag: bool):
+    @abstractmethod
+    def set_active(self, active: bool, when: float = None):
+        """ Update active flag and return True on changed """
         raise NotImplemented
 
     def __str__(self) -> str:

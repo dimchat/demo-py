@@ -36,7 +36,7 @@ from .account import AccountDBI
 from .message import ReliableMessageDBI, CipherKeyDBI
 from .message import MessageDBI
 
-from .session import LoginDBI, ReportDBI, ProviderDBI
+from .session import LoginDBI, ProviderDBI
 from .session import SessionDBI
 
 
@@ -57,6 +57,6 @@ __all__ = [
     #
     #   Session
     #
-    'LoginDBI', 'ReportDBI', 'ProviderDBI',
+    'LoginDBI', 'ProviderDBI',
     'SessionDBI',
 ]

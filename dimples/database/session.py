@@ -28,10 +28,9 @@ from typing import Optional, Set, Tuple
 from dimsdk import ID
 from dimsdk import ReliableMessage
 
-from ..common import SessionDBI, LoginCommand, ReportCommand
+from ..common import SessionDBI, LoginCommand
 
 from .t_login import LoginTable
-from .t_report import ReportTable
 from .t_provider import ProviderTable
 
 
@@ -44,12 +43,10 @@ class SessionDatabase(SessionDBI):
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         self.__login_table = LoginTable(root=root, public=public, private=private)
-        self.__report_table = ReportTable(root=root, public=public, private=private)
         self.__provider_table = ProviderTable(root=root, public=public, private=private)
 
     def show_info(self):
         self.__login_table.show_info()
-        self.__report_table.show_info()
         self.__provider_table.show_info()
 
     #
@@ -61,18 +58,6 @@ class SessionDatabase(SessionDBI):
 
     def save_login_command_message(self, identifier: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
         return self.__login_table.save_login_command_message(identifier=identifier, content=content, msg=msg)
-
-    #
-    #   Report DBI
-    #
-
-    # Override
-    def online_command(self, identifier: ID) -> Optional[ReportCommand]:
-        return self.__report_table.online_command(identifier=identifier)
-
-    # Override
-    def save_online_command(self, identifier: ID, content: ReportCommand) -> bool:
-        return self.__report_table.save_online_command(identifier=identifier, content=content)
 
     #
     #   Provider DBI

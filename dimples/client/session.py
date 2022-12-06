@@ -112,12 +112,12 @@ class ClientSession(BaseSession, Logging):
 
     # Override
     def setup(self):
-        self.active = True
+        self.set_active(active=True)
         super().setup()
 
     # Override
     def finish(self):
-        self.active = False
+        self.set_active(active=False)
         super().finish()
 
     #

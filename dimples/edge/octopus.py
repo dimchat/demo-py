@@ -170,7 +170,7 @@ def create_messenger(user: ID, host: str, port: int, octopus, clazz) -> OctopusM
     station.data_source = facebook
     # 1. create session with SessionDB
     session = ClientSession(station=station, database=shared.sdb)
-    session.identifier = user
+    session.set_identifier(identifier=user)
     # 2. create messenger with session and MessageDB
     messenger = clazz(session=session, facebook=facebook, database=shared.mdb)
     assert isinstance(messenger, OctopusMessenger)

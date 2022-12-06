@@ -43,7 +43,6 @@ from .t_message import ReliableMessageTable
 from .t_cipherkey import CipherKeyTable
 
 from .t_login import LoginTable
-from .t_report import ReportTable
 from .t_provider import ProviderTable
 
 from .account import AccountDatabase
@@ -62,7 +61,7 @@ __all__ = [
     'ReliableMessageDBI', 'CipherKeyDBI',
     'MessageDBI',
 
-    'LoginDBI', 'ReportDBI', 'ProviderDBI',
+    'LoginDBI', 'ProviderDBI',
     'SessionDBI',
 
     #
@@ -79,7 +78,7 @@ __all__ = [
     'PrivateKeyTable', 'MetaTable', 'DocumentTable',
     'UserTable', 'GroupTable',
     'ReliableMessageTable', 'CipherKeyTable',
-    'LoginTable', 'ReportTable', 'ProviderTable',
+    'LoginTable', 'ProviderTable',
 
     #
     #   Database

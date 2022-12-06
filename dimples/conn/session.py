@@ -62,9 +62,11 @@ class BaseSession(GateKeeper, Session, ABC):
     def identifier(self) -> Optional[ID]:
         return self.__identifier
 
-    @identifier.setter  # Override
-    def identifier(self, user: ID):
-        self.__identifier = user
+    # Override
+    def set_identifier(self, identifier: ID) -> bool:
+        if self.__identifier != identifier:
+            self.__identifier = identifier
+            return True
 
     @property
     def messenger(self) -> CommonMessenger:

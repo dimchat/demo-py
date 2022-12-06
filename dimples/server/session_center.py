@@ -130,7 +130,7 @@ class SessionCenter:
             if identifier is not None:
                 self.__pool.remove_address(identifier=identifier, remote=address)
         # set session inactive
-        session.active = False
+        session.set_active(active=False)
         return True
 
     def update_session(self, session: Session, identifier: ID):
@@ -148,7 +148,7 @@ class SessionCenter:
             # insert remote address for new ID
             self.__pool.add_address(identifier=identifier, remote=address)
         # update session ID
-        session.identifier = identifier
+        session.set_identifier(identifier=identifier)
         return True
 
     def active_sessions(self, identifier: ID) -> Set[Session]:

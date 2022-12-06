@@ -59,19 +59,16 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
             self.error(msg='session not login, drop report command: %s => %s' % (sender, content))
             return []
         assert sender == session.identifier, 'report sender error: %s not %s' % (sender, session.identifier)
-        db = session.database
         # check report title
         title = content.title
         if title == ReportCommand.ONLINE:
             # online
-            if db.save_online_command(identifier=sender, content=content):
-                session.active = True
+            session.set_active(active=True, when=content.time)
             text = 'Online command received.'
             return self._respond_text(text=text)
         elif title == ReportCommand.OFFLINE:
             # offline
-            if db.save_online_command(identifier=sender, content=content):
-                session.active = False
+            session.set_active(active=False, when=content.time)
             text = 'Offline command received.'
             return self._respond_text(text=text)
         else:

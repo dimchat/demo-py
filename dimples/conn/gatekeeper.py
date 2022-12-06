@@ -29,6 +29,7 @@
 # ==============================================================================
 
 import socket
+import time
 from typing import Optional, Tuple
 
 from dimsdk import ReliableMessage
@@ -103,6 +104,7 @@ class GateKeeper(Runner, DockerDelegate):
         self.__gate = self._create_gate(remote=remote, sock=sock)
         self.__queue = MessageQueue()
         self.__active = False
+        self.__last_active = 0  # last update time
 
     def _create_gate(self, remote: Tuple[str, int], sock: Optional[socket.socket]) -> CommonGate:
         if sock is None:
@@ -141,9 +143,15 @@ class GateKeeper(Runner, DockerDelegate):
     def active(self) -> bool:
         return self.__active
 
-    @active.setter
-    def active(self, flag: bool):
-        self.__active = flag
+    def set_active(self, active: bool, when: float = None) -> bool:
+        if when is None or when <= 0:
+            when = time.time()
+        elif when <= self.__last_active:
+            return False
+        if self.__active != active:
+            self.__active = active
+            self.__last_active = when
+            return True
 
     @property  # Override
     def running(self) -> bool:

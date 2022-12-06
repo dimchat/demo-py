@@ -86,33 +86,19 @@ class ServerSession(BaseSession, Logging):
     def key(self) -> str:
         return self.__key
 
-    @property  # Override
-    def identifier(self) -> Optional[ID]:
-        return super().identifier
+    # Override
+    def set_identifier(self, identifier: ID) -> bool:
+        old = self.identifier
+        if super().set_identifier(identifier=identifier):
+            session_change_id(session=self, new_id=identifier, old_id=old)
+            load_cached_messages(session=self)
+            return True
 
-    @identifier.setter  # Override
-    def identifier(self, user: ID):
-        old = super().identifier
-        if user == old:
-            return
-        session_change_id(session=self, new_id=user, old_id=old)
-        # noinspection PyUnresolvedReferences
-        super(ServerSession, ServerSession).identifier.__set__(self, user)
-        load_cached_messages(session=self)
-
-    @property  # Override
-    def active(self) -> bool:
-        return super().active
-
-    @active.setter  # Override
-    def active(self, flag: bool):
-        old = super().active
-        if flag == old:
-            return
-        session_change_active(session=self, flag=flag)
-        # noinspection PyUnresolvedReferences
-        super(ServerSession, ServerSession).active.__set__(self, flag)
-        load_cached_messages(session=self)
+    # Override
+    def set_active(self, active: bool, when: float = None):
+        if super().set_active(active=active, when=when):
+            session_change_active(session=self, active=active)
+            load_cached_messages(session=self)
 
     @property  # Override
     def running(self) -> bool:
@@ -130,11 +116,11 @@ class ServerSession(BaseSession, Logging):
         # super().docker_status_changed(previous=previous, current=current, docker=docker)
         if current is None or current == DockerStatus.ERROR:
             # connection error or session finished
-            self.active = False
+            self.set_active(active=False)
             self.stop()
         elif current == DockerStatus.READY:
             # connected/reconnected
-            self.active = True
+            self.set_active(active=True)
 
     # Override
     def docker_received(self, ship: Arrival, docker: Docker):
@@ -197,15 +183,16 @@ def session_change_id(session: ServerSession, new_id: ID, old_id: Optional[ID]):
         center.reset_badge(identifier=new_id)
 
 
-def session_change_active(session: ServerSession, flag: bool):
+def session_change_active(session: ServerSession, active: bool):
     identifier = session.identifier
     if identifier is None:
         # user not login yet
         return False
-    if flag:
+    elif active:
         # user online, clear badges
         center = PushCenter()
         center.reset_badge(identifier=identifier)
+        return True
 
 
 def load_cached_messages(session: ServerSession) -> int:

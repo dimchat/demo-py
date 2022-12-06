@@ -30,7 +30,6 @@ from dimsdk import ID
 from dimsdk import ReliableMessage
 
 from ..protocol import LoginCommand
-from ..protocol import ReportCommand
 
 
 class LoginDBI(ABC):
@@ -45,21 +44,6 @@ class LoginDBI(ABC):
 
     @abstractmethod
     def save_login_command_message(self, identifier: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
-        raise NotImplemented
-
-
-class ReportDBI(ABC):
-    """ Report(online/offline) Command Table """
-
-    #
-    #   online/offline command
-    #
-    @abstractmethod
-    def online_command(self, identifier: ID) -> Optional[ReportCommand]:
-        raise NotImplemented
-
-    @abstractmethod
-    def save_online_command(self, identifier: ID, content: ReportCommand) -> bool:
         raise NotImplemented
 
 
@@ -87,6 +71,6 @@ class ProviderDBI(ABC):
         raise NotImplemented
 
 
-class SessionDBI(LoginDBI, ReportDBI, ProviderDBI, ABC):
+class SessionDBI(LoginDBI, ProviderDBI, ABC):
     """ Session Database """
     pass
