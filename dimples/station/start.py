@@ -58,6 +58,9 @@ from dimples.station.handler import RequestHandler
 Log.LEVEL = Log.DEVELOP
 
 
+DEFAULT_CONFIG = '/etc/dim/station.ini'
+
+
 def show_help():
     cmd = sys.argv[0]
     print('')
@@ -68,7 +71,7 @@ def show_help():
     print('    %s [-h|--help]' % cmd)
     print('')
     print('optional arguments:')
-    print('    --config        config file path (default: "/etc/dim/config.ini")')
+    print('    --config        config file path (default: "%s")' % DEFAULT_CONFIG)
     print('    --help, -h      show this help message and exit')
     print('')
 
@@ -91,7 +94,7 @@ def main():
             sys.exit(0)
     # check config filepath
     if ini_file is None:
-        ini_file = '/etc/dim/config.ini'
+        ini_file = DEFAULT_CONFIG
     if not Storage.exists(path=ini_file):
         show_help()
         print('')
@@ -113,14 +116,15 @@ def main():
     # start TCP server
     try:
         # ThreadingTCPServer.allow_reuse_address = True
-        server = ThreadingTCPServer(server_address=(config.host, config.port),
+        server_address = (config.station_host, config.station_port)
+        server = ThreadingTCPServer(server_address=server_address,
                                     RequestHandlerClass=RequestHandler,
                                     bind_and_activate=False)
-        Log.info(msg='>>> TCP server (%s:%d) starting...' % (config.host, config.port))
+        Log.info(msg='>>> TCP server %s starting...' % str(server_address))
         server.allow_reuse_address = True
         server.server_bind()
         server.server_activate()
-        Log.info(msg='>>> TCP server (%s:%d) is listening...' % (config.host, config.port))
+        Log.info(msg='>>> TCP server %s is listening...' % str(server_address))
         server.serve_forever()
     except KeyboardInterrupt as ex:
         Log.info(msg='~~~~~~~~ %s' % ex)

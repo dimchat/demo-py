@@ -43,7 +43,10 @@ class GlobalVariable:
 
 def init_database(shared: GlobalVariable):
     config = shared.config
+    root = config.database_root
+    public = config.database_public
+    private = config.database_private
     # create database
-    adb = AccountDatabase(root=config.root, public=config.public, private=config.private)
+    adb = AccountDatabase(root=root, public=public, private=private)
     adb.show_info()
     shared.adb = adb

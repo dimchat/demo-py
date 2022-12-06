@@ -56,10 +56,13 @@ class GlobalVariable:
 
 def init_database(shared: GlobalVariable):
     config = shared.config
+    root = config.database_root
+    public = config.database_public
+    private = config.database_private
     # create database
-    adb = AccountDatabase(root=config.root, public=config.public, private=config.private)
-    mdb = MessageDatabase(root=config.root, public=config.public, private=config.private)
-    sdb = SessionDatabase(root=config.root, public=config.public, private=config.private)
+    adb = AccountDatabase(root=root, public=public, private=private)
+    mdb = MessageDatabase(root=root, public=public, private=private)
+    sdb = SessionDatabase(root=root, public=public, private=private)
     adb.show_info()
     mdb.show_info()
     sdb.show_info()
@@ -79,13 +82,13 @@ def init_facebook(shared: GlobalVariable) -> CommonFacebook:
     facebook.database = shared.adb
     shared.facebook = facebook
     # set current station
-    station = shared.config.station
-    if station is not None:
+    sid = shared.config.station_id
+    if sid is not None:
         # make sure private key exists
-        assert facebook.private_key_for_visa_signature(identifier=station) is not None, \
-            'failed to get sign key for current station: %s' % station
-        print('set current user: %s' % station)
-        facebook.current_user = facebook.user(identifier=station)
+        assert facebook.private_key_for_visa_signature(identifier=sid) is not None, \
+            'failed to get sign key for current station: %s' % sid
+        print('set current user: %s' % sid)
+        facebook.current_user = facebook.user(identifier=sid)
     return facebook
 
 

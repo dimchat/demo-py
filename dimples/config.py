@@ -129,40 +129,11 @@ class Config(Dictionary):
             return str_to_bool(value=val)
 
     #
-    #   ans
-    #
-
-    @property
-    def station(self) -> ID:
-        return self.get_id(section='ans', option='station')
-
-    @property
-    def ans_records(self) -> Set[Tuple[str, ID]]:
-        ans = self.get('ans')
-        if ans is None:
-            return set()
-        return parse_ans(info=ans)
-
-    #
-    #   server
-    #
-
-    @property
-    def host(self) -> str:
-        ip = self.get_str(section='server', option='host')
-        return '127.0.0.1' if ip is None else ip
-
-    @property
-    def port(self) -> int:
-        num = self.get_int(section='server', option='port')
-        return num if num > 0 else 9394
-
-    #
     #   database
     #
 
     @property
-    def root(self) -> str:
+    def database_root(self) -> str:
         path = self.get_str(section='database', option='root')
         if path is None:
             return '/var/.dim'
@@ -170,20 +141,49 @@ class Config(Dictionary):
             return path
 
     @property
-    def public(self) -> str:
+    def database_public(self) -> str:
         path = self.get_str(section='database', option='public')
         if path is None:
-            return '%s/public' % self.root   # /var/.dim/public
+            return '%s/public' % self.database_root   # /var/.dim/public
         else:
             return path
 
     @property
-    def private(self) -> str:
+    def database_private(self) -> str:
         path = self.get_str(section='database', option='private')
         if path is None:
-            return '%s/private' % self.root  # /var/.dim/private
+            return '%s/private' % self.database_root  # /var/.dim/private
         else:
             return path
+
+    #
+    #   station
+    #
+
+    @property
+    def station_id(self) -> ID:
+        return self.get_id(section='station', option='id')
+
+    @property
+    def station_host(self) -> str:
+        ip = self.get_str(section='station', option='host')
+        return '127.0.0.1' if ip is None else ip
+
+    @property
+    def station_port(self) -> int:
+        num = self.get_int(section='station', option='port')
+        return num if num > 0 else 9394
+
+    #
+    #   ans
+    #
+
+    @property
+    def ans_records(self) -> Set[Tuple[str, ID]]:
+        ans = self.get('ans')
+        if ans is None:
+            return set()
+        return parse_ans(info=ans)
 
     #
     #   neighbor stations

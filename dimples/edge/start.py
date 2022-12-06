@@ -54,6 +54,9 @@ from dimples.edge.octopus import Octopus
 Log.LEVEL = Log.DEVELOP
 
 
+DEFAULT_CONFIG = '/etc/dim/edge.ini'
+
+
 def show_help():
     cmd = sys.argv[0]
     print('')
@@ -64,7 +67,7 @@ def show_help():
     print('    %s [-h|--help]' % cmd)
     print('')
     print('optional arguments:')
-    print('    --config        config file path (default: "/etc/dim/config.ini")')
+    print('    --config        config file path (default: "%s")' % DEFAULT_CONFIG)
     print('    --help, -h      show this help message and exit')
     print('')
 
@@ -87,7 +90,7 @@ def main():
             sys.exit(0)
     # check config filepath
     if ini_file is None:
-        ini_file = '/etc/dim/config.ini'
+        ini_file = DEFAULT_CONFIG
     if not Storage.exists(path=ini_file):
         show_help()
         print('')
@@ -103,7 +106,10 @@ def main():
     init_database(shared=shared)
     init_facebook(shared=shared)
     # create octopus
-    octopus = Octopus(database=shared.sdb, local_user=config.station, local_port=config.port)
+    sid = config.station_id
+    host = config.station_host
+    port = config.station_port
+    octopus = Octopus(database=shared.sdb, local_user=sid, local_host=host, local_port=port)
     octopus.start()
 
 

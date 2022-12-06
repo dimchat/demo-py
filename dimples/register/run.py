@@ -53,6 +53,9 @@ from dimples.register.modify import modify
 Log.LEVEL = Log.DEVELOP
 
 
+DEFAULT_CONFIG = '/etc/dim/config.ini'
+
+
 def show_help():
     cmd = sys.argv[0]
     print('')
@@ -68,7 +71,7 @@ def show_help():
     print('    modify <ID>     edit document with ID')
     print('')
     print('optional arguments:')
-    print('    --config        config file path (default: "/etc/dim/config.ini")')
+    print('    --config        config file path (default: "%s")' % DEFAULT_CONFIG)
     print('    --help, -h      show this help message and exit')
     print('')
 
@@ -91,7 +94,7 @@ def main():
             sys.exit(0)
     # check config filepath
     if ini_file is None:
-        ini_file = '/etc/dim/config.ini'
+        ini_file = DEFAULT_CONFIG
     if not Storage.exists(path=ini_file):
         show_help()
         print('')

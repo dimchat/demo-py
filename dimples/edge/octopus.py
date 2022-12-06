@@ -191,23 +191,13 @@ def create_terminal(messenger: ClientMessenger) -> Terminal:
     return terminal
 
 
-def create_inner_terminal(user: ID, host: str, port: int, octopus) -> Terminal:
-    messenger = create_messenger(user=user, host=host, port=port, octopus=octopus, clazz=InnerMessenger)
-    return create_terminal(messenger=messenger)
-
-
-def create_outer_terminal(octopus, user: ID, host: str, port: int) -> Terminal:
-    messenger = create_messenger(user=user, host=host, port=port, octopus=octopus, clazz=OuterMessenger)
-    return create_terminal(messenger=messenger)
-
-
 class Octopus(Runner, Logging):
 
     def __init__(self, database: SessionDBI, local_user: ID, local_host: str = '127.0.0.1', local_port: int = 9394):
         super().__init__()
         self.__database = database
         self.__user = local_user
-        self.__inner = create_inner_terminal(user=local_user, host=local_host, port=local_port, octopus=self)
+        self.__inner = self.create_inner_terminal(user=local_user, host=local_host, port=local_port)
         self.__outers: Set[Terminal] = set()
         self.__outer_map = weakref.WeakValueDictionary()
         self.__outer_lock = threading.Lock()
@@ -227,6 +217,14 @@ class Octopus(Runner, Logging):
         if terminal is not None:
             return terminal.messenger
 
+    def create_inner_terminal(self, user: ID, host: str, port: int) -> Terminal:
+        messenger = create_messenger(user=user, host=host, port=port, octopus=self, clazz=InnerMessenger)
+        return create_terminal(messenger=messenger)
+
+    def create_outer_terminal(self, user: ID, host: str, port: int) -> Terminal:
+        messenger = create_messenger(user=user, host=host, port=port, octopus=self, clazz=OuterMessenger)
+        return create_terminal(messenger=messenger)
+
     def add_index(self, identifier: ID, terminal: Terminal):
         with self.__outer_lock:
             # self.__outers.add(terminal)
@@ -234,7 +232,7 @@ class Octopus(Runner, Logging):
 
     def connect(self, host: str, port: int = 9394):
         user = self.__user
-        terminal = create_outer_terminal(octopus=self, user=user, host=host, port=port)
+        terminal = self.create_outer_terminal(user=user, host=host, port=port)
         with self.__outer_lock:
             self.__outers.add(terminal)
 
@@ -246,7 +244,8 @@ class Octopus(Runner, Logging):
     def stop(self):
         super().stop()
         inner = self.__inner
-        inner.stop()
+        if inner is not None:
+            inner.stop()
         with self.__outer_lock:
             outers = set(self.__outers)
         for out in outers:

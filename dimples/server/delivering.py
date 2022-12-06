@@ -95,20 +95,32 @@ class DeliverWorker(Worker, Logging):
         if neighbor == current:
             self.debug(msg='same destination: %s, msg %s => %s' % (neighbor, msg.sender, msg.receiver))
             return []
-        # 1. try to push message to neighbor station
+        # 1. try to push message to neighbor station directly
         if session_push(msg=msg, receiver=neighbor) > 0:
             text = 'Message redirected to neighbor station'
             cmd = ReceiptCommand.create(text=text, msg=msg)
             cmd['neighbor'] = str(neighbor)
             return [cmd]
-        # 2. try to push message to bridge
+        # 2. push message to bridge
+        return self.bridge_message(msg=msg, neighbor=neighbor, bridge=current)
+
+    # noinspection PyMethodMayBeStatic
+    def bridge_message(self, msg: ReliableMessage, neighbor: ID, bridge: ID) -> List[Content]:
+        """
+        Redirect message to neighbor station via the station bridge
+
+        :param msg:      network message
+        :param neighbor: roaming station
+        :param bridge:   current station
+        :return: responses
+        """
         # NOTE: the messenger will serialize this message immediately, so
         #       we don't need to clone this dictionary to avoid 'neighbor'
         #       be changed to another value before pushing to the bridge.
         # clone = msg.copy_dictionary()
         # msg = ReliableMessage.parse(msg=clone)
         msg['neighbor'] = str(neighbor)
-        if session_push(msg=msg, receiver=current) > 0:
+        if session_push(msg=msg, receiver=bridge) > 0:
             text = 'Message pushing to neighbor station via the bridge'
             cmd = ReceiptCommand.create(text=text, msg=msg)
             cmd['neighbor'] = str(neighbor)
