@@ -45,7 +45,7 @@ class GlobalVariable:
         self.facebook: Optional[CommonFacebook] = None
 
 
-def init_database(shared: GlobalVariable):
+def create_database(shared: GlobalVariable) -> (AccountDBI, MessageDBI, SessionDBI):
     config = shared.config
     root = config.database_root
     public = config.database_public
@@ -65,12 +65,12 @@ def init_database(shared: GlobalVariable):
     for node in neighbors:
         print('adding neighbor node: (%s:%d), ID=%s' % (node.host, node.port, node.identifier))
         sdb.add_neighbor(host=node.host, port=node.port)
+    return adb, mdb, sdb
 
 
-def init_facebook(shared: GlobalVariable) -> CommonFacebook:
+def create_facebook(shared: GlobalVariable) -> CommonFacebook:
     # set account database
-    facebook = CommonFacebook()
-    facebook.database = shared.adb
+    facebook = CommonFacebook(database=shared.adb)
     shared.facebook = facebook
     # set current station
     sid = shared.config.station_id

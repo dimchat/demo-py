@@ -44,7 +44,7 @@ from dimples.database import Storage
 
 from dimples.config import Config
 from dimples.edge.shared import GlobalVariable
-from dimples.edge.shared import init_database, init_facebook
+from dimples.edge.shared import create_database, create_facebook
 from dimples.edge.octopus import Octopus
 
 
@@ -103,8 +103,8 @@ def main():
     print('[DB] init with config: %s => %s' % (ini_file, config))
     shared = GlobalVariable()
     shared.config = config
-    init_database(shared=shared)
-    init_facebook(shared=shared)
+    create_database(shared=shared)
+    create_facebook(shared=shared)
     # create octopus
     sid = config.station_id
     host = config.station_host

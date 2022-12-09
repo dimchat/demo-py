@@ -135,8 +135,11 @@ class InnerMessenger(OctopusMessenger):
 
     # Override
     def deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+        priority = 0  # NORMAL
+        if msg.receiver.is_broadcast:
+            priority = 1  # SLOWER
         octopus = self.octopus
-        return octopus.outgo_message(msg=msg)
+        return octopus.outgo_message(msg=msg, priority=priority)
 
 
 class OuterMessenger(OctopusMessenger):
@@ -151,8 +154,11 @@ class OuterMessenger(OctopusMessenger):
 
     # Override
     def deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+        priority = 0  # NORMAL
+        if msg.receiver.is_broadcast:
+            priority = 1  # SLOWER
         octopus = self.octopus
-        return octopus.income_message(msg=msg)
+        return octopus.income_message(msg=msg, priority=priority)
 
     # Override
     def handshake_success(self):
@@ -291,38 +297,36 @@ class Octopus(Runner, Logging):
             self.connect(host=host, port=port)
         return False
 
-    def income_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+    def income_message(self, msg: ReliableMessage, priority: int = 0) -> List[ReliableMessage]:
         """ redirect message from remote station """
-        receiver = msg.receiver
         messenger = self.inner_messenger
-        if messenger.send_reliable_message(msg=msg):
+        if messenger.send_reliable_message(msg=msg, priority=priority):
             sig = get_sig(msg=msg)
-            self.info(msg='redirected msg (%s) for receiver (%s)' % (sig, receiver))
+            self.info(msg='redirected msg (%s) for receiver (%s)' % (sig, msg.receiver))
             # no need to respond receipt for station
             return []
         sig = get_sig(msg=msg)
-        self.error(msg='failed to redirect msg (%s) for receiver (%s)' % (sig, receiver))
+        self.error(msg='failed to redirect msg (%s) for receiver (%s)' % (sig, msg.receiver))
         return []
 
-    def outgo_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+    def outgo_message(self, msg: ReliableMessage, priority: int = 0) -> List[ReliableMessage]:
         """ redirect message to remote station """
-        receiver = msg.receiver
         target = ID.parse(identifier=msg.get('neighbor'))
         if target is None:
             # target station not found
-            self.info(msg='cannot get target station for receiver (%s)' % receiver)
+            self.info(msg='cannot get target station for receiver (%s)' % msg.receiver)
             return []
         messenger = self.get_outer_messenger(identifier=target)
         if messenger is None:
             # target station not my neighbor
-            self.info(msg='receiver (%s) is targeted to (%s), but not my neighbor' % (receiver, target))
+            self.info(msg='receiver (%s) is targeted to (%s), but not my neighbor' % (msg.receiver, target))
             return []
         msg.pop('neighbor', None)
-        if messenger.send_reliable_message(msg=msg):
+        if messenger.send_reliable_message(msg=msg, priority=priority):
             sig = get_sig(msg=msg)
-            self.info(msg='redirected msg (%s) to target (%s) for receiver (%s)' % (sig, target, receiver))
+            self.info(msg='redirected msg (%s) to target (%s) for receiver (%s)' % (sig, target, msg.receiver))
             # no need to respond receipt for station
             return []
         sig = get_sig(msg=msg)
-        self.error(msg='failed to redirect msg (%s) to target (%s) for receiver (%s)' % (sig, target, receiver))
+        self.error(msg='failed to redirect msg (%s) to target (%s) for receiver (%s)' % (sig, target, msg.receiver))
         return []

@@ -46,9 +46,9 @@ from dimples.database import Storage
 
 from dimples.config import Config
 from dimples.station.shared import GlobalVariable
-from dimples.station.shared import init_database, init_facebook, init_ans
-from dimples.station.shared import init_pusher, stop_pusher
-from dimples.station.shared import init_dispatcher, stop_dispatcher
+from dimples.station.shared import create_database, create_facebook
+from dimples.station.shared import create_ans, create_pusher, stop_pusher
+from dimples.station.shared import create_dispatcher, stop_dispatcher
 from dimples.station.handler import RequestHandler
 
 
@@ -107,11 +107,11 @@ def main():
     print('[DB] init with config: %s => %s' % (ini_file, config))
     shared = GlobalVariable()
     shared.config = config
-    init_database(shared=shared)
-    init_facebook(shared=shared)
-    init_ans(shared=shared)
-    init_pusher(shared=shared)
-    init_dispatcher(shared=shared)
+    create_database(shared=shared)
+    create_facebook(shared=shared)
+    create_ans(shared=shared)
+    create_pusher(shared=shared)
+    create_dispatcher(shared=shared)
 
     # start TCP server
     try:

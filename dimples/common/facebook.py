@@ -41,9 +41,9 @@ from .dbi import AccountDBI
 
 class CommonFacebook(Facebook):
 
-    def __init__(self):
+    def __init__(self, database: AccountDBI):
         super().__init__()
-        self.__database: Optional[AccountDBI] = None
+        self.__database = database
         self.__current: Optional[User] = None
 
     @property
@@ -55,10 +55,6 @@ class CommonFacebook(Facebook):
             Users, Contacts, Groups, Members
         """
         return self.__database
-
-    @database.setter
-    def database(self, db: AccountDBI):
-        self.__database = db
 
     #
     #   Super

@@ -42,7 +42,7 @@ from dimples.database import Storage
 
 from dimples.config import Config
 from dimples.register.shared import GlobalVariable
-from dimples.register.shared import init_database
+from dimples.register.shared import create_database
 from dimples.register.generate import generate
 from dimples.register.modify import modify
 
@@ -107,7 +107,7 @@ def main():
     print('[DB] init with config: %s => %s' % (ini_file, config))
     shared = GlobalVariable()
     shared.config = config
-    init_database(shared=shared)
+    create_database(shared=shared)
     # check actions
     if len(args) == 1 and args[0] == 'generate':
         generate(db=shared.adb)

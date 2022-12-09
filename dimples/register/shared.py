@@ -41,7 +41,7 @@ class GlobalVariable:
         self.adb: Optional[AccountDBI] = None
 
 
-def init_database(shared: GlobalVariable):
+def create_database(shared: GlobalVariable) -> AccountDBI:
     config = shared.config
     root = config.database_root
     public = config.database_public
@@ -50,3 +50,4 @@ def init_database(shared: GlobalVariable):
     adb = AccountDatabase(root=root, public=public, private=private)
     adb.show_info()
     shared.adb = adb
+    return adb

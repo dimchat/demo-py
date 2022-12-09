@@ -165,6 +165,7 @@ def modify(identifier: ID, db: AccountDBI) -> bool:
     if doc is not None:
         print('!!! old document found: %s' % identifier)
         show_document(document=doc)
+        doc = Document.parse(document=doc.copy_dictionary())
     elif entity_is_group(network=network):
         doc = Document.create(doc_type=Document.BULLETIN, identifier=identifier)
     else:

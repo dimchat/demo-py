@@ -54,7 +54,7 @@ class GlobalVariable:
         self.pusher: Optional[Pusher] = None
 
 
-def init_database(shared: GlobalVariable):
+def create_database(shared: GlobalVariable) -> (AccountDBI, MessageDBI, SessionDBI):
     config = shared.config
     root = config.database_root
     public = config.database_public
@@ -74,12 +74,12 @@ def init_database(shared: GlobalVariable):
     for node in neighbors:
         print('adding neighbor node: (%s:%d), ID="%s"' % (node.host, node.port, node.identifier))
         sdb.add_neighbor(host=node.host, port=node.port, identifier=node.identifier)
+    return adb, mdb, sdb
 
 
-def init_facebook(shared: GlobalVariable) -> CommonFacebook:
+def create_facebook(shared: GlobalVariable) -> CommonFacebook:
     # set account database
-    facebook = CommonFacebook()
-    facebook.database = shared.adb
+    facebook = CommonFacebook(database=shared.adb)
     shared.facebook = facebook
     # set current station
     sid = shared.config.station_id
@@ -92,7 +92,7 @@ def init_facebook(shared: GlobalVariable) -> CommonFacebook:
     return facebook
 
 
-def init_ans(shared: GlobalVariable) -> AddressNameService:
+def create_ans(shared: GlobalVariable) -> AddressNameService:
     ans = AddressNameServer()
     factory = ID.factory()
     ID.register(factory=ANSFactory(factory=factory, ans=ans))
@@ -102,7 +102,7 @@ def init_ans(shared: GlobalVariable) -> AddressNameService:
     return ans
 
 
-def init_pusher(shared: GlobalVariable) -> Pusher:
+def create_pusher(shared: GlobalVariable) -> Pusher:
     pusher = DefaultPusher(facebook=shared.facebook)
     shared.pusher = pusher
     # start PushCenter
@@ -112,7 +112,7 @@ def init_pusher(shared: GlobalVariable) -> Pusher:
     return pusher
 
 
-def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
+def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
     # create dispatcher
     dispatcher = Dispatcher()
     dispatcher.database = shared.mdb
