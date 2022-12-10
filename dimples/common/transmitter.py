@@ -29,7 +29,7 @@
 # ==============================================================================
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Tuple
 
 from dimp import ID
 from dimp import Content
@@ -40,7 +40,7 @@ class Transmitter(ABC):
 
     @abstractmethod
     def send_content(self, sender: Optional[ID], receiver: ID, content: Content,
-                     priority: int = 0) -> (InstantMessage, Optional[ReliableMessage]):
+                     priority: int = 0) -> Tuple[InstantMessage, Optional[ReliableMessage]]:
         """
         Send content from sender to receiver with priority
 

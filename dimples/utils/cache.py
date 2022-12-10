@@ -31,7 +31,7 @@
 
 import time
 from threading import Thread
-from typing import TypeVar, Generic, Optional, Dict, Set
+from typing import TypeVar, Generic, Optional, Dict, Set, Tuple
 
 from .singleton import Singleton
 
@@ -97,7 +97,7 @@ class CachePool(Generic[K, V]):
         self.__holders[key] = holder
         return holder
 
-    def erase(self, key: K, now: float = None) -> (Optional[V], CacheHolder[V]):
+    def erase(self, key: K, now: float = None) -> Tuple[Optional[V], Optional[CacheHolder[V]]]:
         """ erase value holder with key """
         if now is None:
             self.__holders.pop(key, None)
@@ -105,9 +105,9 @@ class CachePool(Generic[K, V]):
         # get exists value before erasing
         value, holder = self.fetch(key=key, now=now)
         self.__holders.pop(key, None)
-        return value, None
+        return value, holder
 
-    def fetch(self, key: K, now: float = None) -> (Optional[V], CacheHolder[V]):
+    def fetch(self, key: K, now: float = None) -> Tuple[Optional[V], Optional[CacheHolder[V]]]:
         """ fetch value & holder with key """
         holder = self.__holders.get(key)
         if holder is None:

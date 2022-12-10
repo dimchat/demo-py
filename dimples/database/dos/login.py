@@ -23,7 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional
+from typing import Optional, Tuple
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
@@ -57,7 +57,7 @@ class LoginStorage(Storage, LoginDBI):
     #
 
     # Override
-    def login_command_message(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
+    def login_command_message(self, identifier: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
         """ load login command from file """
         path = self.__login_path(identifier=identifier)
         self.info(msg='Loading login command from: %s' % path)

@@ -31,7 +31,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Tuple
 
 from dimsdk import ID
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
@@ -223,7 +223,7 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
 
     # Override
     def send_content(self, sender: Optional[ID], receiver: ID, content: Content,
-                     priority: int = 0) -> (InstantMessage, Optional[ReliableMessage]):
+                     priority: int = 0) -> Tuple[InstantMessage, Optional[ReliableMessage]]:
         """ Send message content with priority """
         # Application Layer should make sure user is already login before it send message to server.
         # Application layer should put message into queue so that it will send automatically after user login

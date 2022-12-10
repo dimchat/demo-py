@@ -191,6 +191,8 @@ class Config(Dictionary):
     @property
     def neighbors(self) -> List[Node]:
         nodes = self.get('neighbors')
+        if nodes is None:
+            return []
         return parse_nodes(nodes=nodes)
 
     @classmethod

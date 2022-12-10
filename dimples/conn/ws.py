@@ -29,7 +29,7 @@
 # ==============================================================================
 
 import threading
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 from startrek import Arrival, Departure
 from startrek import ArrivalShip, DepartureShip, DeparturePriority
@@ -110,7 +110,7 @@ class WSDocker(PlainDocker, DeparturePacker):
         self.__chunks_lock = threading.RLock()
         self.__package_received = False
 
-    def _parse_package(self, data: bytes) -> (Optional[bytes], Optional[bytes]):
+    def _parse_package(self, data: bytes) -> Tuple[Optional[bytes], Optional[bytes]]:
         with self.__chunks_lock:
             # join the data to the memory cache
             data = self.__chunks + data

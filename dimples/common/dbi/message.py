@@ -24,7 +24,7 @@
 # ==============================================================================
 
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Tuple
 
 from dimsdk import ID, ReliableMessage, CipherKeyDelegate
 
@@ -33,7 +33,15 @@ class ReliableMessageDBI(ABC):
     """ ReliableMessage Table """
 
     @abstractmethod
-    def reliable_messages(self, receiver: ID) -> List[ReliableMessage]:
+    def reliable_messages(self, receiver: ID, start: int = 0, limit: int = 1024) -> Tuple[List[ReliableMessage], int]:
+        """
+        Get network messages
+
+        :param receiver: actual receiver
+        :param start:    start position for loading message
+        :param limit:    max count for loading message
+        :return: partial messages and remaining count, 0 means there are all messages cached
+        """
         raise NotImplemented
 
     @abstractmethod

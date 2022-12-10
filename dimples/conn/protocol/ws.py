@@ -36,7 +36,7 @@
 
 import hashlib
 import struct
-from typing import Optional
+from typing import Optional, Tuple
 
 from ...utils import base64_encode, utf8_encode
 
@@ -97,7 +97,7 @@ class WebSocket:
         +---------------------------------------------------------------+
     """
     @classmethod
-    def parse(cls, stream: bytes) -> (bytes, bytes):
+    def parse(cls, stream: bytes) -> Tuple[Optional[bytes], bytes]:
         """
         Parse WebSocket data stream
 
@@ -111,7 +111,7 @@ class WebSocket:
         pos = 0
         while True:
             if stream_len < pos + 2:
-                # self.info('incomplete ws package for op code: %d' % stream_len)
+                # self.info(msg='incomplete ws package for op code: %d' % stream_len)
                 return None, stream
             # 1. check whether a continuation frame
             ch0 = stream[pos+0]
@@ -125,7 +125,7 @@ class WebSocket:
             msg_len = ch1 & 0x7F
             if msg_len == 126:
                 if stream_len < pos + 4:
-                    # self.info('incomplete ws package for msg len: %d' % stream_len)
+                    # self.info(msg='incomplete ws package for msg len: %d' % stream_len)
                     return None, stream
                 b2 = stream[pos+2]
                 b3 = stream[pos+3]
@@ -133,7 +133,7 @@ class WebSocket:
                 pos += 4
             elif msg_len == 127:
                 if stream_len < pos + 10:
-                    # self.info('incomplete ws package for msg len: %d' % stream_len)
+                    # self.info(msg='incomplete ws package for msg len: %d' % stream_len)
                     return None, stream
                 b2 = stream[pos+2]
                 b3 = stream[pos+3]
@@ -150,7 +150,7 @@ class WebSocket:
             # 3. get masking-key
             if mask == 1:
                 if stream_len < pos + 4:
-                    # self.info('incomplete ws package for mask: %d' % stream_len)
+                    # self.info(msg='incomplete ws package for mask: %d' % stream_len)
                     return None, stream
                 mask = stream[pos:pos+4]
                 pos += 4
@@ -158,7 +158,7 @@ class WebSocket:
                 mask = None
             # 4. get payload
             if stream_len < pos + msg_len:
-                # self.info('incomplete ws package for payload: %d' % stream_len)
+                # self.info(msg='incomplete ws package for payload: %d' % stream_len)
                 return None, stream
             payload = stream[pos:pos+msg_len]
             pos += msg_len
@@ -187,14 +187,14 @@ class WebSocket:
                 # TODO: PONG
                 pass
             else:
-                # self.error('ws op error: %d => %s' % (op, stream))
+                # self.error(msg='ws op error: %d => %s' % (op, stream))
                 return None, b''
             # 6. check final fragment
             if fin == 1 or op == 0:
                 # cut the received package(s) and return the remaining
                 stream = stream[pos:]
                 break
-        # self.info('received ws payload len: %d' % len(data))
+        # self.info(msg='received ws payload len: %d' % len(data))
         return data, stream
 
     @classmethod

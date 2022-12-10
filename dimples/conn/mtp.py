@@ -29,7 +29,7 @@
 # ==============================================================================
 
 import threading
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Tuple
 
 from startrek import Arrival, Departure, DepartureShip
 from startrek import Connection
@@ -47,11 +47,11 @@ class MTPHelper:
     seeker = MTPPackageSeeker()
 
     @classmethod
-    def seek_header(cls, data: ByteArray) -> (Optional[Header], int):
+    def seek_header(cls, data: ByteArray) -> Tuple[Optional[Header], int]:
         return cls.seeker.seek_header(data=data)
 
     @classmethod
-    def seek_package(cls, data: ByteArray) -> (Optional[Package], int):
+    def seek_package(cls, data: ByteArray) -> Tuple[Optional[Package], int]:
         return cls.seeker.seek_package(data=data)
 
     @classmethod

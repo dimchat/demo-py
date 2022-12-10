@@ -29,7 +29,7 @@
 # ==============================================================================
 
 from abc import abstractmethod
-from typing import TypeVar, Generic, Optional
+from typing import TypeVar, Generic, Optional, Tuple
 
 from udp.ba import ByteArray
 from udp.mtp import Header, Package
@@ -69,7 +69,7 @@ class PackageSeeker(Generic[H, P]):
         """ Create package with buffer, head & body """
         raise NotImplemented
 
-    def seek_header(self, data: ByteArray) -> (Optional[H], int):
+    def seek_header(self, data: ByteArray) -> Tuple[Optional[H], int]:
         """
         Seek package header in received data buffer
 
@@ -117,7 +117,7 @@ class PackageSeeker(Generic[H, P]):
         # assert offset > self.__magic_offset, 'magic code error: %s' % data
         return offset - self.__magic_offset
 
-    def seek_package(self, data: ByteArray) -> (Optional[P], int):
+    def seek_package(self, data: ByteArray) -> Tuple[Optional[P], int]:
         """
         Seek data package from received data buffer
 

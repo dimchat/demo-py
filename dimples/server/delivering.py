@@ -161,6 +161,7 @@ class RoamingInfo:
         super().__init__()
         self.user = user
         self.station = station
+        self.start_pos = 0
 
 
 class DefaultRoamer(Runner, Roamer, Logging):
@@ -200,10 +201,16 @@ class DefaultRoamer(Runner, Roamer, Logging):
             return False
         receiver = info.user
         roaming = info.station
+        start = info.start_pos
+        limit = 1024
         try:
             db = self.database
-            cached_messages = db.reliable_messages(receiver=receiver)
-            if cached_messages is None or len(cached_messages) == 0:
+            cached_messages, remaining = db.reliable_messages(receiver=receiver, start=start, limit=limit)
+            if remaining > 0:
+                # there are remaining messages, push the roaming user back for next try
+                info.start_pos = start + limit
+                self.__append(info=info)
+            elif cached_messages is None or len(cached_messages) == 0:
                 self.debug(msg='no cached message for this user: %s' % receiver)
                 return True
             # get deliver delegate for receiver

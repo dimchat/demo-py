@@ -89,7 +89,7 @@ class BaseSession(GateKeeper, Session, ABC):
 
     # Override
     def send_content(self, sender: Optional[ID], receiver: ID, content: Content,
-                     priority: int = 0) -> (InstantMessage, Optional[ReliableMessage]):
+                     priority: int = 0) -> Tuple[InstantMessage, Optional[ReliableMessage]]:
         messenger = self.messenger
         return messenger.send_content(sender=sender, receiver=receiver, content=content, priority=priority)
 

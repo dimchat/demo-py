@@ -24,7 +24,7 @@
 # ==============================================================================
 
 import time
-from typing import Optional
+from typing import Optional, Tuple
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
@@ -48,7 +48,7 @@ class LoginTable(LoginDBI):
         self.__login_storage.show_info()
 
     # Override
-    def login_command_message(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
+    def login_command_message(self, identifier: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
         """ get login command message for user """
         now = time.time()
         # 1. check memory cache

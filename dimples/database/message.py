@@ -23,7 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import List, Optional
+from typing import Optional, List, Tuple
 
 from dimsdk import SymmetricKey
 from dimsdk import ID
@@ -67,7 +67,7 @@ class MessageDatabase(MessageDBI):
     #
 
     # Override
-    def reliable_messages(self, receiver: ID) -> List[ReliableMessage]:
+    def reliable_messages(self, receiver: ID, start: int = 0, limit: int = 1024) -> Tuple[List[ReliableMessage], int]:
         return self.__msg_table.reliable_messages(receiver=receiver)
 
     # Override

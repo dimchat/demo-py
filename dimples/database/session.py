@@ -53,7 +53,7 @@ class SessionDatabase(SessionDBI):
     #   Login DBI
     #
 
-    def login_command_message(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
+    def login_command_message(self, identifier: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
         return self.__login_table.login_command_message(identifier=identifier)
 
     def save_login_command_message(self, identifier: ID, content: LoginCommand, msg: ReliableMessage) -> bool:

@@ -23,7 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional
+from typing import Optional, Tuple
 
 from dimsdk import ID
 
@@ -54,7 +54,7 @@ class GlobalVariable:
         self.pusher: Optional[Pusher] = None
 
 
-def create_database(shared: GlobalVariable) -> (AccountDBI, MessageDBI, SessionDBI):
+def create_database(shared: GlobalVariable) -> Tuple[AccountDBI, MessageDBI, SessionDBI]:
     config = shared.config
     root = config.database_root
     public = config.database_public

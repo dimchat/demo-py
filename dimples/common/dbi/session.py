@@ -39,7 +39,7 @@ class LoginDBI(ABC):
     #   login command message
     #
     @abstractmethod
-    def login_command_message(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
+    def login_command_message(self, identifier: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
         raise NotImplemented
 
     @abstractmethod

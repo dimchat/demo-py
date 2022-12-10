@@ -31,7 +31,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Tuple
 
 from dimsdk import ID
 from dimsdk import ContentType
@@ -102,13 +102,14 @@ class DefaultPusher(Pusher, Logging):
         return False
 
     # noinspection PyMethodMayBeStatic
-    def _build_message(self, sender: ID, receiver: ID, group: ID, msg_type: int) -> (str, str):
+    def _build_message(self, sender: ID, receiver: ID, group: ID, msg_type: int) -> Tuple[Optional[str], Optional[str]]:
         """ build title, content for notification """
         facebook = self.facebook
         return build_message(sender=sender, receiver=receiver, group=group, msg_type=msg_type, facebook=facebook)
 
 
-def build_message(sender: ID, receiver: ID, group: ID, msg_type: int, facebook: CommonFacebook) -> (str, str):
+def build_message(sender: ID, receiver: ID, group: ID, msg_type: int,
+                  facebook: CommonFacebook) -> Tuple[Optional[str], Optional[str]]:
     """ PNs: build text message for msg """
     if msg_type == 0:
         title = 'Message'

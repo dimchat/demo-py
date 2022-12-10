@@ -32,7 +32,7 @@
 
 import threading
 from abc import ABC, abstractmethod
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 from dimsdk import EntityType, ID
 from dimsdk import Content
@@ -83,7 +83,7 @@ class BaseDeliver(Runner, Deliver, Logging, ABC):
         task = DeliverTask(msg=msg, receiver=receiver)
         self.__queue.append(task=task)
 
-    def __next(self) -> (Optional[ReliableMessage], Optional[ID]):
+    def __next(self) -> Tuple[Optional[ReliableMessage], Optional[ID]]:
         task = self.__queue.next()
         if task is None:
             return None, None

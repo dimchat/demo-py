@@ -23,7 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional
+from typing import Optional, Tuple
 
 from ..utils import Singleton
 from ..common import CommonFacebook
@@ -45,7 +45,7 @@ class GlobalVariable:
         self.facebook: Optional[CommonFacebook] = None
 
 
-def create_database(shared: GlobalVariable) -> (AccountDBI, MessageDBI, SessionDBI):
+def create_database(shared: GlobalVariable) -> Tuple[AccountDBI, MessageDBI, SessionDBI]:
     config = shared.config
     root = config.database_root
     public = config.database_public

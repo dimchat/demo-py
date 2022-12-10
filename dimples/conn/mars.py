@@ -29,7 +29,7 @@
 # ==============================================================================
 
 import threading
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 from startrek import Connection
 from startrek import Arrival, ArrivalShip
@@ -80,12 +80,12 @@ class MarsHelper:
     seeker = MarsPackageSeeker()
 
     @classmethod
-    def seek_header(cls, data: bytes) -> (Optional[NetMsgHead], int):
+    def seek_header(cls, data: bytes) -> Tuple[Optional[NetMsgHead], int]:
         data = Data(buffer=data)
         return cls.seeker.seek_header(data=data)
 
     @classmethod
-    def seek_package(cls, data: bytes) -> (Optional[NetMsg], int):
+    def seek_package(cls, data: bytes) -> Tuple[Optional[NetMsg], int]:
         data = Data(buffer=data)
         return cls.seeker.seek_package(data=data)
 
