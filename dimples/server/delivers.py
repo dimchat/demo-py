@@ -59,7 +59,7 @@ class BroadcastDeliver(Deliver, Logging):
     def database(self) -> Optional[SessionDBI]:
         return self.__database
 
-    def __get_recipients(self, receiver: ID) -> Set[ID]:
+    def __get_recipients(self, msg: ReliableMessage, receiver: ID) -> Set[ID]:
         recipients = set()
         if receiver in ['archivist@anywhere', 'archivists@everywhere']:
             # get bot for search command
@@ -70,14 +70,21 @@ class BroadcastDeliver(Deliver, Logging):
                 recipients.add(bot)
         elif receiver in [Station.EVERY, EVERYONE]:
             # if this message sent to 'stations@everywhere' or 'everyone@everywhere'
-            # get neighbor stations
+            # get all neighbor stations to broadcast, but
+            # traced nodes should be ignored to avoid cycled delivering
             self.debug(msg='forward to neighbors: %s' % receiver)
+            traces = msg.get('traces')
+            if traces is None:
+                traces = []
             db = self.database
             neighbors = db.all_neighbors()
             for item in neighbors:
                 sid = item[2]
-                if sid is not None:
-                    recipients.add(sid)
+                if sid is None or sid in traces:
+                    self.warning(msg='ignore node: %s' % str(item))
+                    continue
+                recipients.add(sid)
+            self.debug(msg='recipients: %s => %s' % (receiver, recipients))
         else:
             self.warning(msg='unknown broadcast ID: %s' % receiver)
         return recipients
@@ -92,7 +99,7 @@ class BroadcastDeliver(Deliver, Logging):
         assert receiver.is_broadcast, 'broadcast ID error: %s' % receiver
         sender = msg.sender
         # get all actual recipients
-        recipients = self.__get_recipients(receiver=receiver)
+        recipients = self.__get_recipients(msg=msg, receiver=receiver)
         if recipients is None or len(recipients) == 0:
             # # error
             # text = 'Broadcast not deliver'
