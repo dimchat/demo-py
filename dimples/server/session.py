@@ -100,6 +100,7 @@ class ServerSession(BaseSession, Logging):
         if super().set_active(active=active, when=when):
             session_change_active(session=self, active=active)
             load_cached_messages(session=self)
+            return True
 
     @property  # Override
     def running(self) -> bool:

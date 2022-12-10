@@ -123,6 +123,7 @@ def find_message(msg: ReliableMessage, messages: List[ReliableMessage]) -> int:
 
 
 def get_range(start: int, limit: int, total: int) -> Tuple[int, int]:
+    """ make range: [start, end) """
     assert limit > 0, 'limit error: %d' % limit
     assert total >= 0, 'total count error: %d' % total
     # seek for start
@@ -134,8 +135,7 @@ def get_range(start: int, limit: int, total: int) -> Tuple[int, int]:
             start = 0
     elif start > total:
         # out of range
-        return 0, 0
-        # start = total
+        start = total
     # seek for end
     end = start + limit
     if end > total:
