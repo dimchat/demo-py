@@ -30,12 +30,12 @@
     Handler for each connection
 """
 
-import socket
 import traceback
 from socketserver import StreamRequestHandler
-from typing import Tuple
 
 from ..utils import Logging, Runner
+from ..common import MessageDBI
+from ..common import CommonFacebook
 from ..common import CommonPacker
 
 from ..server import ServerSession, SessionCenter
@@ -46,19 +46,16 @@ from ..server import DefaultFilter
 from .shared import GlobalVariable
 
 
-def create_messenger(remote: Tuple[str, int], sock: socket.socket) -> ServerMessenger:
-    shared = GlobalVariable()
-    facebook = shared.facebook
-    # 1. create session with SessionDB
-    session = ServerSession(remote=remote, sock=sock, database=shared.sdb)
-    # 2. create messenger with session and MessageDB
-    messenger = ServerMessenger(session=session, facebook=facebook, database=shared.mdb)
-    # 3. create packer, processor, filter for messenger
+def create_messenger(facebook: CommonFacebook, database: MessageDBI,
+                     session: ServerSession) -> ServerMessenger:
+    # 1. create messenger with session and MessageDB
+    messenger = ServerMessenger(session=session, facebook=facebook, database=database)
+    # 2. create packer, processor, filter for messenger
     #    they have weak references to session, facebook & messenger
     messenger.packer = CommonPacker(facebook=facebook, messenger=messenger)
     messenger.processor = ServerProcessor(facebook=facebook, messenger=messenger)
     messenger.filter = DefaultFilter(session=session, facebook=facebook)
-    # 4. set weak reference messenger in session
+    # 3. set weak reference messenger in session
     session.messenger = messenger
     return messenger
 
@@ -66,7 +63,9 @@ def create_messenger(remote: Tuple[str, int], sock: socket.socket) -> ServerMess
 class RequestHandler(StreamRequestHandler, Logging):
 
     def __init__(self, request, client_address, server):
-        self.__messenger = create_messenger(remote=client_address, sock=request)
+        shared = GlobalVariable()
+        session = ServerSession(remote=client_address, sock=request, database=shared.sdb)
+        self.__messenger = create_messenger(facebook=shared.facebook, database=shared.mdb, session=session)
         # call 'setup()', 'handle()', 'finish()'
         super().__init__(request=request, client_address=client_address, server=server)
 

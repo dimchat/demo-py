@@ -87,11 +87,19 @@ class Octopus(Runner, Logging):
             return terminal.messenger
 
     def create_inner_terminal(self, host: str, port: int) -> Terminal:
-        messenger = create_messenger(host=host, port=port, octopus=self, clazz=InnerMessenger)
+        shared = self.shared
+        session = create_session(facebook=shared.facebook, database=shared.sdb, host=host, port=port)
+        messenger = create_messenger(facebook=shared.facebook, database=shared.mdb,
+                                     session=session, messenger_class=InnerMessenger)
+        messenger.octopus = self
         return create_terminal(messenger=messenger)
 
     def create_outer_terminal(self, host: str, port: int) -> Terminal:
-        messenger = create_messenger(host=host, port=port, octopus=self, clazz=OuterMessenger)
+        shared = self.shared
+        session = create_session(facebook=shared.facebook, database=shared.sdb, host=host, port=port)
+        messenger = create_messenger(facebook=shared.facebook, database=shared.mdb,
+                                     session=session, messenger_class=OuterMessenger)
+        messenger.octopus = self
         return create_terminal(messenger=messenger)
 
     def add_index(self, identifier: ID, terminal: Terminal):
@@ -305,25 +313,21 @@ class OuterMessenger(OctopusMessenger):
         octopus.add_index(identifier=station.identifier, terminal=self.terminal)
 
 
-def create_messenger(host: str, port: int, octopus: Octopus, clazz) -> OctopusMessenger:
-    assert issubclass(clazz, OctopusMessenger), 'messenger class error: %s' % clazz
-    shared = octopus.shared
-    facebook = shared.facebook
-    # 1. create station with remote host & port
-    session = create_session(facebook=facebook, database=shared.sdb, host=host, port=port)
-    # 2. create messenger with session and MessageDB
-    messenger = clazz(session=session, facebook=facebook, database=shared.mdb)
-    # 3. create packer, processor for messenger
+def create_messenger(facebook: CommonFacebook, database: MessageDBI,
+                     session: ClientSession, messenger_class) -> OctopusMessenger:
+    assert issubclass(messenger_class, OctopusMessenger), 'messenger class error: %s' % messenger_class
+    # 1. create messenger with session and MessageDB
+    messenger = messenger_class(session=session, facebook=facebook, database=database)
+    # 2. create packer, processor for messenger
     #    they have weak references to facebook & messenger
     messenger.packer = CommonPacker(facebook=facebook, messenger=messenger)
     messenger.processor = ClientProcessor(facebook=facebook, messenger=messenger)
-    messenger.octopus = octopus
-    # 4. set weak reference to messenger
+    # 3. set weak reference to messenger
     session.messenger = messenger
     return messenger
 
 
-def create_terminal(messenger: ClientMessenger) -> Terminal:
+def create_terminal(messenger: OctopusMessenger) -> Terminal:
     terminal = Terminal(messenger=messenger)
     messenger.terminal = terminal
     terminal.start()

@@ -70,7 +70,9 @@ def main():
     shared.mdb = mdb
     shared.sdb = sdb
     # Step 3: create facebook
-    facebook = create_facebook(config=config, database=adb)
+    sid = config.station_id
+    assert sid is not None, 'current station ID not set: %s' % config
+    facebook = create_facebook(database=adb, current_user=sid)
     shared.facebook = facebook
     # Step 4: create ANS
     create_ans(config=config)
@@ -79,11 +81,15 @@ def main():
     shared.pusher = pusher
     # Step 6: create dispatcher
     create_dispatcher(shared=shared)
+    # check bind host & port
+    host = config.station_host
+    port = config.station_port
+    assert host is not None and port > 0, 'station config error: %s' % config
+    server_address = (host, port)
 
     # start TCP server
     try:
         # ThreadingTCPServer.allow_reuse_address = True
-        server_address = (config.station_host, config.station_port)
         server = ThreadingTCPServer(server_address=server_address,
                                     RequestHandlerClass=RequestHandler,
                                     bind_and_activate=False)

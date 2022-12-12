@@ -27,7 +27,7 @@ import getopt
 import sys
 from typing import Optional, Tuple
 
-from dimsdk import Station
+from dimsdk import ID, Station
 
 from ..utils import Singleton
 from ..common import CommonFacebook
@@ -95,6 +95,7 @@ def create_config(app_name: str, default_config: str) -> Config:
     # load config from file
     config = Config.load(file=ini_file)
     print('>>> config loaded: %s => %s' % (ini_file, config))
+    # OK
     return config
 
 
@@ -118,18 +119,16 @@ def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, SessionDBI]
     return adb, mdb, sdb
 
 
-def create_facebook(config: Config, database: AccountDBI) -> CommonFacebook:
+def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
     """ Step 3: create facebook """
-    # set account database
     facebook = CommonFacebook(database=database)
-    # set current station
-    sid = config.station_id
-    if sid is not None:
-        # make sure private key exists
-        assert facebook.private_key_for_visa_signature(identifier=sid) is not None, \
-            'failed to get sign key for current station: %s' % sid
-        print('set current user: %s' % sid)
-        facebook.current_user = facebook.user(identifier=sid)
+    # make sure private keys exists
+    sign_key = facebook.private_key_for_visa_signature(identifier=current_user)
+    msg_keys = facebook.private_keys_for_decryption(identifier=current_user)
+    assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
+    assert msg_keys is not None and len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
+    print('set current user: %s' % current_user)
+    facebook.current_user = facebook.user(identifier=current_user)
     return facebook
 
 

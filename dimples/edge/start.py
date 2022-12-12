@@ -66,11 +66,14 @@ def main():
     shared.mdb = mdb
     shared.sdb = sdb
     # Step 3: create facebook
-    facebook = create_facebook(config=config, database=adb)
+    sid = config.station_id
+    assert sid is not None, 'current station ID not set: %s' % config
+    facebook = create_facebook(database=adb, current_user=sid)
     shared.facebook = facebook
     # create & start octopus
     host = config.station_host
     port = config.station_port
+    assert host is not None and port > 0, 'station config error: %s' % config
     octopus = Octopus(shared=shared, local_host=host, local_port=port)
     octopus.start()
 

@@ -28,9 +28,10 @@
 # SOFTWARE.
 # ==============================================================================
 
-from mkm.types import *
 from mkm.protocol import *
-from dkd.protocol import *
+from dkd.protocol import content_type
+from dimp.mkm import *
+from dimp.dkd import *
 from dimsdk import *
 from dimplugins import *
 from dimplugins.factories import *
@@ -88,23 +89,23 @@ __all__ = [
     'meta_has_seed', 'meta_type',
     'document_type',
 
-    'ANYWHERE', 'EVERYWHERE', 'ANYONE', 'EVERYONE', 'FOUNDER',
-
     'BaseAddressFactory', 'BroadcastAddress',
     'IdentifierFactory', 'Identifier',
+    'ANYWHERE', 'EVERYWHERE', 'ANYONE', 'EVERYONE', 'FOUNDER',
     'BaseMeta',
     'BaseDocument', 'BaseVisa', 'BaseBulletin',
+
+    'document_identifier',
 
     #
     #   DaoKeDao
     #
-    'ContentType', 'Content', 'ContentFactory',
+    'ContentType', 'content_type',
+    'Content', 'ContentFactory',
     'Envelope', 'EnvelopeFactory',
     'Message', 'InstantMessage', 'SecureMessage', 'ReliableMessage',
     'InstantMessageFactory', 'SecureMessageFactory', 'ReliableMessageFactory',
     'InstantMessageDelegate', 'SecureMessageDelegate', 'ReliableMessageDelegate',
-
-    'content_type',
 
     'BaseContent',
     'MessageEnvelope', 'MessageEnvelopeFactory',
@@ -112,6 +113,8 @@ __all__ = [
     'PlainMessage', 'PlainMessageFactory',
     'EncryptedMessage', 'EncryptedMessageFactory',
     'NetworkMessage', 'NetworkMessageFactory',
+
+    'register_message_factories',
 
     #
     #   DIMP
@@ -142,13 +145,12 @@ __all__ = [
 
     'ContentFactoryBuilder', 'CommandFactoryBuilder',
     'GeneralCommandFactory', 'HistoryCommandFactory', 'GroupCommandFactory',
-    # register_core_factories
     'register_content_factories', 'register_command_factories',
 
     'Barrack', 'Transceiver', 'Packer', 'Processor',
 
     #
-    #   Core
+    #   Extends
     #
     'ServiceProvider', 'Station', 'Bot',
 
@@ -156,10 +158,6 @@ __all__ = [
     'Facebook', 'Messenger', 'MessagePacker', 'MessageProcessor',
     'ContentProcessor', 'ContentProcessorFactory', 'ContentProcessorCreator',
 
-    'ContentFactoryBuilder', 'CommandFactoryBuilder',
-    'GeneralCommandFactory', 'HistoryCommandFactory', 'GroupCommandFactory',
-
-    'register_content_factories', 'register_command_factories',
     'register_core_factories',
 
     #
@@ -195,7 +193,7 @@ __all__ = [
     'DefaultMeta', 'BTCMeta', 'ETHMeta',
 
     #
-    #   Extend Protocol
+    #   Common Protocol
     #
     'HandshakeCommand', 'HandshakeState',
     'ReceiptCommand',
@@ -213,7 +211,7 @@ __all__ = [
     'SessionDBI',
 
     #
-    #   Common
+    #   Common Extends
     #
     'FrequencyChecker', 'QueryFrequencyChecker',
 
