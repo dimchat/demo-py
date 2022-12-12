@@ -30,34 +30,79 @@
     A map for short name to ID, just like DNS
 """
 
-from typing import Optional, Set, Tuple
+from typing import Optional, List, Set, Tuple
 
-from dimsdk.core.ans import keywords
 from dimsdk import IDFactory
 from dimsdk import ID, Address
+from dimsdk import ANYONE, EVERYONE, FOUNDER
 from dimsdk import AddressNameService
 
 
 class AddressNameServer(AddressNameService):
 
-    def fix(self, fixed: Set[Tuple[str, ID]]):
-        """ remove the keywords temporary before save new redords """
-        keywords.remove('assistant')
-        # keywords.remove('station')
-        for item in fixed:
-            self.save(name=item[0], identifier=item[1])
-        # keywords.append('station')
-        keywords.append('assistant')
+    def __init__(self):
+        super().__init__()
+        # ANS records
+        self.__caches = {
+            'all': EVERYONE,
+            'everyone': EVERYONE,
+            'anyone': ANYONE,
+            'owner': ANYONE,
+            'founder': FOUNDER,
+        }
+
+    # Override
+    def is_reserved(self, name: str) -> bool:
+        return name in self.KEYWORDS
+
+    # Override
+    def identifier(self, name: str) -> Optional[ID]:
+        """ Get ID by short name """
+        return self.__caches.get(name)
+
+    # Override
+    def names(self, identifier: ID) -> List[str]:
+        """ Get all short names with the same ID """
+        array = []
+        for (key, value) in self.__caches.items():
+            if key == identifier:
+                array.append(value)
+        return array
+
+    def cache(self, name: str, identifier: ID = None) -> bool:
+        if self.is_reserved(name):
+            # this name is reserved, cannot register
+            return False
+        if identifier is None:
+            self.__caches.pop(name, None)
+        else:
+            self.__caches[name] = identifier
+        return True
 
     def load(self):
         # TODO: load all ANS records from database
         pass
 
-    # Override
     def save(self, name: str, identifier: ID = None) -> bool:
-        ok = super().save(name=name, identifier=identifier)
-        # TODO: save new record into database
-        return ok
+        """
+        Save ANS record
+
+        :param name:       username
+        :param identifier: user ID; if empty, means delete this name
+        :return: True on success
+        """
+        if self.cache(name=name, identifier=identifier):
+            # TODO: save new record into database
+            return True
+
+    def fix(self, fixed: Set[Tuple[str, ID]]):
+        """ remove the keywords temporary before save new redords """
+        self.KEYWORDS.remove('assistant')
+        # self.KEYWORDS.remove('station')
+        for item in fixed:
+            self.save(name=item[0], identifier=item[1])
+        # self.KEYWORDS.append('station')
+        self.KEYWORDS.append('assistant')
 
 
 class ANSFactory(IDFactory):
