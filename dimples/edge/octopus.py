@@ -38,7 +38,6 @@ from typing import Optional, List, Set
 
 from dimsdk import ContentType
 from dimsdk import EntityType, ID
-from dimsdk import Station
 from dimsdk import ReliableMessage
 
 from ..utils import Logging
@@ -55,6 +54,144 @@ from ..client import ClientProcessor
 from ..client import Terminal
 
 from .shared import GlobalVariable
+from .shared import create_session
+
+
+class Octopus(Runner, Logging):
+
+    def __init__(self, shared: GlobalVariable, local_host: str = '127.0.0.1', local_port: int = 9394):
+        super().__init__()
+        self.__shared = shared
+        self.__inner = self.create_inner_terminal(host=local_host, port=local_port)
+        self.__outers: Set[Terminal] = set()
+        self.__outer_map = weakref.WeakValueDictionary()
+        self.__outer_lock = threading.Lock()
+
+    @property
+    def shared(self) -> GlobalVariable:
+        return self.__shared
+
+    @property
+    def database(self) -> SessionDBI:
+        return self.__shared.sdb
+
+    @property
+    def inner_messenger(self) -> ClientMessenger:
+        terminal = self.__inner
+        return terminal.messenger
+
+    def get_outer_messenger(self, identifier: ID) -> Optional[ClientMessenger]:
+        with self.__outer_lock:
+            terminal = self.__outer_map.get(identifier)
+        if terminal is not None:
+            return terminal.messenger
+
+    def create_inner_terminal(self, host: str, port: int) -> Terminal:
+        messenger = create_messenger(host=host, port=port, octopus=self, clazz=InnerMessenger)
+        return create_terminal(messenger=messenger)
+
+    def create_outer_terminal(self, host: str, port: int) -> Terminal:
+        messenger = create_messenger(host=host, port=port, octopus=self, clazz=OuterMessenger)
+        return create_terminal(messenger=messenger)
+
+    def add_index(self, identifier: ID, terminal: Terminal):
+        with self.__outer_lock:
+            # self.__outers.add(terminal)
+            self.__outer_map[identifier] = terminal
+
+    def connect(self, host: str, port: int = 9394):
+        terminal = self.create_outer_terminal(host=host, port=port)
+        with self.__outer_lock:
+            self.__outers.add(terminal)
+
+    def start(self):
+        thread = threading.Thread(target=self.run)
+        thread.start()
+
+    # Override
+    def stop(self):
+        super().stop()
+        inner = self.__inner
+        if inner is not None:
+            inner.stop()
+        with self.__outer_lock:
+            outers = set(self.__outers)
+        for out in outers:
+            out.stop()
+
+    # Override
+    def _idle(self):
+        time.sleep(60)
+
+    # Override
+    def process(self) -> bool:
+        # get all neighbor stations
+        db = self.database
+        neighbors = db.all_neighbors()
+        # get all outer terminals
+        with self.__outer_lock:
+            outers = set(self.__outers)
+        for out in outers:
+            # check station
+            station = out.session.station
+            host = station.host
+            port = station.port
+            for item in neighbors:
+                if item[0] == host and item[1] == port:
+                    # got
+                    neighbors.discard(item)
+                    break
+            if out.is_alive:
+                # outer terminal alive, ignore it
+                continue
+            # remove dead terminal
+            sid = station.identifier
+            with self.__outer_lock:
+                self.__outers.discard(out)
+                if sid is not None:
+                    self.__outer_map.pop(sid, None)
+        # check new neighbors
+        for item in neighbors:
+            host = item[0]
+            port = item[1]
+            sid = item[2]
+            self.info(msg='connecting neighbor station "%s" (%s:%d)' % (sid, host, port))
+            self.connect(host=host, port=port)
+        return False
+
+    def income_message(self, msg: ReliableMessage, priority: int = 0) -> List[ReliableMessage]:
+        """ redirect message from remote station """
+        messenger = self.inner_messenger
+        if messenger.send_reliable_message(msg=msg, priority=priority):
+            sig = get_sig(msg=msg)
+            self.info(msg='redirected msg (%s) for receiver (%s)' % (sig, msg.receiver))
+            # no need to respond receipt for station
+            return []
+        sig = get_sig(msg=msg)
+        self.error(msg='failed to redirect msg (%s) for receiver (%s)' % (sig, msg.receiver))
+        return []
+
+    def outgo_message(self, msg: ReliableMessage, priority: int = 0) -> List[ReliableMessage]:
+        """ redirect message to remote station """
+        target = ID.parse(identifier=msg.get('neighbor'))
+        if target is None:
+            # target station not found
+            self.info(msg='cannot get target station for receiver (%s)' % msg.receiver)
+            return []
+        messenger = self.get_outer_messenger(identifier=target)
+        if messenger is None:
+            # target station not my neighbor
+            self.info(msg='receiver (%s) is targeted to (%s), but not my neighbor' % (msg.receiver, target))
+            return []
+        msg.pop('neighbor', None)
+        if messenger.send_reliable_message(msg=msg, priority=priority):
+            sig = get_sig(msg=msg)
+            self.info(msg='redirected msg (%s) to target (%s) for receiver (%s)' % (sig, target, msg.receiver))
+            # no need to respond receipt for station
+            return []
+        sig = get_sig(msg=msg)
+        self.error(msg='failed to redirect msg (%s) to target (%s) for receiver (%s)' % (sig, target, msg.receiver))
+        return []
 
 
 class OctopusMessenger(ClientMessenger, ABC):
@@ -168,18 +305,14 @@ class OuterMessenger(OctopusMessenger):
         octopus.add_index(identifier=station.identifier, terminal=self.terminal)
 
 
-def create_messenger(user: ID, host: str, port: int, octopus, clazz) -> OctopusMessenger:
-    shared = GlobalVariable()
+def create_messenger(host: str, port: int, octopus: Octopus, clazz) -> OctopusMessenger:
+    assert issubclass(clazz, OctopusMessenger), 'messenger class error: %s' % clazz
+    shared = octopus.shared
     facebook = shared.facebook
-    # 0. create station with remote host & port
-    station = Station(host=host, port=port)
-    station.data_source = facebook
-    # 1. create session with SessionDB
-    session = ClientSession(station=station, database=shared.sdb)
-    session.set_identifier(identifier=user)
+    # 1. create station with remote host & port
+    session = create_session(facebook=facebook, database=shared.sdb, host=host, port=port)
     # 2. create messenger with session and MessageDB
     messenger = clazz(session=session, facebook=facebook, database=shared.mdb)
-    assert isinstance(messenger, OctopusMessenger)
     # 3. create packer, processor for messenger
     #    they have weak references to facebook & messenger
     messenger.packer = CommonPacker(facebook=facebook, messenger=messenger)
@@ -195,138 +328,3 @@ def create_terminal(messenger: ClientMessenger) -> Terminal:
     messenger.terminal = terminal
     terminal.start()
     return terminal
-
-
-class Octopus(Runner, Logging):
-
-    def __init__(self, database: SessionDBI, local_user: ID, local_host: str = '127.0.0.1', local_port: int = 9394):
-        super().__init__()
-        self.__database = database
-        self.__user = local_user
-        self.__inner = self.create_inner_terminal(user=local_user, host=local_host, port=local_port)
-        self.__outers: Set[Terminal] = set()
-        self.__outer_map = weakref.WeakValueDictionary()
-        self.__outer_lock = threading.Lock()
-
-    @property
-    def database(self) -> SessionDBI:
-        return self.__database
-
-    @property
-    def inner_messenger(self) -> ClientMessenger:
-        terminal = self.__inner
-        return terminal.messenger
-
-    def get_outer_messenger(self, identifier: ID) -> Optional[ClientMessenger]:
-        with self.__outer_lock:
-            terminal = self.__outer_map.get(identifier)
-        if terminal is not None:
-            return terminal.messenger
-
-    def create_inner_terminal(self, user: ID, host: str, port: int) -> Terminal:
-        messenger = create_messenger(user=user, host=host, port=port, octopus=self, clazz=InnerMessenger)
-        return create_terminal(messenger=messenger)
-
-    def create_outer_terminal(self, user: ID, host: str, port: int) -> Terminal:
-        messenger = create_messenger(user=user, host=host, port=port, octopus=self, clazz=OuterMessenger)
-        return create_terminal(messenger=messenger)
-
-    def add_index(self, identifier: ID, terminal: Terminal):
-        with self.__outer_lock:
-            # self.__outers.add(terminal)
-            self.__outer_map[identifier] = terminal
-
-    def connect(self, host: str, port: int = 9394):
-        user = self.__user
-        terminal = self.create_outer_terminal(user=user, host=host, port=port)
-        with self.__outer_lock:
-            self.__outers.add(terminal)
-
-    def start(self):
-        thread = threading.Thread(target=self.run)
-        thread.start()
-
-    # Override
-    def stop(self):
-        super().stop()
-        inner = self.__inner
-        if inner is not None:
-            inner.stop()
-        with self.__outer_lock:
-            outers = set(self.__outers)
-        for out in outers:
-            out.stop()
-
-    # Override
-    def _idle(self):
-        time.sleep(60)
-
-    # Override
-    def process(self) -> bool:
-        # get all neighbor stations
-        db = self.database
-        neighbors = db.all_neighbors()
-        # get all outer terminals
-        with self.__outer_lock:
-            outers = set(self.__outers)
-        for out in outers:
-            # check station
-            station = out.session.station
-            host = station.host
-            port = station.port
-            for item in neighbors:
-                if item[0] == host and item[1] == port:
-                    # got
-                    neighbors.discard(item)
-                    break
-            if out.is_alive:
-                # outer terminal alive, ignore it
-                continue
-            # remove dead terminal
-            sid = station.identifier
-            with self.__outer_lock:
-                self.__outers.discard(out)
-                if sid is not None:
-                    self.__outer_map.pop(sid, None)
-        # check new neighbors
-        for item in neighbors:
-            host = item[0]
-            port = item[1]
-            sid = item[2]
-            self.info(msg='connecting neighbor station "%s" (%s:%d)' % (sid, host, port))
-            self.connect(host=host, port=port)
-        return False
-
-    def income_message(self, msg: ReliableMessage, priority: int = 0) -> List[ReliableMessage]:
-        """ redirect message from remote station """
-        messenger = self.inner_messenger
-        if messenger.send_reliable_message(msg=msg, priority=priority):
-            sig = get_sig(msg=msg)
-            self.info(msg='redirected msg (%s) for receiver (%s)' % (sig, msg.receiver))
-            # no need to respond receipt for station
-            return []
-        sig = get_sig(msg=msg)
-        self.error(msg='failed to redirect msg (%s) for receiver (%s)' % (sig, msg.receiver))
-        return []
-
-    def outgo_message(self, msg: ReliableMessage, priority: int = 0) -> List[ReliableMessage]:
-        """ redirect message to remote station """
-        target = ID.parse(identifier=msg.get('neighbor'))
-        if target is None:
-            # target station not found
-            self.info(msg='cannot get target station for receiver (%s)' % msg.receiver)
-            return []
-        messenger = self.get_outer_messenger(identifier=target)
-        if messenger is None:
-            # target station not my neighbor
-            self.info(msg='receiver (%s) is targeted to (%s), but not my neighbor' % (msg.receiver, target))
-            return []
-        msg.pop('neighbor', None)
-        if messenger.send_reliable_message(msg=msg, priority=priority):
-            sig = get_sig(msg=msg)
-            self.info(msg='redirected msg (%s) to target (%s) for receiver (%s)' % (sig, target, msg.receiver))
-            # no need to respond receipt for station
-            return []
-        sig = get_sig(msg=msg)
-        self.error(msg='failed to redirect msg (%s) to target (%s) for receiver (%s)' % (sig, target, msg.receiver))
-        return []

@@ -23,12 +23,18 @@
 # SOFTWARE.
 # ==============================================================================
 
+import getopt
+import sys
 from typing import Optional, Tuple
+
+from dimsdk import Station
 
 from ..utils import Singleton
 from ..common import CommonFacebook
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
+from ..database import Storage
+from ..client import ClientSession
 
 from ..config import Config
 
@@ -45,8 +51,55 @@ class GlobalVariable:
         self.facebook: Optional[CommonFacebook] = None
 
 
-def create_database(shared: GlobalVariable) -> Tuple[AccountDBI, MessageDBI, SessionDBI]:
-    config = shared.config
+def show_help(cmd: str, app_name: str, default_config: str):
+    print('')
+    print('    %s' % app_name)
+    print('')
+    print('usages:')
+    print('    %s [--config=<FILE>]' % cmd)
+    print('    %s [-h|--help]' % cmd)
+    print('')
+    print('optional arguments:')
+    print('    --config        config file path (default: "%s")' % default_config)
+    print('    --help, -h      show this help message and exit')
+    print('')
+
+
+def create_config(app_name: str, default_config: str) -> Config:
+    """ Step 1: load config """
+    cmd = sys.argv[0]
+    try:
+        opts, args = getopt.getopt(args=sys.argv[1:],
+                                   shortopts='hf:',
+                                   longopts=['help', 'config='])
+    except getopt.GetoptError:
+        show_help(cmd=cmd, app_name=app_name, default_config=default_config)
+        sys.exit(1)
+    # check options
+    ini_file = None
+    for opt, arg in opts:
+        if opt == '--config':
+            ini_file = arg
+        else:
+            show_help(cmd=cmd, app_name=app_name, default_config=default_config)
+            sys.exit(0)
+    # check config filepath
+    if ini_file is None:
+        ini_file = default_config
+    if not Storage.exists(path=ini_file):
+        show_help(cmd=cmd, app_name=app_name, default_config=default_config)
+        print('')
+        print('!!! config file not exists: %s' % ini_file)
+        print('')
+        sys.exit(0)
+    # load config from file
+    config = Config.load(file=ini_file)
+    print('>>> config loaded: %s => %s' % (ini_file, config))
+    return config
+
+
+def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, SessionDBI]:
+    """ Step 2: create database """
     root = config.database_root
     public = config.database_public
     private = config.database_private
@@ -57,9 +110,6 @@ def create_database(shared: GlobalVariable) -> Tuple[AccountDBI, MessageDBI, Ses
     adb.show_info()
     mdb.show_info()
     sdb.show_info()
-    shared.adb = adb
-    shared.mdb = mdb
-    shared.sdb = sdb
     # add neighbors
     neighbors = config.neighbors
     for node in neighbors:
@@ -68,12 +118,12 @@ def create_database(shared: GlobalVariable) -> Tuple[AccountDBI, MessageDBI, Ses
     return adb, mdb, sdb
 
 
-def create_facebook(shared: GlobalVariable) -> CommonFacebook:
+def create_facebook(config: Config, database: AccountDBI) -> CommonFacebook:
+    """ Step 3: create facebook """
     # set account database
-    facebook = CommonFacebook(database=shared.adb)
-    shared.facebook = facebook
+    facebook = CommonFacebook(database=database)
     # set current station
-    sid = shared.config.station_id
+    sid = config.station_id
     if sid is not None:
         # make sure private key exists
         assert facebook.private_key_for_visa_signature(identifier=sid) is not None, \
@@ -81,3 +131,15 @@ def create_facebook(shared: GlobalVariable) -> CommonFacebook:
         print('set current user: %s' % sid)
         facebook.current_user = facebook.user(identifier=sid)
     return facebook
+
+
+def create_session(facebook: CommonFacebook, database: SessionDBI, host: str, port: int) -> ClientSession:
+    # 1. create station with remote host & port
+    station = Station(host=host, port=port)
+    station.data_source = facebook
+    # 2. create session with SessionDB
+    session = ClientSession(station=station, database=database)
+    # 3. set current user
+    user = facebook.current_user
+    session.set_identifier(identifier=user.identifier)
+    return session

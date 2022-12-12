@@ -23,8 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-from dimsdk import Command, CommandFactoryBuilder
-from dimsdk import register_core_factories
+from dimsdk import Command
+from dimsdk.core import CommandFactoryBuilder
+from dimsdk.core import register_core_factories
 
 from .handshake import HandshakeCommand, HandshakeState
 from .receipt import ReceiptCommand
