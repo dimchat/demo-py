@@ -125,19 +125,23 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         """ check whether msg.sender is ready """
         sender = msg.sender
         assert sender.is_user, 'sender error: %s' % sender
+        # check sender's meta & document
+        visa = msg.visa
+        if visa is not None:
+            # first handshake?
+            assert visa.identifier == sender, 'visa ID not match: %s => %s' % (sender, visa)
+            # assert Meta.matches(meta=msg.meta, identifier=sender), 'meta error: %s' % msg
+            return True
         facebook = self.facebook
-        # check user's meta & document
-        user = facebook.user(identifier=sender)
-        if user is None:
-            self._query_document(identifier=sender)
-            msg['error'] = {
-                'message': 'verify key not found',
-                'user': str(sender),
-            }
-            return False
-        else:
+        verify_keys = facebook.public_keys_for_verification(identifier=sender)
+        if verify_keys is not None and len(verify_keys) > 0:
             # sender is OK
             return True
+        self._query_document(identifier=sender)
+        msg['error'] = {
+            'message': 'verify key not found',
+            'user': str(sender),
+        }
 
     def _check_receiver(self, msg: InstantMessage) -> bool:
         """ check whether msg.receiver is ready """
@@ -145,8 +149,8 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         facebook = self.facebook
         if receiver.is_user:
             # check user's meta & document
-            user = facebook.user(identifier=receiver)
-            if user is None:
+            visa_key = facebook.public_key_for_encryption(identifier=receiver)
+            if visa_key is None:
                 self._query_document(identifier=receiver)
                 msg['error'] = {
                     'message': 'encrypt key not found',
@@ -155,8 +159,8 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
                 return False
         else:
             # check group's meta
-            group = facebook.group(identifier=receiver)
-            if group is None:
+            meta = facebook.meta(identifier=receiver)
+            if meta is None:
                 self._query_document(identifier=receiver)
                 msg['error'] = {
                     'message': 'group meta not found',
@@ -164,7 +168,7 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
                 }
                 return False
             # check group members
-            members = group.members
+            members = facebook.members(identifier=receiver)
             if members is None or len(members) == 0:
                 self._query_members(identifier=receiver)
                 msg['error'] = {
