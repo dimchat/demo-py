@@ -57,14 +57,16 @@ class Terminal(Runner, StateDelegate, Logging):
         self.__last_time = time.time()
 
     @property
+    def user_agent(self) -> str:
+        return 'DIMP/0.4 (Client; Linux; en-US) DIMCoreKit/0.9 (Terminal) DIM-by-GSP/1.0'
+
+    @property
     def messenger(self) -> ClientMessenger:
         return self.__messenger
 
     @property
     def session(self) -> ClientSession:
-        sess = self.messenger.session
-        assert isinstance(sess, ClientSession), 'session error: %s' % sess
-        return sess
+        return self.messenger.session
 
     @property
     def state(self) -> SessionState:
@@ -119,7 +121,7 @@ class Terminal(Runner, StateDelegate, Logging):
         else:
             # send login command to everyone to provide more information.
             # this command can keep the user online too.
-            messenger.broadcast_login(sender=usr_id)
+            messenger.broadcast_login(sender=usr_id, user_agent=self.user_agent)
         # update last online time
         self.__last_time = now
 

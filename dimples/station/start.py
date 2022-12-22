@@ -77,8 +77,7 @@ def main():
     # Step 4: create ANS
     create_ans(config=config)
     # Step 5: create pusher
-    pusher = create_pusher(facebook=facebook)
-    shared.pusher = pusher
+    create_pusher(shared=shared)
     # Step 6: create dispatcher
     create_dispatcher(shared=shared)
     # check bind host & port

@@ -32,7 +32,6 @@
 
 from typing import List
 
-from dimsdk import Station
 from dimsdk import ReliableMessage
 from dimsdk import Content
 from dimsdk import BaseCommandProcessor
@@ -52,7 +51,7 @@ class HandshakeCommandProcessor(BaseCommandProcessor, Logging):
         station = client_session.station
         oid = station.identifier
         sender = msg.sender
-        if oid is None or oid == Station.ANY:
+        if oid is None or oid.is_broadcast:
             station.identifier = sender
         else:
             # make sure handshake command from current station
@@ -61,7 +60,7 @@ class HandshakeCommandProcessor(BaseCommandProcessor, Logging):
         title = content.title
         new_sess_key = content.session
         old_sess_key = client_session.key
-        assert new_sess_key is not None, 'new session key should not be empty'
+        assert new_sess_key is not None, 'new session key should not be empty: %s' % content
         if 'DIM?' == title:
             # S -> C: station ask client to handshake again
             self.info(msg='handshake again, session key: %s' % new_sess_key)

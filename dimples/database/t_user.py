@@ -28,7 +28,7 @@ from typing import List
 
 from dimsdk import ID
 
-from ..utils import CacheHolder, CacheManager
+from ..utils import CacheManager
 from ..common import UserDBI
 
 from .dos import UserStorage
@@ -63,7 +63,6 @@ class UserTable(UserDBI):
                 # local users not load yet, wait to load
                 self.__dim_cache.update(key='local_users', life_span=128, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'local users cache error'
                 if holder.is_alive(now=now):
                     # local users not exists
                     return []
@@ -79,7 +78,7 @@ class UserTable(UserDBI):
     # Override
     def save_local_users(self, users: List[ID]) -> bool:
         # 1. store into memory cache
-        self.__dim_cache.update(key='local_users', value=users, life_span=3600)
+        self.__dim_cache.update(key='local_users', value=users, life_span=36000)
         # 2. store into local storage
         return self.__user_storage.save_local_users(users=users)
 
@@ -95,7 +94,6 @@ class UserTable(UserDBI):
                 # contacts not load yet, wait to load
                 self.__contacts_cache.update(key=identifier, life_span=128, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'contacts cache error'
                 if holder.is_alive(now=now):
                     # contacts not exists
                     return []
@@ -111,6 +109,6 @@ class UserTable(UserDBI):
     # Override
     def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
         # 1. store into memory cache
-        self.__contacts_cache.update(key=identifier, value=contacts, life_span=3600)
+        self.__contacts_cache.update(key=identifier, value=contacts, life_span=36000)
         # 2. store into local storage
         return self.__user_storage.save_contacts(contacts=contacts, identifier=identifier)

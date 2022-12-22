@@ -34,7 +34,7 @@ from typing import Optional, List
 
 from dimsdk import EntityType, ID, ANYONE
 from dimsdk import Station
-from dimsdk import Envelope, DocumentCommand
+from dimsdk import Envelope, MetaCommand, DocumentCommand
 from dimsdk import InstantMessage
 from dimsdk import SecureMessage, ReliableMessage
 
@@ -62,6 +62,26 @@ class ServerMessenger(CommonMessenger):
     @filter.setter
     def filter(self, checker: Filter):
         self.__filter = checker
+
+    # Override
+    def _query_meta(self, identifier: ID) -> bool:
+        checker = QueryFrequencyChecker()
+        if not checker.meta_query_expired(identifier=identifier):
+            # query not expired yet
+            self.debug(msg='meta query not expired yet: %s' % identifier)
+            return False
+        self.info(msg='querying meta of %s from neighbor stations' % identifier)
+        current = self.facebook.current_user
+        stations = Station.EVERY
+        cmd = MetaCommand.query(identifier=identifier)
+        env = Envelope.create(sender=current.identifier, receiver=stations)
+        i_msg = InstantMessage.create(head=env, body=cmd)
+        # pack & deliver message
+        s_msg = self.encrypt_message(msg=i_msg)
+        r_msg = self.sign_message(msg=s_msg)
+        dispatcher = Dispatcher()
+        dispatcher.deliver_message(msg=r_msg, receiver=stations)
+        return True
 
     # Override
     def _query_document(self, identifier: ID) -> bool:

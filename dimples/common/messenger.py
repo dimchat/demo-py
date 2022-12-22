@@ -97,6 +97,11 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         return self.__session
 
     @abstractmethod
+    def _query_meta(self, identifier: ID) -> bool:
+        """ request for meta with entity ID """
+        raise NotImplemented
+
+    @abstractmethod
     def _query_document(self, identifier: ID) -> bool:
         """ request for meta & visa document with entity ID """
         raise NotImplemented
@@ -146,6 +151,9 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     def _check_receiver(self, msg: InstantMessage) -> bool:
         """ check whether msg.receiver is ready """
         receiver = msg.receiver
+        if receiver.is_broadcast:
+            # broadcast message
+            return True
         facebook = self.facebook
         if receiver.is_user:
             # check user's meta & document
@@ -161,7 +169,7 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
             # check group's meta
             meta = facebook.meta(identifier=receiver)
             if meta is None:
-                self._query_document(identifier=receiver)
+                self._query_meta(identifier=receiver)
                 msg['error'] = {
                     'message': 'group meta not found',
                     'group': str(receiver),
@@ -178,9 +186,10 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
                 return False
             waiting = set()
             for item in members:
-                user = facebook.user(identifier=item)
-                if user is None:
-                    waiting.add(user)
+                visa_key = facebook.public_key_for_encryption(identifier=item)
+                if visa_key is None:
+                    self._query_document(identifier=item)
+                    waiting.add(item)
             if len(waiting) > 0:
                 msg['error'] = {
                     'message': 'encrypt keys not found',

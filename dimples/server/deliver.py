@@ -148,7 +148,7 @@ class BotDeliver(BaseDeliver):
     def _dispatch(self, msg: ReliableMessage, receiver: ID) -> Optional[List[Content]]:
         assert receiver.type == EntityType.BOT, 'bot ID error: %s' % receiver
         # 1. save message for group assistant
-        save_message(msg=msg, receiver=receiver, database=self.database)
+        save_reliable_message(msg=msg, receiver=receiver, database=self.database)
         # 2. push message
         dispatcher = Dispatcher()
         worker = dispatcher.deliver_worker
@@ -176,7 +176,7 @@ class UserDeliver(BaseDeliver):
         assert receiver.type != EntityType.STATION, 'user ID error: %s' % receiver
         assert receiver.type != EntityType.BOT, 'user ID error: %s' % receiver
         # 1. save message for receiver
-        save_message(msg=msg, receiver=receiver, database=self.database)
+        save_reliable_message(msg=msg, receiver=receiver, database=self.database)
         # 2. push message
         dispatcher = Dispatcher()
         worker = dispatcher.deliver_worker
@@ -192,8 +192,8 @@ class UserDeliver(BaseDeliver):
             pusher.push_notification(msg=msg)
 
 
-def save_message(msg: ReliableMessage, receiver: ID, database: MessageDBI) -> bool:
+def save_reliable_message(msg: ReliableMessage, receiver: ID, database: MessageDBI) -> bool:
     if receiver.type == EntityType.STATION or msg.sender.type == EntityType.STATION:
         # no need to save station message
         return False
-    return database.save_reliable_message(msg=msg, receiver=receiver)
+    return database.cache_reliable_message(msg=msg, receiver=receiver)

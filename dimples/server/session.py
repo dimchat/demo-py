@@ -106,7 +106,7 @@ class ServerSession(BaseSession, Logging):
     def running(self) -> bool:
         if super().running:
             gate = self.gate
-            conn = gate.get_connection(remote=self.remote_address, local=None)
+            conn = gate.get_channel(remote=self.remote_address, local=None)
             return not (conn is None or conn.closed)
 
     #

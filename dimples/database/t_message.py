@@ -29,7 +29,7 @@ from typing import List, Tuple
 from dimsdk import ID
 from dimsdk import ReliableMessage
 
-from ..utils import CacheHolder, CacheManager
+from ..utils import CacheManager
 from ..common import ReliableMessageDBI
 
 
@@ -70,7 +70,7 @@ class ReliableMessageTable(ReliableMessageDBI):
         return messages, total - end
 
     # Override
-    def save_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
+    def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         now = time.time()
         # assert receiver.is_user, 'message receiver error: %s' % receiver
         messages, holder = self.__msg_cache.fetch(key=receiver, now=now)
@@ -81,7 +81,6 @@ class ReliableMessageTable(ReliableMessageDBI):
             # duplicated
             return False
         else:
-            assert isinstance(holder, CacheHolder), 'msg cache holder error: %s' % holder
             assert isinstance(messages, list), 'msg cache list error: %s' % messages
             while len(messages) > self.CACHE_LIMIT:
                 # overflow
@@ -103,7 +102,6 @@ class ReliableMessageTable(ReliableMessageDBI):
         if index < 0:
             # not exists
             return False
-        assert isinstance(holder, CacheHolder), 'msg cache error'
         assert isinstance(messages, list), 'msg list error: %s' % messages
         messages.pop(index)
         holder.update(value=messages, now=now)

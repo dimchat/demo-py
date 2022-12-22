@@ -128,8 +128,13 @@ class ClientSession(BaseSession, Logging):
     def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
         # super().docker_status_changed(previous=previous, current=current, docker=docker)
         if current is None or current == DockerStatus.ERROR:
+            # connection error or session finished
+            self.set_active(active=False)
             self.warning(msg='connection lost, waiting for reconnecting: %s' % docker)
             # TODO: clear session ID and handshake again
+        elif current == DockerStatus.READY:
+            # connected/reconnected
+            self.set_active(active=True)
 
     # Override
     def docker_received(self, ship: Arrival, docker: Docker):
@@ -142,6 +147,8 @@ class ClientSession(BaseSession, Logging):
             try:
                 # 2. process each data package
                 responses = messenger.process_package(data=pack)
+                if responses is None:
+                    continue
                 for res in responses:
                     if res is None or len(res) == 0:
                         # should not happen

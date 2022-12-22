@@ -33,6 +33,7 @@ import time
 from abc import ABC
 from typing import Generic, TypeVar, Optional, Union, List, Tuple
 
+from startrek import Hub, Channel
 from startrek import Connection, ConnectionState, ActiveConnection
 from startrek import Docker, DockerDelegate
 from startrek import Arrival, StarGate
@@ -169,8 +170,9 @@ class CommonGate(BaseGate, Logging, Runnable, Generic[H], ABC):
         if isinstance(error, IOError) and str(error).startswith('failed to send: '):
             self.warning(msg='ignore socket error: %s, remote=%s' % (error, connection.remote_address))
 
-    def get_connection(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]]) -> Optional[Connection]:
+    def get_channel(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]]) -> Optional[Channel]:
         hub = self.hub
+        assert isinstance(hub, Hub), 'hub error: %s' % hub
         return hub.open(remote=remote, local=local)
 
     def send_response(self, payload: bytes, ship: Arrival,
@@ -179,18 +181,15 @@ class CommonGate(BaseGate, Logging, Runnable, Generic[H], ABC):
         if isinstance(worker, MTPStreamDocker):
             sn = TransactionID.from_data(data=ship.sn)
             pack = MTPHelper.create_message(body=payload, sn=sn)
-            worker.send_package(pack=pack)
-            return True
+            return worker.send_package(pack=pack)
         elif isinstance(worker, MarsStreamDocker):
             assert isinstance(ship, MarsStreamArrival), 'responding ship error: %s' % ship
             mars = MarsHelper.create_respond(head=ship.package.head, payload=payload)
             ship = MarsStreamDocker.create_departure(mars=mars)
-            worker.send_ship(ship=ship)
-            return True
+            return worker.send_ship(ship=ship)
         elif isinstance(worker, WSDocker):
             ship = worker.pack(payload=payload)
-            worker.send_ship(ship=ship)
-            return True
+            return worker.send_ship(ship=ship)
         else:
             raise LookupError('docker error (%s, %s): %s' % (remote, local, worker))
 

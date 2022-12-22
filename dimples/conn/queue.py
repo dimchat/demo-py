@@ -46,29 +46,17 @@ from startrek import Arrival, Departure
 
 class MessageWrapper(Departure):
 
-    EXPIRES = 600  # 10 minutes
-
     def __init__(self, msg: ReliableMessage, ship: Departure):
         super().__init__()
-        self.__time = 0
+        self.__flag = 0
         self.__msg = msg
         self.__ship = ship
 
     def mark(self):
-        self.__time = 1
-
-    def fail(self):
-        self.__time = -1
+        self.__flag = 1
 
     def is_virgin(self) -> bool:
-        return self.__time == 0
-
-    def is_expired(self, now: float) -> bool:
-        if self.__time < 0:  # == -1
-            return True
-        elif self.__time > 0:  # TODO: == 1?
-            expired = self.__time + self.EXPIRES
-            return now > expired
+        return self.__flag == 0
 
     @property
     def msg(self) -> Optional[ReliableMessage]:
@@ -122,7 +110,7 @@ class MessageWrapper(Departure):
         """ callback on message appended to outgoing queue """
         # this message was assigned to the worker of StarGate,
         # update sent time
-        self.__time = time.time()
+        self.__flag = 2
 
     def on_sent(self):
         """ callback on success to send out """
@@ -132,7 +120,7 @@ class MessageWrapper(Departure):
     # noinspection PyUnusedLocal
     def on_failed(self, error):
         """ callback on failed to send ship"""
-        self.__time = -1
+        self.__flag = -1
 
     def on_error(self, error):
         """ callback on error, failed to append """

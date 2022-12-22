@@ -147,9 +147,10 @@ def create_ans(config: Config) -> AddressNameService:
     return ans
 
 
-def create_pusher(facebook: CommonFacebook) -> Pusher:
+def create_pusher(shared: GlobalVariable) -> Pusher:
     """ Step 5: create pusher """
-    pusher = DefaultPusher(facebook=facebook)
+    pusher = DefaultPusher(facebook=shared.facebook)
+    shared.pusher = pusher
     # start PushCenter
     center = PushCenter()
     # TODO: add push services

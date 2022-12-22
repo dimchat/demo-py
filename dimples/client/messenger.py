@@ -35,7 +35,7 @@ from typing import Optional
 from dimples import EntityType, ID, EVERYONE
 from dimples import Station
 from dimples import Envelope, InstantMessage
-from dimples import DocumentCommand
+from dimples import MetaCommand, DocumentCommand
 
 from ..common import QueryFrequencyChecker
 from ..common import HandshakeCommand, ReportCommand, LoginCommand
@@ -64,10 +64,8 @@ class ClientMessenger(CommonMessenger):
             assert user is not None, 'current user not found'
             env = Envelope.create(sender=user.identifier, receiver=srv_id)
             cmd = HandshakeCommand.start()
-            # check for encryption
-            if not srv_id.is_broadcast:  # and facebook.public_key_for_encryption(identifier=srv_id) is None:
-                # send first handshake command as broadcast message
-                cmd.group = Station.EVERY
+            # send first handshake command as broadcast message
+            cmd.group = Station.EVERY
             # create instant message with meta & visa
             i_msg = InstantMessage.create(head=env, body=cmd)
             i_msg['meta'] = user.meta.dictionary
@@ -92,9 +90,9 @@ class ClientMessenger(CommonMessenger):
         visa = current.visa
         cmd = DocumentCommand.response(identifier=identifier, meta=meta, document=visa)
         # broadcast to everyone@everywhere
-        self.send_content(sender=identifier, receiver=EVERYONE, content=cmd, priority=-1)
+        self.send_content(sender=identifier, receiver=EVERYONE, content=cmd, priority=1)
 
-    def broadcast_login(self, sender: ID):
+    def broadcast_login(self, sender: ID, user_agent: str):
         """ send login command to keep roaming """
         # get current station
         session = self.session
@@ -103,10 +101,10 @@ class ClientMessenger(CommonMessenger):
             'station (%s) would not login to another station: %s' % (sender, station)
         # create login command
         cmd = LoginCommand(identifier=sender)
-        cmd.agent = 'DIMP/0.4 (Server; Linux; en-US) DIMCoreKit/0.9 (Terminal) DIM-by-GSP/1.0'
+        cmd.agent = user_agent
         cmd.station = station
         # broadcast to everyone@everywhere
-        self.send_content(sender=sender, receiver=EVERYONE, content=cmd, priority=-1)
+        self.send_content(sender=sender, receiver=EVERYONE, content=cmd, priority=1)
 
     def report_online(self, sender: ID = None):
         """ send report command to keep user online """
@@ -114,9 +112,21 @@ class ClientMessenger(CommonMessenger):
         self.send_content(sender=sender, receiver=Station.ANY, content=cmd, priority=1)
 
     def report_offline(self, sender: ID = None):
-        """ set report command to let user offline """
+        """ Send report command to let user offline """
         cmd = ReportCommand(title=ReportCommand.OFFLINE)
         self.send_content(sender=sender, receiver=Station.ANY, content=cmd, priority=1)
+
+    # Override
+    def _query_meta(self, identifier: ID) -> bool:
+        checker = QueryFrequencyChecker()
+        if not checker.meta_query_expired(identifier=identifier):
+            # query not expired yet
+            self.debug(msg='meta query not expired yet: %s' % identifier)
+            return False
+        self.info(msg='querying meta: %s from any station' % identifier)
+        cmd = MetaCommand.query(identifier=identifier)
+        self.send_content(sender=None, receiver=Station.ANY, content=cmd)
+        return True
 
     # Override
     def _query_document(self, identifier: ID) -> bool:

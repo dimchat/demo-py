@@ -68,6 +68,9 @@ class QueryFrequencyChecker:
 
     def __init__(self):
         super().__init__()
+        # query for meta
+        self.__meta_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
+        self.__meta_lock = threading.Lock()
         # query for document
         self.__document_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
         self.__document_lock = threading.Lock()
@@ -75,7 +78,10 @@ class QueryFrequencyChecker:
         self.__members_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
         self.__members_lock = threading.Lock()
 
-    # noinspection PyUnusedLocal
+    def meta_query_expired(self, identifier: ID) -> bool:
+        with self.__meta_lock:
+            return self.__meta_queries.expired(key=identifier)
+
     def document_query_expired(self, identifier: ID) -> bool:
         with self.__document_lock:
             return self.__document_queries.expired(key=identifier)
