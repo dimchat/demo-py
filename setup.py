@@ -51,9 +51,9 @@ setup(
         # 'pycryptodome',  # 3.14.1
         # 'base58',  # 1.0.3
         # 'ecdsa',   # 0.16.1
-        'dimplugins>=0.1.1',
+        'dimplugins>=0.1.2',
 
-        'dimsdk>=0.8.2',
+        'dimsdk>=0.8.3',
         'dimp>=0.12.4',
         'dkd>=0.12.4',
         'mkm>=0.12.4',

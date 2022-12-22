@@ -28,7 +28,7 @@ from typing import List, Optional
 
 from dimsdk import ID
 
-from ..utils import CacheHolder, CacheManager
+from ..utils import CacheManager
 from ..common import GroupDBI
 
 from .dos import GroupStorage
@@ -65,7 +65,6 @@ class GroupTable(GroupDBI):
                 # founder not load yet, wait to load
                 self.__founder_cache.update(key=identifier, life_span=128, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'founder cache error'
                 if holder.is_alive(now=now):
                     # founder not exists
                     return None
@@ -90,7 +89,6 @@ class GroupTable(GroupDBI):
                 # owner not load yet, wait to load
                 self.__owner_cache.update(key=identifier, life_span=128, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'owner cache error'
                 if holder.is_alive(now=now):
                     # owner not exists
                     return None
@@ -115,7 +113,6 @@ class GroupTable(GroupDBI):
                 # members not load yet, wait to load
                 self.__members_cache.update(key=identifier, life_span=128, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'members cache error'
                 if holder.is_alive(now=now):
                     # members not exists
                     return []
@@ -140,7 +137,6 @@ class GroupTable(GroupDBI):
                 # assistants not load yet, wait to load
                 self.__assistants_cache.update(key=identifier, life_span=128, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'assistants cache error'
                 if holder.is_alive(now=now):
                     # assistants not exists
                     return []

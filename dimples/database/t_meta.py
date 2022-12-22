@@ -28,7 +28,7 @@ from typing import Optional
 
 from dimsdk import ID, Meta
 
-from ..utils import CacheHolder, CacheManager
+from ..utils import CacheManager
 from ..common import MetaDBI
 
 from .dos import MetaStorage
@@ -74,7 +74,6 @@ class MetaTable(MetaDBI):
                 # meta not load yet, wait to load
                 self.__meta_cache.update(key=identifier, life_span=128, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'meta cache error'
                 if holder.is_alive(now=now):
                     # meta not exists
                     return None

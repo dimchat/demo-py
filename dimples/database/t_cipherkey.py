@@ -73,4 +73,4 @@ class CipherKeyTable(CipherKeyDBI):
         return True
 
 
-plain_key = PlainKey({'algorithm': PlainKey.PLAIN})
+plain_key = PlainKey(key={'algorithm': PlainKey.PLAIN})

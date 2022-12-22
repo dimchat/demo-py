@@ -29,7 +29,7 @@ from typing import Optional, List
 from dimsdk import PrivateKey, DecryptKey, SignKey
 from dimsdk import ID
 
-from ..utils import CacheHolder, CacheManager
+from ..utils import CacheManager
 from ..common import PrivateKeyDBI
 
 from .dos import PrivateKeyStorage
@@ -84,7 +84,6 @@ class PrivateKeyTable(PrivateKeyDBI):
                 # msg keys not load yet, wait to load
                 self.__msg_keys_cache.update(key=identifier, life_span=128, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'msg keys cache error'
                 if holder.is_alive(now=now):
                     # msg keys not exists
                     return []
@@ -114,7 +113,6 @@ class PrivateKeyTable(PrivateKeyDBI):
                 # id key not load yet, wait to load
                 self.__id_key_cache.update(key=identifier, life_span=128, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'id key cache error'
                 if holder.is_alive(now=now):
                     # id key not exists
                     return None

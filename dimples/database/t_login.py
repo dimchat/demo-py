@@ -29,7 +29,7 @@ from typing import Optional, Tuple
 from dimsdk import ID
 from dimsdk import ReliableMessage
 
-from ..utils import CacheHolder, CacheManager
+from ..utils import CacheManager
 from ..common import LoginDBI, LoginCommand
 
 from .dos import LoginStorage
@@ -59,7 +59,6 @@ class LoginTable(LoginDBI):
                 # login command not load yet, wait to load
                 self.__login_cache.update(key=identifier, life_span=128, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'login command cache error'
                 if holder.is_alive(now=now):
                     # login command not exists
                     return None, None

@@ -28,7 +28,7 @@ from typing import Optional
 
 from dimsdk import ID, Document
 
-from ..utils import CacheHolder, CacheManager
+from ..utils import CacheManager
 from ..common import DocumentDBI
 
 from .dos import DocumentStorage
@@ -77,7 +77,6 @@ class DocumentTable(DocumentDBI):
                 # document not load yet, wait to load
                 self.__doc_cache.update(key=identifier, life_span=128, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'document cache error'
                 if holder.is_alive(now=now):
                     # document not exists
                     return None
