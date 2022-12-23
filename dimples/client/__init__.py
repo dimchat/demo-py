@@ -34,8 +34,9 @@ from .cpu import *
 from .session import ClientSession
 from .state import SessionState
 
-from .processor import ClientProcessor, ClientContentProcessorCreator
 from .messenger import ClientMessenger
+from .packer import ClientMessagePacker
+from .processor import ClientMessageProcessor, ClientContentProcessorCreator
 from .terminal import Terminal
 
 
@@ -53,7 +54,8 @@ __all__ = [
     #
     'ClientSession', 'SessionState',
 
-    'ClientProcessor', 'ClientContentProcessorCreator',
     'ClientMessenger',
+    'ClientMessagePacker',
+    'ClientMessageProcessor', 'ClientContentProcessorCreator',
     'Terminal',
 ]

@@ -35,12 +35,13 @@ from dimsdk import EntityType
 from dimsdk import ReliableMessage
 from dimsdk import Content, ContentType, TextContent, Command
 from dimsdk import ContentProcessor, ContentProcessorCreator
-from dimsdk import BaseContentProcessor
+from dimsdk import BaseContentProcessor, BaseContentProcessorCreator
+from dimsdk import MessageProcessor
 
 from ..utils import Logging
 from ..common import HandshakeCommand, LoginCommand
 from ..common import ReceiptCommand, ReportCommand
-from ..common import CommonProcessor, CommonContentProcessorCreator
+from ..common import CommonMessenger
 
 from .cpu import HandshakeCommandProcessor
 from .cpu import LoginCommandProcessor
@@ -49,15 +50,13 @@ from .cpu import ReportCommandProcessor
 from .cpu import DocumentCommandProcessor
 from .cpu import ReceiptCommandProcessor
 
-from .messenger import ServerMessenger
 
-
-class ServerProcessor(CommonProcessor, Logging):
+class ServerMessageProcessor(MessageProcessor, Logging):
 
     @property
-    def messenger(self) -> ServerMessenger:
+    def messenger(self) -> CommonMessenger:
         transceiver = super().messenger
-        assert isinstance(transceiver, ServerMessenger), 'messenger error: %s' % transceiver
+        assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
         return transceiver
 
     # Override
@@ -100,7 +99,7 @@ class ServerProcessor(CommonProcessor, Logging):
         return ServerContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
 
 
-class ServerContentProcessorCreator(CommonContentProcessorCreator):
+class ServerContentProcessorCreator(BaseContentProcessorCreator):
 
     # Override
     def create_content_processor(self, msg_type: Union[int, ContentType]) -> Optional[ContentProcessor]:

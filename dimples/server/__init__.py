@@ -46,7 +46,8 @@ from .delivering import DeliverWorker, DefaultRoamer
 from .filter import Filter, DefaultFilter
 
 from .messenger import ServerMessenger
-from .processor import ServerProcessor, ServerContentProcessorCreator
+from .packer import ServerMessagePacker
+from .processor import ServerMessageProcessor, ServerContentProcessorCreator
 
 
 __all__ = [
@@ -73,6 +74,7 @@ __all__ = [
     'Filter', 'DefaultFilter',
 
     'ServerMessenger',
-    'ServerProcessor',
+    'ServerMessagePacker',
+    'ServerMessageProcessor',
     'ServerContentProcessorCreator',
 ]

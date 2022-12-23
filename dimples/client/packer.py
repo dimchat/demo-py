@@ -36,11 +36,10 @@ from dimsdk import Messenger, MessagePacker
 
 from ..utils import base64_encode, sha256
 
-from .facebook import CommonFacebook
-from .messenger import CommonMessenger
+from ..common import CommonFacebook, CommonMessenger
 
 
-class CommonPacker(MessagePacker):
+class ClientMessagePacker(MessagePacker):
 
     @property
     def facebook(self) -> CommonFacebook:
@@ -86,19 +85,18 @@ class CommonPacker(MessagePacker):
         except AssertionError as error:
             err_msg = '%s' % error
             # check exception thrown by DKD: chat.dim.dkd.EncryptedMessage.decrypt()
-            if err_msg.find('failed to decrypt key in msg') >= 0:
-                # visa.key expired?
-                # send new visa to the sender
-                current = self.facebook.current_user
-                uid = current.identifier
-                visa = current.visa
-                assert visa is not None and visa.valid, 'user visa error: %s' % current
-                cmd = DocumentCommand.response(document=visa, identifier=uid)
-                messenger = self.messenger
-                assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
-                messenger.send_content(sender=uid, receiver=msg.sender, content=cmd)
-            else:
+            if err_msg.find('failed to decrypt key in msg') < 0:
                 raise error
+            # visa.key expired?
+            # send new visa to the sender
+            current = self.facebook.current_user
+            uid = current.identifier
+            visa = current.visa
+            assert visa is not None and visa.valid, 'user visa error: %s' % current
+            cmd = DocumentCommand.response(document=visa, identifier=uid)
+            messenger = self.messenger
+            assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
+            messenger.send_content(sender=uid, receiver=msg.sender, content=cmd)
 
 
 def attach_key_digest(msg: ReliableMessage, messenger: Messenger):

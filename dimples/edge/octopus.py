@@ -42,7 +42,6 @@ from dimsdk import ReliableMessage
 
 from ..utils import Logging
 from ..utils import Runner
-from ..common import CommonPacker
 from ..common import CommonFacebook
 from ..common import MessageDBI, SessionDBI
 from ..common import HandshakeCommand
@@ -50,7 +49,8 @@ from ..conn.session import get_sig
 
 from ..client import ClientSession
 from ..client import ClientMessenger
-from ..client import ClientProcessor
+from ..client import ClientMessagePacker
+from ..client import ClientMessageProcessor
 from ..client import Terminal
 
 from .shared import GlobalVariable
@@ -320,8 +320,8 @@ def create_messenger(facebook: CommonFacebook, database: MessageDBI,
     messenger = messenger_class(session=session, facebook=facebook, database=database)
     # 2. create packer, processor for messenger
     #    they have weak references to facebook & messenger
-    messenger.packer = CommonPacker(facebook=facebook, messenger=messenger)
-    messenger.processor = ClientProcessor(facebook=facebook, messenger=messenger)
+    messenger.packer = ClientMessagePacker(facebook=facebook, messenger=messenger)
+    messenger.processor = ClientMessageProcessor(facebook=facebook, messenger=messenger)
     # 3. set weak reference to messenger
     session.messenger = messenger
     return messenger
