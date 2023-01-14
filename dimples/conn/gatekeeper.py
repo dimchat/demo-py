@@ -49,7 +49,7 @@ from ..utils import Runner, Logging
 from .protocol import DeparturePacker
 
 from .gate import CommonGate, TCPServerGate, TCPClientGate
-from .queue import MessageQueue, MessageWrapper
+from .queue import MessageQueue
 
 
 class StreamServerHub(ServerHub):
@@ -206,11 +206,8 @@ class GateKeeper(Runner, DockerDelegate, Logging):
             return True
         # try to push
         ok = gate.send_ship(ship=wrapper, remote=self.remote_address, local=None)
-        if ok:
-            wrapper.on_appended()
-        else:
-            error = IOError('gate error, failed to send data')
-            wrapper.on_error(error=error)
+        if not ok:
+            self.error(msg='gate error, failed to send data')
         return True
 
     def _docker_pack(self, payload: bytes, priority: int = 0) -> Departure:
@@ -227,23 +224,21 @@ class GateKeeper(Runner, DockerDelegate, Logging):
 
     # Override
     def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
-        print('docker status changed: %s -> %s, %s' % (previous, current, docker))
+        self.info(msg='docker status changed: %s -> %s, %s' % (previous, current, docker))
 
     # Override
     def docker_received(self, ship: Arrival, docker: Docker):
-        print('docker received a ship: %s, %s' % (ship, docker))
+        self.debug(msg='docker received a ship: %s, %s' % (ship, docker))
 
     # Override
     def docker_sent(self, ship: Departure, docker: Docker):
-        if isinstance(ship, MessageWrapper):
-            ship.on_sent()
+        # TODO: remove sent message from local cache
+        pass
 
     # Override
     def docker_failed(self, error: IOError, ship: Departure, docker: Docker):
-        if isinstance(ship, MessageWrapper):
-            ship.on_failed(error=error)
+        self.error(msg='docker failed to send ship: %s, %s' % (ship, docker))
 
     # Override
     def docker_error(self, error: IOError, ship: Departure, docker: Docker):
-        if isinstance(ship, MessageWrapper):
-            ship.on_error(error=error)
+        self.error(msg='docker error while sending ship: %s, %s' % (ship, docker))

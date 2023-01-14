@@ -36,7 +36,6 @@
 """
 
 import threading
-import time
 from typing import Optional, List, Dict
 
 from dimsdk import ReliableMessage
@@ -49,15 +48,8 @@ class MessageWrapper(Departure):
 
     def __init__(self, msg: ReliableMessage, ship: Departure):
         super().__init__()
-        self.__flag = 0
         self.__msg = msg
         self.__ship = ship
-
-    def mark(self):
-        self.__flag = 1
-
-    def is_virgin(self) -> bool:
-        return self.__flag == 0
 
     @property
     def msg(self) -> Optional[ReliableMessage]:
@@ -95,38 +87,6 @@ class MessageWrapper(Departure):
     def get_status(self, now: float) -> ShipStatus:
         return self.ship.get_status(now=now)
 
-    def is_failed(self, now: float) -> bool:
-        return self.__flag == -1 or self.ship.get_status(now=now) == ShipStatus.FAILED
-
-    #
-    #   Callback
-    #
-
-    def on_appended(self):
-        """ callback on message appended to outgoing queue """
-        # this message was assigned to the worker of StarGate,
-        # update sent time
-        self.__flag = 2
-
-    def on_sent(self):
-        """ callback on success to send out """
-        # success, remove message
-        self.__msg = None
-
-    # noinspection PyUnusedLocal
-    def on_failed(self, error):
-        """ callback on failed to send ship"""
-        self.__flag = -1
-
-    def on_error(self, error):
-        """ callback on error, failed to append """
-        # msg = self.__msg
-        # if msg is None:
-        #     print('[QUEUE] departure error: %s' % error)
-        # else:
-        #     print('[QUEUE] departure error: %s, %s -> %s' % (error, msg.sender, msg.receiver))
-        pass
-
 
 class MessageQueue:
 
@@ -154,13 +114,13 @@ class MessageQueue:
                     item = wrapper.msg
                     if item is not None and item.get('signature') == signature:
                         print('[QUEUE] duplicated message: %s' % signature)
-                        return True
+                        return False
             # 2. append with wrapper
             wrapper = MessageWrapper(msg=msg, ship=ship)
             fleet.append(wrapper)
             return True
 
-    def __insert(self, priority: int) -> bool:
+    def __insert(self, priority: int):
         index = 0
         for value in self.__priorities:
             if value == priority:
@@ -181,35 +141,21 @@ class MessageQueue:
         """ Get next new message """
         with self.__lock:
             for priority in self.__priorities:
-                # 1. get messages with priority
+                # get first message
                 fleet = self.__fleets.get(priority)
-                if fleet is None:
-                    continue
-                # 2. seeking new task in this priority
-                for wrapper in fleet:
-                    if wrapper.is_virgin():
-                        wrapper.mark()  # got it, mark sent
-                        return wrapper
+                if fleet is not None and len(fleet) > 0:
+                    return fleet.pop(0)
 
-    def __eject(self, now: float) -> Optional[MessageWrapper]:
-        """ Get any message sent or failed """
+    def purge(self):
         with self.__lock:
-            for priority in self.__priorities:
+            priorities = list(self.__priorities)
+            for prior in priorities:
                 # 1. get messages with priority
-                fleet = self.__fleets.get(priority)
+                fleet = self.__fleets.get(prior)
                 if fleet is None:
-                    continue
-                for wrapper in fleet:
-                    if wrapper.msg is None or wrapper.is_failed(now=now):
-                        fleet.remove(wrapper)  # got it, remove from the queue
-                        return wrapper
-
-    def purge(self) -> int:
-        count = 0
-        now = time.time()
-        wrapper = self.__eject(now=now)
-        while wrapper is not None:
-            count += 1
-            # TODO: callback for failed task?
-            wrapper = self.__eject(now=now)
-        return count
+                    # this priority is empty
+                    self.__priorities.remove(prior)
+                elif len(fleet) == 0:
+                    # this priority is empty
+                    self.__fleets.pop(prior, None)
+                    self.__priorities.remove(prior)

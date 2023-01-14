@@ -40,8 +40,8 @@
                  Dispatcher
 """
 
-from startrek import Hub, Channel, Connection, ConnectionDelegate
-from startrek import ConnectionState, ConnectionStateMachine
+from startrek import Hub, Channel
+from startrek import Connection, ConnectionDelegate, ConnectionState
 from startrek import BaseChannel, ChannelReader, ChannelWriter
 from startrek import BaseHub, BaseConnection, ActiveConnection
 
@@ -74,8 +74,8 @@ __all__ = [
     #
     #   StarTrek
     #
-    'Hub', 'Channel', 'Connection', 'ConnectionDelegate',
-    'ConnectionState', 'ConnectionStateMachine',
+    'Hub', 'Channel',
+    'Connection', 'ConnectionDelegate', 'ConnectionState',
     'BaseChannel', 'ChannelReader', 'ChannelWriter',
     'BaseHub', 'BaseConnection', 'ActiveConnection',
 

@@ -111,8 +111,7 @@ class BaseSession(GateKeeper, Session, ABC):
     def docker_sent(self, ship: Departure, docker: Docker):
         if isinstance(ship, MessageWrapper):
             msg = ship.msg
-            ship.on_sent()
-            if isinstance(msg, ReliableMessage):
+            if msg is not None:
                 # remove from database for actual receiver
                 receiver = self.identifier
                 db = self.messenger.database
