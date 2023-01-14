@@ -42,6 +42,7 @@ from typing import Optional, List, Dict
 from dimsdk import ReliableMessage
 
 from startrek import Arrival, Departure
+from startrek import ShipStatus
 
 
 class MessageWrapper(Departure):
@@ -82,25 +83,20 @@ class MessageWrapper(Departure):
     def check_response(self, ship: Arrival) -> bool:
         return self.ship.check_response(ship=ship)
 
-    # Override
-    def is_new(self) -> bool:
-        return self.ship.is_new()
-
-    # Override
-    def is_disposable(self) -> bool:
-        return self.ship.is_disposable()
-
-    # Override
-    def is_timeout(self, now: float) -> bool:
-        return self.ship.is_timeout(now=now)
-
-    # Override
-    def is_failed(self, now: float) -> bool:
-        return self.ship.is_failed(now=now)
+    @property  # Override
+    def is_important(self) -> bool:
+        return self.ship.is_important
 
     # Override
     def touch(self, now: float):
         return self.ship.touch(now=now)
+
+    # Override
+    def get_status(self, now: float) -> ShipStatus:
+        return self.ship.get_status(now=now)
+
+    def is_failed(self, now: float) -> bool:
+        return self.__flag == -1 or self.ship.get_status(now=now) == ShipStatus.FAILED
 
     #
     #   Callback

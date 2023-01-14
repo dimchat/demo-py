@@ -175,10 +175,10 @@ class CacheManager:
                 next_time = now + 300
             try:
                 count = self.purge(now=now)
-                print('[DB] purge %d item(s) from cache pools' % count)
+                print('[MEM] purge %d item(s) from cache pools' % count)
             except Exception as error:
-                print('[DB] failed to purge cache: %s' % error)
-        print('[DB] stop %s' % self)
+                print('[MEM] failed to purge cache: %s' % error)
+        print('[MEM] stop %s' % self)
 
     def get_pool(self, name: str) -> CachePool[K, V]:
         """ get pool with name """

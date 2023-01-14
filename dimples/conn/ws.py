@@ -69,7 +69,7 @@ class WSArrival(ArrivalShip):
 class WSDeparture(DepartureShip):
 
     def __init__(self, package: bytes, payload: bytes, priority: int = 0):
-        super().__init__(priority=priority, max_tries=DepartureShip.DISPOSABLE)
+        super().__init__(priority=priority, max_tries=1)
         self.__fragments = [package]
         self.__package = package
         self.__payload = payload
@@ -96,6 +96,10 @@ class WSDeparture(DepartureShip):
         assert ship.sn == self.sn, 'SN not match: %s, %s' % (ship.sn, self.sn)
         self.__fragments.clear()
         return True
+
+    @property
+    def is_important(self) -> bool:
+        return False
 
 
 class WSDocker(PlainDocker, DeparturePacker):

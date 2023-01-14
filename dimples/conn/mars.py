@@ -173,6 +173,12 @@ class MarsStreamDeparture(DepartureShip):
         self.__fragments.clear()
         return True
 
+    @property
+    def is_important(self) -> bool:
+        # 'PUSH_MESSAGE' needs response
+        mars = self.package
+        return mars.head.cmd == NetMsgHead.PUSH_MESSAGE
+
 
 class MarsStreamDocker(PlainDocker, DeparturePacker):
     """ Docker for Mars packages """
@@ -286,7 +292,7 @@ class MarsStreamDocker(PlainDocker, DeparturePacker):
             return MarsStreamDeparture(mars=mars, priority=priority)
         else:
             # others will be removed immediately after sent
-            return MarsStreamDeparture(mars=mars, priority=priority, max_tries=DepartureShip.DISPOSABLE)
+            return MarsStreamDeparture(mars=mars, priority=priority, max_tries=1)
 
     @classmethod
     def check(cls, data: bytes) -> bool:

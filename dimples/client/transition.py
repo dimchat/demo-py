@@ -23,7 +23,6 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
 from startrek import DockerStatus
 
 from .state import StateMachine, StateTransition
@@ -101,7 +100,8 @@ class DefaultConnectingTransition(StateTransition):
         after handshake success.
     """
 
-    def evaluate(self, ctx: StateMachine) -> bool:
+    # Override
+    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
         # assert ctx.session_key is None, 'session key must be empty before handshaking'
         if ctx.session_id is None:
             # current user not set yet
@@ -118,7 +118,8 @@ class ConnectingConnectedTransition(StateTransition):
         The session ID must be set, and the session key must be empty now.
     """
 
-    def evaluate(self, ctx: StateMachine) -> bool:
+    # Override
+    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
         # assert ctx.session_key is None, 'session key must be empty before handshaking'
         # assert ctx.session_id is not None, 'current user lost?'
         return ctx.status == DockerStatus.READY
@@ -133,10 +134,11 @@ class ConnectingErrorTransition(StateTransition):
         The session ID must be set, and the session key must be empty now.
     """
 
-    def evaluate(self, ctx: StateMachine) -> bool:
+    # Override
+    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
         # assert ctx.session_key is None, 'session key must be empty before handshaking'
         # assert ctx.session_id is not None, 'current user lost?'
-        if is_expired(state=ctx.current_state):
+        if self.is_expired(state=ctx.current_state, now=now):
             # connecting expired, do it again
             return True
         return ctx.status not in [DockerStatus.PREPARING, DockerStatus.READY]
@@ -151,7 +153,8 @@ class ConnectedHandshakingTransition(StateTransition):
         The session ID must be set, and the session key must be empty now.
     """
 
-    def evaluate(self, ctx: StateMachine) -> bool:
+    # Override
+    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
         if ctx.session_id is None:
             # FIXME: current user lost?
             #        state will be changed to 'error'
@@ -168,7 +171,8 @@ class ConnectedErrorTransition(StateTransition):
         The session ID must be set, and the session key must be empty now.
     """
 
-    def evaluate(self, ctx: StateMachine) -> bool:
+    # Override
+    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
         if ctx.session_id is None:
             # FIXME: current user lost?
             return True
@@ -184,7 +188,8 @@ class HandshakingRunningTransition(StateTransition):
         The session ID must be set.
     """
 
-    def evaluate(self, ctx: StateMachine) -> bool:
+    # Override
+    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
         if ctx.session_id is None:
             # FIXME: current user lost?
             #        state will be changed to 'error'
@@ -206,7 +211,8 @@ class HandshakingConnectedTransition(StateTransition):
         The session ID must be set, and the session key must be empty now.
     """
 
-    def evaluate(self, ctx: StateMachine) -> bool:
+    # Override
+    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
         if ctx.session_id is None:
             # FIXME: current user lost?
             #        state will be changed to 'error'
@@ -218,7 +224,7 @@ class HandshakingConnectedTransition(StateTransition):
             # session key was set, state will be changed to 'running'
             return False
         # handshake expired, do it again
-        return is_expired(state=ctx.current_state)
+        return self.is_expired(state=ctx.current_state, now=now)
 
 
 class HandshakingErrorTransition(StateTransition):
@@ -230,7 +236,8 @@ class HandshakingErrorTransition(StateTransition):
         The session ID must be set, and the session key must be empty now.
     """
 
-    def evaluate(self, ctx: StateMachine) -> bool:
+    # Override
+    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
         if ctx.session_id is None:
             # FIXME: current user lost?
             return True
@@ -249,7 +256,8 @@ class RunningDefaultTransition(StateTransition):
         it means force the user login again.
     """
 
-    def evaluate(self, ctx: StateMachine) -> bool:
+    # Override
+    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
         if ctx.status != DockerStatus.READY:
             # connection lost, state will be changed to 'error'
             return False
@@ -267,7 +275,8 @@ class RunningErrorTransition(StateTransition):
         When connection lost.
     """
 
-    def evaluate(self, ctx: StateMachine) -> bool:
+    # Override
+    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
         return ctx.status != DockerStatus.READY
 
 
@@ -278,15 +287,6 @@ class ErrorDefaultTransition(StateTransition):
         When connection reset.
     """
 
-    def evaluate(self, ctx: StateMachine) -> bool:
+    # Override
+    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
         return ctx.status != DockerStatus.ERROR
-
-
-def is_expired(state) -> bool:
-    assert isinstance(state, SessionState), 'session state error: %s' % state
-    enter_time = state.enter_time
-    # if enter_time > 0:
-    #     expired = enter_time + 30
-    #     now = time.time()
-    #     return now > expired
-    return 0 < enter_time < (time.time() - 30)

@@ -44,13 +44,12 @@ from dimsdk import Station
 from startrek import Docker, DockerStatus
 from startrek import Arrival
 
-from ..utils import Logging
 from ..common import SessionDBI
 from ..conn import BaseSession
 from ..conn import MTPStreamArrival
 
 
-class ClientSession(BaseSession, Logging):
+class ClientSession(BaseSession):
     """
         Session for Connection
         ~~~~~~~~~~~~~~~~~~~~~~

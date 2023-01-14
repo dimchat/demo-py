@@ -44,7 +44,7 @@ from startrek import Docker, DockerStatus, DockerDelegate
 from tcp import StreamChannel
 from tcp import ServerHub, ClientHub
 
-from ..utils import Runner
+from ..utils import Runner, Logging
 
 from .protocol import DeparturePacker
 
@@ -93,7 +93,7 @@ def reset_send_buffer_size(conn: Connection) -> bool:
         print('[SOCKET] send buffer size: %d, %s' % (size, conn))
 
 
-class GateKeeper(Runner, DockerDelegate):
+class GateKeeper(Runner, DockerDelegate, Logging):
     """ Keep a gate to remote address """
 
     SEND_BUFFER_SIZE = 64 * 1024  # 64 KB
@@ -179,11 +179,15 @@ class GateKeeper(Runner, DockerDelegate):
         hub = gate.hub
         # from tcp import Hub
         # assert isinstance(hub, Hub), 'hub error: %s' % hub
-        incoming = hub.process()
-        outgoing = gate.process()
-        if incoming or outgoing:
-            # processed income/outgo packages
-            return True
+        try:
+            incoming = hub.process()
+            outgoing = gate.process()
+            if incoming or outgoing:
+                # processed income/outgo packages
+                return True
+        except Exception as e:
+            self.error(msg='process error: %s' % e)
+            return False
         if not self.active:
             # inactive, wait a while to check again
             self.__queue.purge()

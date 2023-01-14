@@ -65,7 +65,7 @@ class Log:
     def warning(cls, msg: str):
         if cls.LEVEL & WARNING_FLAG == 0:
             return None
-        print('[%s] %s' % (current_time(), msg))
+        print('[%s] WARNING - %s' % (current_time(), msg))
 
     @classmethod
     def error(cls, msg: str):
@@ -77,13 +77,13 @@ class Log:
 class Logging:
 
     def debug(self, msg: str):
-        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
+        Log.debug(msg='%s >\t%s' % (self.__class__.__name__, msg))
 
     def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+        Log.info(msg='%s >\t%s' % (self.__class__.__name__, msg))
 
     def warning(self, msg: str):
-        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
+        Log.warning(msg='%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+        Log.error(msg='%s >\t%s' % (self.__class__.__name__, msg))

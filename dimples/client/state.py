@@ -65,8 +65,6 @@
         5.0 - when connection reset, change state 'error' to 'default'.
 """
 
-
-import time
 import weakref
 from abc import ABC
 from typing import Optional
@@ -131,7 +129,11 @@ class StateMachine(AutoMachine, Context):
 
 
 class StateTransition(BaseTransition[StateMachine], ABC):
-    pass
+
+    # noinspection PyMethodMayBeStatic
+    def is_expired(self, state, now: float) -> bool:
+        assert isinstance(state, SessionState), 'state error: %s' % state
+        return 0 < state.enter_time < (now - 30)
 
 
 class SessionState(BaseState[StateMachine, StateTransition]):
@@ -195,10 +197,10 @@ class SessionState(BaseState[StateMachine, StateTransition]):
         else:
             return True
 
-    def on_enter(self, ctx: StateMachine):
-        self.__time = time.time()
+    def on_enter(self, old, ctx: StateMachine, now: float, elapsed: float):
+        self.__time = now
 
-    def on_exit(self, ctx: StateMachine):
+    def on_exit(self, new, ctx: StateMachine, now: float, elapsed: float):
         self.__time = 0
 
     def on_pause(self, ctx: StateMachine):

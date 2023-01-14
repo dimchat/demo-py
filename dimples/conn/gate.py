@@ -38,7 +38,7 @@ from startrek import Connection, ConnectionState, ActiveConnection
 from startrek import Docker, DockerDelegate
 from startrek import Arrival, StarGate
 
-from ..utils import Logging, Runnable
+from ..utils import Logging
 
 from .mtp import TransactionID, MTPStreamDocker, MTPHelper
 from .mars import MarsStreamArrival, MarsStreamDocker, MarsHelper
@@ -111,7 +111,7 @@ class BaseGate(StarGate, Generic[H], ABC):
         pass
 
 
-class CommonGate(BaseGate, Logging, Runnable, Generic[H], ABC):
+class CommonGate(BaseGate, Logging, Generic[H], ABC):
     """ Gate with Hub for connections """
 
     def __init__(self, delegate: DockerDelegate):
@@ -128,13 +128,13 @@ class CommonGate(BaseGate, Logging, Runnable, Generic[H], ABC):
     def running(self) -> bool:
         return self.__running
 
-    # Override
-    def run(self):
-        self.__running = True
-        while self.running:
-            if not self.process():
-                self._idle()
-        self.info(msg='gate closing')
+    # # Override
+    # def run(self):
+    #     self.__running = True
+    #     while self.running:
+    #         if not self.process():
+    #             self._idle()
+    #     self.info(msg='gate closing')
 
     # noinspection PyMethodMayBeStatic
     def _idle(self):

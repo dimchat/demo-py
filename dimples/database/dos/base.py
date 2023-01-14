@@ -70,54 +70,54 @@ class Storage:
         try:
             return TextFile(path=path).read()
         except Exception as error:
-            Log.error('Storage >\t%s' % error)
+            Log.error(msg='Storage >\t%s' % error)
 
     @classmethod
     def read_json(cls, path: str) -> Union[dict, list, None]:
         try:
             return JSONFile(path=path).read()
         except Exception as error:
-            Log.error('Storage >\t%s' % error)
+            Log.error(msg='Storage >\t%s' % error)
 
     @classmethod
     def write_text(cls, text: str, path: str) -> bool:
         try:
             return TextFile(path=path).write(text=text)
         except Exception as error:
-            Log.error('Storage >\t%s' % error)
+            Log.error(msg='Storage >\t%s' % error)
 
     @classmethod
     def write_json(cls, container: Union[dict, list], path: str) -> bool:
         try:
             return JSONFile(path=path).write(container=container)
         except Exception as error:
-            Log.error('Storage >\t%s' % error)
+            Log.error(msg='Storage >\t%s' % error)
 
     @classmethod
     def append_text(cls, text: str, path: str) -> bool:
         try:
             return TextFile(path=path).append(text=text)
         except Exception as error:
-            Log.error('Storage >\t%s' % error)
+            Log.error(msg='Storage >\t%s' % error)
 
     @classmethod
     def remove(cls, path: str) -> bool:
         try:
             return File(path=path).remove()
         except Exception as error:
-            Log.error('Storage >\t%s' % error)
+            Log.error(msg='Storage >\t%s' % error)
 
     #
     #  Logging
     #
     def debug(self, msg: str):
-        Log.debug('[DB] %s >\t%s' % (self.__class__.__name__, msg))
+        Log.debug(msg='[DB] %s >\t%s' % (self.__class__.__name__, msg))
 
     def info(self, msg: str):
-        Log.info('[DB] %s >\t%s' % (self.__class__.__name__, msg))
+        Log.info(msg='[DB] %s >\t%s' % (self.__class__.__name__, msg))
 
     def warning(self, msg: str):
-        Log.warning('[DB] %s >\t%s' % (self.__class__.__name__, msg))
+        Log.warning(msg='[DB] %s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
-        Log.error('[DB] %s >\t%s' % (self.__class__.__name__, msg))
+        Log.error(msg='[DB] %s >\t%s' % (self.__class__.__name__, msg))

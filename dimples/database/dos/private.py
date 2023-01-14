@@ -71,12 +71,12 @@ class PrivateKeyStorage(Storage, PrivateKeyDBI):
 
     def _save_id_key(self, key: PrivateKey, identifier: ID) -> bool:
         path = self.__id_key_path(identifier=identifier)
-        self.info('Saving identity private key into: %s' % path)
+        self.info(msg='Saving identity private key into: %s' % path)
         return self.write_json(container=key.dictionary, path=path)
 
     def _load_id_key(self, identifier: ID) -> Optional[PrivateKey]:
         path = self.__id_key_path(identifier=identifier)
-        self.info('Loading identity private key from: %s' % path)
+        self.info(msg='Loading identity private key from: %s' % path)
         info = self.read_json(path=path)
         if info is not None:
             return PrivateKey.parse(key=info)
@@ -89,13 +89,13 @@ class PrivateKeyStorage(Storage, PrivateKeyDBI):
             return False
         plain = [item.dictionary for item in private_keys]
         path = self.__msg_keys_path(identifier=identifier)
-        self.info('Saving message private keys into: %s' % path)
+        self.info(msg='Saving message private keys into: %s' % path)
         return self.write_json(container=plain, path=path)
 
     def _load_msg_keys(self, identifier: ID) -> List[PrivateKey]:
         keys = []
         path = self.__msg_keys_path(identifier=identifier)
-        self.info('Loading message private keys from: %s' % path)
+        self.info(msg='Loading message private keys from: %s' % path)
         array = self.read_json(path=path)
         if array is not None:
             for item in array:

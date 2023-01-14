@@ -75,6 +75,7 @@ class BroadcastDeliver(Deliver, Logging):
             self.debug(msg='forward to neighbors: %s' % receiver)
             traces = msg.get('traces')
             if traces is None:
+                # should not happen
                 traces = []
             db = self.database
             neighbors = db.all_neighbors()

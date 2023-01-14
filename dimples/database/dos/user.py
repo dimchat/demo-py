@@ -67,7 +67,7 @@ class UserStorage(Storage, UserDBI):
     def local_users(self) -> List[ID]:
         """ load users from file """
         path = self.__users_path()
-        self.info('Loading users from: %s' % path)
+        self.info(msg='Loading users from: %s' % path)
         users = self.read_json(path=path)
         if users is None:
             # local users not found
@@ -78,14 +78,14 @@ class UserStorage(Storage, UserDBI):
     def save_local_users(self, users: List[ID]) -> bool:
         """ save local users into file """
         path = self.__users_path()
-        self.info('Saving local users into: %s' % path)
+        self.info(msg='Saving local users into: %s' % path)
         return self.write_json(container=ID.revert(members=users), path=path)
 
     # Override
     def contacts(self, identifier: ID) -> List[ID]:
         """ load contacts from file """
         path = self.__contacts_path(identifier=identifier)
-        self.info('Loading contacts from: %s' % path)
+        self.info(msg='Loading contacts from: %s' % path)
         contacts = self.read_json(path=path)
         if contacts is None:
             # contacts not found
@@ -96,5 +96,5 @@ class UserStorage(Storage, UserDBI):
     def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
         """ save contacts into file """
         path = self.__contacts_path(identifier=identifier)
-        self.info('Saving contacts into: %s' % path)
+        self.info(msg='Saving contacts into: %s' % path)
         return self.write_json(container=ID.revert(members=contacts), path=path)

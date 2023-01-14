@@ -96,7 +96,7 @@ class AddressNameServer(AddressNameService):
             return True
 
     def fix(self, fixed: Set[Tuple[str, ID]]):
-        """ remove the keywords temporary before save new redords """
+        """ remove the keywords temporary before save new records """
         self.KEYWORDS.remove('assistant')
         # self.KEYWORDS.remove('station')
         for item in fixed:

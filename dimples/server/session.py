@@ -45,7 +45,7 @@ from startrek import Docker, DockerStatus
 from startrek import Arrival
 
 from ..utils import hex_encode, random_bytes
-from ..utils import Log, Logging
+from ..utils import Log
 from ..common import SessionDBI
 from ..database import ReliableMessageTable
 from ..conn import BaseSession
@@ -59,7 +59,7 @@ def generate_session_key() -> str:
     return hex_encode(random_bytes(32))
 
 
-class ServerSession(BaseSession, Logging):
+class ServerSession(BaseSession):
     """
         Session for Connection
         ~~~~~~~~~~~~~~~~~~~~~~

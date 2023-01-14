@@ -33,7 +33,7 @@
 import threading
 import time
 
-from startrek.fsm import StateDelegate
+from startrek.fsm import Delegate as StateDelegate
 
 from dimples import EntityType
 
@@ -70,7 +70,9 @@ class Terminal(Runner, StateDelegate, Logging):
 
     @property
     def state(self) -> SessionState:
-        return self.__fsm.current_state
+        ss = self.__fsm.current_state
+        assert ss is None or isinstance(ss, SessionState), 'session state error: %s' % ss
+        return ss
 
     @property
     def is_alive(self) -> bool:

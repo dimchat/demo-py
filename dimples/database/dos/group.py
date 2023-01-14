@@ -68,7 +68,7 @@ class GroupStorage(Storage, GroupDBI):
     def members(self, identifier: ID) -> List[ID]:
         """ load members from file """
         path = self.__members_path(identifier=identifier)
-        self.info('Loading members from: %s' % path)
+        self.info(msg='Loading members from: %s' % path)
         contacts = self.read_json(path=path)
         if contacts is None:
             # members not found
@@ -84,11 +84,11 @@ class GroupStorage(Storage, GroupDBI):
     def save_members(self, members: List[ID], identifier: ID) -> bool:
         """ save members into file """
         path = self.__members_path(identifier=identifier)
-        self.info('Saving members into: %s' % path)
+        self.info(msg='Saving members into: %s' % path)
         return self.write_json(container=ID.revert(members=members), path=path)
 
     # Override
     def save_assistants(self, assistants: List[ID], identifier: ID) -> bool:
         # TODO: save assistants
-        self.info('TODO: Saving assistants: %s -> %s' % (identifier, assistants))
+        self.info(msg='TODO: Saving assistants: %s -> %s' % (identifier, assistants))
         return True
