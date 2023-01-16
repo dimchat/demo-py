@@ -179,7 +179,8 @@ class CommonGate(BaseGate, Logging, Generic[H], ABC):
                       remote: Tuple[str, int], local: Optional[Tuple[str, int]]) -> bool:
         worker = self.get_docker(remote=remote, local=local, advance_party=[])
         if isinstance(worker, MTPStreamDocker):
-            sn = TransactionID.from_data(data=ship.sn)
+            # sn = TransactionID.from_data(data=ship.sn)
+            sn = TransactionID.generate()
             pack = MTPHelper.create_message(body=payload, sn=sn)
             return worker.send_package(pack=pack)
         elif isinstance(worker, MarsStreamDocker):
