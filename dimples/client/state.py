@@ -197,15 +197,19 @@ class SessionState(BaseState[StateMachine, StateTransition]):
         else:
             return True
 
-    def on_enter(self, old, ctx: StateMachine, now: float, elapsed: float):
+    # Override
+    def on_enter(self, old, ctx: StateMachine, now: float):
         self.__time = now
 
-    def on_exit(self, new, ctx: StateMachine, now: float, elapsed: float):
+    # Override
+    def on_exit(self, new, ctx: StateMachine, now: float):
         self.__time = 0
 
+    # Override
     def on_pause(self, ctx: StateMachine):
         pass
 
+    # Override
     def on_resume(self, ctx: StateMachine):
         pass
 

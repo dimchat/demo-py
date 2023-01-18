@@ -101,7 +101,7 @@ class DefaultConnectingTransition(StateTransition):
     """
 
     # Override
-    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
+    def evaluate(self, ctx: StateMachine, now: float) -> bool:
         # assert ctx.session_key is None, 'session key must be empty before handshaking'
         if ctx.session_id is None:
             # current user not set yet
@@ -119,7 +119,7 @@ class ConnectingConnectedTransition(StateTransition):
     """
 
     # Override
-    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
+    def evaluate(self, ctx: StateMachine, now: float) -> bool:
         # assert ctx.session_key is None, 'session key must be empty before handshaking'
         # assert ctx.session_id is not None, 'current user lost?'
         return ctx.status == DockerStatus.READY
@@ -135,7 +135,7 @@ class ConnectingErrorTransition(StateTransition):
     """
 
     # Override
-    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
+    def evaluate(self, ctx: StateMachine, now: float) -> bool:
         # assert ctx.session_key is None, 'session key must be empty before handshaking'
         # assert ctx.session_id is not None, 'current user lost?'
         if self.is_expired(state=ctx.current_state, now=now):
@@ -154,7 +154,7 @@ class ConnectedHandshakingTransition(StateTransition):
     """
 
     # Override
-    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
+    def evaluate(self, ctx: StateMachine, now: float) -> bool:
         if ctx.session_id is None:
             # FIXME: current user lost?
             #        state will be changed to 'error'
@@ -172,7 +172,7 @@ class ConnectedErrorTransition(StateTransition):
     """
 
     # Override
-    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
+    def evaluate(self, ctx: StateMachine, now: float) -> bool:
         if ctx.session_id is None:
             # FIXME: current user lost?
             return True
@@ -189,7 +189,7 @@ class HandshakingRunningTransition(StateTransition):
     """
 
     # Override
-    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
+    def evaluate(self, ctx: StateMachine, now: float) -> bool:
         if ctx.session_id is None:
             # FIXME: current user lost?
             #        state will be changed to 'error'
@@ -212,7 +212,7 @@ class HandshakingConnectedTransition(StateTransition):
     """
 
     # Override
-    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
+    def evaluate(self, ctx: StateMachine, now: float) -> bool:
         if ctx.session_id is None:
             # FIXME: current user lost?
             #        state will be changed to 'error'
@@ -237,7 +237,7 @@ class HandshakingErrorTransition(StateTransition):
     """
 
     # Override
-    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
+    def evaluate(self, ctx: StateMachine, now: float) -> bool:
         if ctx.session_id is None:
             # FIXME: current user lost?
             return True
@@ -257,7 +257,7 @@ class RunningDefaultTransition(StateTransition):
     """
 
     # Override
-    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
+    def evaluate(self, ctx: StateMachine, now: float) -> bool:
         if ctx.status != DockerStatus.READY:
             # connection lost, state will be changed to 'error'
             return False
@@ -276,7 +276,7 @@ class RunningErrorTransition(StateTransition):
     """
 
     # Override
-    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
+    def evaluate(self, ctx: StateMachine, now: float) -> bool:
         return ctx.status != DockerStatus.READY
 
 
@@ -288,5 +288,5 @@ class ErrorDefaultTransition(StateTransition):
     """
 
     # Override
-    def evaluate(self, ctx: StateMachine, now: float, elapsed: float) -> bool:
+    def evaluate(self, ctx: StateMachine, now: float) -> bool:
         return ctx.status != DockerStatus.ERROR
