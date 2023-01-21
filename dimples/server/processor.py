@@ -35,8 +35,9 @@ from dimsdk import EntityType
 from dimsdk import ReliableMessage
 from dimsdk import Content, ContentType, TextContent, Command
 from dimsdk import ContentProcessor, ContentProcessorCreator
-from dimsdk import BaseContentProcessor, BaseContentProcessorCreator
 from dimsdk import MessageProcessor
+
+from dimsdk.cpu import BaseContentProcessor, BaseContentProcessorCreator
 
 from ..utils import Logging
 from ..common import HandshakeCommand, LoginCommand
@@ -110,21 +111,21 @@ class ServerContentProcessorCreator(BaseContentProcessorCreator):
         return super().create_content_processor(msg_type=msg_type)
 
     # Override
-    def create_command_processor(self, msg_type: Union[int, ContentType], cmd_name: str) -> Optional[ContentProcessor]:
+    def create_command_processor(self, msg_type: Union[int, ContentType], cmd: str) -> Optional[ContentProcessor]:
         # document
-        if cmd_name == Command.DOCUMENT:
+        if cmd == Command.DOCUMENT:
             return DocumentCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # handshake
-        if cmd_name == HandshakeCommand.HANDSHAKE:
+        if cmd == HandshakeCommand.HANDSHAKE:
             return HandshakeCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # login
-        if cmd_name == LoginCommand.LOGIN:
+        if cmd == LoginCommand.LOGIN:
             return LoginCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # report
-        if cmd_name == ReportCommand.REPORT:
+        if cmd == ReportCommand.REPORT:
             return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # receipt
-        if cmd_name == ReceiptCommand.RECEIPT:
+        if cmd == ReceiptCommand.RECEIPT:
             return ReceiptCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
-        return super().create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
+        return super().create_command_processor(msg_type=msg_type, cmd=cmd)

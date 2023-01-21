@@ -85,7 +85,7 @@ class AccountDatabase(AccountDBI):
     # Override
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         # check meta with ID
-        if not Meta.matches(meta=meta, identifier=identifier):
+        if not Meta.match_id(meta=meta, identifier=identifier):
             raise ValueError('meta not match: %s => %s' % (identifier, meta))
         return self.__meta_table.save_meta(meta=meta, identifier=identifier)
 

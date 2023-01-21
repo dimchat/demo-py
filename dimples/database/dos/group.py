@@ -73,7 +73,7 @@ class GroupStorage(Storage, GroupDBI):
         if contacts is None:
             # members not found
             return []
-        return ID.convert(members=contacts)
+        return ID.convert(array=contacts)
 
     # Override
     def assistants(self, identifier: ID) -> List[ID]:
@@ -85,7 +85,7 @@ class GroupStorage(Storage, GroupDBI):
         """ save members into file """
         path = self.__members_path(identifier=identifier)
         self.info(msg='Saving members into: %s' % path)
-        return self.write_json(container=ID.revert(members=members), path=path)
+        return self.write_json(container=ID.revert(array=members), path=path)
 
     # Override
     def save_assistants(self, assistants: List[ID], identifier: ID) -> bool:

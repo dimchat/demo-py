@@ -14,7 +14,7 @@ import io
 
 from setuptools import setup, find_packages
 
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 __author__ = 'Albert Moky'
 __contact__ = 'albert.moky@gmail.com'
 
@@ -51,12 +51,12 @@ setup(
         # 'pycryptodome',  # 3.14.1
         # 'base58',  # 1.0.3
         # 'ecdsa',   # 0.16.1
-        'dimplugins>=0.1.2',
+        'dimplugins>=0.1.3',
 
-        'dimsdk>=0.8.3',
-        'dimp>=0.12.4',
-        'dkd>=0.12.4',
-        'mkm>=0.12.4',
+        'dimsdk>=0.8.4',
+        'dimp>=0.12.6',
+        'dkd>=0.12.6',
+        'mkm>=0.12.6',
 
         'startrek>=0.4.1',
         'tcp>=0.4.1',

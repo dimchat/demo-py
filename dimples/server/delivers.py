@@ -113,12 +113,12 @@ class BroadcastDeliver(Deliver, Logging):
         dispatcher = Dispatcher()
         for target in recipients:
             assert not target.is_broadcast, 'target ID error: %s, %s => %s'\
-                                            % (target, receiver, ID.revert(members=recipients))
+                                            % (target, receiver, ID.revert(array=recipients))
             dispatcher.deliver_message(msg=msg, receiver=target)
         # responses
         text = 'Broadcast message delivering'
         cmd = ReceiptCommand.create(text=text, msg=msg)
-        cmd['recipients'] = ID.revert(members=recipients)
+        cmd['recipients'] = ID.revert(array=recipients)
         return [cmd]
 
 

@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+#
+#   DIM-SDK : Decentralized Instant Messaging Software Development Kit
+#
+#                                Written in 2019 by Moky <albert.moky@gmail.com>
+#
 # ==============================================================================
 # MIT License
 #
@@ -24,25 +29,51 @@
 # ==============================================================================
 
 """
-    Receipt Command Processor
-    ~~~~~~~~~~~~~~~~~~~~~~~~~
+    Group History Processors
+    ~~~~~~~~~~~~~~~~~~~~~~~~
 
 """
 
 from typing import List
 
-from dimp import ReliableMessage
+from dimp import ID, ReliableMessage
 from dimp import Content
+from dimp import Command, GroupCommand
 
 from dimsdk.cpu import BaseCommandProcessor
 
-from ...common import ReceiptCommand
 
+class HistoryCommandProcessor(BaseCommandProcessor):
 
-class ReceiptCommandProcessor(BaseCommandProcessor):
+    FMT_HIS_CMD_NOT_SUPPORT = 'History command (name: %s) not support yet!'
 
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(content, ReceiptCommand), 'receipt command error: %s' % content
-        # nickname = self.facebook.name(identifier=sender)
-        return []
+        assert isinstance(content, Command), 'history command error: %s' % content
+        text = self.FMT_HIS_CMD_NOT_SUPPORT % content.cmd
+        return self._respond_text(text=text, group=content.group)
+
+
+class GroupCommandProcessor(HistoryCommandProcessor):
+
+    FMT_GRP_CMD_NOT_SUPPORT = 'Group command (name: %s) not support yet!'
+    STR_GROUP_EMPTY = 'Group empty.'
+
+    @staticmethod
+    def members(content: GroupCommand) -> List[ID]:
+        # get from 'members'
+        array = content.members
+        if array is None:
+            # get from 'member
+            item = content.member
+            if item is None:
+                array = []
+            else:
+                array = [item]
+        return array
+
+    # Override
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, GroupCommand), 'group command error: %s' % content
+        text = self.FMT_GRP_CMD_NOT_SUPPORT % content.cmd
+        return self._respond_text(text=text, group=content.group)

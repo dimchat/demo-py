@@ -31,12 +31,15 @@
 import time
 from typing import List, Optional, Union
 
-from dimsdk import EntityType
-from dimsdk import SecureMessage, ReliableMessage
-from dimsdk import ContentType, Content, TextContent
+from dimp import EntityType
+from dimp import SecureMessage, ReliableMessage
+from dimp import ContentType, Content, TextContent
+from dimp import GroupCommand
+
 from dimsdk import ContentProcessor, ContentProcessorCreator
-from dimsdk import BaseContentProcessor, BaseContentProcessorCreator
 from dimsdk import MessageProcessor
+
+from dimsdk.cpu import BaseContentProcessor, BaseContentProcessorCreator
 
 from ..utils import Logging
 from ..common import HandshakeCommand, ReceiptCommand, LoginCommand
@@ -45,6 +48,9 @@ from ..common import CommonMessenger
 from .cpu import HandshakeCommandProcessor
 from .cpu import LoginCommandProcessor
 from .cpu import ReceiptCommandProcessor
+from .cpu import HistoryCommandProcessor, GroupCommandProcessor
+from .cpu import InviteCommandProcessor, ExpelCommandProcessor, QuitCommandProcessor
+from .cpu import ResetCommandProcessor, QueryCommandProcessor
 
 
 class ClientMessageProcessor(MessageProcessor, Logging):
@@ -113,6 +119,8 @@ class ClientContentProcessorCreator(BaseContentProcessorCreator):
 
     # Override
     def create_content_processor(self, msg_type: Union[int, ContentType]) -> Optional[ContentProcessor]:
+        if msg_type == ContentType.HISTORY.value:
+            return HistoryCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # default
         if msg_type == 0:
             return BaseContentProcessor(facebook=self.facebook, messenger=self.messenger)
@@ -120,15 +128,28 @@ class ClientContentProcessorCreator(BaseContentProcessorCreator):
         return super().create_content_processor(msg_type=msg_type)
 
     # Override
-    def create_command_processor(self, msg_type: Union[int, ContentType], cmd_name: str) -> Optional[ContentProcessor]:
+    def create_command_processor(self, msg_type: Union[int, ContentType], cmd: str) -> Optional[ContentProcessor]:
         # handshake
-        if cmd_name == HandshakeCommand.HANDSHAKE:
+        if cmd == HandshakeCommand.HANDSHAKE:
             return HandshakeCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # login
-        if cmd_name == LoginCommand.LOGIN:
+        if cmd == LoginCommand.LOGIN:
             return LoginCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # receipt
-        if cmd_name == ReceiptCommand.RECEIPT:
+        if cmd == ReceiptCommand.RECEIPT:
             return ReceiptCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        # group commands
+        if cmd == 'group':
+            return GroupCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        elif cmd == GroupCommand.INVITE:
+            return InviteCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        elif cmd == GroupCommand.EXPEL:
+            return ExpelCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        elif cmd == GroupCommand.QUIT:
+            return QuitCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        elif cmd == GroupCommand.QUERY:
+            return QueryCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        elif cmd == GroupCommand.RESET:
+            return ResetCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
-        return super().create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
+        return super().create_command_processor(msg_type=msg_type, cmd=cmd)

@@ -29,7 +29,6 @@
 # ==============================================================================
 
 import socket
-import time
 from abc import ABC
 from typing import Generic, TypeVar, Optional, Union, List, Tuple
 
@@ -135,10 +134,10 @@ class CommonGate(BaseGate, Logging, Generic[H], ABC):
     #         if not self.process():
     #             self._idle()
     #     self.info(msg='gate closing')
-
-    # noinspection PyMethodMayBeStatic
-    def _idle(self):
-        time.sleep(0.25)
+    #
+    # # noinspection PyMethodMayBeStatic
+    # def _idle(self):
+    #     time.sleep(0.25)
 
     # Override
     def connection_state_changed(self, previous: ConnectionState, current: ConnectionState, connection: Connection):
@@ -149,15 +148,15 @@ class CommonGate(BaseGate, Logging, Generic[H], ABC):
             self.debug(msg='connection state changed: %s -> %s, %s' % (previous, current, connection))
         super().connection_state_changed(previous=previous, current=current, connection=connection)
 
-    # # Override
-    # def connection_received(self, data: bytes, connection: Connection):
-    #     super().connection_received(data=data, connection=connection)
-    #     self.info(msg='received %d byte(s): %s' % (len(data), connection))
-    #
-    # # Override
-    # def connection_sent(self, sent: int, data: bytes, connection: Connection):
-    #     super().connection_sent(sent=sent, data=data, connection=connection)
-    #     self.info(msg='sent %d byte(s): %s' % (len(data), connection))
+    # Override
+    def connection_received(self, data: bytes, connection: Connection):
+        super().connection_received(data=data, connection=connection)
+        self.debug(msg='received %d byte(s): %s' % (len(data), connection))
+
+    # Override
+    def connection_sent(self, sent: int, data: bytes, connection: Connection):
+        super().connection_sent(sent=sent, data=data, connection=connection)
+        self.debug(msg='sent %d byte(s): %s' % (len(data), connection))
 
     # Override
     def connection_failed(self, error: Union[IOError, socket.error], data: bytes, connection: Connection):
@@ -167,7 +166,7 @@ class CommonGate(BaseGate, Logging, Generic[H], ABC):
     # Override
     def connection_error(self, error: Union[IOError, socket.error], connection: Connection):
         super().connection_error(error=error, connection=connection)
-        if isinstance(error, IOError) and str(error).startswith('failed to send: '):
+        if error is not None and str(error).startswith('failed to send: '):
             self.warning(msg='ignore socket error: %s, remote=%s' % (error, connection.remote_address))
 
     def get_channel(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]]) -> Optional[Channel]:

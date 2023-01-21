@@ -24,8 +24,9 @@
 # ==============================================================================
 
 from dimsdk import Command
-from dimsdk.core import CommandFactoryBuilder
-from dimsdk.core import register_core_factories
+from dimsdk import CommandFactoryBuilder
+from dimsdk import register_all_factories as register_core_factories
+from dimplugins import register_plugins
 
 from .handshake import HandshakeCommand, HandshakeState
 from .receipt import ReceiptCommand
@@ -48,6 +49,7 @@ def register_all_factories():
 
 
 register_all_factories()
+register_plugins()
 
 
 __all__ = [

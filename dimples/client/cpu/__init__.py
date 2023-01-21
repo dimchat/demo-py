@@ -34,8 +34,20 @@ from .handshake import HandshakeCommandProcessor
 from .login import LoginCommandProcessor
 from .receipt import ReceiptCommandProcessor
 
+from .history import HistoryCommandProcessor, GroupCommandProcessor
+from .grp_invite import InviteCommandProcessor
+from .grp_expel import ExpelCommandProcessor
+from .grp_quit import QuitCommandProcessor
+from .grp_reset import ResetCommandProcessor
+from .grp_query import QueryCommandProcessor
+
 __all__ = [
     'HandshakeCommandProcessor',
     'LoginCommandProcessor',
     'ReceiptCommandProcessor',
+
+    'HistoryCommandProcessor',
+    'GroupCommandProcessor',
+    'InviteCommandProcessor', 'ExpelCommandProcessor', 'QuitCommandProcessor',
+    'ResetCommandProcessor', 'QueryCommandProcessor',
 ]

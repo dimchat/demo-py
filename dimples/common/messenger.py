@@ -120,10 +120,10 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         if assistants is None or len(assistants) == 0:
             self.error(msg='group assistants not found: %s' % identifier)
             return False
-        self.info(msg='querying members of %s from assistants: %s' % (identifier, ID.revert(members=assistants)))
+        self.info(msg='querying members of %s from assistants: %s' % (identifier, ID.revert(array=assistants)))
         cmd = GroupCommand.query(group=identifier)
         for bot in assistants:
-            self.send_content(sender=None, receiver=bot, content=cmd)
+            self.send_content(sender=None, receiver=bot, content=cmd, priority=1)
         return True
 
     def _check_sender(self, msg: ReliableMessage) -> bool:
@@ -135,14 +135,15 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         if visa is not None:
             # first handshake?
             assert visa.identifier == sender, 'visa ID not match: %s => %s' % (sender, visa)
-            # assert Meta.matches(meta=msg.meta, identifier=sender), 'meta error: %s' % msg
+            # assert Meta.match_id(meta=msg.meta, identifier=sender), 'meta error: %s' % msg
             return True
         facebook = self.facebook
-        verify_keys = facebook.public_keys_for_verification(identifier=sender)
-        if verify_keys is not None and len(verify_keys) > 0:
+        visa_key = facebook.public_key_for_encryption(identifier=sender)
+        if visa_key is not None:
             # sender is OK
             return True
-        self._query_document(identifier=sender)
+        if self._query_document(identifier=sender):
+            self.info(msg='querying document for sender: %s' % sender)
         msg['error'] = {
             'message': 'verify key not found',
             'user': str(sender),
@@ -159,7 +160,8 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
             # check user's meta & document
             visa_key = facebook.public_key_for_encryption(identifier=receiver)
             if visa_key is None:
-                self._query_document(identifier=receiver)
+                if self._query_document(identifier=receiver):
+                    self.info(msg='querying document for receiver: %s' % receiver)
                 msg['error'] = {
                     'message': 'encrypt key not found',
                     'user': str(receiver),
@@ -169,7 +171,8 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
             # check group's meta
             meta = facebook.meta(identifier=receiver)
             if meta is None:
-                self._query_meta(identifier=receiver)
+                if self._query_meta(identifier=receiver):
+                    self.info(msg='querying meta for group: %s' % receiver)
                 msg['error'] = {
                     'message': 'group meta not found',
                     'group': str(receiver),
@@ -178,7 +181,8 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
             # check group members
             members = facebook.members(identifier=receiver)
             if members is None or len(members) == 0:
-                self._query_members(identifier=receiver)
+                if self._query_members(identifier=receiver):
+                    self.info(msg='querying members for group: %s' % receiver)
                 msg['error'] = {
                     'message': 'members not found',
                     'group': str(receiver),
@@ -188,13 +192,14 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
             for item in members:
                 visa_key = facebook.public_key_for_encryption(identifier=item)
                 if visa_key is None:
-                    self._query_document(identifier=item)
+                    if self._query_document(identifier=item):
+                        self.info(msg='querying document for member: %s, group: %s' % (item, receiver))
                     waiting.add(item)
             if len(waiting) > 0:
                 msg['error'] = {
                     'message': 'encrypt keys not found',
                     'group': str(receiver),
-                    'members': ID.revert(members=waiting)
+                    'members': ID.revert(array=waiting)
                 }
                 return False
         # receiver is OK
@@ -221,6 +226,7 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         if self._check_receiver(msg=msg):
             return super().encrypt_message(msg=msg)
         else:
+            # receiver not ready
             self.warning(msg='receiver not ready: %s' % msg.receiver)
 
     # Override
@@ -228,6 +234,7 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         if self._check_sender(msg=msg):
             return super().verify_message(msg=msg)
         else:
+            # sender not ready
             self.warning(msg='sender not ready: %s' % msg.sender)
 
     #
@@ -263,6 +270,7 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
             raise AssertionError('failed to sign message: %s' % s_msg)
         if self.send_reliable_message(msg=r_msg, priority=priority):
             return r_msg
+        # failed
 
     # Override
     def send_reliable_message(self, msg: ReliableMessage, priority: int = 0) -> bool:

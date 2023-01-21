@@ -32,9 +32,10 @@
 
 from typing import List
 
-from dimsdk import ReliableMessage
-from dimsdk import Content
-from dimsdk import BaseCommandProcessor
+from dimp import ReliableMessage
+from dimp import Content
+
+from dimsdk.cpu import BaseCommandProcessor
 
 from ...utils import Logging
 from ...common import HandshakeCommand

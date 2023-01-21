@@ -29,12 +29,11 @@
 # ==============================================================================
 
 from mkm.protocol import *
-from dkd.protocol import content_type
 from dimp.mkm import *
 from dimp.dkd import *
 from dimsdk import *
+from dimsdk.cpu import *
 from dimplugins import *
-from dimplugins.factories import *
 from dimplugins.network import NetworkType
 from dimplugins.entity import EntityID, EntityIDFactory
 
@@ -86,67 +85,71 @@ __all__ = [
     'Visa', 'Bulletin',
 
     'entity_is_user', 'entity_is_group', 'entity_is_broadcast',
-    'meta_has_seed', 'meta_type',
-    'document_type',
+    'meta_has_seed',
 
-    'BaseAddressFactory', 'BroadcastAddress',
-    'IdentifierFactory', 'Identifier',
+    'BroadcastAddress', 'Identifier',
     'ANYWHERE', 'EVERYWHERE', 'ANYONE', 'EVERYONE', 'FOUNDER',
+
+    #
+    #   MingKeMing base extends
+    #
     'BaseMeta',
     'BaseDocument', 'BaseVisa', 'BaseBulletin',
-
-    'document_identifier',
-
-    #
-    #   DaoKeDao
-    #
-    'ContentType', 'content_type',
-    'Content', 'ContentFactory',
-    'Envelope', 'EnvelopeFactory',
-    'Message', 'InstantMessage', 'SecureMessage', 'ReliableMessage',
-    'InstantMessageFactory', 'SecureMessageFactory', 'ReliableMessageFactory',
-    'InstantMessageDelegate', 'SecureMessageDelegate', 'ReliableMessageDelegate',
-
-    'BaseContent',
-    'MessageEnvelope', 'MessageEnvelopeFactory',
-    'BaseMessage',
-    'PlainMessage', 'PlainMessageFactory',
-    'EncryptedMessage', 'EncryptedMessageFactory',
-    'NetworkMessage', 'NetworkMessageFactory',
-
-    'register_message_factories',
-
-    #
-    #   DIMP
-    #
-    'TextContent', 'ForwardContent', 'ArrayContent',
-    'MoneyContent', 'TransferContent',
-    'FileContent', 'ImageContent', 'AudioContent', 'VideoContent',
-    'PageContent', 'CustomizedContent',
-    'Command', 'CommandFactory',
-    'MetaCommand', 'DocumentCommand',
-    'HistoryCommand', 'GroupCommand',
-    'InviteCommand', 'ExpelCommand', 'JoinCommand',
-    'QuitCommand', 'QueryCommand', 'ResetCommand',
+    'BaseDocumentFactory',
+    'BaseAddressFactory', 'IdentifierFactory',
 
     'EntityDelegate',
     'EntityDataSource', 'UserDataSource', 'GroupDataSource',
     'Entity', 'User', 'Group',
     'BaseEntity', 'BaseUser', 'BaseGroup',
 
+    #
+    #   DaoKeDao
+    #
+    'ContentType', 'Content', 'ContentFactory',
+    'Envelope', 'EnvelopeFactory',
+    'Message', 'InstantMessage', 'SecureMessage', 'ReliableMessage',
+    'InstantMessageFactory', 'SecureMessageFactory', 'ReliableMessageFactory',
+    'InstantMessageDelegate', 'SecureMessageDelegate', 'ReliableMessageDelegate',
+
+    #
+    #   DaoKeDao protocol extends
+    #
+    'TextContent', 'ForwardContent', 'ArrayContent',
+    'MoneyContent', 'TransferContent',
+    'FileContent', 'ImageContent', 'AudioContent', 'VideoContent',
+    'PageContent', 'CustomizedContent',
+
+    'Command', 'CommandFactory',
+    'MetaCommand', 'DocumentCommand',
+
+    'HistoryCommand', 'GroupCommand',
+    'InviteCommand', 'ExpelCommand', 'JoinCommand',
+    'QuitCommand', 'QueryCommand', 'ResetCommand',
+
+    #
+    #   DaoKeDao base extends
+    #
+    'BaseContent',
     'BaseTextContent', 'SecretContent', 'ListContent',
     'BaseMoneyContent', 'TransferMoneyContent',
     'BaseFileContent', 'ImageFileContent', 'AudioFileContent', 'VideoFileContent',
     'WebPageContent', 'AppCustomizedContent',
-    'BaseCommand', 'BaseMetaCommand', 'BaseDocumentCommand',
+    'BaseCommand',
+    'BaseMetaCommand', 'BaseDocumentCommand',
     'BaseHistoryCommand', 'BaseGroupCommand',
     'InviteGroupCommand', 'ExpelGroupCommand', 'JoinGroupCommand',
     'QuitGroupCommand', 'QueryGroupCommand', 'ResetGroupCommand',
 
-    'ContentFactoryBuilder', 'CommandFactoryBuilder',
-    'GeneralCommandFactory', 'HistoryCommandFactory', 'GroupCommandFactory',
-    'register_content_factories', 'register_command_factories',
+    # 'MessageEnvelope', 'MessageEnvelopeFactory',
+    # 'BaseMessage',
+    # 'PlainMessage', 'PlainMessageFactory',
+    # 'EncryptedMessage', 'EncryptedMessageFactory',
+    # 'NetworkMessage', 'NetworkMessageFactory',
 
+    #
+    #   Core
+    #
     'Barrack', 'Transceiver', 'Packer', 'Processor',
 
     #
@@ -154,11 +157,18 @@ __all__ = [
     #
     'ServiceProvider', 'Station', 'Bot',
 
-    'AddressNameService', 'CipherKeyDelegate', 'TwinsHelper',
-    'Facebook', 'Messenger', 'MessagePacker', 'MessageProcessor',
+    'AddressNameService', 'CipherKeyDelegate',
+    'Facebook', 'Messenger',
+    'TwinsHelper',
     'ContentProcessor', 'ContentProcessorFactory', 'ContentProcessorCreator',
+    'MessageProcessor', 'MessagePacker',
 
-    'register_core_factories',
+    'ContentFactoryBuilder', 'CommandFactoryBuilder',
+    'GeneralCommandFactory', 'HistoryCommandFactory', 'GroupCommandFactory',
+
+    # 'register_content_factories', 'register_command_factories',
+    # 'register_message_factories',
+    # 'register_all_factories',
 
     #
     #   CPU
@@ -168,29 +178,41 @@ __all__ = [
     'ForwardContentProcessor', 'ArrayContentProcessor',
     'CustomizedContentProcessor', 'CustomizedContentHandler',
     'MetaCommandProcessor', 'DocumentCommandProcessor',
-    'HistoryCommandProcessor', 'GroupCommandProcessor',
-    'InviteCommandProcessor', 'ExpelCommandProcessor', 'QuitCommandProcessor',
-    'ResetCommandProcessor', 'QueryCommandProcessor',
 
     #
     #   Plugins
     #
+    'BaseKey',
+    'BaseSymmetricKey', 'BaseAsymmetricKey',
+    'BasePublicKey', 'BasePrivateKey',
+
     'RSAPublicKey', 'RSAPrivateKey',
     'ECCPublicKey', 'ECCPrivateKey',
     'AESKey',
     'PlainKey',
 
-    'GeneralPublicFactory', 'GeneralPrivateFactory',
-    'GeneralSymmetricFactory',
+    'RSAPublicKeyFactory', 'RSAPrivateKeyFactory',
+    'ECCPublicKeyFactory', 'ECCPrivateKeyFactory',
+    'AESKeyFactory', 'PlainKeyFactory',
     'GeneralAddressFactory',
     'GeneralMetaFactory',
-    'GeneralDocumentFactory',
 
     'NetworkType',
-    'EntityID', 'EntityIDFactory',
+    'EntityID',
+    'EntityIDFactory',
 
     'BTCAddress', 'ETHAddress',
     'DefaultMeta', 'BTCMeta', 'ETHMeta',
+
+    # 'register_data_coders',
+    # 'register_data_digesters',
+    # 'register_symmetric_key_factories',
+    # 'register_asymmetric_key_factories',
+    # 'register_id_factory',
+    # 'register_address_factory',
+    # 'register_meta_factories',
+    # 'register_document_factories',
+    # 'register_plugins',
 
     #
     #   Common Protocol

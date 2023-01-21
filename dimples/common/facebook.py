@@ -77,7 +77,7 @@ class CommonFacebook(Facebook):
             users.append(usr)
         return users
 
-    @property  # Override
+    @property
     def current_user(self) -> Optional[User]:
         """ Get current user (for signing and sending message) """
         current = self.__current

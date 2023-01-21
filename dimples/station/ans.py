@@ -113,18 +113,18 @@ class ANSFactory(IDFactory):
         self.__ans = ans
 
     # Override
-    def generate_identifier(self, meta, network: int, terminal: Optional[str]) -> ID:
-        return self.__origin.generate_identifier(meta=meta, network=network, terminal=terminal)
+    def generate_id(self, meta, network: int, terminal: Optional[str] = None) -> ID:
+        return self.__origin.generate_id(meta=meta, network=network, terminal=terminal)
 
     # Override
-    def create_identifier(self, name: Optional[str], address: Address, terminal: Optional[str]) -> ID:
-        return self.__origin.create_identifier(address=address, name=name, terminal=terminal)
+    def create_id(self, name: Optional[str], address: Address, terminal: Optional[str] = None) -> ID:
+        return self.__origin.create_id(address=address, name=name, terminal=terminal)
 
     # Override
-    def parse_identifier(self, identifier: str) -> Optional[ID]:
+    def parse_id(self, identifier: str) -> Optional[ID]:
         # try ANS record
         aid = self.__ans.identifier(name=identifier)
         if aid is None:
             # parse by original factory
-            aid = self.__origin.parse_identifier(identifier=identifier)
+            aid = self.__origin.parse_id(identifier=identifier)
         return aid

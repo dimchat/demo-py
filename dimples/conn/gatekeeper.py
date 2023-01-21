@@ -71,6 +71,25 @@ class StreamServerHub(ServerHub):
         super()._remove_connection(remote=remote, local=None, connection=connection)
 
 
+class StreamClientHub(ClientHub):
+
+    def put_channel(self, channel: StreamChannel):
+        self._set_channel(remote=channel.remote_address, local=channel.local_address, channel=channel)
+
+    # Override
+    def _get_connection(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]]) -> Optional[Connection]:
+        return super()._get_connection(remote=remote, local=None)
+
+    # Override
+    def _set_connection(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]], connection: Connection):
+        super()._set_connection(remote=remote, local=None, connection=connection)
+
+    # Override
+    def _remove_connection(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]],
+                           connection: Optional[Connection]):
+        super()._remove_connection(remote=remote, local=None, connection=connection)
+
+
 def reset_send_buffer_size(conn: Connection) -> bool:
     if not isinstance(conn, BaseConnection):
         print('[SOCKET] connection error: %s' % conn)
@@ -117,11 +136,14 @@ class GateKeeper(Runner, DockerDelegate, Logging):
     # noinspection PyMethodMayBeStatic
     def _create_hub(self, delegate: ConnectionDelegate, address: Tuple[str, int], sock: Optional[socket.socket]) -> Hub:
         if sock is None:
+            # client
             assert address is not None, 'remote address empty'
-            hub = ClientHub(delegate=delegate)
+            hub = StreamClientHub(delegate=delegate)
             conn = hub.connect(remote=address)
             reset_send_buffer_size(conn=conn)
+            # TODO: reset send buffer size
         else:
+            # server
             sock.setblocking(False)
             # sock.settimeout(0.5)
             if address is None:
