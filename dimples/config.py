@@ -104,17 +104,17 @@ def str_to_bool(value: Optional[str]) -> bool:
 class Config(Dictionary):
     """ Config info from ini file """
 
-    def get_id(self, section: str, option: str) -> Optional[ID]:
+    def get_identifier(self, section: str, option: str) -> Optional[ID]:
         sub = self.get(section)
         if sub is not None:
             return ID.parse(identifier=sub.get(option))
 
-    def get_str(self, section: str, option: str) -> Optional[str]:
+    def get_string(self, section: str, option: str) -> Optional[str]:
         sub = self.get(section)
         if sub is not None:
             return sub.get(option)
 
-    def get_int(self, section: str, option: str) -> int:
+    def get_integer(self, section: str, option: str) -> int:
         sub = self.get(section)
         if sub is not None:
             val = sub.get(option)
@@ -122,7 +122,7 @@ class Config(Dictionary):
                 return int(val)
         return 0
 
-    def get_bool(self, section: str, option: str) -> bool:
+    def get_boolean(self, section: str, option: str) -> bool:
         sub = self.get(section)
         if sub is not None:
             val = sub.get(option)
@@ -134,7 +134,7 @@ class Config(Dictionary):
 
     @property
     def database_root(self) -> str:
-        path = self.get_str(section='database', option='root')
+        path = self.get_string(section='database', option='root')
         if path is None:
             return '/var/.dim'
         else:
@@ -142,7 +142,7 @@ class Config(Dictionary):
 
     @property
     def database_public(self) -> str:
-        path = self.get_str(section='database', option='public')
+        path = self.get_string(section='database', option='public')
         if path is None:
             return '%s/public' % self.database_root   # /var/.dim/public
         else:
@@ -150,7 +150,7 @@ class Config(Dictionary):
 
     @property
     def database_private(self) -> str:
-        path = self.get_str(section='database', option='private')
+        path = self.get_string(section='database', option='private')
         if path is None:
             return '%s/private' % self.database_root  # /var/.dim/private
         else:
@@ -162,16 +162,16 @@ class Config(Dictionary):
 
     @property
     def station_id(self) -> ID:
-        return self.get_id(section='station', option='id')
+        return self.get_identifier(section='station', option='id')
 
     @property
     def station_host(self) -> str:
-        ip = self.get_str(section='station', option='host')
+        ip = self.get_string(section='station', option='host')
         return '127.0.0.1' if ip is None else ip
 
     @property
     def station_port(self) -> int:
-        num = self.get_int(section='station', option='port')
+        num = self.get_integer(section='station', option='port')
         return num if num > 0 else 9394
 
     #
