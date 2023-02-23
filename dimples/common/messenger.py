@@ -41,10 +41,10 @@ from dimsdk import EntityDelegate, CipherKeyDelegate
 from dimsdk import Messenger, Packer, Processor
 
 from ..utils import Logging
+from ..utils import QueryFrequencyChecker
 
 from .dbi import MessageDBI
 
-from .checker import QueryFrequencyChecker
 from .facebook import CommonFacebook
 from .transmitter import Transmitter
 from .session import Session

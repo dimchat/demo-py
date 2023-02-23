@@ -39,8 +39,9 @@ from dimples import EntityType
 
 from ..utils import Runner, Logging
 
-from .session import ClientSession
-from .state import StateMachine, SessionState
+from .network import ClientSession
+from .network import StateMachine, SessionState
+
 from .messenger import ClientMessenger
 
 

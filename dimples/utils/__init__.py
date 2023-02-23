@@ -46,6 +46,7 @@ from .singleton import Singleton
 from .log import Log, Logging
 from .dos import Path, File, TextFile, JSONFile
 from .cache import CachePool, CacheHolder, CacheManager
+from .checker import FrequencyChecker, QueryFrequencyChecker
 
 
 __all__ = [
@@ -63,4 +64,5 @@ __all__ = [
     'Log', 'Logging',
     'Path', 'File', 'TextFile', 'JSONFile',
     'CachePool', 'CacheHolder', 'CacheManager',
+    'FrequencyChecker', 'QueryFrequencyChecker',
 ]

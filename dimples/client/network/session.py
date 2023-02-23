@@ -44,9 +44,9 @@ from dimsdk import Station
 from startrek import Docker, DockerStatus
 from startrek import Arrival
 
-from ..common import SessionDBI
-from ..conn import BaseSession
-from ..conn import MTPStreamArrival
+from ...common import SessionDBI
+from ...conn import BaseSession
+from ...conn import MTPStreamArrival
 
 
 class ClientSession(BaseSession):

@@ -235,8 +235,6 @@ __all__ = [
     #
     #   Common Extends
     #
-    'FrequencyChecker', 'QueryFrequencyChecker',
-
     'CommonFacebook',
     'CommonMessenger',
     'Transmitter',

@@ -31,8 +31,8 @@
 
 from .cpu import *
 
-from .session import ClientSession
-from .state import SessionState
+from .network import ClientSession
+from .network import SessionState
 
 from .messenger import ClientMessenger
 from .packer import ClientMessagePacker

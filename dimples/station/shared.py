@@ -27,10 +27,10 @@ import getopt
 import sys
 from typing import Optional, Tuple
 
-from dimsdk import ID
+from dimsdk import Address, ID, IDFactory
 
 from ..utils import Singleton
-from ..common import CommonFacebook
+from ..common import AddressNameServer, CommonFacebook
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
 from ..database import Storage
@@ -41,7 +41,31 @@ from ..server import GroupDeliver, BroadcastDeliver
 from ..server import DeliverWorker, DefaultRoamer
 
 from ..config import Config
-from .ans import AddressNameService, AddressNameServer, ANSFactory
+
+
+class ANSFactory(IDFactory):
+
+    def __init__(self, factory: IDFactory, ans: AddressNameServer):
+        super().__init__()
+        self.__origin = factory
+        self.__ans = ans
+
+    # Override
+    def generate_id(self, meta, network: int, terminal: Optional[str] = None) -> ID:
+        return self.__origin.generate_id(meta=meta, network=network, terminal=terminal)
+
+    # Override
+    def create_id(self, name: Optional[str], address: Address, terminal: Optional[str] = None) -> ID:
+        return self.__origin.create_id(address=address, name=name, terminal=terminal)
+
+    # Override
+    def parse_id(self, identifier: str) -> Optional[ID]:
+        # try ANS record
+        aid = self.__ans.identifier(name=identifier)
+        if aid is None:
+            # parse by original factory
+            aid = self.__origin.parse_id(identifier=identifier)
+        return aid
 
 
 @Singleton
@@ -137,7 +161,7 @@ def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
     return facebook
 
 
-def create_ans(config: Config) -> AddressNameService:
+def create_ans(config: Config) -> AddressNameServer:
     """ Step 4: create ANS """
     ans = AddressNameServer()
     factory = ID.factory()

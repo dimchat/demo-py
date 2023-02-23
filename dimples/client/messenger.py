@@ -37,11 +37,11 @@ from dimples import Station
 from dimples import Envelope, InstantMessage
 from dimples import MetaCommand, DocumentCommand
 
-from ..common import QueryFrequencyChecker
+from ..utils import QueryFrequencyChecker
 from ..common import HandshakeCommand, ReportCommand, LoginCommand
 from ..common import CommonMessenger
 
-from .session import ClientSession
+from .network import ClientSession
 
 
 class ClientMessenger(CommonMessenger):

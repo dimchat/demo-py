@@ -117,6 +117,6 @@ def get_client_session(messenger=None, cpu=None):
     if messenger is None:
         messenger = get_client_messenger(cpu=cpu)
     session = messenger.session
-    from ..session import ClientSession
+    from ..network.session import ClientSession
     assert isinstance(session, ClientSession), 'session error: %s' % session
     return session

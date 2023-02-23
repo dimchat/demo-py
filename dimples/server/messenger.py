@@ -38,7 +38,7 @@ from dimsdk import Envelope, MetaCommand, DocumentCommand
 from dimsdk import InstantMessage
 from dimsdk import SecureMessage, ReliableMessage
 
-from ..common import QueryFrequencyChecker
+from ..utils import QueryFrequencyChecker
 from ..common import HandshakeCommand
 from ..common import MessageDBI
 from ..common import CommonMessenger, CommonFacebook

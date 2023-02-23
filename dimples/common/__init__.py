@@ -32,7 +32,7 @@
 from .protocol import *
 from .dbi import *
 
-from .checker import FrequencyChecker, QueryFrequencyChecker
+from .ans import AddressNameServer
 from .facebook import CommonFacebook
 from .messenger import CommonMessenger
 from .transmitter import Transmitter
@@ -65,8 +65,7 @@ __all__ = [
     #
     #   common
     #
-    'FrequencyChecker', 'QueryFrequencyChecker',
-
+    'AddressNameServer',
     'CommonFacebook',
     'CommonMessenger',
     'Transmitter',

@@ -23,48 +23,6 @@
 # SOFTWARE.
 # ==============================================================================
 
-
-"""
-    Session States
-    ~~~~~~~~~~~~~~
-
-        +--------------+                +------------------+
-        |  0.Default   | .............> |   1.Connecting   |
-        +--------------+                +------------------+
-            A       A       ................:       :
-            :       :       :                       :
-            :       :       V                       V
-            :   +--------------+        +------------------+
-            :   |   5.Error    | <..... |   2.Connected    |
-            :   +--------------+        +------------------+
-            :       A       A                   A   :
-            :       :       :................   :   :
-            :       :                       :   :   V
-        +--------------+                +------------------+
-        |  4.Running   | <............. |  3.Handshaking   |
-        +--------------+                +------------------+
-
-    Transitions
-    ~~~~~~~~~~~
-
-        0.1 - when session ID was set, change state 'default' to 'connecting';
-
-        1.2 - when connection built, change state 'connecting' to 'connected';
-        1.5 - if connection failed, change state 'connecting' to 'error';
-
-        2.3 - if no error occurs, change state 'connected' to 'handshaking';
-        2.5 - if connection lost, change state 'connected' to 'error';
-
-        3.2 - if handshaking expired, change state 'handshaking' to 'connected';
-        3.4 - when session key was set, change state 'handshaking' to 'running';
-        3.5 - if connection lost, change state 'handshaking' to 'error';
-
-        4.0 - when session ID/key erased, change state 'running' to 'default';
-        4.5 - when connection lost, change state 'running' to 'error';
-
-        5.0 - when connection reset, change state 'error' to 'default'.
-"""
-
 import weakref
 from abc import ABC
 from typing import Optional
