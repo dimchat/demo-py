@@ -47,6 +47,7 @@ __all__ = [
     'ReceiptCommand',
     'LoginCommand',
     'ReportCommand',
+    'AnsCommand',
 
     #
     #   Database Interface

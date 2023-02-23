@@ -32,6 +32,7 @@ from .handshake import HandshakeCommand, HandshakeState
 from .receipt import ReceiptCommand
 from .login import LoginCommand
 from .report import ReportCommand
+from .ans import AnsCommand
 
 
 def register_all_factories():
@@ -46,6 +47,8 @@ def register_all_factories():
     Command.register(cmd=LoginCommand.LOGIN, factory=CommandFactoryBuilder(command_class=LoginCommand))
     # Report
     Command.register(cmd=ReportCommand.REPORT, factory=CommandFactoryBuilder(command_class=ReportCommand))
+    # ANS
+    Command.register(cmd=AnsCommand.ANS, factory=CommandFactoryBuilder(command_class=AnsCommand))
 
 
 register_all_factories()
@@ -58,4 +61,5 @@ __all__ = [
     'ReceiptCommand',
     'LoginCommand',
     'ReportCommand',
+    'AnsCommand',
 ]

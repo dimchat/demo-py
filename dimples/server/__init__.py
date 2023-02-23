@@ -56,7 +56,7 @@ __all__ = [
     #   CPU
     #
     'HandshakeCommandProcessor', 'LoginCommandProcessor', 'ReportCommandProcessor',
-    'DocumentCommandProcessor', 'ReceiptCommandProcessor',
+    'AnsCommandProcessor', 'DocumentCommandProcessor', 'ReceiptCommandProcessor',
 
     # Session
     'ServerSession', 'SessionCenter',  # 'SessionPool',
