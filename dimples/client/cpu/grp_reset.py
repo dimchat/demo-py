@@ -48,6 +48,8 @@ from dimp import ReliableMessage
 from dimp import Content
 from dimp import GroupCommand, InviteCommand, ResetCommand
 
+from ...common import CommonMessenger
+
 from .history import GroupCommandProcessor
 
 
@@ -57,8 +59,10 @@ class ResetCommandProcessor(GroupCommandProcessor):
     STR_RESET_NOT_ALLOWED = 'Sorry, you are not allowed to reset this group.'
 
     def _query_owner(self, owner: ID, group: ID):
-        # TODO: send 'query' group command to owner
-        pass
+        command = GroupCommand.query(group=group)
+        messenger = self.messenger
+        assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
+        messenger.send_content(sender=None, receiver=owner, content=command, priority=1)
 
     def _temporary_save(self, content: GroupCommand, sender: ID) -> List[Content]:
         facebook = self.facebook

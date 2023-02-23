@@ -24,7 +24,7 @@
 # ==============================================================================
 
 from configparser import ConfigParser
-from typing import Optional, Dict, List, Set, Tuple
+from typing import Optional, Dict, List, Tuple
 
 from mkm.types import Dictionary
 from mkm import ID
@@ -79,17 +79,6 @@ def parse_nodes(nodes: Dict[str, str]) -> List[Node]:
         sid = ID.parse(identifier=pair[1].strip())
         stations.append(Node(name=name, host=host, port=port, identifier=sid))
     return stations
-
-
-def parse_ans(info: Dict[str, str]) -> Set[Tuple[str, ID]]:
-    records = set()
-    for name in info:
-        value = info[name]
-        identifier = ID.parse(identifier=value)
-        assert identifier is not None, 'ANS record error: %s => %s' % (name, value)
-        item = (name, identifier)
-        records.add(item)
-    return records
 
 
 def str_to_bool(value: Optional[str]) -> bool:
@@ -179,11 +168,8 @@ class Config(Dictionary):
     #
 
     @property
-    def ans_records(self) -> Set[Tuple[str, ID]]:
-        ans = self.get('ans')
-        if ans is None:
-            return set()
-        return parse_ans(info=ans)
+    def ans_records(self) -> Optional[Dict[str, str]]:
+        return self.get('ans')
 
     #
     #   neighbor stations

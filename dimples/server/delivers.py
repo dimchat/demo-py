@@ -37,7 +37,7 @@ from dimsdk import ReliableMessage
 from dimsdk import Content
 from dimsdk import Station
 
-from ..utils import Logging
+from ..utils import Log, Logging
 from ..common import ReceiptCommand
 from ..common import SessionDBI
 from ..common import CommonFacebook
@@ -61,14 +61,7 @@ class BroadcastDeliver(Deliver, Logging):
 
     def __get_recipients(self, msg: ReliableMessage, receiver: ID) -> Set[ID]:
         recipients = set()
-        if receiver in ['archivist@anywhere', 'archivists@everywhere']:
-            # get bot for search command
-            self.debug(msg='forward to archivist: %s' % receiver)
-            # get from ANS
-            bot = ID.parse(identifier='archivist')
-            if bot is not None:
-                recipients.add(bot)
-        elif receiver in [Station.EVERY, EVERYONE]:
+        if receiver == Station.EVERY or recipients == EVERYONE:
             # if this message sent to 'stations@everywhere' or 'everyone@everywhere'
             # get all neighbor stations to broadcast, but
             # traced nodes should be ignored to avoid cycled delivering
@@ -78,6 +71,7 @@ class BroadcastDeliver(Deliver, Logging):
                 # should not happen
                 traces = []
             db = self.database
+            # include all neighbor stations
             neighbors = db.all_neighbors()
             for item in neighbors:
                 sid = item[2]
@@ -85,7 +79,19 @@ class BroadcastDeliver(Deliver, Logging):
                     self.warning(msg='ignore node: %s' % str(item))
                     continue
                 recipients.add(sid)
+            # include 'archivist' as 'everyone@everywhere'
+            if receiver == EVERYONE:
+                bot = ans_id(name='archivist')
+                if bot is not None:
+                    recipients.add(bot)
             self.debug(msg='recipients: %s => %s' % (receiver, recipients))
+        # elif receiver == 'archivist@anywhere' or receiver == 'archivists@everywhere':
+        #     # get bot for search command
+        #     self.debug(msg='forward to archivist: %s' % receiver)
+        #     # get from ANS
+        #     bot = ans_id(name='archivist')
+        #     if bot is not None:
+        #         recipients.add(bot)
         else:
             self.warning(msg='unknown broadcast ID: %s' % receiver)
         return recipients
@@ -102,11 +108,12 @@ class BroadcastDeliver(Deliver, Logging):
         # get all actual recipients
         recipients = self.__get_recipients(msg=msg, receiver=receiver)
         if recipients is None or len(recipients) == 0:
-            # # error
-            # text = 'Broadcast not deliver'
-            # cmd = ReceiptCommand.create(text=text, msg=msg)
-            # return [cmd]
-            return []
+            # error
+            self.error(msg='Broadcast recipients not found: %s' % receiver)
+            text = 'Broadcast recipients not found'
+            cmd = ReceiptCommand.create(text=text, msg=msg)
+            return [cmd]
+            # return []
         # deliver to all recipients one by one
         self.info(msg='delivering message (%s) from %s to %s, actual receivers: %s'
                       % (get_sig(msg=msg), sender, receiver, ID.revert(recipients)))
@@ -139,7 +146,7 @@ class GroupDeliver(Deliver, Logging):
         if assistants is None or len(assistants) == 0:
             # group assistant not found
             # get from ANS?
-            return ID.parse(identifier='assistant')
+            return ans_id(name='assistant')
         center = SessionCenter()
         for bot in assistants:
             if center.is_active(identifier=bot):
@@ -156,7 +163,7 @@ class GroupDeliver(Deliver, Logging):
         bot = self.__get_assistant(group=receiver)
         if bot is None:
             # error
-            self.error(msg='group assistant not found: %s' % receiver)
+            self.error(msg='Group assistant not found: %s' % receiver)
             text = 'Group assistant not found'
             cmd = ReceiptCommand.create(text=text, msg=msg)
             return [cmd]
@@ -179,3 +186,10 @@ class GroupDeliver(Deliver, Logging):
         cmd = ReceiptCommand.create(text=text, msg=msg)
         cmd['recipients'] = [str(bot)]
         return [cmd]
+
+
+def ans_id(name: str) -> Optional[ID]:
+    try:
+        return ID.parse(identifier=name)
+    except ValueError as e:
+        Log.warning(msg='ANS record not exists: %s, %s' % (name, e))

@@ -143,7 +143,9 @@ def create_ans(config: Config) -> AddressNameService:
     factory = ID.factory()
     ID.register(factory=ANSFactory(factory=factory, ans=ans))
     # load ANS records from 'config.ini'
-    ans.fix(fixed=config.ans_records)
+    ans_records = config.ans_records
+    if ans_records is not None:
+        ans.fix(records=ans_records)
     return ans
 
 

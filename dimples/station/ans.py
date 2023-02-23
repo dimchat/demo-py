@@ -30,7 +30,7 @@
     A map for short name to ID, just like DNS
 """
 
-from typing import Optional, List, Set, Tuple
+from typing import Optional, List, Dict
 
 from dimsdk import IDFactory
 from dimsdk import ID, Address
@@ -50,10 +50,17 @@ class AddressNameServer(AddressNameService):
             'owner': ANYONE,
             'founder': FOUNDER,
         }
+        # reserved names
+        reserved = {}  # str => boolean
+        for keyword in self.KEYWORDS:
+            reserved[keyword] = True
+        self.__reserved = reserved
+        # names map
+        self.__names = {}  # ID => List[str]
 
     # Override
     def is_reserved(self, name: str) -> bool:
-        return name in self.KEYWORDS
+        return self.__reserved.get(name)
 
     # Override
     def identifier(self, name: str) -> Optional[ID]:
@@ -63,25 +70,30 @@ class AddressNameServer(AddressNameService):
     # Override
     def names(self, identifier: ID) -> List[str]:
         """ Get all short names with the same ID """
-        array = []
-        for (key, value) in self.__caches.items():
-            if key == identifier:
-                array.append(value)
+        array = self.__names.get(identifier)
+        if array is None:
+            array = []
+            # TODO: update all tables?
+            for name in self.__caches:
+                if identifier == self.__caches[name]:
+                    array.append(name)
+            self.__names[identifier] = array
         return array
 
+    # protected
     def cache(self, name: str, identifier: ID = None) -> bool:
         if self.is_reserved(name):
             # this name is reserved, cannot register
             return False
         if identifier is None:
             self.__caches.pop(name, None)
+            # TODO: only remove one table?
+            self.__names.clear()
         else:
             self.__caches[name] = identifier
+            # names changed, remove the table of names for this ID
+            self.__names.pop(identifier, None)
         return True
-
-    def load(self):
-        # TODO: load all ANS records from database
-        pass
 
     def save(self, name: str, identifier: ID = None) -> bool:
         """
@@ -95,14 +107,18 @@ class AddressNameServer(AddressNameService):
             # TODO: save new record into database
             return True
 
-    def fix(self, fixed: Set[Tuple[str, ID]]):
+    def fix(self, records: Dict[str, str]) -> int:
         """ remove the keywords temporary before save new records """
-        self.KEYWORDS.remove('assistant')
-        # self.KEYWORDS.remove('station')
-        for item in fixed:
-            self.save(name=item[0], identifier=item[1])
-        # self.KEYWORDS.append('station')
-        self.KEYWORDS.append('assistant')
+        count = 0
+        self.__reserved['assistant'] = False
+        # self.__reserved['station'] = False
+        for alias in records:
+            identifier = ID.parse(identifier=records[alias])
+            if self.save(name=alias, identifier=identifier):
+                count += 1
+        # self.__reserved['station'] = True
+        self.__reserved['assistant'] = True
+        return count
 
 
 class ANSFactory(IDFactory):
