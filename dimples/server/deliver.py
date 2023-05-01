@@ -40,7 +40,7 @@ from dimsdk import ReliableMessage
 
 from ..utils import Logging
 from ..utils import Runner
-from ..common import MessageDBI
+from ..common import MessageDBI, ReceiptCommand
 
 from .pusher import Pusher
 from .dispatcher import Deliver
@@ -94,7 +94,9 @@ class BaseDeliver(Runner, Deliver, Logging, ABC):
     def deliver_message(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
         assert receiver.is_user and not receiver.is_broadcast, 'receiver error: %s' % receiver
         self.__append(msg=msg, receiver=receiver)
-        return []
+        text = 'Message received'
+        cmd = ReceiptCommand.create(text=text, msg=msg)
+        return [cmd]
 
     # Override
     def process(self) -> bool:
