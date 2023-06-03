@@ -35,7 +35,7 @@
     Query/respond ANS records
 """
 
-from typing import Optional, Union, Any, List, Dict
+from typing import Union, Any, List, Dict
 
 from dimsdk import Command, BaseCommand
 
@@ -73,17 +73,18 @@ class AnsCommand(BaseCommand):
     #   ANS aliases
     #
     @property
-    def names(self) -> Optional[List[str]]:
-        string = self.get('names')
-        if isinstance(string, str):
-            return string.split()
+    def names(self) -> List[str]:
+        string = self.get_str('names')
+        return [] if string is None else string.split()
 
     @property
-    def records(self) -> Optional[Dict[str, str]]:
-        return self.get('records')
+    def records(self) -> Dict[str, str]:
+        dictionary = self.get('records')
+        return {} if dictionary is None else dictionary
 
     @records.setter
     def records(self, value: Dict[str, str]):
+        """ get map for (name => ID string) """
         self['records'] = value
 
     #
@@ -91,14 +92,14 @@ class AnsCommand(BaseCommand):
     #
 
     @classmethod
-    def query(cls, names: Union[str, list]) -> Command:
-        if isinstance(names, list):
+    def query(cls, names: Union[str, List[str]]) -> Command:
+        if isinstance(names, List):
             names = ' '.join(names)
         return cls(names=names)
 
     @classmethod
-    def response(cls, names: Union[str, list], records: Dict[str, str]) -> Command:
-        if isinstance(names, list):
+    def response(cls, names: Union[str, List[str]], records: Dict[str, str]) -> Command:
+        if isinstance(names, List):
             names = ' '.join(names)
         command = cls(names=names)
         command.records = records

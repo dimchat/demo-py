@@ -35,8 +35,7 @@ from .dbi import *
 from .ans import AddressNameServer
 from .facebook import CommonFacebook
 from .messenger import CommonMessenger
-from .transmitter import Transmitter
-from .session import Session
+from .session import Transmitter, Session
 
 
 __all__ = [
@@ -53,14 +52,15 @@ __all__ = [
     #   Database Interface
     #
     'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
-    'UserDBI', 'GroupDBI',
+    'UserDBI', 'ContactDBI', 'GroupDBI',
     'AccountDBI',
-
-    'LoginDBI', 'ProviderDBI',
-    'SessionDBI',
 
     'ReliableMessageDBI', 'CipherKeyDBI',
     'MessageDBI',
+
+    'LoginDBI', 'ProviderDBI', 'StationDBI',
+    'SessionDBI',
+    'SocketAddress',
 
     #
     #   common

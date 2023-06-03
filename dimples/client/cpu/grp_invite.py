@@ -91,7 +91,13 @@ class InviteCommandProcessor(ResetCommandProcessor):
             members.append(item)
         # 2.3. do invite
         if len(add_list) > 0:
-            if facebook.save_members(members=members, identifier=group):
+            man = group_manager()
+            if man.save_members(members=members, group=group):
                 content['added'] = ID.revert(add_list)
         # 3. response (no need to response this group command)
         return []
+
+
+def group_manager():
+    from ..group import GroupManager
+    return GroupManager()

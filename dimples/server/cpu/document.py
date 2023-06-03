@@ -104,7 +104,7 @@ def get_login_msg(doc_id: ID, sender: ID, node: ID, database: SessionDBI) -> Opt
         # no need to respond LoginCommand message to a bot,
         # just ignore it
         return None
-    cmd, msg = database.login_command_message(identifier=doc_id)
+    cmd, msg = database.login_command_message(user=doc_id)
     if cmd is not None:
         if sender.type == EntityType.STATION:
             # this is a request from another station.

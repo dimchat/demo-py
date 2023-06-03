@@ -71,10 +71,15 @@ class BroadcastDeliver(Deliver, Logging):
                 # should not happen
                 traces = []
             db = self.database
-            # include all neighbor stations
-            neighbors = db.all_neighbors()
+            # FIXME: get neighbor station ID
+            providers = db.all_providers()
+            assert len(providers) > 0, 'service provider not found'
+            gsp = providers[0][0]
+            neighbors = db.all_stations(provider=gsp)
             for item in neighbors:
-                sid = item[2]
+                # FIXME: test
+                sid = ID.parse(identifier='gsp-s002@wpjUWg1oYDnkHh74tHQFPxii6q9j3ymnyW')
+                # sid = item[2]
                 if sid is None or sid in traces:
                     self.warning(msg='ignore node: %s' % str(item))
                     continue

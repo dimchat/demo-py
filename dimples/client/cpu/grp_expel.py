@@ -90,7 +90,13 @@ class ExpelCommandProcessor(GroupCommandProcessor):
             members.remove(item)
         # 2.3. do expel
         if len(remove_list) > 0:
-            if facebook.save_members(members=members, identifier=group):
+            man = group_manager()
+            if man.save_members(members=members, group=group):
                 content['removed'] = ID.revert(remove_list)
         # 3. response (no need to response this group command)
         return []
+
+
+def group_manager():
+    from ..group import GroupManager
+    return GroupManager()

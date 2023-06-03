@@ -30,7 +30,7 @@
     Transform and send message
 """
 
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from dimsdk import EntityType, ID, ANYONE
 from dimsdk import Station
@@ -64,7 +64,7 @@ class ServerMessenger(CommonMessenger):
         self.__filter = checker
 
     # Override
-    def _query_meta(self, identifier: ID) -> bool:
+    def query_meta(self, identifier: ID) -> bool:
         checker = QueryFrequencyChecker()
         if not checker.meta_query_expired(identifier=identifier):
             # query not expired yet
@@ -84,7 +84,7 @@ class ServerMessenger(CommonMessenger):
         return True
 
     # Override
-    def _query_document(self, identifier: ID) -> bool:
+    def query_document(self, identifier: ID) -> bool:
         checker = QueryFrequencyChecker()
         if not checker.document_query_expired(identifier=identifier):
             # query not expired yet
@@ -102,6 +102,21 @@ class ServerMessenger(CommonMessenger):
         dispatcher = Dispatcher()
         dispatcher.deliver_message(msg=r_msg, receiver=stations)
         return True
+
+    # Override
+    def query_members(self, identifier: ID) -> bool:
+        # station will never process group info
+        return True
+
+    # Override
+    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
+        # TODO: suspend message for waiting msg.sender's meta/visa
+        pass
+
+    # Override
+    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
+        # TODO: suspend message for waiting msg.receiver's visa
+        pass
 
     # Override
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:

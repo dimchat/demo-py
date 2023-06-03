@@ -51,12 +51,12 @@ setup(
         # 'pycryptodome',  # 3.14.1
         # 'base58',  # 1.0.3
         # 'ecdsa',   # 0.16.1
-        'dimplugins>=0.1.3',
+        'dimplugins>=0.1.4',
 
-        'dimsdk>=0.8.4',
-        'dimp>=0.12.6',
-        'dkd>=0.12.6',
-        'mkm>=0.12.6',
+        'dimsdk>=0.8.5',
+        'dimp>=0.12.8',
+        'dkd>=0.12.7',
+        'mkm>=0.12.7',
 
         'startrek>=0.4.1',
         'tcp>=0.4.1',

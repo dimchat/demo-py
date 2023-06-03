@@ -72,15 +72,16 @@ class ResetCommandProcessor(GroupCommandProcessor):
         if new_members is None or len(new_members) == 0:
             text = self.STR_RESET_CMD_ERROR
             return self._respond_text(text=text, group=group)
+        man = group_manager()
         for item in new_members:
             if facebook.meta(identifier=item) is None:
                 # TODO: waiting for member's meta?
                 continue
-            elif not facebook.is_owner(member=item, group=group):
+            elif not man.is_owner(member=item, group=group):
                 # not owner, skip it
                 continue
             # it's a full list, save it now
-            if facebook.save_members(members=new_members, identifier=group):
+            if man.save_members(members=new_members, group=group):
                 if item != sender:
                     # NOTICE: to prevent counterfeit,
                     #         query the owner for newest member-list
@@ -137,10 +138,16 @@ class ResetCommandProcessor(GroupCommandProcessor):
                 add_list.append(item)
         # 2.4. do reset
         if len(add_list) > 0 or len(remove_list) > 0:
-            if facebook.save_members(members=new_members, identifier=group):
+            man = group_manager()
+            if man.save_members(members=new_members, group=group):
                 if len(add_list) > 0:
                     content['added'] = ID.revert(add_list)
                 if len(remove_list) > 0:
                     content['removed'] = ID.revert(remove_list)
         # 3. response (no need to response this group command)
         return []
+
+
+def group_manager():
+    from ..group import GroupManager
+    return GroupManager()

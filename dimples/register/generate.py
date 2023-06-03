@@ -26,7 +26,6 @@
 from typing import List
 
 from mkm.crypto import PrivateKey, SignKey
-from mkm.protocol import entity_is_group, meta_has_seed
 from mkm import EntityType, ID
 from mkm import MetaType, Meta
 from mkm import Document, Visa, Bulletin
@@ -70,10 +69,10 @@ class AccountInfo:
         # save keys
         private_key = self.private_key
         if private_key is not None:
-            db.save_private_key(key=private_key, identifier=identifier, key_type=PrivateKeyStorage.ID_KEY_TAG)
+            db.save_private_key(key=private_key, user=identifier, key_type=PrivateKeyStorage.ID_KEY_TAG)
         msg_keys = self.msg_keys
         for key in msg_keys:
-            db.save_private_key(key=key, identifier=identifier, key_type=PrivateKeyStorage.MSG_KEY_TAG)
+            db.save_private_key(key=key, user=identifier, key_type=PrivateKeyStorage.MSG_KEY_TAG)
         # save meta & document
         db.save_meta(meta=self.meta, identifier=identifier)
         return db.save_document(document=self.document)
@@ -207,9 +206,9 @@ def generate(db: AccountDBI) -> bool:
         default_seed = 'station'
     elif network in [EntityType.BOT, NetworkType.BOT]:
         default_seed = 'bot'
-    elif entity_is_group(network=network_to_type(network=network)):
+    elif EntityType.is_group(network=network_to_type(network=network)):
         default_seed = 'group'
-    elif meta_has_seed(version=version):
+    elif MetaType.has_seed(version=version):
         default_seed = 'user'
     else:
         # BTC/ETH address as ID without seed
@@ -227,11 +226,11 @@ def generate(db: AccountDBI) -> bool:
     #
     if network in [EntityType.STATION, NetworkType.STATION]:
         info = gen_station(network=network, seed=seed)
-    elif entity_is_group(network=network_to_type(network=network)):
+    elif EntityType.is_group(network=network_to_type(network=network)):
         fid = input('>>> please input founder ID: ')
         founder = ID.parse(identifier=fid)
         assert founder is not None and founder.is_user, 'group founder error: %s' % fid
-        sign_key = db.private_key_for_visa_signature(identifier=founder)
+        sign_key = db.private_key_for_visa_signature(user=founder)
         assert sign_key is not None, 'founder private key not found: %s' % founder
         info = gen_group(network=network, seed=seed, founder=founder, sign_key=sign_key)
     else:

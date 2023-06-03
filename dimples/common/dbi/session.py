@@ -24,7 +24,7 @@
 # ==============================================================================
 
 from abc import ABC, abstractmethod
-from typing import Optional, Set, Tuple
+from typing import Optional, List, Tuple
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
@@ -39,38 +39,66 @@ class LoginDBI(ABC):
     #   login command message
     #
     @abstractmethod
-    def login_command_message(self, identifier: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
+    def login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
         raise NotImplemented
 
     @abstractmethod
-    def save_login_command_message(self, identifier: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
+    def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
         raise NotImplemented
 
 
 class ProviderDBI(ABC):
     """ Provider Stations Table """
 
-    #
-    #   neighbor stations
-    #
+    # default service provider
+    GSP = 'gsp@everywhere'
+
     @abstractmethod
-    def all_neighbors(self) -> Set[Tuple[str, int, Optional[ID]]]:
-        """ get a set of (host, port, ID) """
+    def all_providers(self) -> List[Tuple[ID, int]]:
+        """ get list of (SP_ID, chosen) """
         raise NotImplemented
 
     @abstractmethod
-    def get_neighbor(self, host: str, port: int) -> Optional[ID]:
+    def add_provider(self, provider: ID, chosen: int = 0) -> bool:
         raise NotImplemented
 
     @abstractmethod
-    def add_neighbor(self, host: str, port: int, identifier: ID = None) -> bool:
+    def update_provider(self, provider: ID, chosen: int) -> bool:
         raise NotImplemented
 
     @abstractmethod
-    def del_neighbor(self, host: str, port: int) -> Optional[ID]:
+    def remove_provider(self, provider: ID) -> bool:
         raise NotImplemented
 
 
-class SessionDBI(LoginDBI, ProviderDBI, ABC):
+SocketAddress = Tuple[str, int]
+
+
+class StationDBI(ABC):
+
+    @abstractmethod
+    def all_stations(self, provider: ID) -> List[Tuple[SocketAddress, ID, int]]:
+        """ get list of (host, port, SP_ID, chosen) """
+        raise NotImplemented
+
+    @abstractmethod
+    def add_station(self, host: str, port: int, provider: ID, chosen: int = 0) -> bool:
+        raise NotImplemented
+
+    @abstractmethod
+    def update_station(self, host: str, port: int, provider: ID, chosen: int) -> bool:
+        raise NotImplemented
+
+    @abstractmethod
+    def remove_station(self, host: str, port: int, provider: ID) -> bool:
+        raise NotImplemented
+
+    @abstractmethod
+    def remove_stations(self, provider: ID) -> bool:
+        raise NotImplemented
+
+
+# noinspection PyAbstractClass
+class SessionDBI(LoginDBI, ProviderDBI, StationDBI, ABC):
     """ Session Database """
     pass

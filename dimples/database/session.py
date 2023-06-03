@@ -23,15 +23,16 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, Set, Tuple
+from typing import Optional, List, Tuple
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
 
+from ..common import SocketAddress
 from ..common import SessionDBI, LoginCommand
 
 from .t_login import LoginTable
-from .t_provider import ProviderTable
+from .t_station import StationTable
 
 
 class SessionDatabase(SessionDBI):
@@ -43,38 +44,62 @@ class SessionDatabase(SessionDBI):
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         self.__login_table = LoginTable(root=root, public=public, private=private)
-        self.__provider_table = ProviderTable(root=root, public=public, private=private)
+        self.__station_table = StationTable(root=root, public=public, private=private)
 
     def show_info(self):
         self.__login_table.show_info()
-        self.__provider_table.show_info()
+        self.__station_table.show_info()
 
     #
     #   Login DBI
     #
 
-    def login_command_message(self, identifier: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
-        return self.__login_table.login_command_message(identifier=identifier)
+    def login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
+        return self.__login_table.login_command_message(user=user)
 
-    def save_login_command_message(self, identifier: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
-        return self.__login_table.save_login_command_message(identifier=identifier, content=content, msg=msg)
+    def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
+        return self.__login_table.save_login_command_message(user=user, content=content, msg=msg)
 
     #
     #   Provider DBI
     #
 
     # Override
-    def all_neighbors(self) -> Set[Tuple[str, int, Optional[ID]]]:
-        return self.__provider_table.all_neighbors()
+    def all_providers(self) -> List[Tuple[ID, int]]:
+        return self.__station_table.all_providers()
 
     # Override
-    def get_neighbor(self, host: str, port: int) -> Optional[ID]:
-        return self.__provider_table.get_neighbor(host=host, port=port)
+    def add_provider(self, provider: ID, chosen: int = 0) -> bool:
+        return self.__station_table.add_provider(provider=provider, chosen=chosen)
 
     # Override
-    def add_neighbor(self, host: str, port: int, identifier: ID = None) -> bool:
-        return self.__provider_table.add_neighbor(host=host, port=port, identifier=identifier)
+    def update_provider(self, provider: ID, chosen: int) -> bool:
+        return self.__station_table.update_provider(provider=provider, chosen=chosen)
 
     # Override
-    def del_neighbor(self, host: str, port: int) -> Optional[ID]:
-        return self.__provider_table.del_neighbor(host=host, port=port)
+    def remove_provider(self, provider: ID) -> bool:
+        return self.__station_table.remove_provider(provider=provider)
+
+    #
+    #   Station DBI
+    #
+
+    # Override
+    def all_stations(self, provider: ID) -> List[Tuple[SocketAddress, ID, int]]:
+        return self.__station_table.all_stations(provider=provider)
+
+    # Override
+    def add_station(self, host: str, port: int, provider: ID, chosen: int = 0) -> bool:
+        return self.__station_table.add_station(host=host, port=port, provider=provider, chosen=chosen)
+
+    # Override
+    def update_station(self, host: str, port: int, provider: ID, chosen: int) -> bool:
+        return self.__station_table.update_station(host=host, port=port, provider=provider, chosen=chosen)
+
+    # Override
+    def remove_station(self, host: str, port: int, provider: ID) -> bool:
+        return self.__station_table.remove_station(host=host, port=port, provider=provider)
+
+    # Override
+    def remove_stations(self, provider: ID) -> bool:
+        return self.__station_table.remove_stations(provider=provider)

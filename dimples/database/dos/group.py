@@ -55,19 +55,19 @@ class GroupStorage(Storage, GroupDBI):
     #
 
     # Override
-    def founder(self, identifier: ID) -> Optional[ID]:
+    def founder(self, group: ID) -> Optional[ID]:
         # TODO: load group founder
         pass
 
     # Override
-    def owner(self, identifier: ID) -> Optional[ID]:
+    def owner(self, group: ID) -> Optional[ID]:
         # TODO: load group owner
         pass
 
     # Override
-    def members(self, identifier: ID) -> List[ID]:
+    def members(self, group: ID) -> List[ID]:
         """ load members from file """
-        path = self.__members_path(identifier=identifier)
+        path = self.__members_path(identifier=group)
         self.info(msg='Loading members from: %s' % path)
         contacts = self.read_json(path=path)
         if contacts is None:
@@ -76,19 +76,44 @@ class GroupStorage(Storage, GroupDBI):
         return ID.convert(array=contacts)
 
     # Override
-    def assistants(self, identifier: ID) -> List[ID]:
-        # TODO: load group assistants
-        pass
-
-    # Override
-    def save_members(self, members: List[ID], identifier: ID) -> bool:
+    def save_members(self, members: List[ID], group: ID) -> bool:
         """ save members into file """
-        path = self.__members_path(identifier=identifier)
+        path = self.__members_path(identifier=group)
         self.info(msg='Saving members into: %s' % path)
         return self.write_json(container=ID.revert(array=members), path=path)
 
     # Override
-    def save_assistants(self, assistants: List[ID], identifier: ID) -> bool:
+    def add_member(self, member: ID, group: ID) -> bool:
+        array = self.members(group=group)
+        if member in array:
+            self.warning(msg='member exists: %s, group: %s' % (member, group))
+            return True
+        array.append(member)
+        return self.save_members(members=array, group=group)
+
+    # Override
+    def remove_member(self, member: ID, group: ID) -> bool:
+        array = self.members(group=group)
+        if member not in array:
+            self.warning(msg='member not exists: %s, group: %s' % (member, group))
+            return True
+        array.remove(member)
+        return self.save_members(members=array, group=group)
+
+    # Override
+    def remove_group(self, group: ID) -> bool:
+        # TODO: remove group
+        self.warning(msg='TODO: remove group: %s' % group)
+        return False
+
+    # Override
+    def assistants(self, group: ID) -> List[ID]:
+        # TODO: load group assistants
+        self.warning(msg='TODO: load assistants: %s' % group)
+        return []
+
+    # Override
+    def save_assistants(self, assistants: List[ID], group: ID) -> bool:
         # TODO: save assistants
-        self.info(msg='TODO: Saving assistants: %s -> %s' % (identifier, assistants))
+        self.warning(msg='TODO: saving assistants: %s -> %s' % (group, assistants))
         return True

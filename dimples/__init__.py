@@ -84,9 +84,6 @@ __all__ = [
     'Document', 'DocumentFactory',
     'Visa', 'Bulletin',
 
-    'entity_is_user', 'entity_is_group', 'entity_is_broadcast',
-    'meta_has_seed',
-
     'BroadcastAddress', 'Identifier',
     'ANYWHERE', 'EVERYWHERE', 'ANYONE', 'EVERYONE', 'FOUNDER',
 

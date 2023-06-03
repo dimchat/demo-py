@@ -31,23 +31,20 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List, Dict
 
-from dimsdk import ID
+from dimsdk import EncryptKey, ID
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import Content, Envelope
-from dimsdk import GroupCommand
 from dimsdk import EntityDelegate, CipherKeyDelegate
 from dimsdk import Messenger, Packer, Processor
 
 from ..utils import Logging
-from ..utils import QueryFrequencyChecker
 
 from .dbi import MessageDBI
 
 from .facebook import CommonFacebook
-from .transmitter import Transmitter
-from .session import Session
+from .session import Transmitter, Session
 
 
 class CommonMessenger(Messenger, Transmitter, Logging, ABC):
@@ -96,38 +93,61 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     def session(self) -> Session:
         return self.__session
 
-    @abstractmethod
-    def _query_meta(self, identifier: ID) -> bool:
+    @abstractmethod  # protected
+    def query_meta(self, identifier: ID) -> bool:
         """ request for meta with entity ID """
         raise NotImplemented
 
-    @abstractmethod
-    def _query_document(self, identifier: ID) -> bool:
+    @abstractmethod  # protected
+    def query_document(self, identifier: ID) -> bool:
         """ request for meta & visa document with entity ID """
         raise NotImplemented
 
-    def _query_members(self, identifier: ID) -> bool:
+    @abstractmethod  # protected
+    def query_members(self, identifier: ID) -> bool:
         """ request for group members with group ID """
-        checker = QueryFrequencyChecker()
-        if not checker.members_query_expired(identifier=identifier):
-            # query not expired yet
-            self.debug(msg='members query not expired yet: %s' % identifier)
-            return False
-        assert identifier.is_group, 'group ID error: %s' % identifier
-        group = self.facebook.group(identifier=identifier)
-        # request to group bots
-        assistants = group.assistants
-        if assistants is None or len(assistants) == 0:
-            self.error(msg='group assistants not found: %s' % identifier)
-            return False
-        self.info(msg='querying members of %s from assistants: %s' % (identifier, ID.revert(array=assistants)))
-        cmd = GroupCommand.query(group=identifier)
-        for bot in assistants:
-            self.send_content(sender=None, receiver=bot, content=cmd, priority=1)
-        return True
+        raise NotImplemented
 
-    def _check_sender(self, msg: ReliableMessage) -> bool:
-        """ check whether msg.sender is ready """
+    @abstractmethod  # protected
+    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
+        """ Add income message in a queue for waiting sender's visa """
+        raise NotImplemented
+
+    @abstractmethod  # protected
+    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
+        """ Add outgo message in a queue for waiting receiver's visa """
+        raise NotImplemented
+
+    def _visa_key(self, user: ID) -> Optional[EncryptKey]:
+        """ for checking whether user's ready """
+        key = self.facebook.public_key_for_encryption(identifier=user)
+        if key is not None:
+            # user is ready
+            return key
+        # user not ready, try to query document for it
+        if self.query_document(identifier=user):
+            self.info(msg='querying document for user: %s' % user)
+
+    def _members(self, group: ID) -> List[ID]:
+        """ for checking whether group's ready """
+        meta = self.facebook.meta(identifier=group)
+        if meta is None:
+            # group not ready, try to query meta for it
+            if self.query_meta(identifier=group):
+                self.info(msg='querying meta for group: %s' % group)
+            return []
+        grp = self.facebook.group(identifier=group)
+        members = grp.members
+        if members is None or len(members) == 0:
+            # group not ready, try to query members for it
+            if self.query_members(identifier=group):
+                self.info(msg='querying members for group: %s' % group)
+            return []
+        # group is ready
+        return members
+
+    def _check_reliable_message_sender(self, msg: ReliableMessage) -> bool:
+        """ Check sender before verifying received message """
         sender = msg.sender
         assert sender.is_user, 'sender error: %s' % sender
         # check sender's meta & document
@@ -137,73 +157,51 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
             assert visa.identifier == sender, 'visa ID not match: %s => %s' % (sender, visa)
             # assert Meta.match_id(meta=msg.meta, identifier=sender), 'meta error: %s' % msg
             return True
-        facebook = self.facebook
-        visa_key = facebook.public_key_for_encryption(identifier=sender)
-        if visa_key is not None:
+        elif self._visa_key(user=sender) is not None:
             # sender is OK
             return True
-        if self._query_document(identifier=sender):
-            self.info(msg='querying document for sender: %s' % sender)
-        msg['error'] = {
+        # sender not ready, suspend message for waiting document
+        error = {
             'message': 'verify key not found',
             'user': str(sender),
         }
+        self.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
 
-    def _check_receiver(self, msg: InstantMessage) -> bool:
-        """ check whether msg.receiver is ready """
+    def _check_secure_message_receiver(self, msg: SecureMessage) -> bool:
         receiver = msg.receiver
         if receiver.is_broadcast:
             # broadcast message
             return True
-        facebook = self.facebook
-        if receiver.is_user:
-            # check user's meta & document
-            visa_key = facebook.public_key_for_encryption(identifier=receiver)
-            if visa_key is None:
-                if self._query_document(identifier=receiver):
-                    self.info(msg='querying document for receiver: %s' % receiver)
-                msg['error'] = {
-                    'message': 'encrypt key not found',
-                    'user': str(receiver),
-                }
-                return False
-        else:
-            # check group's meta
-            meta = facebook.meta(identifier=receiver)
-            if meta is None:
-                if self._query_meta(identifier=receiver):
-                    self.info(msg='querying meta for group: %s' % receiver)
-                msg['error'] = {
-                    'message': 'group meta not found',
-                    'group': str(receiver),
-                }
-                return False
-            # check group members
-            members = facebook.members(identifier=receiver)
-            if members is None or len(members) == 0:
-                if self._query_members(identifier=receiver):
-                    self.info(msg='querying members for group: %s' % receiver)
-                msg['error'] = {
-                    'message': 'members not found',
-                    'group': str(receiver),
-                }
-                return False
-            waiting = set()
-            for item in members:
-                visa_key = facebook.public_key_for_encryption(identifier=item)
-                if visa_key is None:
-                    if self._query_document(identifier=item):
-                        self.info(msg='querying document for member: %s, group: %s' % (item, receiver))
-                    waiting.add(item)
-            if len(waiting) > 0:
-                msg['error'] = {
-                    'message': 'encrypt keys not found',
-                    'group': str(receiver),
-                    'members': ID.revert(array=waiting)
-                }
-                return False
-        # receiver is OK
+        elif receiver.is_group:
+            # check for received group message
+            members = self._members(group=receiver)
+            return len(members) > 0
+        # the facebook will select a user from local users to match this receiver,
+        # if no user matched (private key not found), this message will be ignored.
         return True
+
+    def _check_instant_message_receiver(self, msg: InstantMessage) -> bool:
+        """ Check receiver before encrypting message """
+        receiver = msg.receiver
+        if receiver.is_broadcast:
+            # broadcast message
+            return True
+        elif receiver.is_group:
+            # NOTICE: station will never send group message, so
+            #         we don't need to check group info here; and
+            #         if a client wants to send group message,
+            #         that should be sent to a group bot first,
+            #         and the bot will separate it for all members.
+            return False
+        elif self._visa_key(user=receiver) is not None:
+            # receiver is OK
+            return True
+        # receiver not ready, suspend message for waiting document
+        error = {
+            'message': 'encrypt key not found',
+            'user': str(receiver),
+        }
+        self.suspend_instant_message(msg=msg, error=error)  # msg['error'] = error
 
     # # Override
     # def serialize_key(self, key: Union[dict, SymmetricKey], msg: InstantMessage) -> Optional[bytes]:
@@ -223,19 +221,33 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
 
     # Override
     def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
-        if self._check_receiver(msg=msg):
-            return super().encrypt_message(msg=msg)
+        if self._check_instant_message_receiver(msg=msg):
+            # receiver OK
+            pass
         else:
             # receiver not ready
-            self.warning(msg='receiver not ready: %s' % msg.receiver)
+            error = 'receiver not ready: %s' % msg.receiver
+            self.warning(msg=error)
+            raise LookupError(error)
+        return super().encrypt_message(msg=msg)
 
     # Override
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
-        if self._check_sender(msg=msg):
-            return super().verify_message(msg=msg)
+        if self._check_secure_message_receiver(msg=msg):
+            # receiver OK
+            pass
+        else:
+            # receiver (group) not ready
+            self.warning(msg='receiver not ready: %s' % msg.receiver)
+            return None
+        if self._check_reliable_message_sender(msg=msg):
+            # sender OK
+            pass
         else:
             # sender not ready
             self.warning(msg='sender not ready: %s' % msg.sender)
+            return None
+        return super().verify_message(msg=msg)
 
     #
     #   Interfaces for Transmitting Message
@@ -245,8 +257,6 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     def send_content(self, sender: Optional[ID], receiver: ID, content: Content,
                      priority: int = 0) -> Tuple[InstantMessage, Optional[ReliableMessage]]:
         """ Send message content with priority """
-        # Application Layer should make sure user is already login before it send message to server.
-        # Application layer should put message into queue so that it will send automatically after user login
         if sender is None:
             current = self.facebook.current_user
             assert current is not None, 'current user not set'

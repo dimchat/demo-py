@@ -31,11 +31,50 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
-from dimp import ID, ReliableMessage
+from dimp import ID
+from dimp import Content
+from dimp import InstantMessage, ReliableMessage
 
-from .dbi import SessionDBI
+from .dbi import SessionDBI, SocketAddress
 
-from .transmitter import Transmitter
+
+class Transmitter(ABC):
+
+    @abstractmethod
+    def send_content(self, sender: Optional[ID], receiver: ID, content: Content,
+                     priority: int = 0) -> Tuple[InstantMessage, Optional[ReliableMessage]]:
+        """
+        Send content from sender to receiver with priority
+
+        :param sender:   from where
+        :param receiver: to where
+        :param content:  message content
+        :param priority: smaller is faster
+        :return: (i_msg, None) on error
+        """
+        raise NotImplemented
+
+    @abstractmethod
+    def send_instant_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
+        """
+        Send instant message with priority
+
+        :param msg:      plain message
+        :param priority: smaller is faster
+        :return: None on error
+        """
+        raise NotImplemented
+
+    @abstractmethod
+    def send_reliable_message(self, msg: ReliableMessage, priority: int = 0) -> bool:
+        """
+        Send reliable message with priority
+
+        :param msg:      encrypted & signed message
+        :param priority: smaller is faster
+        :return: False on error
+        """
+        raise NotImplemented
 
 
 class Session(Transmitter, ABC):
@@ -46,7 +85,7 @@ class Session(Transmitter, ABC):
         raise NotImplemented
 
     @property
-    def remote_address(self) -> Tuple[str, int]:
+    def remote_address(self) -> SocketAddress:
         """ Remote (host, port) """
         raise NotImplemented
 

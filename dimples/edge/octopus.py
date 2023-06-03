@@ -34,11 +34,12 @@ import threading
 import time
 import weakref
 from abc import ABC, abstractmethod
-from typing import Optional, List, Set
+from typing import Optional, List, Set, Dict
 
 from dimsdk import ContentType
 from dimsdk import EntityType, ID
 from dimsdk import ReliableMessage
+from dkd import InstantMessage
 
 from ..utils import Logging
 from ..utils import Runner
@@ -135,7 +136,10 @@ class Octopus(Runner, Logging):
     def process(self) -> bool:
         # get all neighbor stations
         db = self.database
-        neighbors = db.all_neighbors()
+        providers = db.all_providers()
+        assert len(providers) > 0, 'service provider not found'
+        gsp = providers[0][0]
+        neighbors = db.all_stations(provider=gsp)
         # get all outer terminals
         with self.__outer_lock:
             outers = set(self.__outers)
@@ -147,7 +151,7 @@ class Octopus(Runner, Logging):
             for item in neighbors:
                 if item[0] == host and item[1] == port:
                     # got
-                    neighbors.discard(item)
+                    neighbors.remove(item)
                     break
             if out.is_alive:
                 # outer terminal alive, ignore it
@@ -160,10 +164,9 @@ class Octopus(Runner, Logging):
                     self.__outer_map.pop(sid, None)
         # check new neighbors
         for item in neighbors:
-            host = item[0]
-            port = item[1]
-            sid = item[2]
-            self.info(msg='connecting neighbor station "%s" (%s:%d)' % (sid, host, port))
+            host = item[0][0]
+            port = item[0][1]
+            self.info(msg='connecting neighbor station (%s:%d)' % (host, port))
             self.connect(host=host, port=port)
         return False
 
@@ -286,6 +289,14 @@ class InnerMessenger(OctopusMessenger):
         octopus = self.octopus
         return octopus.outgo_message(msg=msg, priority=priority)
 
+    # Override
+    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
+        pass
+
+    # Override
+    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
+        pass
+
 
 class OuterMessenger(OctopusMessenger):
     """ Messenger for remote station """
@@ -311,6 +322,14 @@ class OuterMessenger(OctopusMessenger):
         station = self.session.station
         octopus = self.octopus
         octopus.add_index(identifier=station.identifier, terminal=self.terminal)
+
+    # Override
+    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
+        pass
+
+    # Override
+    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
+        pass
 
 
 def create_messenger(facebook: CommonFacebook, database: MessageDBI,

@@ -83,7 +83,7 @@ class PrivateKeyStorage(Storage, PrivateKeyDBI):
 
     def _save_msg_key(self, key: PrivateKey, identifier: ID) -> bool:
         private_keys = self._load_msg_keys(identifier=identifier)
-        private_keys = insert_key(key=key, private_keys=private_keys)
+        private_keys = PrivateKeyDBI.insert(item=key, array=private_keys)
         if private_keys is None:
             # nothing changed
             return False
@@ -109,53 +109,29 @@ class PrivateKeyStorage(Storage, PrivateKeyDBI):
     #
 
     # Override
-    def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M') -> bool:
+    def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
         if key_type == self.ID_KEY_TAG:
             # save private key for meta
-            return self._save_id_key(key=key, identifier=identifier)
+            return self._save_id_key(key=key, identifier=user)
         else:
             # save private key for visa
-            return self._save_msg_key(key=key, identifier=identifier)
+            return self._save_msg_key(key=key, identifier=user)
 
     # Override
-    def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
-        keys: list = self._load_msg_keys(identifier=identifier)
+    def private_keys_for_decryption(self, user: ID) -> List[DecryptKey]:
+        keys: list = self._load_msg_keys(identifier=user)
         # the 'ID key' could be used for encrypting message too (RSA),
         # so we append it to the decrypt keys here
-        id_key = self._load_id_key(identifier=identifier)
-        if isinstance(id_key, DecryptKey) and find_key(key=id_key, private_keys=keys) < 0:
+        id_key = self._load_id_key(identifier=user)
+        if isinstance(id_key, DecryptKey) and PrivateKeyDBI.find(item=id_key, array=keys) < 0:
             keys.append(id_key)
         return keys
 
     # Override
-    def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
+    def private_key_for_signature(self, user: ID) -> Optional[SignKey]:
         # TODO: support multi private keys
-        return self.private_key_for_visa_signature(identifier=identifier)
+        return self.private_key_for_visa_signature(user=user)
 
     # Override
-    def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
-        return self._load_id_key(identifier=identifier)
-
-
-#   insert_key(key: PrivateKey, private_keys: List[PrivateKey]) -> Optional[List[PrivateKey]]:
-def insert_key(key: PrivateKey, private_keys: list) -> Optional[List[PrivateKey]]:
-    index = find_key(key=key, private_keys=private_keys)
-    if index == 0:
-        return None  # nothing changed
-    elif index > 0:
-        private_keys.pop(index)  # move to the front
-    elif len(private_keys) > 2:
-        private_keys.pop()  # keep only last three records
-    private_keys.insert(0, key)
-    return private_keys
-
-
-def find_key(key, private_keys: List[PrivateKey]) -> int:
-    index = 0
-    data = key.get('data')
-    for item in private_keys:
-        if item.get('data') == data:
-            return index
-        else:
-            index += 1
-    return -1
+    def private_key_for_visa_signature(self, user: ID) -> Optional[SignKey]:
+        return self._load_id_key(identifier=user)

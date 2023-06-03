@@ -43,7 +43,7 @@ from .t_message import ReliableMessageTable
 from .t_cipherkey import CipherKeyTable
 
 from .t_login import LoginTable
-from .t_provider import ProviderTable
+from .t_station import StationTable
 
 from .account import AccountDatabase
 from .message import MessageDatabase
@@ -55,14 +55,15 @@ __all__ = [
     #   DBI
     #
     'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
-    'UserDBI', 'GroupDBI',
+    'UserDBI', 'ContactDBI', 'GroupDBI',
     'AccountDBI',
 
     'ReliableMessageDBI', 'CipherKeyDBI',
     'MessageDBI',
 
-    'LoginDBI', 'ProviderDBI',
+    'LoginDBI', 'ProviderDBI', 'SessionDBI',
     'SessionDBI',
+    'SocketAddress',
 
     #
     #   DOS
@@ -78,7 +79,7 @@ __all__ = [
     'PrivateKeyTable', 'MetaTable', 'DocumentTable',
     'UserTable', 'GroupTable',
     'ReliableMessageTable', 'CipherKeyTable',
-    'LoginTable', 'ProviderTable',
+    'LoginTable', 'StationTable',
 
     #
     #   Database

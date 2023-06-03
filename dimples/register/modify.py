@@ -26,7 +26,6 @@
 from typing import List
 
 from mkm.crypto import PrivateKey, SignKey, DecryptKey
-from mkm.protocol import entity_is_group
 from mkm import EntityType, ID
 from mkm import Document, Visa
 
@@ -61,7 +60,7 @@ class AccountInfo:
         # save keys
         msg_keys = self.msg_keys
         for key in msg_keys:
-            db.save_private_key(key=key, identifier=identifier, key_type=PrivateKeyStorage.MSG_KEY_TAG)
+            db.save_private_key(key=key, user=identifier, key_type=PrivateKeyStorage.MSG_KEY_TAG)
         # save document
         return db.save_document(document=self.document)
 
@@ -148,15 +147,15 @@ def modify(identifier: ID, db: AccountDBI) -> bool:
         print('!!! meta not exists: %s' % identifier)
         return False
     network = identifier.type
-    if entity_is_group(network=network):
+    if EntityType.is_group(network=network):
         # TODO: get group founder(owner) and its id key
         print('!!! TODO: modify bulletin document for group: %s' % identifier)
         return False
-    id_key = db.private_key_for_visa_signature(identifier=identifier)
+    id_key = db.private_key_for_visa_signature(user=identifier)
     if id_key is None:
         print('!!! private key not exists: %s' % identifier)
         return False
-    msg_keys = db.private_keys_for_decryption(identifier=identifier)
+    msg_keys = db.private_keys_for_decryption(user=identifier)
     print('!!! old msg keys found: %d, id key: %s' % (len(msg_keys), id_key.algorithm))
     #
     # Step 2: create document
@@ -166,7 +165,7 @@ def modify(identifier: ID, db: AccountDBI) -> bool:
         print('!!! old document found: %s' % identifier)
         show_document(document=doc)
         doc = Document.parse(document=doc.copy_dictionary())
-    elif entity_is_group(network=network):
+    elif EntityType.is_group(network=network):
         doc = Document.create(doc_type=Document.BULLETIN, identifier=identifier)
     else:
         doc = Document.create(doc_type=Document.VISA, identifier=identifier)
@@ -175,7 +174,7 @@ def modify(identifier: ID, db: AccountDBI) -> bool:
     #
     if network == EntityType.STATION:
         info = modify_station(document=doc, sign_key=id_key, msg_keys=msg_keys)
-    elif entity_is_group(network=network):
+    elif EntityType.is_group(network=network):
         info = modify_group(document=doc, sign_key=id_key)
     else:
         info = modify_user(document=doc, sign_key=id_key, msg_keys=msg_keys)

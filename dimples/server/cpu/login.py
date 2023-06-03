@@ -64,7 +64,7 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         # 1. store login command
         session = self.messenger.session
         db = session.database
-        if not db.save_login_command_message(identifier=sender, content=content, msg=msg):
+        if not db.save_login_command_message(user=sender, content=content, msg=msg):
             self.error(msg='login command error/expired: %s' % content)
             return []
         # 2. check roaming station

@@ -24,7 +24,7 @@
 # ==============================================================================
 
 from abc import ABC, abstractmethod
-from typing import Optional, List
+from typing import Optional, Union, Any, List, Dict
 
 from dimsdk import PrivateKey, SignKey, DecryptKey
 from dimsdk import ID, Meta, Document
@@ -34,20 +34,72 @@ class PrivateKeyDBI(ABC):
     """ PrivateKey Table """
 
     @abstractmethod
-    def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M') -> bool:
+    def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
         raise NotImplemented
 
     @abstractmethod
-    def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
+    def private_keys_for_decryption(self, user: ID) -> List[DecryptKey]:
         raise NotImplemented
 
     @abstractmethod
-    def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
+    def private_key_for_signature(self, user: ID) -> Optional[SignKey]:
         raise NotImplemented
 
     @abstractmethod
-    def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
+    def private_key_for_visa_signature(self, user: ID) -> Optional[SignKey]:
         raise NotImplemented
+
+    #
+    #  Conveniences
+    #
+
+    @classmethod
+    def convert_decrypt_keys(cls, keys: List[PrivateKey]) -> List[DecryptKey]:
+        decrypt_keys = []
+        for item in keys:
+            if isinstance(item, DecryptKey):
+                decrypt_keys.append(item)
+        return decrypt_keys
+
+    @classmethod
+    def convert_private_keys(cls, keys: List[DecryptKey]) -> List[PrivateKey]:
+        private_keys = []
+        for item in keys:
+            if isinstance(item, PrivateKey):
+                private_keys.append(item)
+        return private_keys
+
+    @classmethod
+    def revert_private_keys(cls, keys: List[PrivateKey]) -> List[Dict[str, Any]]:
+        array = []
+        for item in keys:
+            array.append(item.dictionary)
+        return array
+
+    @classmethod
+    def insert(cls, item: PrivateKey, array: List[PrivateKey]) -> Optional[List[PrivateKey]]:
+        index = cls.find(item=item, array=array)
+        if index == 0:
+            # nothing changed
+            return None
+        elif index > 0:
+            # move to the front
+            array.pop(index)
+        elif len(array) > 2:
+            # keep only last three records
+            array.pop()
+        array.insert(0, item)
+        return array
+
+    @classmethod
+    def find(cls, item: Union[DecryptKey, PrivateKey], array: List[PrivateKey]) -> int:
+        index = 0
+        data = item.get('data')
+        for key in array:
+            if key.get('data') == data:
+                return index
+            index += 1
+        return -1
 
 
 class MetaDBI(ABC):
@@ -75,11 +127,8 @@ class DocumentDBI(ABC):
 
 
 class UserDBI(ABC):
-    """ User/Contact Table """
+    """ User Table """
 
-    #
-    #   local users
-    #
     @abstractmethod
     def local_users(self) -> List[ID]:
         raise NotImplemented
@@ -88,16 +137,40 @@ class UserDBI(ABC):
     def save_local_users(self, users: List[ID]) -> bool:
         raise NotImplemented
 
-    #
-    #   contacts
-    #
     @abstractmethod
-    def contacts(self, identifier: ID) -> List[ID]:
+    def add_user(self, user: ID) -> bool:
+        raise NotImplemented
+
+    @abstractmethod
+    def remove_user(self, user: ID) -> bool:
+        raise NotImplemented
+
+    @abstractmethod
+    def current_user(self) -> Optional[ID]:
+        raise NotImplemented
+
+    @abstractmethod
+    def set_current_user(self, user: ID) -> bool:
+        raise NotImplemented
+
+
+class ContactDBI(ABC):
+
+    @abstractmethod
+    def contacts(self, user: ID) -> List[ID]:
         """ contacts for user """
         raise NotImplemented
 
     @abstractmethod
-    def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
+    def save_contacts(self, contacts: List[ID], user: ID) -> bool:
+        raise NotImplemented
+
+    @abstractmethod
+    def add_contact(self, contact: ID, user: ID) -> bool:
+        raise NotImplemented
+
+    @abstractmethod
+    def remove_contact(self, contact: ID, user: ID) -> bool:
         raise NotImplemented
 
 
@@ -105,30 +178,43 @@ class GroupDBI(ABC):
     """ Group/Member Table """
 
     @abstractmethod
-    def founder(self, identifier: ID) -> Optional[ID]:
+    def founder(self, group: ID) -> Optional[ID]:
         raise NotImplemented
 
     @abstractmethod
-    def owner(self, identifier: ID) -> Optional[ID]:
+    def owner(self, group: ID) -> Optional[ID]:
         raise NotImplemented
 
     @abstractmethod
-    def members(self, identifier: ID) -> List[ID]:
+    def members(self, group: ID) -> List[ID]:
         raise NotImplemented
 
     @abstractmethod
-    def assistants(self, identifier: ID) -> List[ID]:
+    def save_members(self, members: List[ID], group: ID) -> bool:
         raise NotImplemented
 
     @abstractmethod
-    def save_members(self, members: List[ID], identifier: ID) -> bool:
+    def add_member(self, member: ID, group: ID) -> bool:
         raise NotImplemented
 
     @abstractmethod
-    def save_assistants(self, assistants: List[ID], identifier: ID) -> bool:
+    def remove_member(self, member: ID, group: ID) -> bool:
+        raise NotImplemented
+
+    @abstractmethod
+    def remove_group(self, group: ID) -> bool:
+        raise NotImplemented
+
+    @abstractmethod
+    def assistants(self, group: ID) -> List[ID]:
+        raise NotImplemented
+
+    @abstractmethod
+    def save_assistants(self, assistants: List[ID], group: ID) -> bool:
         raise NotImplemented
 
 
-class AccountDBI(PrivateKeyDBI, MetaDBI, DocumentDBI, UserDBI, GroupDBI, ABC):
+# noinspection PyAbstractClass
+class AccountDBI(PrivateKeyDBI, MetaDBI, DocumentDBI, UserDBI, ContactDBI, GroupDBI, ABC):
     """ Account Database """
     pass

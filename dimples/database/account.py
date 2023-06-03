@@ -63,20 +63,20 @@ class AccountDatabase(AccountDBI):
     #
 
     # Override
-    def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M') -> bool:
-        return self.__private_table.save_private_key(key=key, identifier=identifier, key_type=key_type)
+    def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
+        return self.__private_table.save_private_key(key=key, user=user, key_type=key_type)
 
     # Override
-    def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
-        return self.__private_table.private_keys_for_decryption(identifier=identifier)
+    def private_keys_for_decryption(self, user: ID) -> List[DecryptKey]:
+        return self.__private_table.private_keys_for_decryption(user=user)
 
     # Override
-    def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
-        return self.__private_table.private_key_for_signature(identifier=identifier)
+    def private_key_for_signature(self, user: ID) -> Optional[SignKey]:
+        return self.__private_table.private_key_for_signature(user=user)
 
     # Override
-    def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
-        return self.__private_table.private_key_for_visa_signature(identifier=identifier)
+    def private_key_for_visa_signature(self, user: ID) -> Optional[SignKey]:
+        return self.__private_table.private_key_for_visa_signature(user=user)
 
     #
     #   Meta DBI
@@ -124,37 +124,77 @@ class AccountDatabase(AccountDBI):
         return self.__user_table.save_local_users(users=users)
 
     # Override
-    def contacts(self, identifier: ID) -> List[ID]:
-        return self.__user_table.contacts(identifier=identifier)
+    def add_user(self, user: ID) -> bool:
+        return self.__user_table.add_user(user=user)
 
     # Override
-    def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
-        return self.__user_table.save_contacts(contacts=contacts, identifier=identifier)
+    def remove_user(self, user: ID) -> bool:
+        return self.__user_table.remove_user(user=user)
+
+    # Override
+    def current_user(self) -> Optional[ID]:
+        return self.__user_table.current_user()
+
+    # Override
+    def set_current_user(self, user: ID) -> bool:
+        return self.__user_table.set_current_user(user=user)
+
+    #
+    #   Contact DBI
+    #
+
+    # Override
+    def contacts(self, user: ID) -> List[ID]:
+        return self.__user_table.contacts(user=user)
+
+    # Override
+    def save_contacts(self, contacts: List[ID], user: ID) -> bool:
+        return self.__user_table.save_contacts(contacts=contacts, user=user)
+
+    # Override
+    def add_contact(self, contact: ID, user: ID) -> bool:
+        return self.__user_table.add_contact(contact=contact, user=user)
+
+    # Override
+    def remove_contact(self, contact: ID, user: ID) -> bool:
+        return self.__user_table.remove_contact(contact=contact, user=user)
 
     #
     #   Group DBI
     #
 
     # Override
-    def founder(self, identifier: ID) -> Optional[ID]:
-        return self.__group_table.founder(identifier=identifier)
+    def founder(self, group: ID) -> Optional[ID]:
+        return self.__group_table.founder(group=group)
 
     # Override
-    def owner(self, identifier: ID) -> Optional[ID]:
-        return self.__group_table.owner(identifier=identifier)
+    def owner(self, group: ID) -> Optional[ID]:
+        return self.__group_table.owner(group=group)
 
     # Override
-    def members(self, identifier: ID) -> List[ID]:
-        return self.__group_table.members(identifier=identifier)
+    def members(self, group: ID) -> List[ID]:
+        return self.__group_table.members(group=group)
 
     # Override
-    def assistants(self, identifier: ID) -> List[ID]:
-        return self.__group_table.assistants(identifier=identifier)
+    def save_members(self, members: List[ID], group: ID) -> bool:
+        return self.__group_table.save_members(members=members, group=group)
 
     # Override
-    def save_members(self, members: List[ID], identifier: ID) -> bool:
-        return self.__group_table.save_members(members=members, identifier=identifier)
+    def add_member(self, member: ID, group: ID) -> bool:
+        return self.__group_table.add_member(member=member, group=group)
 
     # Override
-    def save_assistants(self, assistants: List[ID], identifier: ID) -> bool:
-        return self.__group_table.save_assistants(assistants=assistants, identifier=identifier)
+    def remove_member(self, member: ID, group: ID) -> bool:
+        return self.__group_table.remove_member(member=member, group=group)
+
+    # Override
+    def remove_group(self, group: ID) -> bool:
+        return self.__group_table.remove_group(group=group)
+
+    # Override
+    def assistants(self, group: ID) -> List[ID]:
+        return self.__group_table.assistants(group=group)
+
+    # Override
+    def save_assistants(self, assistants: List[ID], group: ID) -> bool:
+        return self.__group_table.save_assistants(assistants=assistants, group=group)

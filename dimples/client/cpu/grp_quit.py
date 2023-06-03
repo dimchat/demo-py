@@ -79,6 +79,12 @@ class QuitCommandProcessor(GroupCommandProcessor):
         # 2. remove sender from group members
         if sender in members:
             members.remove(sender)
-            facebook.save_members(members=members, identifier=group)
+            man = group_manager()
+            man.save_members(members=members, group=group)
         # 3. response (no need to response this group command)
         return []
+
+
+def group_manager():
+    from ..group import GroupManager
+    return GroupManager()

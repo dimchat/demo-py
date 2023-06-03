@@ -33,7 +33,7 @@ from mkm import ID
 class Node(Dictionary):
     """ DIM Network Node """
 
-    def __init__(self, name: str = None, host: str = None, port: int = 0, identifier: ID = None):
+    def __init__(self, name: str = None, host: str = None, port: int = 0):
         super().__init__()
         if name is not None:
             self['name'] = name
@@ -41,8 +41,14 @@ class Node(Dictionary):
             self['host'] = host
         if port > 0:
             self['port'] = port
-        if identifier is not None:
-            self['ID'] = str(identifier)
+
+    def __str__(self) -> str:
+        clazz = self.__class__.__name__
+        return '<%s host="%s" port=%d name="%s" />' % (clazz, self.host, self.port, self.name)
+
+    def __repr__(self) -> str:
+        clazz = self.__class__.__name__
+        return '<%s host="%s" port=%d name="%s" />' % (clazz, self.host, self.port, self.name)
 
     @property
     def name(self) -> str:
@@ -55,10 +61,6 @@ class Node(Dictionary):
     @property
     def port(self) -> int:
         return self.get('port')
-
-    @property
-    def identifier(self) -> ID:
-        return ID.parse(identifier=self.get('ID'))
 
 
 def get_socket_address(value: str) -> Tuple[str, int]:
@@ -76,8 +78,8 @@ def parse_nodes(nodes: Dict[str, str]) -> List[Node]:
         value = nodes[name]
         pair = value.split(',')
         host, port = get_socket_address(value=pair[0])
-        sid = ID.parse(identifier=pair[1].strip())
-        stations.append(Node(name=name, host=host, port=port, identifier=sid))
+        node = Node(name=name, host=host, port=port)
+        stations.append(node)
     return stations
 
 

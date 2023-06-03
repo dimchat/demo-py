@@ -23,17 +23,17 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import List
+from typing import List, Optional
 
 from dimsdk import ID
 
-from ...common import UserDBI
+from ...common import UserDBI, ContactDBI
 
 from .base import Storage
 from .base import template_replace
 
 
-class UserStorage(Storage, UserDBI):
+class UserStorage(Storage, UserDBI, ContactDBI):
     """
         User Storage
         ~~~~~~~~~~~~
@@ -82,9 +82,49 @@ class UserStorage(Storage, UserDBI):
         return self.write_json(container=ID.revert(array=users), path=path)
 
     # Override
-    def contacts(self, identifier: ID) -> List[ID]:
+    def add_user(self, user: ID) -> bool:
+        array = self.local_users()
+        if user in array:
+            self.warning(msg='user exists: %s, %s' % (user, array))
+            return True
+        array.insert(0, user)
+        return self.save_local_users(users=array)
+
+    # Override
+    def remove_user(self, user: ID) -> bool:
+        array = self.local_users()
+        if user not in array:
+            self.warning(msg='user not exists: %s, %s' % (user, array))
+            return True
+        array.remove(user)
+        return self.save_local_users(users=array)
+
+    # Override
+    def current_user(self) -> Optional[ID]:
+        array = self.local_users()
+        if len(array) > 0:
+            return array[0]
+
+    # Override
+    def set_current_user(self, user: ID) -> bool:
+        array = self.local_users()
+        if user in array:
+            index = array.index(user)
+            if index == 0:
+                self.warning(msg='current user not changed: %s, %s' % (user, array))
+                return True
+            array.pop(index)
+        array.insert(0, user)
+        return self.save_local_users(users=array)
+
+    #
+    #   Contact DBI
+    #
+
+    # Override
+    def contacts(self, user: ID) -> List[ID]:
         """ load contacts from file """
-        path = self.__contacts_path(identifier=identifier)
+        path = self.__contacts_path(identifier=user)
         self.info(msg='Loading contacts from: %s' % path)
         contacts = self.read_json(path=path)
         if contacts is None:
@@ -93,8 +133,26 @@ class UserStorage(Storage, UserDBI):
         return ID.convert(array=contacts)
 
     # Override
-    def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
+    def save_contacts(self, contacts: List[ID], user: ID) -> bool:
         """ save contacts into file """
-        path = self.__contacts_path(identifier=identifier)
+        path = self.__contacts_path(identifier=user)
         self.info(msg='Saving contacts into: %s' % path)
         return self.write_json(container=ID.revert(array=contacts), path=path)
+
+    # Override
+    def add_contact(self, contact: ID, user: ID) -> bool:
+        array = self.contacts(user=user)
+        if contact in array:
+            self.warning(msg='contact exists: %s, user: %s' % (contact, user))
+            return True
+        array.append(contact)
+        return self.save_contacts(contacts=array, user=user)
+
+    # Override
+    def remove_contact(self, contact: ID, user: ID) -> bool:
+        array = self.contacts(user=user)
+        if contact not in array:
+            self.warning(msg='contact not exists: %s, user: %s' % (contact, user))
+            return True
+        array.remove(contact)
+        return self.save_contacts(contacts=array, user=user)

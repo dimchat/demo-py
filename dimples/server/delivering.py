@@ -133,7 +133,7 @@ class DeliverWorker(Worker, Logging):
 
 def get_roaming_station(receiver: ID, database: SessionDBI) -> Optional[ID]:
     """ get login command for roaming station """
-    cmd, msg = database.login_command_message(identifier=receiver)
+    cmd, msg = database.login_command_message(user=receiver)
     if isinstance(cmd, LoginCommand):
         station = cmd.station
         assert isinstance(station, dict), 'login command error: %s' % cmd

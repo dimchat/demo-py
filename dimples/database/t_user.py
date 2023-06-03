@@ -24,17 +24,17 @@
 # ==============================================================================
 
 import time
-from typing import List
+from typing import List, Optional
 
 from dimsdk import ID
 
 from ..utils import CacheManager
-from ..common import UserDBI
+from ..common import UserDBI, ContactDBI
 
 from .dos import UserStorage
 
 
-class UserTable(UserDBI):
+class UserTable(UserDBI, ContactDBI):
     """ Implementations of UserDBI """
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
@@ -83,16 +83,56 @@ class UserTable(UserDBI):
         return self.__user_storage.save_local_users(users=users)
 
     # Override
-    def contacts(self, identifier: ID) -> List[ID]:
+    def add_user(self, user: ID) -> bool:
+        array = self.local_users()
+        if user in array:
+            # self.warning(msg='user exists: %s, %s' % (user, array))
+            return True
+        array.insert(0, user)
+        return self.save_local_users(users=array)
+
+    # Override
+    def remove_user(self, user: ID) -> bool:
+        array = self.local_users()
+        if user not in array:
+            # self.warning(msg='user not exists: %s, %s' % (user, array))
+            return True
+        array.remove(user)
+        return self.save_local_users(users=array)
+
+    # Override
+    def current_user(self) -> Optional[ID]:
+        array = self.local_users()
+        if len(array) > 0:
+            return array[0]
+
+    # Override
+    def set_current_user(self, user: ID) -> bool:
+        array = self.local_users()
+        if user in array:
+            index = array.index(user)
+            if index == 0:
+                # self.warning(msg='current user not changed: %s, %s' % (user, array))
+                return True
+            array.pop(index)
+        array.insert(0, user)
+        return self.save_local_users(users=array)
+
+    #
+    #   Contact DBI
+    #
+
+    # Override
+    def contacts(self, user: ID) -> List[ID]:
         """ get contacts for user """
         now = time.time()
         # 1. check memory cache
-        value, holder = self.__contacts_cache.fetch(key=identifier, now=now)
+        value, holder = self.__contacts_cache.fetch(key=user, now=now)
         if value is None:
             # cache empty
             if holder is None:
                 # contacts not load yet, wait to load
-                self.__contacts_cache.update(key=identifier, life_span=128, now=now)
+                self.__contacts_cache.update(key=user, life_span=128, now=now)
             else:
                 if holder.is_alive(now=now):
                     # contacts not exists
@@ -100,15 +140,33 @@ class UserTable(UserDBI):
                 # contacts expired, wait to reload
                 holder.renewal(duration=128, now=now)
             # 2. check local storage
-            value = self.__user_storage.contacts(identifier=identifier)
+            value = self.__user_storage.contacts(user=user)
             # 3. update memory cache
-            self.__contacts_cache.update(key=identifier, value=value, life_span=36000, now=now)
+            self.__contacts_cache.update(key=user, value=value, life_span=36000, now=now)
         # OK, return cached value
         return value
 
     # Override
-    def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
+    def save_contacts(self, contacts: List[ID], user: ID) -> bool:
         # 1. store into memory cache
-        self.__contacts_cache.update(key=identifier, value=contacts, life_span=36000)
+        self.__contacts_cache.update(key=user, value=contacts, life_span=36000)
         # 2. store into local storage
-        return self.__user_storage.save_contacts(contacts=contacts, identifier=identifier)
+        return self.__user_storage.save_contacts(contacts=contacts, user=user)
+
+    # Override
+    def add_contact(self, contact: ID, user: ID) -> bool:
+        array = self.contacts(user=user)
+        if contact in array:
+            # self.warning(msg='contact exists: %s, user: %s' % (contact, user))
+            return True
+        array.append(contact)
+        return self.save_contacts(contacts=array, user=user)
+
+    # Override
+    def remove_contact(self, contact: ID, user: ID) -> bool:
+        array = self.contacts(user=user)
+        if contact not in array:
+            # self.warning(msg='contact not exists: %s, user: %s' % (contact, user))
+            return True
+        array.remove(contact)
+        return self.save_contacts(contacts=array, user=user)

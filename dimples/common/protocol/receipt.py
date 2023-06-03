@@ -37,7 +37,7 @@
 
 from typing import Optional, Union, Any, Dict
 
-from dimsdk import Envelope, ReliableMessage
+from dimsdk import Envelope, InstantMessage, ReliableMessage
 from dimsdk import BaseCommand
 
 from ...utils import base64_encode
@@ -103,7 +103,7 @@ class ReceiptCommand(BaseCommand):
         return self.get('text')
 
     @property  # private
-    def origin(self) -> dict:
+    def origin(self) -> Optional[Dict]:
         return self.get('origin')
 
     @property
@@ -118,12 +118,38 @@ class ReceiptCommand(BaseCommand):
     @property
     def original_sn(self) -> int:
         origin = self.origin
-        return 0 if origin is None else origin.get('sn')
+        if origin is None:
+            return 0
+        sn = origin.get('sn')
+        return 0 if sn is None else sn
 
     @property
     def original_signature(self) -> Optional[str]:
         origin = self.origin
-        return None if origin is None else origin.get('signature')
+        if origin is None:
+            return None
+        return origin.get('signature')
+
+    def match_message(self, msg: InstantMessage) -> bool:
+        # check signature
+        sig1 = self.original_signature
+        if sig1 is not None:
+            # if contains signature, check it
+            sig2 = msg.get_str(key='signature')
+            if sig2 is not None:
+                if len(sig1) > 8:
+                    sig1 = sig1[-8:]
+                if len(sig2) > 8:
+                    sig2 = sig2[-8:]
+                return sig1 == sig2
+        # check envelope
+        env1 = self.original_envelope
+        if env1 is not None:
+            # if contains envelope, check it
+            return env1 == msg.envelope
+        # check serial number
+        # (only the original message's receiver can know this number)
+        return self.original_sn == msg.content.sn
 
     #
     #   Factory method

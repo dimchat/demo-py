@@ -30,14 +30,15 @@
 """
 
 from .account import PrivateKeyDBI, MetaDBI, DocumentDBI
-from .account import UserDBI, GroupDBI
+from .account import UserDBI, ContactDBI, GroupDBI
 from .account import AccountDBI
 
 from .message import ReliableMessageDBI, CipherKeyDBI
 from .message import MessageDBI
 
-from .session import LoginDBI, ProviderDBI
+from .session import LoginDBI, ProviderDBI, StationDBI
 from .session import SessionDBI
+from .session import SocketAddress
 
 
 __all__ = [
@@ -45,7 +46,7 @@ __all__ = [
     #   Account
     #
     'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
-    'UserDBI', 'GroupDBI',
+    'UserDBI', 'ContactDBI', 'GroupDBI',
     'AccountDBI',
 
     #
@@ -57,6 +58,7 @@ __all__ = [
     #
     #   Session
     #
-    'LoginDBI', 'ProviderDBI',
+    'LoginDBI', 'ProviderDBI', 'StationDBI',
     'SessionDBI',
+    'SocketAddress',
 ]
