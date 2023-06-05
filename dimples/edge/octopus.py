@@ -138,7 +138,7 @@ class Octopus(Runner, Logging):
         db = self.database
         providers = db.all_providers()
         assert len(providers) > 0, 'service provider not found'
-        gsp = providers[0][0]
+        gsp = providers[0].identifier
         neighbors = db.all_stations(provider=gsp)
         # get all outer terminals
         with self.__outer_lock:
@@ -149,7 +149,7 @@ class Octopus(Runner, Logging):
             host = station.host
             port = station.port
             for item in neighbors:
-                if item[0] == host and item[1] == port:
+                if item.port == port and item.host == host:
                     # got
                     neighbors.remove(item)
                     break
@@ -164,22 +164,21 @@ class Octopus(Runner, Logging):
                     self.__outer_map.pop(sid, None)
         # check new neighbors
         for item in neighbors:
-            host = item[0][0]
-            port = item[0][1]
+            host = item.host
+            port = item.port
             self.info(msg='connecting neighbor station (%s:%d)' % (host, port))
             self.connect(host=host, port=port)
         return False
 
     def income_message(self, msg: ReliableMessage, priority: int = 0) -> List[ReliableMessage]:
         """ redirect message from remote station """
+        sig = get_sig(msg=msg)
         messenger = self.inner_messenger
         if messenger.send_reliable_message(msg=msg, priority=priority):
-            sig = get_sig(msg=msg)
             self.info(msg='redirected msg (%s) for receiver (%s)' % (sig, msg.receiver))
-            # no need to respond receipt for station
-            return []
-        sig = get_sig(msg=msg)
-        self.error(msg='failed to redirect msg (%s) for receiver (%s)' % (sig, msg.receiver))
+        else:
+            self.error(msg='failed to redirect msg (%s) for receiver (%s)' % (sig, msg.receiver))
+        # no need to respond receipt for station
         return []
 
     def outgo_message(self, msg: ReliableMessage, priority: int = 0) -> List[ReliableMessage]:
@@ -262,8 +261,9 @@ class OctopusMessenger(ClientMessenger, ABC):
                        % (msg.type, msg.sender, msg.receiver, get_remote_station(messenger=self), msg.get('traces')))
             return []
         # handshake accepted, redirecting message
-        self.info(msg='redirect msg(type=%d): %s -> %s | from %s, traces: %s'
-                  % (msg.type, msg.sender, msg.receiver, get_remote_station(messenger=self), msg.get('traces')))
+        sig = get_sig(msg=msg)
+        self.info(msg='redirect msg(type=%d, sig=%s): %s -> %s | from %s, traces: %s'
+                  % (msg.type, sig, msg.sender, msg.receiver, get_remote_station(messenger=self), msg.get('traces')))
         return self.deliver_message(msg=msg)
 
     @abstractmethod

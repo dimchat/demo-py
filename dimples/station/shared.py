@@ -32,7 +32,7 @@ from dimsdk import Address, ID, IDFactory
 from ..utils import Singleton
 from ..common import AddressNameServer, CommonFacebook
 from ..common import AccountDBI, MessageDBI, SessionDBI
-from ..common import ProviderDBI
+from ..common import ProviderInfo
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
 from ..database import Storage
 from ..server import Pusher, DefaultPusher, PushCenter
@@ -141,13 +141,13 @@ def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, SessionDBI]
     adb.show_info()
     mdb.show_info()
     sdb.show_info()
-    # TODO: init providers
-    gsp = ID.parse(identifier=ProviderDBI.GSP)
+    # default provider
+    provider = ProviderInfo.GSP
     # add neighbors
     neighbors = config.neighbors
     for node in neighbors:
         print('adding neighbor node: %s' % node)
-        sdb.add_station(host=node.host, port=node.port, provider=gsp)
+        sdb.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
     return adb, mdb, sdb
 
 

@@ -35,7 +35,7 @@ from dimp import ID
 from dimp import Content
 from dimp import InstantMessage, ReliableMessage
 
-from .dbi import SessionDBI, SocketAddress
+from .dbi import SessionDBI
 
 
 class Transmitter(ABC):
@@ -85,7 +85,7 @@ class Session(Transmitter, ABC):
         raise NotImplemented
 
     @property
-    def remote_address(self) -> SocketAddress:
+    def remote_address(self) -> Tuple[str, int]:
         """ Remote (host, port) """
         raise NotImplemented
 

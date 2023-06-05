@@ -28,7 +28,7 @@ from typing import Optional, List, Tuple
 from dimsdk import ID
 from dimsdk import ReliableMessage
 
-from ..common import SocketAddress
+from ..common import ProviderInfo, StationInfo
 from ..common import SessionDBI, LoginCommand
 
 from .t_login import LoginTable
@@ -65,36 +65,38 @@ class SessionDatabase(SessionDBI):
     #
 
     # Override
-    def all_providers(self) -> List[Tuple[ID, int]]:
+    def all_providers(self) -> List[ProviderInfo]:
         return self.__station_table.all_providers()
 
     # Override
-    def add_provider(self, provider: ID, chosen: int = 0) -> bool:
-        return self.__station_table.add_provider(provider=provider, chosen=chosen)
+    def add_provider(self, identifier: ID, chosen: int = 0) -> bool:
+        return self.__station_table.add_provider(identifier=identifier, chosen=chosen)
 
     # Override
-    def update_provider(self, provider: ID, chosen: int) -> bool:
-        return self.__station_table.update_provider(provider=provider, chosen=chosen)
+    def update_provider(self, identifier: ID, chosen: int) -> bool:
+        return self.__station_table.update_provider(identifier=identifier, chosen=chosen)
 
     # Override
-    def remove_provider(self, provider: ID) -> bool:
-        return self.__station_table.remove_provider(provider=provider)
+    def remove_provider(self, identifier: ID) -> bool:
+        return self.__station_table.remove_provider(identifier=identifier)
 
     #
     #   Station DBI
     #
 
     # Override
-    def all_stations(self, provider: ID) -> List[Tuple[SocketAddress, ID, int]]:
+    def all_stations(self, provider: ID) -> List[StationInfo]:
         return self.__station_table.all_stations(provider=provider)
 
     # Override
-    def add_station(self, host: str, port: int, provider: ID, chosen: int = 0) -> bool:
-        return self.__station_table.add_station(host=host, port=port, provider=provider, chosen=chosen)
+    def add_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = 0) -> bool:
+        return self.__station_table.add_station(identifier=identifier,
+                                                host=host, port=port, provider=provider, chosen=chosen)
 
     # Override
-    def update_station(self, host: str, port: int, provider: ID, chosen: int) -> bool:
-        return self.__station_table.update_station(host=host, port=port, provider=provider, chosen=chosen)
+    def update_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = 0) -> bool:
+        return self.__station_table.update_station(identifier=identifier,
+                                                   host=host, port=port, provider=provider, chosen=chosen)
 
     # Override
     def remove_station(self, host: str, port: int, provider: ID) -> bool:

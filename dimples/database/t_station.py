@@ -23,37 +23,16 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Dict, Tuple, List
+import time
+from typing import Optional, List
 
 from dimsdk import ID
 
-from ..common import SocketAddress
+from ..utils import CacheManager
+from ..common import ProviderInfo, StationInfo
 from ..common import ProviderDBI, StationDBI
 
-
-class StationInfo:
-
-    def __init__(self, remote: SocketAddress, provider: ID, chosen: int):
-        super().__init__()
-        self.remote = remote
-        self.provider = provider
-        self.chosen = chosen
-
-    def __eq__(self, other) -> bool:
-        if self is other:
-            return True
-        elif isinstance(other, StationInfo):
-            return self.remote == other.remote
-        else:
-            return False
-
-    def __ne__(self, other) -> bool:
-        if self is other:
-            return False
-        elif isinstance(other, StationInfo):
-            return self.remote != other.remote
-        else:
-            return True
+from .dos import StationStorage
 
 
 class StationTable(ProviderDBI, StationDBI):
@@ -62,92 +41,120 @@ class StationTable(ProviderDBI, StationDBI):
     # noinspection PyUnusedLocal
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
-        self.__stations: Dict[ID, List[StationInfo]] = {}
+        man = CacheManager()
+        self.__dim_cache = man.get_pool(name='dim')            # 'providers' => List[ProviderInfo]
+        self.__stations_cache = man.get_pool(name='stations')  # SP_ID => List[StationInfo]
+        self.__station_storage = StationStorage(root=root, public=public, private=private)
 
     # noinspection PyMethodMayBeStatic
     def show_info(self):
-        print('!!!       neighbors in memory only !!!')
+        self.__station_storage.show_info()
 
     #
     #   Provider DBI
     #
 
     # Override
-    def all_providers(self) -> List[Tuple[ID, int]]:
-        gsp = ID.parse(identifier=ProviderDBI.GSP)
-        return [(gsp, 1)]
+    def all_providers(self) -> List[ProviderInfo]:
+        """ get providers """
+        now = time.time()
+        # 1. check memory cache
+        value, holder = self.__dim_cache.fetch(key='providers', now=now)
+        if value is None:
+            # cache empty
+            if holder is None:
+                # cache not load yet, wait for loading
+                self.__dim_cache.update(key='providers', life_span=128, now=now)
+            else:
+                if holder.is_alive(now=now):
+                    # cache not exists
+                    return []
+                # cache expired, wait for reloading
+                holder.renewal(duration=128, now=now)
+            # 2. check local storage
+            value = self.__station_storage.all_providers()
+            if value is None or len(value) == 0:
+                value = [ProviderInfo(identifier=ProviderInfo.GSP, chosen=0)]
+            # 3. update memory cache
+            self.__dim_cache.update(key='providers', value=value, life_span=600, now=now)
+        # OK, return cached value
+        return value
 
     # Override
-    def add_provider(self, provider: ID, chosen: int = 0) -> bool:
-        pass
+    def add_provider(self, identifier: ID, chosen: int = 0) -> bool:
+        # 1. clear cache to reload
+        self.__dim_cache.erase(key='providers')
+        # 2. store into local storage
+        return self.__station_storage.add_provider(identifier=identifier, chosen=chosen)
 
     # Override
-    def update_provider(self, provider: ID, chosen: int) -> bool:
-        pass
+    def update_provider(self, identifier: ID, chosen: int) -> bool:
+        # 1. clear cache to reload
+        self.__dim_cache.erase(key='providers')
+        # 2. store into local storage
+        return self.__station_storage.update_provider(identifier=identifier, chosen=chosen)
 
     # Override
-    def remove_provider(self, provider: ID) -> bool:
-        pass
+    def remove_provider(self, identifier: ID) -> bool:
+        # 1. clear cache to reload
+        self.__dim_cache.erase(key='providers')
+        # 2. store into local storage
+        return self.__station_storage.remove_provider(identifier=identifier)
 
     #
     #   Station DBI
     #
 
     # Override
-    def all_stations(self, provider: ID) -> List[Tuple[SocketAddress, ID, int]]:
-        stations = []
-        array = self.__stations.get(provider)
-        if array is not None:
-            for item in array:
-                info = (item.remote, item.provider, item.chosen)
-                stations.append(info)
-        return stations
+    def all_stations(self, provider: ID) -> List[StationInfo]:
+        """ get stations with SP ID """
+        now = time.time()
+        # 1. check memory cache
+        value, holder = self.__stations_cache.fetch(key=provider, now=now)
+        if value is None:
+            # cache empty
+            if holder is None:
+                # cache not load yet, wait for loading
+                self.__stations_cache.update(key=provider, life_span=128, now=now)
+            else:
+                if holder.is_alive(now=now):
+                    # cache not exists
+                    return []
+                # cache expired, wait for reloading
+                holder.renewal(duration=128, now=now)
+            # 2. check local storage
+            value = self.__station_storage.all_stations(provider=provider)
+            # 3. update memory cache
+            self.__stations_cache.update(key=provider, value=value, life_span=600, now=now)
+        # OK, return cached value
+        return value
 
     # Override
-    def add_station(self, host: str, port: int, provider: ID, chosen: int = 0) -> bool:
-        remote = (host, port)
-        array = self.__stations.get(provider)
-        if array is None:
-            array = []
-        else:
-            for item in array:
-                if item.remote == remote:
-                    # station already exists
-                    return False
-        info = StationInfo(remote=remote, provider=provider, chosen=chosen)
-        array.append(info)
-        self.__stations[provider] = array
-        return True
+    def add_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = 0) -> bool:
+        # 1. clear cache to reload
+        self.__stations_cache.erase(key=provider)
+        # 2. store into local storage
+        return self.__station_storage.add_station(identifier=identifier, host=host, port=port,
+                                                  provider=provider, chosen=chosen)
 
     # Override
-    def update_station(self, host: str, port: int, provider: ID, chosen: int) -> bool:
-        remote = (host, port)
-        array = self.__stations.get(provider)
-        if array is None:
-            array = []
-        else:
-            for item in array:
-                if item.remote == remote:
-                    # station found
-                    item.chosen = chosen
-                    return True
-        info = StationInfo(remote=remote, provider=provider, chosen=chosen)
-        array.append(info)
-        self.__stations[provider] = array
-        return True
+    def update_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = None) -> bool:
+        # 1. clear cache to reload
+        self.__stations_cache.erase(key=provider)
+        # 2. store into local storage
+        return self.__station_storage.update_station(identifier=identifier, host=host, port=port,
+                                                     provider=provider, chosen=chosen)
 
     # Override
     def remove_station(self, host: str, port: int, provider: ID) -> bool:
-        remote = (host, port)
-        array = self.__stations.get(provider)
-        if array is not None:
-            for item in array:
-                if item.remote == remote:
-                    # station found
-                    array.remove(item)
-                    return True
+        # 1. clear cache to reload
+        self.__stations_cache.erase(key=provider)
+        # 2. store into local storage
+        return self.__station_storage.remove_station(host=host, port=port, provider=provider)
 
     # Override
     def remove_stations(self, provider: ID) -> bool:
-        self.__stations.pop(provider, None)
-        return True
+        # 1. clear cache to reload
+        self.__stations_cache.erase(key=provider)
+        # 2. store into local storage
+        return self.__station_storage.remove_stations(provider=provider)

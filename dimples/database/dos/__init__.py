@@ -40,6 +40,8 @@ from .group import GroupStorage
 
 from .login import LoginStorage
 
+from .station import StationStorage
+
 __all__ = [
 
     'Storage',
@@ -52,4 +54,6 @@ __all__ = [
     'GroupStorage',
 
     'LoginStorage',
+
+    'StationStorage',
 ]

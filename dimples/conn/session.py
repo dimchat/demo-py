@@ -69,14 +69,14 @@ class BaseSession(GateKeeper, Session, ABC):
             return True
 
     @property
-    def messenger(self) -> CommonMessenger:
+    def messenger(self) -> Optional[CommonMessenger]:
         ref = self.__messenger
-        assert ref is not None, 'messenger not set yet'
-        return ref()
+        if ref is not None:
+            return ref()
 
     @messenger.setter
     def messenger(self, transceiver: CommonMessenger):
-        self.__messenger = weakref.ref(transceiver)
+        self.__messenger = None if transceiver is None else weakref.ref(transceiver)
 
     # Override
     def queue_message_package(self, msg: ReliableMessage, data: bytes, priority: int = 0) -> bool:

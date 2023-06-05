@@ -63,7 +63,7 @@ __all__ = [
 
     'LoginDBI', 'ProviderDBI', 'SessionDBI',
     'SessionDBI',
-    'SocketAddress',
+    'StationInfo',
 
     #
     #   DOS

@@ -59,6 +59,21 @@ class BroadcastDeliver(Deliver, Logging):
     def database(self) -> Optional[SessionDBI]:
         return self.__database
 
+    def __get_neighbors(self) -> Set[ID]:
+        neighbors = set()
+        db = self.database
+        providers = db.all_providers()
+        assert len(providers) > 0, 'service provider not found'
+        gsp = providers[0].identifier
+        stations = db.all_stations(provider=gsp)
+        for item in stations:
+            sid = item.identifier
+            if sid is None or sid.is_broadcast:
+                continue
+            neighbors.add(sid)
+        # TODO: get neighbor station from session server
+        return neighbors
+
     def __get_recipients(self, msg: ReliableMessage, receiver: ID) -> Set[ID]:
         recipients = set()
         if receiver == Station.EVERY or recipients == EVERYONE:
@@ -70,18 +85,10 @@ class BroadcastDeliver(Deliver, Logging):
             if traces is None:
                 # should not happen
                 traces = []
-            db = self.database
-            # FIXME: get neighbor station ID
-            providers = db.all_providers()
-            assert len(providers) > 0, 'service provider not found'
-            gsp = providers[0][0]
-            neighbors = db.all_stations(provider=gsp)
-            for item in neighbors:
-                # FIXME: test
-                sid = ID.parse(identifier='gsp-s002@wpjUWg1oYDnkHh74tHQFPxii6q9j3ymnyW')
-                # sid = item[2]
+            neighbors = self.__get_neighbors()
+            for sid in neighbors:
                 if sid is None or sid in traces:
-                    self.warning(msg='ignore node: %s' % str(item))
+                    self.warning(msg='ignore neighbor: %s' % sid)
                     continue
                 recipients.add(sid)
             # include 'archivist' as 'everyone@everywhere'

@@ -38,7 +38,7 @@ from .message import MessageDBI
 
 from .session import LoginDBI, ProviderDBI, StationDBI
 from .session import SessionDBI
-from .session import SocketAddress
+from .session import ProviderInfo, StationInfo
 
 
 __all__ = [
@@ -60,5 +60,5 @@ __all__ = [
     #
     'LoginDBI', 'ProviderDBI', 'StationDBI',
     'SessionDBI',
-    'SocketAddress',
+    'ProviderInfo', 'StationInfo',
 ]

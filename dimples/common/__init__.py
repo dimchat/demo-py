@@ -60,7 +60,7 @@ __all__ = [
 
     'LoginDBI', 'ProviderDBI', 'StationDBI',
     'SessionDBI',
-    'SocketAddress',
+    'ProviderInfo', 'StationInfo',
 
     #
     #   common
