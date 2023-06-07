@@ -41,7 +41,6 @@ from ..server import ServerSession, SessionCenter
 from ..server import ServerMessenger
 from ..server import ServerMessagePacker
 from ..server import ServerMessageProcessor
-from ..server import DefaultFilter
 
 from .shared import GlobalVariable
 
@@ -54,7 +53,6 @@ def create_messenger(facebook: CommonFacebook, database: MessageDBI,
     #    they have weak references to session, facebook & messenger
     messenger.packer = ServerMessagePacker(facebook=facebook, messenger=messenger)
     messenger.processor = ServerMessageProcessor(facebook=facebook, messenger=messenger)
-    messenger.filter = DefaultFilter(session=session, facebook=facebook)
     # 3. set weak reference messenger in session
     session.messenger = messenger
     return messenger

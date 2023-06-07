@@ -35,6 +35,7 @@ from .dbi import *
 from .ans import AddressNameServer
 from .facebook import CommonFacebook
 from .messenger import CommonMessenger
+from .packer import CommonMessagePacker
 from .session import Transmitter, Session
 
 
@@ -68,6 +69,7 @@ __all__ = [
     'AddressNameServer',
     'CommonFacebook',
     'CommonMessenger',
+    'CommonMessagePacker',
     'Transmitter',
     'Session',
 ]

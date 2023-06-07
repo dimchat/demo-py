@@ -31,11 +31,11 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, List, Dict
+from typing import Optional, Tuple
 
-from dimsdk import EncryptKey, ID
-from dimsdk import InstantMessage, SecureMessage, ReliableMessage
+from dimsdk import ID
 from dimsdk import Content, Envelope
+from dimsdk import InstantMessage, ReliableMessage
 from dimsdk import EntityDelegate, CipherKeyDelegate
 from dimsdk import Messenger, Packer, Processor
 
@@ -108,101 +108,6 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         """ request for group members with group ID """
         raise NotImplemented
 
-    @abstractmethod  # protected
-    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
-        """ Add income message in a queue for waiting sender's visa """
-        raise NotImplemented
-
-    @abstractmethod  # protected
-    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
-        """ Add outgo message in a queue for waiting receiver's visa """
-        raise NotImplemented
-
-    def _visa_key(self, user: ID) -> Optional[EncryptKey]:
-        """ for checking whether user's ready """
-        key = self.facebook.public_key_for_encryption(identifier=user)
-        if key is not None:
-            # user is ready
-            return key
-        # user not ready, try to query document for it
-        if self.query_document(identifier=user):
-            self.info(msg='querying document for user: %s' % user)
-
-    def _members(self, group: ID) -> List[ID]:
-        """ for checking whether group's ready """
-        meta = self.facebook.meta(identifier=group)
-        if meta is None:
-            # group not ready, try to query meta for it
-            if self.query_meta(identifier=group):
-                self.info(msg='querying meta for group: %s' % group)
-            return []
-        grp = self.facebook.group(identifier=group)
-        members = grp.members
-        if members is None or len(members) == 0:
-            # group not ready, try to query members for it
-            if self.query_members(identifier=group):
-                self.info(msg='querying members for group: %s' % group)
-            return []
-        # group is ready
-        return members
-
-    def _check_reliable_message_sender(self, msg: ReliableMessage) -> bool:
-        """ Check sender before verifying received message """
-        sender = msg.sender
-        assert sender.is_user, 'sender error: %s' % sender
-        # check sender's meta & document
-        visa = msg.visa
-        if visa is not None:
-            # first handshake?
-            assert visa.identifier == sender, 'visa ID not match: %s => %s' % (sender, visa)
-            # assert Meta.match_id(meta=msg.meta, identifier=sender), 'meta error: %s' % msg
-            return True
-        elif self._visa_key(user=sender) is not None:
-            # sender is OK
-            return True
-        # sender not ready, suspend message for waiting document
-        error = {
-            'message': 'verify key not found',
-            'user': str(sender),
-        }
-        self.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
-
-    def _check_secure_message_receiver(self, msg: SecureMessage) -> bool:
-        receiver = msg.receiver
-        if receiver.is_broadcast:
-            # broadcast message
-            return True
-        elif receiver.is_group:
-            # check for received group message
-            members = self._members(group=receiver)
-            return len(members) > 0
-        # the facebook will select a user from local users to match this receiver,
-        # if no user matched (private key not found), this message will be ignored.
-        return True
-
-    def _check_instant_message_receiver(self, msg: InstantMessage) -> bool:
-        """ Check receiver before encrypting message """
-        receiver = msg.receiver
-        if receiver.is_broadcast:
-            # broadcast message
-            return True
-        elif receiver.is_group:
-            # NOTICE: station will never send group message, so
-            #         we don't need to check group info here; and
-            #         if a client wants to send group message,
-            #         that should be sent to a group bot first,
-            #         and the bot will separate it for all members.
-            return False
-        elif self._visa_key(user=receiver) is not None:
-            # receiver is OK
-            return True
-        # receiver not ready, suspend message for waiting document
-        error = {
-            'message': 'encrypt key not found',
-            'user': str(receiver),
-        }
-        self.suspend_instant_message(msg=msg, error=error)  # msg['error'] = error
-
     # # Override
     # def serialize_key(self, key: Union[dict, SymmetricKey], msg: InstantMessage) -> Optional[bytes]:
     #     # try to reuse message key
@@ -218,36 +123,6 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     #         # put it back
     #         key['reused'] = reused
     #     return data
-
-    # Override
-    def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
-        if self._check_instant_message_receiver(msg=msg):
-            # receiver OK
-            pass
-        else:
-            # receiver not ready
-            error = 'receiver not ready: %s' % msg.receiver
-            self.warning(msg=error)
-            raise LookupError(error)
-        return super().encrypt_message(msg=msg)
-
-    # Override
-    def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
-        if self._check_secure_message_receiver(msg=msg):
-            # receiver OK
-            pass
-        else:
-            # receiver (group) not ready
-            self.warning(msg='receiver not ready: %s' % msg.receiver)
-            return None
-        if self._check_reliable_message_sender(msg=msg):
-            # sender OK
-            pass
-        else:
-            # sender not ready
-            self.warning(msg='sender not ready: %s' % msg.sender)
-            return None
-        return super().verify_message(msg=msg)
 
     #
     #   Interfaces for Transmitting Message

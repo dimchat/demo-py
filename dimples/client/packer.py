@@ -30,41 +30,59 @@
 from typing import Optional
 
 from dimsdk import SymmetricKey
+from dimsdk import ID
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import DocumentCommand
-from dimsdk import Messenger, MessagePacker
+from dimsdk import Messenger
 
 from ..utils import base64_encode, sha256
+from ..common import CommonFacebook, CommonMessagePacker
 
-from ..common import CommonFacebook, CommonMessenger
 
+class ClientMessagePacker(CommonMessagePacker):
 
-class ClientMessagePacker(MessagePacker):
-
-    @property
-    def facebook(self) -> CommonFacebook:
-        barrack = super().facebook
-        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
-        return barrack
+    # Override
+    def _check_instant_message_receiver(self, msg: InstantMessage) -> bool:
+        receiver = msg.receiver
+        if receiver.is_broadcast:
+            # broadcast message
+            return True
+        elif receiver.is_group:
+            # check group's meta & members
+            members = self._members(group=receiver)
+            if members is None:
+                # group not ready, suspend message for waiting meta/members
+                error = {
+                    'message': 'group not ready',
+                    'group': str(receiver),
+                }
+                self._suspend_instant_message(msg=msg, error=error)
+                return False
+            waiting = []
+            for item in members:
+                if self._visa_key(user=item) is not None:
+                    # member is OK
+                    continue
+                # meta not ready
+                waiting.append(item)
+            if len(waiting) > 0:
+                # member(s) not ready, suspend message for waiting document
+                error = {
+                    'message': 'encrypt keys not found',
+                    'group': str(receiver),
+                    'members': ID.revert(array=waiting),
+                }
+                self._suspend_instant_message(msg=msg, error=error)
+                return False
+            # receiver is OK
+            return True
+        # check user's meta & document
+        return super()._check_instant_message_receiver(msg=msg)
 
     # Override
     def serialize_message(self, msg: ReliableMessage) -> bytes:
         attach_key_digest(msg=msg, messenger=self.messenger)
         return super().serialize_message(msg=msg)
-
-    # Override
-    def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
-        if data is None or len(data) < 2:
-            # message data error
-            return None
-        return super().deserialize_message(data=data)
-
-    # Override
-    def sign_message(self, msg: SecureMessage) -> ReliableMessage:
-        if isinstance(msg, ReliableMessage):
-            # already signed
-            return msg
-        return super().sign_message(msg=msg)
 
     # # Override
     # def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
@@ -88,15 +106,28 @@ class ClientMessagePacker(MessagePacker):
             if err_msg.find('failed to decrypt key in msg') < 0:
                 raise error
             # visa.key expired?
-            # send new visa to the sender
-            current = self.facebook.current_user
-            uid = current.identifier
-            visa = current.visa
+            # push new visa document to this message sender
+            facebook = get_facebook(packer=self)
+            user = facebook.current_user
+            current = user.identifier
+            visa = user.visa
             assert visa is not None and visa.valid, 'user visa error: %s' % current
-            cmd = DocumentCommand.response(document=visa, identifier=uid)
-            messenger = self.messenger
-            assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
-            messenger.send_content(sender=uid, receiver=msg.sender, content=cmd)
+            command = DocumentCommand.response(document=visa, identifier=current)
+            messenger = get_messenger(packer=self)
+            messenger.send_visa(sender=current, receiver=msg.sender, content=command)
+
+
+def get_facebook(packer: CommonMessagePacker) -> CommonFacebook:
+    barrack = packer.facebook
+    assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+    return barrack
+
+
+def get_messenger(packer: CommonMessagePacker):
+    transceiver = packer.messenger
+    from .messenger import ClientMessenger
+    assert isinstance(transceiver, ClientMessenger), 'messenger error: %s' % transceiver
+    return transceiver
 
 
 def attach_key_digest(msg: ReliableMessage, messenger: Messenger):

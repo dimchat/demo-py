@@ -34,12 +34,11 @@ import threading
 import time
 import weakref
 from abc import ABC, abstractmethod
-from typing import Optional, List, Set, Dict
+from typing import Optional, List, Set
 
 from dimsdk import ContentType
 from dimsdk import EntityType, ID
 from dimsdk import ReliableMessage
-from dkd import InstantMessage
 
 from ..utils import Logging
 from ..utils import Runner
@@ -289,14 +288,6 @@ class InnerMessenger(OctopusMessenger):
         octopus = self.octopus
         return octopus.outgo_message(msg=msg, priority=priority)
 
-    # Override
-    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
-        pass
-
-    # Override
-    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
-        pass
-
 
 class OuterMessenger(OctopusMessenger):
     """ Messenger for remote station """
@@ -322,14 +313,6 @@ class OuterMessenger(OctopusMessenger):
         station = self.session.station
         octopus = self.octopus
         octopus.add_index(identifier=station.identifier, terminal=self.terminal)
-
-    # Override
-    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
-        pass
-
-    # Override
-    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
-        pass
 
 
 def create_messenger(facebook: CommonFacebook, database: MessageDBI,

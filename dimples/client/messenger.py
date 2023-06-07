@@ -30,13 +30,11 @@
     Transform and send message
 """
 
-from typing import Optional, Dict
-
-from dkd import ReliableMessage
+from typing import Optional
 
 from dimples import EntityType, ID, EVERYONE
 from dimples import Station
-from dimples import Envelope, InstantMessage, SecureMessage
+from dimples import Envelope, InstantMessage
 from dimples import MetaCommand, DocumentCommand
 
 from ..utils import QueryFrequencyChecker
@@ -89,8 +87,7 @@ class ClientMessenger(CommonMessenger):
         """ send login command to keep roaming """
         # get current station
         station = self.session.station
-        assert sender.type != EntityType.STATION, \
-            'station (%s) would not login to another station: %s' % (sender, station)
+        assert sender.type != EntityType.STATION, 'station (%s) cannot login: %s' % (sender, station)
         # create login command
         command = LoginCommand(identifier=sender)
         command.agent = user_agent
@@ -121,18 +118,18 @@ class ClientMessenger(CommonMessenger):
         # send to all contacts
         contacts = facebook.contacts(identifier=current)
         for item in contacts:
-            self._send_visa(sender=current, receiver=item, content=command, force=updated)
+            self.send_visa(sender=current, receiver=item, content=command, force=updated)
         # broadcast to everyone@everywhere
-        self._send_visa(sender=current, receiver=EVERYONE, content=command, force=updated)
+        self.send_visa(sender=current, receiver=EVERYONE, content=command, force=updated)
 
-    def _send_visa(self, sender: Optional[ID], receiver: ID, content: DocumentCommand, force: bool = False) -> bool:
+    def send_visa(self, sender: Optional[ID], receiver: ID, content: DocumentCommand, force: bool = False):
         checker = QueryFrequencyChecker()
-        if not checker.document_response_expired(identifier=receiver, force=force):
+        if checker.document_response_expired(identifier=receiver, force=force):
+            self.info(msg='push visa to: %s' % receiver)
+            self.send_content(sender=sender, receiver=receiver, content=content, priority=1)
+        else:
             # response not expired yet
             self.debug(msg='document response not expired yet: %s' % receiver)
-            return False
-        pair = self.send_content(sender=sender, receiver=receiver, content=content, priority=1)
-        return pair[1] is not None
 
     # Override
     def query_meta(self, identifier: ID) -> bool:
@@ -176,67 +173,3 @@ class ClientMessenger(CommonMessenger):
         for bot in assistants:
             self.send_content(sender=None, receiver=bot, content=command, priority=1)
         return True
-
-    # Override
-    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
-        # TODO: suspend message for waiting msg.sender's meta/visa
-        pass
-
-    # Override
-    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
-        # TODO: suspend message for waiting msg.receiver's visa
-        pass
-
-    # Override
-    def _check_instant_message_receiver(self, msg: InstantMessage) -> bool:
-        receiver = msg.receiver
-        if receiver.is_broadcast:
-            # broadcast message
-            return True
-        elif receiver.is_group:
-            # check group's meta & members
-            members = self._members(group=receiver)
-            if len(members) == 0:
-                # group not ready, suspend message for waiting meta/members
-                error = {
-                    'message': 'group not ready',
-                    'group': str(receiver),
-                }
-                self.suspend_instant_message(msg=msg, error=error)  # msg['error'] = error
-                return False
-            waiting = []
-            for item in members:
-                if self._visa_key(user=item) is None:
-                    # member not ready
-                    waiting.append(item)
-                # member is OK
-            if len(waiting) > 0:
-                # member(s) not ready, suspend message for waiting document
-                error = {
-                    'message': 'encrypt keys not found',
-                    'group': str(receiver),
-                    'members': ID.revert(array=waiting)
-                }
-                self.suspend_instant_message(msg=msg, error=error)
-                return False
-            # receiver is OK
-            return True
-        # check user's meta & document
-        return super()._check_instant_message_receiver(msg=msg)
-
-    # Override
-    def decrypt_message(self, msg: SecureMessage) -> Optional[InstantMessage]:
-        i_msg = super().decrypt_message(msg=msg)
-        if i_msg is None:
-            # failed to decrypt message, visa.key changed?
-            # push new visa document to this message sender
-            user = self.facebook.current_user
-            visa = user.visa
-            # FIXME: user visa not found?
-            assert visa.valid, 'user visa error: %s' % user
-            current = user.identifier
-            meta = user.meta
-            command = DocumentCommand.response(identifier=current, meta=meta, document=visa)
-            self._send_visa(sender=current, receiver=msg.sender, content=command)
-            self.warning(msg='failed to decrypt message, push visa to %s' % msg.sender)
-        return i_msg

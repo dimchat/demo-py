@@ -37,9 +37,6 @@ from ..database import AccountDatabase, MessageDatabase, SessionDatabase
 from ..database import Storage
 from ..server import Pusher, DefaultPusher, PushCenter
 from ..server import Dispatcher
-from ..server import UserDeliver, BotDeliver, StationDeliver
-from ..server import GroupDeliver, BroadcastDeliver
-from ..server import DeliverWorker, DefaultRoamer
 
 from ..config import Config
 
@@ -190,28 +187,9 @@ def create_pusher(shared: GlobalVariable) -> Pusher:
 def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
     """ Step 6: create dispatcher """
     dispatcher = Dispatcher()
-    dispatcher.database = shared.mdb
+    dispatcher.mdb = shared.mdb
+    dispatcher.sdb = shared.sdb
     dispatcher.facebook = shared.facebook
-    # set base deliver delegates
-    user_deliver = UserDeliver(database=shared.mdb, pusher=shared.pusher)
-    bot_deliver = BotDeliver(database=shared.mdb)
-    station_deliver = StationDeliver()
-    dispatcher.set_user_deliver(deliver=user_deliver)
-    dispatcher.set_bot_deliver(deliver=bot_deliver)
-    dispatcher.set_station_deliver(deliver=station_deliver)
-    # set special deliver delegates
-    group_deliver = GroupDeliver(facebook=shared.facebook)
-    broadcast_deliver = BroadcastDeliver(database=shared.sdb)
-    dispatcher.set_group_deliver(deliver=group_deliver)
-    dispatcher.set_broadcast_deliver(deliver=broadcast_deliver)
-    # set roamer & worker
-    roamer = DefaultRoamer(database=shared.mdb)
-    worker = DeliverWorker(database=shared.sdb, facebook=shared.facebook)
-    dispatcher.set_roamer(roamer=roamer)
-    dispatcher.set_deliver_worker(worker=worker)
-    # start all delegates
-    user_deliver.start()
-    bot_deliver.start()
-    station_deliver.start()
-    roamer.start()
+    dispatcher.pusher = shared.pusher
+    dispatcher.start()
     return dispatcher

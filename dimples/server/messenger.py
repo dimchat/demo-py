@@ -30,38 +30,62 @@
     Transform and send message
 """
 
-from typing import Optional, List, Dict
+from typing import Optional, Set, List
 
-from dimsdk import EntityType, ID, ANYONE
+from dimsdk import ID, EVERYONE
 from dimsdk import Station
-from dimsdk import Envelope, MetaCommand, DocumentCommand
+from dimsdk import Envelope, Command, MetaCommand, DocumentCommand
 from dimsdk import InstantMessage
 from dimsdk import SecureMessage, ReliableMessage
 
-from ..utils import QueryFrequencyChecker
-from ..common import HandshakeCommand
-from ..common import MessageDBI
-from ..common import CommonMessenger, CommonFacebook
-from ..common import Session
+from ..utils import Log, QueryFrequencyChecker
+from ..common import HandshakeCommand, ReceiptCommand
+from ..common import CommonMessenger
+from ..common import SessionDBI
 
-from .filter import Filter
 from .dispatcher import Dispatcher
 
 
 class ServerMessenger(CommonMessenger):
 
-    def __init__(self, session: Session, facebook: CommonFacebook, database: MessageDBI):
-        super().__init__(session=session, facebook=facebook, database=database)
-        # NOTICE: create Filter by RequestHandler
-        self.__filter: Optional[Filter] = None
+    def broadcast_reliable_message(self, msg: ReliableMessage, station: ID) -> int:
+        receiver = msg.receiver
+        db = self.session.database
+        # get other recipients
+        recipients = get_recipients(msg=msg, receiver=receiver, db=db)
+        if len(recipients) == 0:
+            Log.warning('other recipients not found: %s' % receiver)
+            return 0
+        else:
+            Log.info(msg='other recipients: %s => %s' % (receiver, recipients))
+        # dispatch
+        dispatcher = Dispatcher()
+        for target in recipients:
+            assert not target.is_broadcast, 'recipient error: %s, %s' % (target, receiver)
+            if target == station:
+                Log.error(msg='current station should not exists here: %s, %s' % (target, recipients))
+                continue
+            dispatcher.deliver_message(msg=msg, receiver=target)
 
-    @property
-    def filter(self) -> Filter:
-        return self.__filter
+            # TODO: after deliver to connected neighbors, the dispatcher will continue
+            #       delivering via station bridge, should we mark 'sent_neighbors' in
+            #       only one message to the bridge, let the bridge to separate for other
+            #       neighbors which not connect to this station directly?
+        # response
+        text = 'Broadcast message delivering'
+        command = ReceiptCommand.create(text=text, msg=msg)
+        command['recipients'] = ID.revert(array=recipients)
+        self.send_content(sender=station, receiver=msg.sender, content=command, priority=1)
+        return len(recipients)
 
-    @filter.setter
-    def filter(self, checker: Filter):
-        self.__filter = checker
+    def __broadcast_command(self, content: Command, receiver: ID):
+        sid = self.facebook.current_user.identifier
+        env = Envelope.create(sender=sid, receiver=receiver)
+        i_msg = InstantMessage.create(head=env, body=content)
+        # pack & deliver message
+        s_msg = self.encrypt_message(msg=i_msg)
+        r_msg = self.sign_message(msg=s_msg)
+        self.broadcast_reliable_message(msg=r_msg, station=sid)
 
     # Override
     def query_meta(self, identifier: ID) -> bool:
@@ -71,16 +95,8 @@ class ServerMessenger(CommonMessenger):
             self.debug(msg='meta query not expired yet: %s' % identifier)
             return False
         self.info(msg='querying meta of %s from neighbor stations' % identifier)
-        current = self.facebook.current_user
-        stations = Station.EVERY
-        cmd = MetaCommand.query(identifier=identifier)
-        env = Envelope.create(sender=current.identifier, receiver=stations)
-        i_msg = InstantMessage.create(head=env, body=cmd)
-        # pack & deliver message
-        s_msg = self.encrypt_message(msg=i_msg)
-        r_msg = self.sign_message(msg=s_msg)
-        dispatcher = Dispatcher()
-        dispatcher.deliver_message(msg=r_msg, receiver=stations)
+        command = MetaCommand.query(identifier=identifier)
+        self.__broadcast_command(content=command, receiver=Station.EVERY)
         return True
 
     # Override
@@ -91,16 +107,8 @@ class ServerMessenger(CommonMessenger):
             self.debug(msg='document query not expired yet: %s' % identifier)
             return False
         self.info(msg='querying document of %s from neighbor stations' % identifier)
-        current = self.facebook.current_user
-        stations = Station.EVERY
-        cmd = DocumentCommand.query(identifier=identifier)
-        env = Envelope.create(sender=current.identifier, receiver=stations)
-        i_msg = InstantMessage.create(head=env, body=cmd)
-        # pack & deliver message
-        s_msg = self.encrypt_message(msg=i_msg)
-        r_msg = self.sign_message(msg=s_msg)
-        dispatcher = Dispatcher()
-        dispatcher.deliver_message(msg=r_msg, receiver=stations)
+        command = DocumentCommand.query(identifier=identifier)
+        self.__broadcast_command(content=command, receiver=Station.EVERY)
         return True
 
     # Override
@@ -109,55 +117,31 @@ class ServerMessenger(CommonMessenger):
         return True
 
     # Override
-    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
-        # TODO: suspend message for waiting msg.sender's meta/visa
-        pass
-
-    # Override
-    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
-        # TODO: suspend message for waiting msg.receiver's visa
-        pass
-
-    # Override
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
         sender = msg.sender
         receiver = msg.receiver
-        checker = self.filter
-        # 0. check msg['traces']
-        if checker.check_traced(msg=msg):
-            # cycled message
-            if sender.type == EntityType.STATION or receiver.type == EntityType.STATION:
-                # ignore cycled station message
-                return None
-            elif receiver.is_broadcast:
-                # ignore cycled broadcast message
-                return None
-        # 1. verify message
-        if checker.trusted_sender(sender=sender):
-            # no need to verify message from this sender
-            s_msg = msg
-        else:
-            s_msg = super().verify_message(msg=msg)
-            if s_msg is None:
-                # failed to verify message
-                return None
-        # 2. check message for current station
         facebook = self.facebook
         current = facebook.current_user
+        # 1. verify message
+        s_msg = super().verify_message(msg=msg)
         if receiver == current.identifier:
             # message to this station
+            # maybe a meta command, document command, etc ...
             return s_msg
-        elif receiver.is_broadcast and receiver.is_user:
-            # broadcast message to single destination
-            if receiver == Station.ANY:
-                # message to 'station@anywhere'
-                # for first handshake without station ID
-                return s_msg
-            elif receiver == ANYONE:
-                # message to 'anyone@anywhere'
-                # other plain message without encryption?
-                return s_msg
-        # 3. check session for delivering
+        elif receiver.is_broadcast:
+            # if receiver == 'station@anywhere':
+            #     it must be the first handshake without station ID;
+            # if receiver == 'anyone@anywhere':
+            #     it should be other plain message without encryption.
+            # if receiver.is_group:
+            #     broadcast message to multiple destinations,
+            #     current station is it's receiver too.
+            return s_msg
+        elif receiver.is_group:
+            self.error(msg='group message should not send to station: %s -> %s' % (sender, receiver))
+            return None
+
+        # 2. check session for delivering
         session = self.session
         if session.identifier is None or not session.active:
             # not login? ask client to handshake again (with session key)
@@ -167,23 +151,12 @@ class ServerMessenger(CommonMessenger):
             # DISCUSS: suspend this message for waiting handshake accepted
             #          or let the client to send it again?
             return None
-        # 4. deliver message and respond to sender
-        #    broadcast message should deliver to other stations;
-        #    group message should deliver to group assistant(s).
+        # session is active, so this message is not for current station,
+        # deliver to the real receiver and respond to sender
         dispatcher = Dispatcher()
         responses = dispatcher.deliver_message(msg=msg, receiver=receiver)
         for res in responses:
             self.send_content(sender=current.identifier, receiver=sender, content=res)
-        # 5. OK
-        if receiver.is_broadcast and receiver.is_group:
-            # broadcast message to multiple destinations,
-            # current station is it's receiver too,
-            # so return it to let this station process it.
-            return s_msg
-        else:
-            # this message is not for this station,
-            # let dispatcher deliver to the real receiver.
-            return None
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
@@ -223,3 +196,58 @@ def pick_out(messages: List[ReliableMessage], bridge: ID) -> List[ReliableMessag
             # roaming to other station, so deliver it via dispatcher here.
             dispatcher.deliver_message(msg=msg, receiver=receiver)
     return responses
+
+
+def get_neighbors(db: SessionDBI) -> Set[ID]:
+    neighbors = set()
+    providers = db.all_providers()
+    assert len(providers) > 0, 'service provider not found'
+    gsp = providers[0].identifier
+    stations = db.all_stations(provider=gsp)
+    for item in stations:
+        sid = item.identifier
+        if sid is None or sid.is_broadcast:
+            continue
+        neighbors.add(sid)
+    # TODO: get neighbor station from session server
+    return neighbors
+
+
+def get_recipients(msg: ReliableMessage, receiver: ID, db: SessionDBI) -> Set[ID]:
+    recipients = set()
+    # get nodes passed through, includes current node which is just added before
+    traces = msg.get('traces')
+    if traces is None:
+        traces = []
+    # if this message is sending to 'stations@everywhere' or 'everyone@everywhere'
+    # get all neighbor stations to broadcast, but
+    # traced nodes should be ignored to avoid cycled delivering
+    if receiver == Station.EVERY or recipients == EVERYONE:
+        Log.debug(msg='forward to neighbors: %s' % receiver)
+        # get neighbor stations
+        neighbors = get_neighbors(db=db)
+        for sid in neighbors:
+            if sid not in traces:  # and sid != station:
+                recipients.add(sid)
+            else:
+                Log.warning(msg='ignore neighbor: %s' % sid)
+        # get archivist bot
+        if receiver == EVERYONE:
+            # include 'archivist' as 'everyone@everywhere'
+            bot = ans_id(name='archivist')
+            if bot is not None and bot not in traces:
+                recipients.add(bot)
+    # elif receiver == 'archivist@anywhere' or receiver == 'archivists@everywhere':
+    #     Log.debug(msg='forward to archivist: %s' % receiver)
+    #     # get archivist bot for search command
+    #     bot = ans_id(name='archivist')
+    #     if bot is not None and bot not in traces:
+    #         recipients.add(bot)
+    return recipients
+
+
+def ans_id(name: str) -> Optional[ID]:
+    try:
+        return ID.parse(identifier=name)
+    except ValueError as e:
+        Log.warning(msg='ANS record not exists: %s, %s' % (name, e))

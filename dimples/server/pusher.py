@@ -40,6 +40,7 @@ from dimsdk import Envelope, ReliableMessage
 from ..utils import Logging
 from ..common import CommonFacebook
 
+from .packer import FilterManager
 from .push_service import PushCenter
 
 
@@ -71,13 +72,14 @@ class DefaultPusher(Pusher, Logging):
         group = env.group
         msg_type = env.type
         # 2. check mute-list
-        if self._is_mute(sender=sender, receiver=receiver, group=group, msg_type=msg_type):
-            # muted by receiver
+        mute_filter = FilterManager().mute_filter
+        if mute_filter.is_muted(msg=msg):
+            self.info(msg='muted sender: %s -> %s (group: %s) type: %d' % (sender, receiver, group, msg_type))
             return
         # 3. build title & content text
         title, text = self._build_message(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
         if text is None:
-            # ignore msg type
+            self.info(msg='ignore msg type: %s -> %s (group: %s) type: %d' % (sender, receiver, group, msg_type))
             return
         # 4. add notification to a waiting queue in PushCenter
         center = PushCenter()
