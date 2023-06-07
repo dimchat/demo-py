@@ -73,7 +73,10 @@ class GroupTable(GroupDBI):
             # 2. check local storage
             value = self.__group_storage.founder(group=group)
             # 3. update memory cache
-            self.__founder_cache.update(key=group, value=value, life_span=3600, now=now)
+            if value is None:
+                self.__founder_cache.update(key=group, value=value, life_span=600, now=now)
+            else:
+                self.__founder_cache.update(key=group, value=value, life_span=36000, now=now)
         # OK, return cached value
         return value
 
@@ -97,7 +100,7 @@ class GroupTable(GroupDBI):
             # 2. check local storage
             value = self.__group_storage.owner(group=group)
             # 3. update memory cache
-            self.__owner_cache.update(key=group, value=value, life_span=3600, now=now)
+            self.__owner_cache.update(key=group, value=value, life_span=600, now=now)
         # OK, return cached value
         return value
 
@@ -121,14 +124,14 @@ class GroupTable(GroupDBI):
             # 2. check local storage
             value = self.__group_storage.members(group=group)
             # 3. update memory cache
-            self.__members_cache.update(key=group, value=value, life_span=3600, now=now)
+            self.__members_cache.update(key=group, value=value, life_span=600, now=now)
         # OK, return cached value
         return value
 
     # Override
     def save_members(self, members: List[ID], group: ID) -> bool:
         # 1. store into memory cache
-        self.__members_cache.update(key=group, value=members, life_span=3600)
+        self.__members_cache.update(key=group, value=members, life_span=600)
         # 2. store into local storage
         return self.__group_storage.save_members(members=members, group=group)
 
@@ -176,13 +179,13 @@ class GroupTable(GroupDBI):
             # 2. check local storage
             value = self.__group_storage.assistants(group=group)
             # 3. update memory cache
-            self.__assistants_cache.update(key=group, value=value, life_span=3600, now=now)
+            self.__assistants_cache.update(key=group, value=value, life_span=600, now=now)
         # OK, return cached value
         return value
 
     # Override
     def save_assistants(self, assistants: List[ID], group: ID) -> bool:
         # 1. store into memory cache
-        self.__assistants_cache.update(key=group, value=assistants, life_span=3600)
+        self.__assistants_cache.update(key=group, value=assistants, life_span=600)
         # 2. store into local storage
         return self.__group_storage.save_assistants(assistants=assistants, group=group)

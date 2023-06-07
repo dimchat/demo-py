@@ -30,20 +30,24 @@
     Transform and send message
 """
 
+import threading
+import time
 from typing import Optional, Set, List
 
-from dimsdk import ID, EVERYONE
+from dimsdk import EntityType, ID, EVERYONE
 from dimsdk import Station
 from dimsdk import Envelope, Command, MetaCommand, DocumentCommand
 from dimsdk import InstantMessage
 from dimsdk import SecureMessage, ReliableMessage
 
-from ..utils import Log, QueryFrequencyChecker
+from ..utils import Singleton, Log, QueryFrequencyChecker
 from ..common import HandshakeCommand, ReceiptCommand
 from ..common import CommonMessenger
 from ..common import SessionDBI
 
+from .packer import FilterManager
 from .dispatcher import Dispatcher
+from .session_center import SessionCenter
 
 
 class ServerMessenger(CommonMessenger):
@@ -116,8 +120,18 @@ class ServerMessenger(CommonMessenger):
         # station will never process group info
         return True
 
+    # protected
+    # noinspection PyMethodMayBeStatic
+    def is_blocked(self, msg: ReliableMessage) -> bool:
+        block_filter = FilterManager().block_filter
+        return block_filter.is_blocked(msg=msg)
+
     # Override
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
+        # check block list
+        if self.is_blocked(msg=msg):
+            self.warning(msg='user is blocked: %s -> %s (group: %s)' % (msg.sender, msg.receiver, msg.group))
+            return None
         sender = msg.sender
         receiver = msg.receiver
         facebook = self.facebook
@@ -209,8 +223,39 @@ def get_neighbors(db: SessionDBI) -> Set[ID]:
         if sid is None or sid.is_broadcast:
             continue
         neighbors.add(sid)
-    # TODO: get neighbor station from session server
+    # get neighbor station from session server
+    proactive_neighbors = NeighborSessionManager().proactive_neighbors
+    for sid in proactive_neighbors:
+        if sid is None or sid.is_broadcast:
+            assert False, 'neighbor station ID error: %s' % sid
+            # continue
+        neighbors.add(sid)
     return neighbors
+
+
+@Singleton
+class NeighborSessionManager:
+
+    def __init__(self):
+        super().__init__()
+        self.__neighbors = set()
+        self.__expires = 0
+        self.__lock = threading.Lock()
+
+    @property
+    def proactive_neighbors(self) -> Set[ID]:
+        now = time.time()
+        with self.__lock:
+            if self.__expires < now:
+                neighbors = set()
+                center = SessionCenter()
+                all_users = center.all_users()
+                for item in all_users:
+                    if item.type == EntityType.STATION:
+                        neighbors.add(item)
+                self.__neighbors = neighbors
+                self.__expires = now + 128
+            return self.__neighbors
 
 
 def get_recipients(msg: ReliableMessage, receiver: ID, db: SessionDBI) -> Set[ID]:

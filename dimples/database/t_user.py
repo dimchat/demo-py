@@ -71,14 +71,14 @@ class UserTable(UserDBI, ContactDBI):
             # 2. check local storage
             value = self.__user_storage.local_users()
             # 3. update memory cache
-            self.__dim_cache.update(key='local_users', value=value, life_span=36000, now=now)
+            self.__dim_cache.update(key='local_users', value=value, life_span=600, now=now)
         # OK, return cached value
         return value
 
     # Override
     def save_local_users(self, users: List[ID]) -> bool:
         # 1. store into memory cache
-        self.__dim_cache.update(key='local_users', value=users, life_span=36000)
+        self.__dim_cache.update(key='local_users', value=users, life_span=600)
         # 2. store into local storage
         return self.__user_storage.save_local_users(users=users)
 
@@ -142,14 +142,14 @@ class UserTable(UserDBI, ContactDBI):
             # 2. check local storage
             value = self.__user_storage.contacts(user=user)
             # 3. update memory cache
-            self.__contacts_cache.update(key=user, value=value, life_span=36000, now=now)
+            self.__contacts_cache.update(key=user, value=value, life_span=600, now=now)
         # OK, return cached value
         return value
 
     # Override
     def save_contacts(self, contacts: List[ID], user: ID) -> bool:
         # 1. store into memory cache
-        self.__contacts_cache.update(key=user, value=contacts, life_span=36000)
+        self.__contacts_cache.update(key=user, value=contacts, life_span=600)
         # 2. store into local storage
         return self.__user_storage.save_contacts(contacts=contacts, user=user)
 

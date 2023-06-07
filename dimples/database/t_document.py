@@ -61,7 +61,7 @@ class DocumentTable(DocumentDBI):
             # document expired, drop it
             return False
         # 1. store into memory cache
-        self.__doc_cache.update(key=identifier, value=document, life_span=3600)
+        self.__doc_cache.update(key=identifier, value=document, life_span=600)
         # 2. store into local storage
         return self.__doc_storage.save_document(document=document)
 
@@ -85,6 +85,6 @@ class DocumentTable(DocumentDBI):
             # 2. check local storage
             value = self.__doc_storage.document(identifier=identifier, doc_type=doc_type)
             # 3. update memory cache
-            self.__doc_cache.update(key=identifier, value=value, life_span=3600, now=now)
+            self.__doc_cache.update(key=identifier, value=value, life_span=600, now=now)
         # OK, return cached value
         return value

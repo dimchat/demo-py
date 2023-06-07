@@ -92,11 +92,6 @@ class ServerMessagePacker(CommonMessagePacker):
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
         sender = msg.sender
         receiver = msg.receiver
-        # check block list
-        block_filter = FilterManager().block_filter
-        if block_filter.is_blocked(msg=msg):
-            self.warning(msg='user is blocked: %s -> %s (group: %s)' % (sender, receiver, msg.group))
-            return None
         # check duplicated
         if self.__is_traced(msg=msg):
             # cycled message

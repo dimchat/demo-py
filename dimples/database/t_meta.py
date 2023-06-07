@@ -82,6 +82,9 @@ class MetaTable(MetaDBI):
             # 2. check local storage
             value = self.__meta_storage.meta(identifier=identifier)
             # 3. update memory cache
-            self.__meta_cache.update(key=identifier, value=value, life_span=36000, now=now)
+            if value is None:
+                self.__meta_cache.update(key=identifier, value=value, life_span=600, now=now)
+            else:
+                self.__meta_cache.update(key=identifier, value=value, life_span=36000, now=now)
         # OK, return cached value
         return value

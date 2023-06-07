@@ -113,6 +113,7 @@ class AddressNameServer(AddressNameService):
         # self.__reserved['station'] = False
         for alias in records:
             identifier = ID.parse(identifier=records[alias])
+            assert identifier is not None, 'record error: %s => %s' % (alias, records[alias])
             if self.save(name=alias, identifier=identifier):
                 count += 1
         # self.__reserved['station'] = True

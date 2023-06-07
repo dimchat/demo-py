@@ -115,14 +115,14 @@ class LoginCommand(BaseCommand):
     #   Server Info
     #
     @property
-    def station(self) -> Optional[dict]:
+    def station(self) -> Optional[Dict]:
         return self.get('station')
 
     @station.setter
-    def station(self, value: Union[dict, Station]):
+    def station(self, value: Union[Dict, Station]):
         if value is None:
             self.pop('station', None)
-        elif isinstance(value, dict):
+        elif isinstance(value, Dict):
             self['station'] = value
         else:
             assert isinstance(value, Station), 'station error: %s' % value
@@ -133,14 +133,14 @@ class LoginCommand(BaseCommand):
             }
 
     @property
-    def provider(self) -> Optional[dict]:
+    def provider(self) -> Optional[Dict]:
         return self.get('provider')
 
     @provider.setter
-    def provider(self, value: Union[dict, ServiceProvider]):
+    def provider(self, value: Union[Dict, ServiceProvider]):
         if value is None:
             self.pop('provider', None)
-        elif isinstance(value, dict):
+        elif isinstance(value, Dict):
             self['provider'] = value
         else:
             assert isinstance(value, ServiceProvider), 'SP error: %s' % value

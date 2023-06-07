@@ -92,7 +92,10 @@ class PrivateKeyTable(PrivateKeyDBI):
             # 2. check local storage
             value = self.__key_storage.private_keys_for_decryption(user=user)
             # 3. update memory cache
-            self.__msg_keys_cache.update(key=user, value=value, life_span=36000, now=now)
+            if value is None:
+                self.__msg_keys_cache.update(key=user, value=value, life_span=600, now=now)
+            else:
+                self.__msg_keys_cache.update(key=user, value=value, life_span=36000, now=now)
         # OK, return cached value
         return value
 
@@ -121,6 +124,9 @@ class PrivateKeyTable(PrivateKeyDBI):
             # 2. check local storage
             value = self.__key_storage.private_key_for_visa_signature(user=user)
             # 3. update memory cache
-            self.__id_key_cache.update(key=user, value=value, life_span=36000, now=now)
+            if value is None:
+                self.__id_key_cache.update(key=user, value=value, life_span=600, now=now)
+            else:
+                self.__id_key_cache.update(key=user, value=value, life_span=36000, now=now)
         # OK, return cached value
         return value

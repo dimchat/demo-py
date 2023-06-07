@@ -47,6 +47,7 @@ from .ws import WSDocker
 H = TypeVar('H')
 
 
+# noinspection PyAbstractClass
 class BaseGate(StarGate, Generic[H], ABC):
 
     def __init__(self, delegate: DockerDelegate):
@@ -110,6 +111,7 @@ class BaseGate(StarGate, Generic[H], ABC):
         pass
 
 
+# noinspection PyAbstractClass
 class CommonGate(BaseGate, Logging, Generic[H], ABC):
     """ Gate with Hub for connections """
 
@@ -143,20 +145,20 @@ class CommonGate(BaseGate, Logging, Generic[H], ABC):
     def connection_state_changed(self, previous: ConnectionState, current: ConnectionState, connection: Connection):
         # debug info
         if current is None or current == ConnectionState.ERROR:
-            self.error(msg='connection lost: %s -> %s, %s' % (previous, current, connection))
+            self.error(msg='connection lost: %s -> %s, %s' % (previous, current, connection.remote_address))
         elif current != ConnectionState.EXPIRED and current != ConnectionState.MAINTAINING:
-            self.debug(msg='connection state changed: %s -> %s, %s' % (previous, current, connection))
+            self.debug(msg='connection state changed: %s -> %s, %s' % (previous, current, connection.remote_address))
         super().connection_state_changed(previous=previous, current=current, connection=connection)
 
     # Override
     def connection_received(self, data: bytes, connection: Connection):
+        self.debug(msg='received %d byte(s): %s' % (len(data), connection.remote_address))
         super().connection_received(data=data, connection=connection)
-        self.debug(msg='received %d byte(s): %s' % (len(data), connection))
 
     # Override
     def connection_sent(self, sent: int, data: bytes, connection: Connection):
         super().connection_sent(sent=sent, data=data, connection=connection)
-        self.debug(msg='sent %d byte(s): %s' % (len(data), connection))
+        self.debug(msg='sent %d byte(s): %s' % (len(data), connection.remote_address))
 
     # Override
     def connection_failed(self, error: Union[IOError, socket.error], data: bytes, connection: Connection):

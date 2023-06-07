@@ -75,7 +75,7 @@ class ReportCommand(BaseCommand):
     #
     @property
     def title(self) -> str:
-        return self.get('title')
+        return self.get_str(key='title', default='')
 
     @title.setter
     def title(self, value: str):

@@ -38,6 +38,7 @@ from dimp import Content
 
 from dimsdk.cpu import BaseCommandProcessor
 
+from ...utils import Log
 from ...common import HandshakeCommand
 from ...common import CommonMessenger, Session
 
@@ -64,6 +65,7 @@ class HandshakeCommandProcessor(BaseCommandProcessor):
         session = self.session
         if session.key == content.session:
             # session key match
+            Log.info(msg='handshake accepted: %s, session: %s' % (msg.sender, session.key))
             # verified success
             handshake_accepted(identifier=msg.sender, session=session)
             res = HandshakeCommand.success(session=session.key)

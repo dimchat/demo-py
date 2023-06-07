@@ -68,7 +68,7 @@ class LoginTable(LoginDBI):
             cmd, msg = self.__login_storage.login_command_message(user=user)
             value = (cmd, msg)
             # 3. update memory cache
-            self.__login_cache.update(key=user, value=value, life_span=36000, now=now)
+            self.__login_cache.update(key=user, value=value, life_span=600, now=now)
         # OK, return cached value
         return value
 
@@ -80,6 +80,6 @@ class LoginTable(LoginDBI):
             # command expired
             return False
         # 2. store into memory cache
-        self.__login_cache.update(key=user, value=(content, msg), life_span=36000)
+        self.__login_cache.update(key=user, value=(content, msg), life_span=600)
         # 3. store into local storage
         return self.__login_storage.save_login_command_message(user=user, content=content, msg=msg)
