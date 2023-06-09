@@ -31,15 +31,16 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
-from dimsdk import ID
-from dimsdk import Content, Envelope
+from dimsdk import EntityType, ID
+from dimsdk import ContentType, Content, Envelope
 from dimsdk import InstantMessage, ReliableMessage
 from dimsdk import EntityDelegate, CipherKeyDelegate
 from dimsdk import Messenger, Packer, Processor
 
 from ..utils import Logging
+from ..common import ReceiptCommand
 
 from .dbi import MessageDBI
 
@@ -123,6 +124,40 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     #         # put it back
     #         key['reused'] = reused
     #     return data
+
+    # Override
+    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+        # call super
+        responses = super().process_reliable_message(msg=msg)
+        if len(responses) == 0 and self._needs_receipt(msg=msg):
+            current_user = self.facebook.current_user
+            res = ReceiptCommand.create(text='Message received', msg=msg)
+            env = Envelope.create(sender=current_user.identifier, receiver=msg.sender)
+            i_msg = InstantMessage.create(head=env, body=res)
+            s_msg = self.encrypt_message(msg=i_msg)
+            assert s_msg is not None, 'failed to encrypt message: %s -> %s' % (current_user, msg.sender)
+            r_msg = self.sign_message(msg=s_msg)
+            assert r_msg is not None, 'failed to sign message: %s -> %s' % (current_user, msg.sender)
+            responses = [r_msg]
+        return responses
+
+    # noinspection PyMethodMayBeStatic
+    def _needs_receipt(self, msg: ReliableMessage) -> bool:
+        if msg.type == ContentType.COMMAND:
+            # filter for looping message (receipt for receipt)
+            return False
+        sender = msg.sender
+        receiver = msg.receiver
+        if sender.type == EntityType.STATION or sender.type == EntityType.BOT:
+            if receiver.type == EntityType.STATION or receiver.type == EntityType.BOT:
+                # message between bots
+                return False
+        # current_user = self.facebook.current_user
+        # if receiver != current_user.identifier:
+        #     # forward message
+        #     return True
+        # TODO: other condition?
+        return True
 
     #
     #   Interfaces for Transmitting Message

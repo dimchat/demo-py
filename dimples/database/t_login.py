@@ -31,6 +31,7 @@ from dimsdk import ReliableMessage
 
 from ..utils import CacheManager
 from ..common import LoginDBI, LoginCommand
+from ..common.dbi import is_expired
 
 from .dos import LoginStorage
 
@@ -76,7 +77,7 @@ class LoginTable(LoginDBI):
     def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
         # 1. check old record
         old, _ = self.login_command_message(user=user)
-        if isinstance(old, LoginCommand) and old.time >= content.time > 0:
+        if isinstance(old, LoginCommand) and is_expired(old_time=old.time, new_time=content.time):
             # command expired
             return False
         # 2. store into memory cache

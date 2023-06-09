@@ -116,6 +116,10 @@ class Dispatcher(MessageDeliver):
     def pusher(self, service: Pusher):
         self.__pusher = service
 
+    @property
+    def worker(self):  # -> DeliverWorker:
+        return self.__worker
+
     def start(self):
         worker = DeliverWorker(database=self.__sdb, facebook=self.__facebook)
         roamer = Roamer(database=self.__mdb)
@@ -240,9 +244,10 @@ class Roamer(Runner, Logging):
                 return True
             # get deliver delegate for receiver
             dispatcher = Dispatcher()
+            worker = dispatcher.worker
             # deliver cached messages one by one
             for msg in cached_messages:
-                dispatcher.deliver_message(msg=msg, receiver=receiver)
+                worker.push_message(msg=msg, receiver=receiver)
         except Exception as e:
             self.error(msg='process roaming user (%s => %s) error: %s' % (receiver, roaming, e))
         # return True to process next immediately

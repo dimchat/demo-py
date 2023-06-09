@@ -173,7 +173,7 @@ class PushInfo:
 
     def to_json(self) -> str:
         info = {
-            'alert': self.__alert
+            'alert': self.__alert.to_json()
         }
         if self.__title is not None:
             info['title'] = self.__title

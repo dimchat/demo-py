@@ -39,10 +39,12 @@ from typing import Optional, List, Set
 from dimsdk import ContentType
 from dimsdk import EntityType, ID
 from dimsdk import ReliableMessage
+from dimsdk import Station
 
-from ..utils import Logging
+from ..utils import Log, Logging
 from ..utils import Runner
 from ..common import CommonFacebook
+from ..common import ProviderInfo
 from ..common import MessageDBI, SessionDBI
 from ..common import HandshakeCommand
 from ..conn.session import get_sig
@@ -263,10 +265,10 @@ class OctopusMessenger(ClientMessenger, ABC):
         sig = get_sig(msg=msg)
         self.info(msg='redirect msg(type=%d, sig=%s): %s -> %s | from %s, traces: %s'
                   % (msg.type, sig, msg.sender, msg.receiver, get_remote_station(messenger=self), msg.get('traces')))
-        return self.deliver_message(msg=msg)
+        return self._deliver_message(msg=msg)
 
     @abstractmethod
-    def deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+    def _deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         """ call octopus to redirect message """
         pass
 
@@ -281,7 +283,7 @@ class InnerMessenger(OctopusMessenger):
     """ Messenger for local station """
 
     # Override
-    def deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+    def _deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         priority = 0  # NORMAL
         if msg.receiver.is_broadcast:
             priority = 1  # SLOWER
@@ -293,14 +295,7 @@ class OuterMessenger(OctopusMessenger):
     """ Messenger for remote station """
 
     # Override
-    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
-        if msg.sender == self.local_station:
-            self.debug(msg='cycled message from this station: %s => %s' % (msg.sender, msg.receiver))
-            return []
-        return super().process_reliable_message(msg=msg)
-
-    # Override
-    def deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+    def _deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         priority = 0  # NORMAL
         if msg.receiver.is_broadcast:
             priority = 1  # SLOWER
@@ -308,9 +303,17 @@ class OuterMessenger(OctopusMessenger):
         return octopus.income_message(msg=msg, priority=priority)
 
     # Override
+    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+        if msg.sender == self.local_station:
+            self.debug(msg='cycled message from this station: %s => %s' % (msg.sender, msg.receiver))
+            return []
+        return super().process_reliable_message(msg=msg)
+
+    # Override
     def handshake_success(self):
         super().handshake_success()
         station = self.session.station
+        update_station(station=station)
         octopus = self.octopus
         octopus.add_index(identifier=station.identifier, terminal=self.terminal)
 
@@ -334,3 +337,20 @@ def create_terminal(messenger: OctopusMessenger) -> Terminal:
     messenger.terminal = terminal
     terminal.start()
     return terminal
+
+
+def update_station(station: Station):
+    Log.info(msg='update station: %s' % station)
+    shared = GlobalVariable()
+    db = shared.sdb
+    # SP ID
+    provider = station.provider
+    if provider is None:
+        provider = ProviderInfo.GSP
+    # new info
+    sid = station.identifier
+    host = station.host
+    port = station.port
+    assert not sid.is_broadcast, 'station ID error: %s' % sid
+    assert host is not None and port > 0, 'station error: %s, %d' % (host, port)
+    db.update_station(identifier=sid, host=host, port=port, provider=provider, chosen=0)

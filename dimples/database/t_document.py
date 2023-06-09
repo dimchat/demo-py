@@ -30,6 +30,7 @@ from dimsdk import ID, Document
 
 from ..utils import CacheManager
 from ..common import DocumentDBI
+from ..common.dbi import is_expired
 
 from .dos import DocumentStorage
 
@@ -57,7 +58,7 @@ class DocumentTable(DocumentDBI):
         doc_type = document.type
         # 0. check old record with time
         old = self.document(identifier=identifier, doc_type=doc_type)
-        if old is not None and 0 < document.time < old.time:
+        if old is not None and is_expired(old_time=old.time, new_time=document.time):
             # document expired, drop it
             return False
         # 1. store into memory cache

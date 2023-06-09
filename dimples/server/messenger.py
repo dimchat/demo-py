@@ -52,7 +52,7 @@ from .session_center import SessionCenter
 
 class ServerMessenger(CommonMessenger):
 
-    def broadcast_reliable_message(self, msg: ReliableMessage, station: ID) -> int:
+    def __broadcast_reliable_message(self, msg: ReliableMessage, station: ID) -> int:
         receiver = msg.receiver
         db = self.session.database
         # get other recipients
@@ -89,7 +89,7 @@ class ServerMessenger(CommonMessenger):
         # pack & deliver message
         s_msg = self.encrypt_message(msg=i_msg)
         r_msg = self.sign_message(msg=s_msg)
-        self.broadcast_reliable_message(msg=r_msg, station=sid)
+        self.__broadcast_reliable_message(msg=r_msg, station=sid)
 
     # Override
     def query_meta(self, identifier: ID) -> bool:
@@ -134,11 +134,11 @@ class ServerMessenger(CommonMessenger):
             return None
         sender = msg.sender
         receiver = msg.receiver
-        facebook = self.facebook
-        current = facebook.current_user
+        current = self.facebook.current_user
+        sid = current.identifier
         # 1. verify message
         s_msg = super().verify_message(msg=msg)
-        if receiver == current.identifier:
+        if receiver == sid:
             # message to this station
             # maybe a meta command, document command, etc ...
             return s_msg
@@ -150,6 +150,13 @@ class ServerMessenger(CommonMessenger):
             # if receiver.is_group:
             #     broadcast message to multiple destinations,
             #     current station is it's receiver too.
+            if receiver.is_group:
+                # broadcast to neighbor stations
+                self.__broadcast_reliable_message(msg=msg, station=sid)
+            elif receiver == 'archivist@anywhere':
+                # forward to search bot
+                self.__broadcast_reliable_message(msg=msg, station=sid)
+                return None
             return s_msg
         elif receiver.is_group:
             self.error(msg='group message should not send to station: %s -> %s' % (sender, receiver))
@@ -161,7 +168,7 @@ class ServerMessenger(CommonMessenger):
             # not login? ask client to handshake again (with session key)
             # this message won't be delivered before handshake accepted
             cmd = HandshakeCommand.ask(session=session.key)
-            self.send_content(sender=current.identifier, receiver=sender, content=cmd)
+            self.send_content(sender=sid, receiver=sender, content=cmd)
             # DISCUSS: suspend this message for waiting handshake accepted
             #          or let the client to send it again?
             return None
@@ -170,7 +177,7 @@ class ServerMessenger(CommonMessenger):
         dispatcher = Dispatcher()
         responses = dispatcher.deliver_message(msg=msg, receiver=receiver)
         for res in responses:
-            self.send_content(sender=current.identifier, receiver=sender, content=res)
+            self.send_content(sender=sid, receiver=sender, content=res)
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
@@ -267,8 +274,8 @@ def get_recipients(msg: ReliableMessage, receiver: ID, db: SessionDBI) -> Set[ID
     # if this message is sending to 'stations@everywhere' or 'everyone@everywhere'
     # get all neighbor stations to broadcast, but
     # traced nodes should be ignored to avoid cycled delivering
-    if receiver == Station.EVERY or recipients == EVERYONE:
-        Log.debug(msg='forward to neighbors: %s' % receiver)
+    if receiver == Station.EVERY or receiver == EVERYONE:
+        Log.info(msg='forward to neighbors: %s' % receiver)
         # get neighbor stations
         neighbors = get_neighbors(db=db)
         for sid in neighbors:
@@ -282,12 +289,13 @@ def get_recipients(msg: ReliableMessage, receiver: ID, db: SessionDBI) -> Set[ID
             bot = ans_id(name='archivist')
             if bot is not None and bot not in traces:
                 recipients.add(bot)
-    # elif receiver == 'archivist@anywhere' or receiver == 'archivists@everywhere':
-    #     Log.debug(msg='forward to archivist: %s' % receiver)
-    #     # get archivist bot for search command
-    #     bot = ans_id(name='archivist')
-    #     if bot is not None and bot not in traces:
-    #         recipients.add(bot)
+    elif receiver == 'archivist@anywhere' or receiver == 'archivists@everywhere':
+        Log.info(msg='forward to archivist: %s' % receiver)
+        # get archivist bot for search command
+        bot = ans_id(name='archivist')
+        if bot is not None and bot not in traces:
+            recipients.add(bot)
+    Log.info(msg='recipients: %s -> %s' % (receiver, recipients))
     return recipients
 
 

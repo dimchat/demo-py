@@ -120,29 +120,7 @@ class ServerMessagePacker(CommonMessagePacker):
         return True
 
     def __check_reliable_message_receiver(self, msg: ReliableMessage) -> bool:
-        node = self.__current()
-        receiver = msg.receiver
-        if receiver.is_broadcast:
-            if receiver.is_group:
-                # broadcast to neighbor stations
-                messenger = get_messenger(packer=self)
-                messenger.broadcast_reliable_message(msg=msg, station=node)
-            # elif receiver == 'archivist@anywhere':
-            #     # forward to search bot
-            #     pass
-            else:
-                # broadcast message to single destination
-                # if receiver == 'station@anywhere',
-                #     it must be the first handshake without station ID;
-                # if receiver == 'anyone@anywhere',
-                #     it should be other plain message without encryption.
-                pass
-            # OK
-            return True
-        # elif receiver.is_group:
-        #     sender = msg.sender
-        #     self.error(msg='Should not send group message to a station!! %s -> %s' % (sender, receiver))
-        #     return False
+        # check for group
         return super()._check_reliable_message_receiver(msg=msg)
 
 

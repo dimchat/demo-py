@@ -155,6 +155,8 @@ class ProviderGeneralFactory:
             if host is None or port is None:  # or provider is None:
                 # station socket error
                 continue
+            if chosen is None:
+                chosen = 0
             info = StationInfo(identifier=identifier, host=host, port=port, provider=provider, chosen=chosen)
             stations.append(info)
         return stations
