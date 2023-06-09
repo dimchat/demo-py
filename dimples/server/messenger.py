@@ -41,7 +41,7 @@ from dimsdk import InstantMessage
 from dimsdk import SecureMessage, ReliableMessage
 
 from ..utils import Singleton, Log, QueryFrequencyChecker
-from ..common import HandshakeCommand, ReceiptCommand
+from ..common import HandshakeCommand
 from ..common import CommonMessenger
 from ..common import SessionDBI
 
@@ -52,7 +52,7 @@ from .session_center import SessionCenter
 
 class ServerMessenger(CommonMessenger):
 
-    def __broadcast_reliable_message(self, msg: ReliableMessage, station: ID) -> int:
+    def __broadcast_reliable_message(self, msg: ReliableMessage, station: ID):
         receiver = msg.receiver
         db = self.session.database
         # get other recipients
@@ -61,7 +61,6 @@ class ServerMessenger(CommonMessenger):
             self.warning('other recipients not found: %s' % receiver)
             return 0
         sender = msg.sender
-        sent_list = []
         # dispatch
         dispatcher = Dispatcher()
         for target in recipients:
@@ -73,20 +72,14 @@ class ServerMessenger(CommonMessenger):
                 self.warning(msg='skip sender: %s, %s' % (target, recipients))
                 continue
             dispatcher.deliver_message(msg=msg, receiver=target)
-            sent_list.append(target)
 
             # TODO: after deliver to connected neighbors, the dispatcher will continue
             #       delivering via station bridge, should we mark 'sent_neighbors' in
             #       only one message to the bridge, let the bridge to separate for other
             #       neighbors which not connect to this station directly?
-        # response
-        text = 'Broadcast message delivering'
-        command = ReceiptCommand.create(text=text, msg=msg)
-        command['recipients'] = ID.revert(array=sent_list)
-        self.send_content(sender=station, receiver=msg.sender, content=command, priority=1)
         # OK
-        self.info(msg='%s: %s, sender: %s' % (text, sent_list, sender))
-        return len(sent_list)
+        self.info(msg='Broadcast message delivered: %s, sender: %s' % (recipients, sender))
+        return len(recipients)
 
     def __broadcast_command(self, content: Command, receiver: ID):
         sid = self.facebook.current_user.identifier
@@ -181,9 +174,8 @@ class ServerMessenger(CommonMessenger):
         # session is active, so this message is not for current station,
         # deliver to the real receiver and respond to sender
         dispatcher = Dispatcher()
-        responses = dispatcher.deliver_message(msg=msg, receiver=receiver)
-        for res in responses:
-            self.send_content(sender=sid, receiver=sender, content=res)
+        dispatcher.deliver_message(msg=msg, receiver=receiver)
+        # TODO: send responses to the sender?
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
