@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2019 Albert Moky
+# Copyright (c) 2023 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,34 +24,25 @@
 # ==============================================================================
 
 """
-    Content Processing Unites
-    ~~~~~~~~~~~~~~~~~~~~~~~~~
+    Text Command Processor
+    ~~~~~~~~~~~~~~~~~~~~~~
 
-    Processors for contents
 """
 
-from .text import TextContentProcessor
+from typing import List
 
-from .handshake import HandshakeCommandProcessor
-from .login import LoginCommandProcessor
-from .receipt import ReceiptCommandProcessor
+from dimp import ReliableMessage
+from dimp import Content, TextContent
 
-from .history import HistoryCommandProcessor, GroupCommandProcessor
-from .grp_invite import InviteCommandProcessor
-from .grp_expel import ExpelCommandProcessor
-from .grp_quit import QuitCommandProcessor
-from .grp_reset import ResetCommandProcessor
-from .grp_query import QueryCommandProcessor
+from dimsdk.cpu import BaseContentProcessor
 
-__all__ = [
-    'TextContentProcessor',
+from ...utils import Log
 
-    'HandshakeCommandProcessor',
-    'LoginCommandProcessor',
-    'ReceiptCommandProcessor',
 
-    'HistoryCommandProcessor',
-    'GroupCommandProcessor',
-    'InviteCommandProcessor', 'ExpelCommandProcessor', 'QuitCommandProcessor',
-    'ResetCommandProcessor', 'QueryCommandProcessor',
-]
+class TextContentProcessor(BaseContentProcessor):
+
+    # Override
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, TextContent), 'text content error: %s' % content
+        Log.warning(msg='received text content: %s, %s => %s' % (content.get_str(key='text'), msg.sender, msg.receiver))
+        return []

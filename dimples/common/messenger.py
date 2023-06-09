@@ -147,11 +147,14 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
             # filter for looping message (receipt for receipt)
             return False
         sender = msg.sender
-        receiver = msg.receiver
-        if sender.type == EntityType.STATION or sender.type == EntityType.BOT:
-            if receiver.type == EntityType.STATION or receiver.type == EntityType.BOT:
-                # message between bots
-                return False
+        # receiver = msg.receiver
+        # if sender.type == EntityType.STATION or sender.type == EntityType.BOT:
+        #     if receiver.type == EntityType.STATION or receiver.type == EntityType.BOT:
+        #         # message between bots
+        #         return False
+        if sender.type != EntityType.USER:  # and receiver.type != EntityType.USER:
+            # message between bots
+            return False
         # current_user = self.facebook.current_user
         # if receiver != current_user.identifier:
         #     # forward message

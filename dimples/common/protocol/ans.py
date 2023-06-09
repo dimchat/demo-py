@@ -74,7 +74,7 @@ class AnsCommand(BaseCommand):
     #
     @property
     def names(self) -> List[str]:
-        string = self.get_str('names')
+        string = self.get_str(key='names')
         return [] if string is None else string.split()
 
     @property

@@ -58,18 +58,22 @@ class ServerMessenger(CommonMessenger):
         # get other recipients
         recipients = get_recipients(msg=msg, receiver=receiver, db=db)
         if len(recipients) == 0:
-            Log.warning('other recipients not found: %s' % receiver)
+            self.warning('other recipients not found: %s' % receiver)
             return 0
-        else:
-            Log.info(msg='other recipients: %s => %s' % (receiver, recipients))
+        sender = msg.sender
+        sent_list = []
         # dispatch
         dispatcher = Dispatcher()
         for target in recipients:
             assert not target.is_broadcast, 'recipient error: %s, %s' % (target, receiver)
             if target == station:
-                Log.error(msg='current station should not exists here: %s, %s' % (target, recipients))
+                self.error(msg='current station should not exists here: %s, %s' % (target, recipients))
+                continue
+            elif target == sender:
+                self.warning(msg='skip sender: %s, %s' % (target, recipients))
                 continue
             dispatcher.deliver_message(msg=msg, receiver=target)
+            sent_list.append(target)
 
             # TODO: after deliver to connected neighbors, the dispatcher will continue
             #       delivering via station bridge, should we mark 'sent_neighbors' in
@@ -78,9 +82,11 @@ class ServerMessenger(CommonMessenger):
         # response
         text = 'Broadcast message delivering'
         command = ReceiptCommand.create(text=text, msg=msg)
-        command['recipients'] = ID.revert(array=recipients)
+        command['recipients'] = ID.revert(array=sent_list)
         self.send_content(sender=station, receiver=msg.sender, content=command, priority=1)
-        return len(recipients)
+        # OK
+        self.info(msg='%s: %s, sender: %s' % (text, sent_list, sender))
+        return len(sent_list)
 
     def __broadcast_command(self, content: Command, receiver: ID):
         sid = self.facebook.current_user.identifier

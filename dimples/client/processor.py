@@ -45,6 +45,7 @@ from ..utils import Logging
 from ..common import HandshakeCommand, ReceiptCommand, LoginCommand
 from ..common import CommonMessenger
 
+from .cpu import TextContentProcessor
 from .cpu import HandshakeCommandProcessor
 from .cpu import LoginCommandProcessor
 from .cpu import ReceiptCommandProcessor
@@ -119,6 +120,10 @@ class ClientContentProcessorCreator(BaseContentProcessorCreator):
 
     # Override
     def create_content_processor(self, msg_type: Union[int, ContentType]) -> Optional[ContentProcessor]:
+        # text
+        if msg_type == ContentType.TEXT:
+            return TextContentProcessor(facebook=self.facebook, messenger=self.messenger)
+        # history
         if msg_type == ContentType.HISTORY.value:
             return HistoryCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # default
