@@ -30,17 +30,17 @@
     Transform and send message
 """
 
+import threading
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Dict
 
-from dimsdk import EntityType, ID
-from dimsdk import ContentType, Content, Envelope
+from dimsdk import ID
+from dimsdk import Content, Envelope
 from dimsdk import InstantMessage, ReliableMessage
 from dimsdk import EntityDelegate, CipherKeyDelegate
 from dimsdk import Messenger, Packer, Processor
 
 from ..utils import Logging
-from ..common import ReceiptCommand
 
 from .dbi import MessageDBI
 
@@ -57,6 +57,10 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         self.__database = database
         self.__packer: Optional[Packer] = None
         self.__processor: Optional[Processor] = None
+        # suspended messages
+        self.__suspend_lock = threading.Lock()
+        self.__incoming_messages: List[ReliableMessage] = []
+        self.__outgoing_messages: List[InstantMessage] = []
 
     @property  # Override
     def packer(self) -> Packer:
@@ -94,6 +98,11 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     def session(self) -> Session:
         return self.__session
 
+    @abstractmethod
+    def handshake_success(self):
+        """ callback for handshake success """
+        raise NotImplemented
+
     @abstractmethod  # protected
     def query_meta(self, identifier: ID) -> bool:
         """ request for meta with entity ID """
@@ -108,6 +117,40 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     def query_members(self, identifier: ID) -> bool:
         """ request for group members with group ID """
         raise NotImplemented
+
+    #
+    #   Suspend messages
+    #
+
+    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
+        """ Add income message in a queue for waiting sender's visa """
+        self.warning(msg='suspend message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
+        msg['error'] = error
+        with self.__suspend_lock:
+            if len(self.__incoming_messages) > 32:
+                self.__incoming_messages.pop(0)
+            self.__incoming_messages.append(msg)
+
+    def _resume_reliable_messages(self) -> List[ReliableMessage]:
+        with self.__suspend_lock:
+            messages = self.__incoming_messages
+            self.__incoming_messages = []
+            return messages
+
+    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
+        """ Add outgo message in a queue for waiting receiver's visa """
+        self.warning(msg='suspend message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
+        msg['error'] = error
+        with self.__suspend_lock:
+            if len(self.__outgoing_messages) > 32:
+                self.__outgoing_messages.pop(0)
+            self.__outgoing_messages.append(msg)
+
+    def _resume_instant_messages(self) -> List[InstantMessage]:
+        with self.__suspend_lock:
+            messages = self.__outgoing_messages
+            self.__outgoing_messages = []
+            return messages
 
     # # Override
     # def serialize_key(self, key: Union[dict, SymmetricKey], msg: InstantMessage) -> Optional[bytes]:
@@ -124,43 +167,6 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     #         # put it back
     #         key['reused'] = reused
     #     return data
-
-    # Override
-    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
-        # call super
-        responses = super().process_reliable_message(msg=msg)
-        if len(responses) == 0 and self._needs_receipt(msg=msg):
-            current_user = self.facebook.current_user
-            res = ReceiptCommand.create(text='Message received', msg=msg)
-            env = Envelope.create(sender=current_user.identifier, receiver=msg.sender)
-            i_msg = InstantMessage.create(head=env, body=res)
-            s_msg = self.encrypt_message(msg=i_msg)
-            assert s_msg is not None, 'failed to encrypt message: %s -> %s' % (current_user, msg.sender)
-            r_msg = self.sign_message(msg=s_msg)
-            assert r_msg is not None, 'failed to sign message: %s -> %s' % (current_user, msg.sender)
-            responses = [r_msg]
-        return responses
-
-    # noinspection PyMethodMayBeStatic
-    def _needs_receipt(self, msg: ReliableMessage) -> bool:
-        if msg.type == ContentType.COMMAND:
-            # filter for looping message (receipt for receipt)
-            return False
-        sender = msg.sender
-        # receiver = msg.receiver
-        # if sender.type == EntityType.STATION or sender.type == EntityType.BOT:
-        #     if receiver.type == EntityType.STATION or receiver.type == EntityType.BOT:
-        #         # message between bots
-        #         return False
-        if sender.type != EntityType.USER:  # and receiver.type != EntityType.USER:
-            # message between bots
-            return False
-        # current_user = self.facebook.current_user
-        # if receiver != current_user.identifier:
-        #     # forward message
-        #     return True
-        # TODO: other condition?
-        return True
 
     #
     #   Interfaces for Transmitting Message

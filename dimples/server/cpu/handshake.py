@@ -32,10 +32,7 @@
 
 from typing import List
 
-from dimp import ID
-from dimp import ReliableMessage
-from dimp import Content
-
+from dimsdk import ID, Content, ReliableMessage
 from dimsdk.cpu import BaseCommandProcessor
 
 from ...utils import Log
@@ -46,10 +43,10 @@ from ...common import CommonMessenger, Session
 class HandshakeCommandProcessor(BaseCommandProcessor):
 
     @property
-    def session(self) -> Session:
-        messenger = self.messenger
-        assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
-        return messenger.session
+    def messenger(self) -> CommonMessenger:
+        transceiver = super().messenger
+        assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
+        return transceiver
 
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
@@ -62,12 +59,13 @@ class HandshakeCommandProcessor(BaseCommandProcessor):
         # C -> S: Hello world!
         assert 'Hello world!' == title, 'Handshake command error: %s' % content
         # set/update session in session server with new session key
-        session = self.session
+        messenger = self.messenger
+        session = messenger.session
         if session.key == content.session:
             # session key match
             Log.info(msg='handshake accepted: %s, session: %s' % (msg.sender, session.key))
             # verified success
-            handshake_accepted(identifier=msg.sender, session=session)
+            handshake_accepted(identifier=msg.sender, session=session, messenger=messenger)
             res = HandshakeCommand.success(session=session.key)
         else:
             # session key not match
@@ -76,10 +74,12 @@ class HandshakeCommandProcessor(BaseCommandProcessor):
         return [res]
 
 
-def handshake_accepted(identifier: ID, session: Session):
-    # 1. update session ID
+def handshake_accepted(identifier: ID, session: Session, messenger: CommonMessenger):
     from ..session_center import SessionCenter
     center = SessionCenter()
+    # 1. update session ID
     center.update_session(session=session, identifier=identifier)
     # 2. update session flag
     session.set_active(active=True)
+    # 3. callback
+    messenger.handshake_success()

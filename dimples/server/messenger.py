@@ -52,6 +52,23 @@ from .session_center import SessionCenter
 
 class ServerMessenger(CommonMessenger):
 
+    # Override
+    def handshake_success(self):
+        session = self.session
+        identifier = session.identifier
+        remote_address = session.remote_address
+        self.warning(msg='user login: %s, socket: %s' % (identifier, remote_address))
+        # process suspended messages
+        messages = self._resume_reliable_messages()
+        for msg in messages:
+            self.info(msg='processing suspended message: %s -> %s' % (msg.sender, msg.receiver))
+            try:
+                responses = self.process_reliable_message(msg=msg)
+                for res in responses:
+                    self.send_reliable_message(msg=res, priority=1)
+            except Exception as error:
+                self.error(msg='failed to process incoming message: %s' % error)
+
     def __broadcast_reliable_message(self, msg: ReliableMessage, station: ID):
         receiver = msg.receiver
         db = self.session.database
@@ -135,7 +152,28 @@ class ServerMessenger(CommonMessenger):
         receiver = msg.receiver
         current = self.facebook.current_user
         sid = current.identifier
-        # 1. verify message
+        # 1. check receiver
+        if receiver != sid and receiver != Station.ANY:  # and receiver != Station.EVERY:
+            # message not for this station, check session for delivering
+            session = self.session
+            if session.identifier is None or not session.active:
+                # not login?
+                # 1.1. suspend this message for waiting handshake
+                error = {
+                    'message': 'user not login',
+                }
+                self.suspend_reliable_message(msg=msg, error=error)
+                # 1.2. ask client to handshake again (with session key)
+                # this message won't be delivered before handshake accepted
+                cmd = HandshakeCommand.ask(session=session.key)
+                self.send_content(sender=sid, receiver=sender, content=cmd)
+                return None
+            # session is active and user login success
+            # if sender == session.ID,
+            #   we can trust this message an no need to verify it;
+            # else if sender is a neighbor station,
+            #   we can trust it too;
+        # 2. verify message
         s_msg = super().verify_message(msg=msg)
         if receiver == sid:
             # message to this station
@@ -160,22 +198,13 @@ class ServerMessenger(CommonMessenger):
         elif receiver.is_group:
             self.error(msg='group message should not send to station: %s -> %s' % (sender, receiver))
             return None
-
-        # 2. check session for delivering
-        session = self.session
-        if session.identifier is None or not session.active:
-            # not login? ask client to handshake again (with session key)
-            # this message won't be delivered before handshake accepted
-            cmd = HandshakeCommand.ask(session=session.key)
-            self.send_content(sender=sid, receiver=sender, content=cmd)
-            # DISCUSS: suspend this message for waiting handshake accepted
-            #          or let the client to send it again?
-            return None
-        # session is active, so this message is not for current station,
+        # 3. this message is not for current station,
         # deliver to the real receiver and respond to sender
         dispatcher = Dispatcher()
-        dispatcher.deliver_message(msg=msg, receiver=receiver)
-        # TODO: send responses to the sender?
+        responses = dispatcher.deliver_message(msg=msg, receiver=receiver)
+        assert len(responses) > 0, 'should not happen'
+        for res in responses:
+            self.send_content(sender=sid, receiver=sender, content=res)
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:

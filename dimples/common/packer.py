@@ -24,7 +24,7 @@
 # ==============================================================================
 
 from abc import ABC
-from typing import Optional, Dict, List
+from typing import Optional, List
 
 from dimsdk import EncryptKey
 from dimsdk import ID
@@ -35,16 +35,6 @@ from ..utils import Logging
 
 
 class CommonMessagePacker(MessagePacker, Logging, ABC):
-
-    # protected
-    def _suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
-        """ Add income message in a queue for waiting sender's visa """
-        pass
-
-    # protected
-    def _suspend_instant_message(self, msg: InstantMessage, error: Dict):
-        """ Add outgo message in a queue for waiting receiver's visa """
-        pass
 
     # protected
     def _visa_key(self, user: ID) -> Optional[EncryptKey]:
@@ -100,7 +90,8 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
             'message': 'verify key not found',
             'user': str(sender),
         }
-        self._suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
+        messenger = get_messenger(packer=self)
+        messenger.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
         return False
 
     # protected
@@ -122,7 +113,8 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
             'message': 'group not ready',
             'group': str(receiver),
         }
-        self._suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
+        messenger = get_messenger(packer=self)
+        messenger.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
         return False
 
     # protected
@@ -147,7 +139,8 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
             'message': 'encrypt key not found',
             'user': str(receiver),
         }
-        self._suspend_instant_message(msg=msg, error=error)  # msg['error'] = error
+        messenger = get_messenger(packer=self)
+        messenger.suspend_instant_message(msg=msg, error=error)  # msg['error'] = error
         return False
 
     # Override

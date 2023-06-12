@@ -48,6 +48,7 @@ class ClientMessagePacker(CommonMessagePacker):
             # broadcast message
             return True
         elif receiver.is_group:
+            messenger = get_messenger(packer=self)
             # check group's meta & members
             members = self._members(group=receiver)
             if members is None:
@@ -56,7 +57,7 @@ class ClientMessagePacker(CommonMessagePacker):
                     'message': 'group not ready',
                     'group': str(receiver),
                 }
-                self._suspend_instant_message(msg=msg, error=error)
+                messenger.suspend_instant_message(msg=msg, error=error)
                 return False
             waiting = []
             for item in members:
@@ -72,7 +73,7 @@ class ClientMessagePacker(CommonMessagePacker):
                     'group': str(receiver),
                     'members': ID.revert(array=waiting),
                 }
-                self._suspend_instant_message(msg=msg, error=error)
+                messenger.suspend_instant_message(msg=msg, error=error)
                 return False
             # receiver is OK
             return True

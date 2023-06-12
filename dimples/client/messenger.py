@@ -30,12 +30,12 @@
     Transform and send message
 """
 
-from typing import Optional
+from typing import Optional, List, Dict
 
 from dimples import EntityType, ID, EVERYONE
 from dimples import Station
-from dimples import Envelope, InstantMessage
-from dimples import MetaCommand, DocumentCommand
+from dimples import Envelope, InstantMessage, ReliableMessage
+from dimples import ContentType, MetaCommand, DocumentCommand, ReceiptCommand
 
 from ..utils import QueryFrequencyChecker
 from ..common import HandshakeCommand, ReportCommand, LoginCommand
@@ -78,10 +78,20 @@ class ClientMessenger(CommonMessenger):
             cmd = HandshakeCommand.restart(session=session_key)
             self.send_content(sender=None, receiver=srv_id, content=cmd, priority=-1)
 
+    # Override
     def handshake_success(self):
-        """ callback for handshake success """
         # broadcast current documents after handshake success
         self.broadcast_document()
+
+    # Override
+    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
+        self.warning(msg='suspend message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
+        msg['error'] = error
+
+    # Override
+    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
+        self.warning(msg='suspend message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
+        msg['error'] = error
 
     def broadcast_login(self, sender: ID, user_agent: str):
         """ send login command to keep roaming """
@@ -172,4 +182,41 @@ class ClientMessenger(CommonMessenger):
         command = DocumentCommand.query(identifier=identifier)
         for bot in assistants:
             self.send_content(sender=None, receiver=bot, content=command, priority=1)
+        return True
+
+    # Override
+    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+        # call super
+        responses = super().process_reliable_message(msg=msg)
+        if len(responses) == 0 and self._needs_receipt(msg=msg):
+            current_user = self.facebook.current_user
+            res = ReceiptCommand.create(text='Message received', msg=msg)
+            env = Envelope.create(sender=current_user.identifier, receiver=msg.sender)
+            i_msg = InstantMessage.create(head=env, body=res)
+            s_msg = self.encrypt_message(msg=i_msg)
+            assert s_msg is not None, 'failed to encrypt message: %s -> %s' % (current_user, msg.sender)
+            r_msg = self.sign_message(msg=s_msg)
+            assert r_msg is not None, 'failed to sign message: %s -> %s' % (current_user, msg.sender)
+            responses = [r_msg]
+        return responses
+
+    # noinspection PyMethodMayBeStatic
+    def _needs_receipt(self, msg: ReliableMessage) -> bool:
+        if msg.type == ContentType.COMMAND:
+            # filter for looping message (receipt for receipt)
+            return False
+        sender = msg.sender
+        # receiver = msg.receiver
+        # if sender.type == EntityType.STATION or sender.type == EntityType.BOT:
+        #     if receiver.type == EntityType.STATION or receiver.type == EntityType.BOT:
+        #         # message between bots
+        #         return False
+        if sender.type != EntityType.USER:  # and receiver.type != EntityType.USER:
+            # message between bots
+            return False
+        # current_user = self.facebook.current_user
+        # if receiver != current_user.identifier:
+        #     # forward message
+        #     return True
+        # TODO: other condition?
         return True

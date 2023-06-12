@@ -270,7 +270,7 @@ class OctopusMessenger(ClientMessenger, ABC):
     @abstractmethod
     def _deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         """ call octopus to redirect message """
-        pass
+        return []
 
 
 def get_remote_station(messenger: ClientMessenger) -> ID:

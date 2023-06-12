@@ -168,7 +168,19 @@ class Dispatcher(MessageDeliver):
                 else:
                     pusher.push_notification(msg=msg)
         # OK
-        return [] if responses is None else responses
+        if responses is None:
+            # user not online, and not roaming to other station
+            text = 'Message cached'
+            res = ReceiptCommand.create(text=text, msg=msg)
+            return [res]
+        elif len(responses) == 0:
+            # user roamed to other station, but bridge not found
+            text = 'Message received'
+            res = ReceiptCommand.create(text=text, msg=msg)
+            return [res]
+        else:
+            # message delivered
+            return responses
 
     def __save_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         if receiver.type == EntityType.STATION or msg.sender.type == EntityType.STATION:
@@ -286,8 +298,9 @@ class DeliverWorker(Logging):
         assert receiver.type != EntityType.STATION, 'should not push message for station: %s' % receiver
         # 1. try to push message directly
         if session_push(msg=msg, receiver=receiver) > 0:
-            text = 'Message pushed'
+            text = 'Message delivered for recipient'
             cmd = ReceiptCommand.create(text=text, msg=msg)
+            cmd['recipient'] = str(receiver)
             return [cmd]
         # 2. get roaming station
         roaming = get_roaming_station(receiver=receiver, database=self.database)
@@ -343,7 +356,7 @@ def bridge_message(msg: ReliableMessage, neighbor: ID, bridge: ID) -> Optional[L
     # msg = ReliableMessage.parse(msg=clone)
     msg['neighbor'] = str(neighbor)
     if session_push(msg=msg, receiver=bridge) > 0:
-        text = 'Message pushing to neighbor station via the bridge'
+        text = 'Message redirected to neighbor station via the bridge'
         cmd = ReceiptCommand.create(text=text, msg=msg)
         cmd['neighbor'] = str(neighbor)
         return [cmd]
