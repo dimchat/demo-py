@@ -44,7 +44,7 @@ from dimples.utils import Log
 
 from dimples.station.shared import GlobalVariable
 from dimples.station.shared import create_config, create_database, create_facebook
-from dimples.station.shared import create_ans, create_pusher
+from dimples.station.shared import create_ans, create_apns
 from dimples.station.shared import create_dispatcher
 from dimples.station.handler import RequestHandler
 
@@ -76,8 +76,8 @@ def main():
     shared.facebook = facebook
     # Step 4: create ANS
     create_ans(config=config)
-    # Step 5: create pusher
-    create_pusher(shared=shared)
+    # Step 5: create push center
+    create_apns(shared=shared)
     # Step 6: create dispatcher
     create_dispatcher(shared=shared)
     # check bind host & port

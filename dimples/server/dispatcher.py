@@ -44,7 +44,7 @@ from ..common import MessageDBI, SessionDBI
 from ..common import LoginCommand, ReceiptCommand
 
 from .session_center import SessionCenter
-from .pusher import Pusher
+from .push import PushCenter
 
 
 class MessageDeliver(ABC):
@@ -70,7 +70,6 @@ class Dispatcher(MessageDeliver):
         self.__facebook: Optional[CommonFacebook] = None
         self.__mdb: Optional[MessageDBI] = None
         self.__sdb: Optional[SessionDBI] = None
-        self.__pusher: Optional[Pusher] = None
         # actually deliver worker
         self.__worker: Optional[DeliverWorker] = None
         # roaming user receptionist
@@ -105,16 +104,8 @@ class Dispatcher(MessageDeliver):
         self.__sdb = db
 
     #
-    #   Push Notification service
+    #   Worker
     #
-
-    @property
-    def pusher(self) -> Pusher:
-        return self.__pusher
-
-    @pusher.setter
-    def pusher(self, service: Pusher):
-        self.__pusher = service
 
     @property
     def worker(self):  # -> DeliverWorker:
@@ -162,11 +153,8 @@ class Dispatcher(MessageDeliver):
             if responses is None:
                 # failed to push message, user not online and not roamed to other station,
                 # push notification for the receiver
-                pusher = self.__pusher
-                if pusher is None:
-                    self.warning(msg='pusher not set yet, drop notification for: %s' % receiver)
-                else:
-                    pusher.push_notification(msg=msg)
+                center = PushCenter()
+                center.push_notification(msg=msg)
         # OK
         if responses is None:
             # user not online, and not roaming to other station
@@ -306,7 +294,7 @@ class DeliverWorker(Logging):
         roaming = get_roaming_station(receiver=receiver, database=self.database)
         if roaming is None:
             # login command not found
-            # return None to tell the pusher to push notification for it.
+            # return None to tell the push center to push notification for it.
             return None
         # 3. redirect message to roaming station
         return self.redirect_message(msg=msg, neighbor=roaming)
@@ -328,7 +316,7 @@ class DeliverWorker(Logging):
         if neighbor == current:
             self.debug(msg='same destination: %s, msg %s => %s' % (neighbor, msg.sender, msg.receiver))
             # the user is roaming to current station, but it's not online now
-            # return None to tell the pusher to push notification for it.
+            # return None to tell the push center to push notification for it.
             return None
         # 1. try to push message to neighbor station directly
         if session_push(msg=msg, receiver=neighbor) > 0:
@@ -362,7 +350,7 @@ def bridge_message(msg: ReliableMessage, neighbor: ID, bridge: ID) -> Optional[L
         return [cmd]
     else:
         # station bridge not found
-        # return an empty array to avoid calling pusher
+        # return an empty array to avoid calling push center
         return []
 
 

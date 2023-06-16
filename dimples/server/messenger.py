@@ -30,24 +30,21 @@
     Transform and send message
 """
 
-import threading
-import time
-from typing import Optional, Set, List
+from typing import Optional, List
 
-from dimsdk import EntityType, ID, EVERYONE
+from dimsdk import ID
 from dimsdk import Station
 from dimsdk import Envelope, Command, MetaCommand, DocumentCommand
 from dimsdk import InstantMessage
 from dimsdk import SecureMessage, ReliableMessage
 
-from ..utils import Singleton, Log, QueryFrequencyChecker
+from ..utils import QueryFrequencyChecker
 from ..common import HandshakeCommand
 from ..common import CommonMessenger
-from ..common import SessionDBI
 
 from .packer import FilterManager
 from .dispatcher import Dispatcher
-from .session_center import SessionCenter
+from .broadcast import broadcast_reliable_message
 
 
 class ServerMessenger(CommonMessenger):
@@ -69,43 +66,14 @@ class ServerMessenger(CommonMessenger):
             except Exception as error:
                 self.error(msg='failed to process incoming message: %s' % error)
 
-    def __broadcast_reliable_message(self, msg: ReliableMessage, station: ID):
-        receiver = msg.receiver
-        db = self.session.database
-        # get other recipients
-        recipients = get_recipients(msg=msg, receiver=receiver, db=db)
-        if len(recipients) == 0:
-            self.warning('other recipients not found: %s' % receiver)
-            return 0
-        sender = msg.sender
-        # dispatch
-        dispatcher = Dispatcher()
-        for target in recipients:
-            assert not target.is_broadcast, 'recipient error: %s, %s' % (target, receiver)
-            if target == station:
-                self.error(msg='current station should not exists here: %s, %s' % (target, recipients))
-                continue
-            elif target == sender:
-                self.warning(msg='skip sender: %s, %s' % (target, recipients))
-                continue
-            dispatcher.deliver_message(msg=msg, receiver=target)
-
-            # TODO: after deliver to connected neighbors, the dispatcher will continue
-            #       delivering via station bridge, should we mark 'sent_neighbors' in
-            #       only one message to the bridge, let the bridge to separate for other
-            #       neighbors which not connect to this station directly?
-        # OK
-        self.info(msg='Broadcast message delivered: %s, sender: %s' % (recipients, sender))
-        return len(recipients)
-
-    def __broadcast_command(self, content: Command, receiver: ID):
+    def _broadcast_command(self, content: Command, receiver: ID):
         sid = self.facebook.current_user.identifier
         env = Envelope.create(sender=sid, receiver=receiver)
         i_msg = InstantMessage.create(head=env, body=content)
         # pack & deliver message
         s_msg = self.encrypt_message(msg=i_msg)
         r_msg = self.sign_message(msg=s_msg)
-        self.__broadcast_reliable_message(msg=r_msg, station=sid)
+        broadcast_reliable_message(msg=r_msg, station=sid)
 
     # Override
     def query_meta(self, identifier: ID) -> bool:
@@ -116,7 +84,7 @@ class ServerMessenger(CommonMessenger):
             return False
         self.info(msg='querying meta of %s from neighbor stations' % identifier)
         command = MetaCommand.query(identifier=identifier)
-        self.__broadcast_command(content=command, receiver=Station.EVERY)
+        self._broadcast_command(content=command, receiver=Station.EVERY)
         return True
 
     # Override
@@ -128,7 +96,7 @@ class ServerMessenger(CommonMessenger):
             return False
         self.info(msg='querying document of %s from neighbor stations' % identifier)
         command = DocumentCommand.query(identifier=identifier)
-        self.__broadcast_command(content=command, receiver=Station.EVERY)
+        self._broadcast_command(content=command, receiver=Station.EVERY)
         return True
 
     # Override
@@ -189,10 +157,14 @@ class ServerMessenger(CommonMessenger):
             #     current station is it's receiver too.
             if receiver.is_group:
                 # broadcast to neighbor stations
-                self.__broadcast_reliable_message(msg=msg, station=sid)
+                broadcast_reliable_message(msg=msg, station=sid)
             elif receiver == 'archivist@anywhere':
                 # forward to search bot
-                self.__broadcast_reliable_message(msg=msg, station=sid)
+                broadcast_reliable_message(msg=msg, station=sid)
+                return None
+            elif receiver == 'apns@anywhere':
+                # forward to APNs
+                broadcast_reliable_message(msg=msg, station=sid)
                 return None
             return s_msg
         elif receiver.is_group:
@@ -244,90 +216,3 @@ def pick_out(messages: List[ReliableMessage], bridge: ID) -> List[ReliableMessag
             # roaming to other station, so deliver it via dispatcher here.
             dispatcher.deliver_message(msg=msg, receiver=receiver)
     return responses
-
-
-def get_neighbors(db: SessionDBI) -> Set[ID]:
-    neighbors = set()
-    providers = db.all_providers()
-    assert len(providers) > 0, 'service provider not found'
-    gsp = providers[0].identifier
-    stations = db.all_stations(provider=gsp)
-    for item in stations:
-        sid = item.identifier
-        if sid is None or sid.is_broadcast:
-            continue
-        neighbors.add(sid)
-    # get neighbor station from session server
-    proactive_neighbors = NeighborSessionManager().proactive_neighbors
-    for sid in proactive_neighbors:
-        if sid is None or sid.is_broadcast:
-            assert False, 'neighbor station ID error: %s' % sid
-            # continue
-        neighbors.add(sid)
-    return neighbors
-
-
-@Singleton
-class NeighborSessionManager:
-
-    def __init__(self):
-        super().__init__()
-        self.__neighbors = set()
-        self.__expires = 0
-        self.__lock = threading.Lock()
-
-    @property
-    def proactive_neighbors(self) -> Set[ID]:
-        now = time.time()
-        with self.__lock:
-            if self.__expires < now:
-                neighbors = set()
-                center = SessionCenter()
-                all_users = center.all_users()
-                for item in all_users:
-                    if item.type == EntityType.STATION:
-                        neighbors.add(item)
-                self.__neighbors = neighbors
-                self.__expires = now + 128
-            return self.__neighbors
-
-
-def get_recipients(msg: ReliableMessage, receiver: ID, db: SessionDBI) -> Set[ID]:
-    recipients = set()
-    # get nodes passed through, includes current node which is just added before
-    traces = msg.get('traces')
-    if traces is None:
-        traces = []
-    # if this message is sending to 'stations@everywhere' or 'everyone@everywhere'
-    # get all neighbor stations to broadcast, but
-    # traced nodes should be ignored to avoid cycled delivering
-    if receiver == Station.EVERY or receiver == EVERYONE:
-        Log.info(msg='forward to neighbors: %s' % receiver)
-        # get neighbor stations
-        neighbors = get_neighbors(db=db)
-        for sid in neighbors:
-            if sid not in traces:  # and sid != station:
-                recipients.add(sid)
-            else:
-                Log.warning(msg='ignore neighbor: %s' % sid)
-        # get archivist bot
-        if receiver == EVERYONE:
-            # include 'archivist' as 'everyone@everywhere'
-            bot = ans_id(name='archivist')
-            if bot is not None and bot not in traces:
-                recipients.add(bot)
-    elif receiver == 'archivist@anywhere' or receiver == 'archivists@everywhere':
-        Log.info(msg='forward to archivist: %s' % receiver)
-        # get archivist bot for search command
-        bot = ans_id(name='archivist')
-        if bot is not None and bot not in traces:
-            recipients.add(bot)
-    Log.info(msg='recipients: %s -> %s' % (receiver, recipients))
-    return recipients
-
-
-def ans_id(name: str) -> Optional[ID]:
-    try:
-        return ID.parse(identifier=name)
-    except ValueError as e:
-        Log.warning(msg='ANS record not exists: %s, %s' % (name, e))

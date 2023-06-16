@@ -35,7 +35,9 @@ from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..common import ProviderInfo
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
 from ..database import Storage
-from ..server import Pusher, DefaultPusher, PushCenter
+from ..server import BroadcastRecipientManager
+from ..server import ServerMessenger, ServerMessagePacker, ServerMessageProcessor
+from ..server import PushCenter, DefaultPushService
 from ..server import Dispatcher
 
 from ..config import Config
@@ -76,7 +78,6 @@ class GlobalVariable:
         self.mdb: Optional[MessageDBI] = None
         self.sdb: Optional[SessionDBI] = None
         self.facebook: Optional[CommonFacebook] = None
-        self.pusher: Optional[Pusher] = None
 
 
 def show_help(cmd: str, app_name: str, default_config: str):
@@ -145,6 +146,8 @@ def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, SessionDBI]
     for node in neighbors:
         print('adding neighbor node: %s' % node)
         sdb.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
+    manager = BroadcastRecipientManager()
+    manager.database = sdb
     return adb, mdb, sdb
 
 
@@ -173,15 +176,23 @@ def create_ans(config: Config) -> AddressNameServer:
     return ans
 
 
-def create_pusher(shared: GlobalVariable) -> Pusher:
-    """ Step 5: create pusher """
-    pusher = DefaultPusher(facebook=shared.facebook)
-    shared.pusher = pusher
-    # start PushCenter
+def create_apns(shared: GlobalVariable) -> PushCenter:
+    """ Step 5: create push center """
+    # 1. create messenger with session and MessageDB
+    session = None
+    facebook = shared.facebook
+    database = shared.database
+    messenger = ServerMessenger(session=session, facebook=facebook, database=database)
+    # 2. create packer, processor, filter for messenger
+    #    they have weak references to session, facebook & messenger
+    messenger.packer = ServerMessagePacker(facebook=facebook, messenger=messenger)
+    messenger.processor = ServerMessageProcessor(facebook=facebook, messenger=messenger)
+    # 3. create push service
     center = PushCenter()
-    # TODO: add push services
-    center.start()
-    return pusher
+    keeper = center.badge_keeper
+    service = DefaultPushService(facebook=facebook, messenger=messenger, badge_keeper=keeper)
+    center.service = service
+    return center
 
 
 def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
@@ -190,6 +201,5 @@ def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
     dispatcher.mdb = shared.mdb
     dispatcher.sdb = shared.sdb
     dispatcher.facebook = shared.facebook
-    dispatcher.pusher = shared.pusher
     dispatcher.start()
     return dispatcher

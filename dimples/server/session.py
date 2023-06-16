@@ -51,7 +51,7 @@ from ..database import ReliableMessageTable
 from ..conn import BaseSession
 from ..conn import WSArrival, MarsStreamArrival, MTPStreamArrival
 
-from .push_service import PushCenter
+from .push import PushCenter
 
 
 def generate_session_key() -> str:
