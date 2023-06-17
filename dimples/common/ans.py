@@ -109,13 +109,20 @@ class AddressNameServer(AddressNameService):
     def fix(self, records: Dict[str, str]) -> int:
         """ remove the keywords temporary before save new records """
         count = 0
+        self.__reserved['apns'] = False
+        self.__reserved['archivist'] = False
         self.__reserved['assistant'] = False
         # self.__reserved['station'] = False
         for alias in records:
-            identifier = ID.parse(identifier=records[alias])
-            assert identifier is not None, 'record error: %s => %s' % (alias, records[alias])
+            value = records[alias]
+            if value is None or len(value) == 0:
+                continue
+            identifier = ID.parse(identifier=value)
+            assert identifier is not None, 'record error: %s => %s' % (alias, value)
             if self.save(name=alias, identifier=identifier):
                 count += 1
         # self.__reserved['station'] = True
         self.__reserved['assistant'] = True
+        self.__reserved['archivist'] = True
+        self.__reserved['apns'] = True
         return count

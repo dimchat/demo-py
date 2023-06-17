@@ -33,39 +33,44 @@
 
 import threading
 import time
-from typing import Optional, Set
+from typing import Set, List
 
 from dimsdk import EntityType, ID, EVERYONE
 from dimsdk import Station
 from dimsdk import ReliableMessage
 
-from ..utils import Singleton, Log
-from ..common import SessionDBI
+from ..utils import Singleton, Log, Logging
+from ..common import StationInfo
 
+from .cpu import AnsCommandProcessor
 from .dispatcher import Dispatcher
 from .session_center import SessionCenter
 
 
 @Singleton
-class BroadcastRecipientManager:
+class BroadcastRecipientManager(Logging):
 
     def __init__(self):
         super().__init__()
-        self.__neighbors = set()
-        self.__expires = 0
         self.__lock = threading.Lock()
-        self.__sdb: Optional[SessionDBI] = None
+        self.__expires = 0
+        self.__neighbors = set()
+        self.__bots = set()
 
     @property
-    def database(self) -> SessionDBI:
-        return self.__sdb
+    def station_bots(self) -> Set[ID]:
+        """ get station bots """
+        return self.__bots
 
-    @database.setter
-    def database(self, sdb: SessionDBI):
-        self.__sdb = sdb
+    @station_bots.setter
+    def station_bots(self, bots: Set[ID]):
+        """ set station bots to receive message for 'everyone@everywhere' """
+        assert isinstance(bots, Set), 'bots error: %s' % bots
+        self.__bots = bots
 
     @property
     def proactive_neighbors(self) -> Set[ID]:
+        """ get neighbor stations connected to current station """
         now = time.time()
         with self.__lock:
             if self.__expires < now:
@@ -80,13 +85,22 @@ class BroadcastRecipientManager:
             return self.__neighbors
 
     @property
-    def all_neighbors(self) -> Set[ID]:
-        neighbors = set()
-        db = self.__sdb
+    def all_stations(self) -> List[StationInfo]:
+        """ get stations from database """
+        dispatcher = Dispatcher()
+        db = dispatcher.sdb
+        # TODO: get chosen provider
         providers = db.all_providers()
         assert len(providers) > 0, 'service provider not found'
         gsp = providers[0].identifier
-        stations = db.all_stations(provider=gsp)
+        return db.all_stations(provider=gsp)
+
+    @property
+    def all_neighbors(self) -> Set[ID]:
+        """ get all stations """
+        neighbors = set()
+        # get stations from chosen provider
+        stations = self.all_stations
         for item in stations:
             sid = item.identifier
             if sid is None or sid.is_broadcast:
@@ -111,41 +125,34 @@ class BroadcastRecipientManager:
         # get all neighbor stations to broadcast, but
         # traced nodes should be ignored to avoid cycled delivering
         if receiver == Station.EVERY or receiver == EVERYONE:
-            Log.info(msg='forward to neighbors: %s' % receiver)
+            self.info(msg='forward to neighbors: %s' % receiver)
             # get neighbor stations
             neighbors = self.all_neighbors
             for sid in neighbors:
                 if sid in traces:  # or sid == station:
-                    Log.warning(msg='ignore neighbor: %s' % sid)
+                    self.warning(msg='ignore duplicated neighbor: %s' % sid)
                     continue
                 recipients.add(sid)
-            # get archivist bot
+            # get station bots
             if receiver == EVERYONE:
-                # include 'archivist' as 'everyone@everywhere'
-                bot = ans_id(name='archivist')
+                # include station bots as 'everyone@everywhere'
+                bots = self.station_bots
+                for bid in bots:
+                    if bid in traces:
+                        self.warning(msg='ignore duplicated bot: %s' % bid)
+                        continue
+                    recipients.add(bid)
+        elif receiver.is_user:
+            # 'archivist@anywhere', 'apns@anywhere'
+            name = receiver.name
+            if name is not None:
+                assert name != 'station' and name != 'anyone', 'receiver error: %s' % receiver
+                bot = AnsCommandProcessor.ans_id(name=name)
+                self.info(msg='forward to bot: %s -> %s' % (name, bot))
                 if bot is not None and bot not in traces:
                     recipients.add(bot)
-        elif receiver == 'archivist@anywhere':  # or receiver == 'archivists@everywhere':
-            Log.info(msg='forward to archivist: %s' % receiver)
-            # get archivist bot for search command
-            bot = ans_id(name='archivist')
-            if bot is not None and bot not in traces:
-                recipients.add(bot)
-        elif receiver == 'apns@anywhere':
-            Log.info(msg='forward to APNs bot: %s' % receiver)
-            # get APNs bot for apns command
-            bot = ans_id(name='apns')
-            if bot is not None and bot not in traces:
-                recipients.add(bot)
-        Log.info(msg='recipients: %s -> %s' % (receiver, recipients))
+        self.info(msg='recipients: %s -> %s' % (receiver, recipients))
         return recipients
-
-
-def ans_id(name: str) -> Optional[ID]:
-    try:
-        return ID.parse(identifier=name)
-    except ValueError as e:
-        Log.warning(msg='ANS record not exists: %s, %s' % (name, e))
 
 
 def broadcast_reliable_message(msg: ReliableMessage, station: ID):
@@ -162,7 +169,7 @@ def broadcast_reliable_message(msg: ReliableMessage, station: ID):
     for target in recipients:
         assert not target.is_broadcast, 'recipient error: %s, %s' % (target, receiver)
         if target == station:
-            Log.error(msg='current station should not exists here: %s, %s' % (target, recipients))
+            Log.warning(msg='current station should not exists here: %s, %s' % (target, recipients))
             continue
         elif target == sender:
             Log.warning(msg='skip sender: %s, %s' % (target, recipients))

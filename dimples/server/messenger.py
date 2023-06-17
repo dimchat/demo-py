@@ -32,7 +32,7 @@
 
 from typing import Optional, List
 
-from dimsdk import ID
+from dimsdk import ID, ANYONE
 from dimsdk import Station
 from dimsdk import Envelope, Command, MetaCommand, DocumentCommand
 from dimsdk import InstantMessage
@@ -152,21 +152,18 @@ class ServerMessenger(CommonMessenger):
             #     it must be the first handshake without station ID;
             # if receiver == 'anyone@anywhere':
             #     it should be other plain message without encryption.
+            if receiver == Station.ANY or receiver == ANYONE:
+                return s_msg
+            # broadcast message (to neighbor stations, or station bots)
+            broadcast_reliable_message(msg=msg, station=sid)
             # if receiver.is_group:
             #     broadcast message to multiple destinations,
             #     current station is it's receiver too.
             if receiver.is_group:
-                # broadcast to neighbor stations
-                broadcast_reliable_message(msg=msg, station=sid)
-            elif receiver == 'archivist@anywhere':
-                # forward to search bot
-                broadcast_reliable_message(msg=msg, station=sid)
-                return None
-            elif receiver == 'apns@anywhere':
-                # forward to APNs
-                broadcast_reliable_message(msg=msg, station=sid)
-                return None
-            return s_msg
+                return s_msg
+            # otherwise, this message should have been redirected
+            # e.g.: 'archivist@anywhere', 'apns@anywhere'
+            return None
         elif receiver.is_group:
             self.error(msg='group message should not send to station: %s -> %s' % (sender, receiver))
             return None

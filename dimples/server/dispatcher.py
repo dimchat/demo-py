@@ -108,25 +108,35 @@ class Dispatcher(MessageDeliver):
     #
 
     @property
-    def worker(self):  # -> DeliverWorker:
-        return self.__worker
-
-    def start(self):
-        worker = DeliverWorker(database=self.__sdb, facebook=self.__facebook)
-        roamer = Roamer(database=self.__mdb)
-        self.__worker = worker
-        self.__roamer = roamer
-        roamer.start()
+    def deliver_worker(self):  # -> DeliverWorker:
+        worker = self.__worker
+        if worker is None:
+            db = self.sdb
+            facebook = self.facebook
+            assert db is not None and facebook is not None, 'dispatcher not initialized'
+            worker = DeliverWorker(database=db, facebook=facebook)
+            self.__worker = worker
+        return worker
 
     #
     #   Roamer
     #
 
+    @property
+    def roamer(self):  # -> Roamer
+        runner = self.__roamer
+        if runner is None:
+            db = self.mdb
+            assert db is not None, 'dispatcher not initialized'
+            runner = Roamer(database=db)
+            self.__roamer = runner
+            runner.start()
+        return runner
+
     def add_roaming(self, user: ID, station: ID) -> bool:
         """ Add roaming user with station """
-        roamer = self.__roamer
-        if roamer is not None:
-            return roamer.add_roaming(user=user, station=station)
+        roamer = self.roamer
+        return roamer.add_roaming(user=user, station=station)
 
     #
     #   Deliver
@@ -135,7 +145,7 @@ class Dispatcher(MessageDeliver):
     # Override
     def deliver_message(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
         """ Deliver message to destination """
-        worker = self.__worker
+        worker = self.deliver_worker
         if receiver.type == EntityType.STATION:
             # message to other stations
             # station won't roam to other station, so just push for it directly
@@ -244,7 +254,7 @@ class Roamer(Runner, Logging):
                 return True
             # get deliver delegate for receiver
             dispatcher = Dispatcher()
-            worker = dispatcher.worker
+            worker = dispatcher.deliver_worker
             # deliver cached messages one by one
             for msg in cached_messages:
                 worker.push_message(msg=msg, receiver=receiver)

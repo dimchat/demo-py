@@ -34,16 +34,11 @@
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, List, Dict
+from typing import Optional, List, Dict
 
-from dimsdk import ID, ContentType, Envelope
-from dimsdk import InstantMessage, ReliableMessage
+from dimsdk import ID, ReliableMessage
 
-from ..utils import Singleton, Log, Logging, Runner
-from ..common import CommonFacebook, CommonMessenger
-from ..common import PushNotificationCommand, PushItem
-
-from .packer import FilterManager
+from ..utils import Singleton, Logging, Runner
 
 
 class MessageQueue(Logging):
@@ -158,159 +153,16 @@ class PushCenter(Runner, Logging):
 
     # Override
     def process(self) -> bool:
-        service = self.__service
-        if service is None:
-            self.error(msg='push service not ready')
-            return False
+        # 1. get waiting messages
         queue = self.__queue
         messages = queue.get_messages()
         if messages is None:
             # nothing to do now, return False to have a rest
             return False
+        # 2. get message processor
+        service = self.__service
+        if service is None:
+            self.error(msg='push service not found')
+            return False
+        # 3. process
         return service.process(messages=messages)
-
-
-class DefaultPushService(PushService, Logging):
-
-    def __init__(self, facebook: CommonFacebook, messenger: CommonMessenger, badge_keeper: BadgeKeeper):
-        super().__init__()
-        self.__facebook = facebook
-        self.__messenger = messenger
-        self.__keeper = badge_keeper
-        from .dispatcher import Dispatcher
-        self.__dispatcher = Dispatcher()
-
-    # Override
-    def process(self, messages: List[ReliableMessage]) -> bool:
-        facebook = self.__facebook
-        try:
-            current = facebook.current_user
-            sender = current.identifier
-            assert sender is not None, 'current user error: %s' % current
-            bot = ans_id(name='apns')
-            if bot is None:
-                self.warning(msg='apns bot not set')
-                return False
-            items = self.__build_push_items(messages=messages)
-            if len(items) > 0:
-                self.__push(sender=sender, receiver=bot, items=items)
-        except Exception as error:
-            self.error(msg='push %d messages error: %s' % (len(messages), error))
-        return True
-
-    def __push(self, sender: ID, receiver: ID, items: List[PushItem]):
-        env = Envelope.create(sender=sender, receiver=receiver)
-        cmd = PushNotificationCommand(items=items)
-        i_msg = InstantMessage.create(head=env, body=cmd)
-        # pack message
-        messenger = self.__messenger
-        s_msg = messenger.encrypt_message(msg=i_msg)
-        if s_msg is None:
-            self.error(msg='failed to encrypt message: %s -> %s' % (sender, receiver))
-            return False
-        r_msg = messenger.sign_message(msg=s_msg)
-        if r_msg is None:
-            self.error(msg='failed to sign message: %s -> %s' % (sender, receiver))
-            return False
-        dispatcher = self.__dispatcher
-        dispatcher.deliver_message(msg=r_msg, receiver=receiver)
-        self.info(msg='APNs command with %d push item(s) delivering to %s' % (len(items), receiver))
-        return True
-
-    def __build_push_items(self, messages: List[ReliableMessage]) -> List[PushItem]:
-        items = []
-        keeper = self.__keeper
-        for msg in messages:
-            # 1. check original sender, group & msg type
-            env = self._origin_envelope(msg=msg)
-            receiver = msg.receiver
-            sender = env.sender
-            group = env.group
-            msg_type = env.type
-            # 2. check mute-list
-            mute_filter = FilterManager().mute_filter
-            if mute_filter.is_muted(msg=msg):
-                self.info(msg='muted sender: %s -> %s (group: %s) type: %d' % (sender, receiver, group, msg_type))
-                continue
-            # 3. build title & content text
-            title, text = self._build_message(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
-            if text is None:
-                self.info(msg='ignore msg type: %s -> %s (group: %s) type: %d' % (sender, receiver, group, msg_type))
-                continue
-            # 4. increase badge
-            badge = keeper.increase_badge(identifier=receiver)
-            # OK
-            items.append(PushItem.create(receiver=receiver, title=title, content=text, badge=badge))
-        return items
-
-    # noinspection PyMethodMayBeStatic
-    def _origin_envelope(self, msg: ReliableMessage) -> Envelope:
-        """ get envelope of original message """
-        origin = msg.get('origin')
-        if origin is None:
-            env = msg.envelope
-        else:
-            # forwarded message, separated by group assistant?
-            env = Envelope.parse(envelope=origin)
-            msg.pop('origin', None)
-        return env
-
-    # noinspection PyMethodMayBeStatic
-    def _build_message(self, sender: ID, receiver: ID, group: ID, msg_type: int) -> Tuple[Optional[str], Optional[str]]:
-        """ build title, content for notification """
-        facebook = self.__facebook
-        return build_message(sender=sender, receiver=receiver, group=group, msg_type=msg_type, facebook=facebook)
-
-
-def build_message(sender: ID, receiver: ID, group: ID, msg_type: int,
-                  facebook: CommonFacebook) -> Tuple[Optional[str], Optional[str]]:
-    """ PNs: build text message for msg """
-    if msg_type == 0:
-        title = 'Message'
-        something = 'a message'
-    elif msg_type == ContentType.TEXT:
-        title = 'Text Message'
-        something = 'a text message'
-    elif msg_type == ContentType.FILE:
-        title = 'File'
-        something = 'a file'
-    elif msg_type == ContentType.IMAGE:
-        title = 'Image'
-        something = 'an image'
-    elif msg_type == ContentType.AUDIO:
-        title = 'Voice'
-        something = 'a voice message'
-    elif msg_type == ContentType.VIDEO:
-        title = 'Video'
-        something = 'a video'
-    elif msg_type in [ContentType.MONEY, ContentType.TRANSFER]:
-        title = 'Money'
-        something = 'some money'
-    else:
-        # unknown type
-        return None, None
-    from_name = get_name(identifier=sender, facebook=facebook)
-    to_name = get_name(identifier=receiver, facebook=facebook)
-    text = 'Dear %s: %s sent you %s' % (to_name, from_name, something)
-    if group is not None:
-        text += ' in group [%s]' % get_name(identifier=group, facebook=facebook)
-    return title, text
-
-
-def get_name(identifier: ID, facebook: CommonFacebook) -> str:
-    doc = facebook.document(identifier=identifier)
-    if doc is not None:
-        name = doc.name
-        if name is not None and len(name) > 0:
-            return name
-    name = identifier.name
-    if name is not None and len(name) > 0:
-        return name
-    return str(identifier.address)
-
-
-def ans_id(name: str) -> Optional[ID]:
-    try:
-        return ID.parse(identifier=name)
-    except ValueError as e:
-        Log.warning(msg='ANS record not exists: %s, %s' % (name, e))

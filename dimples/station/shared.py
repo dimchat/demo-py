@@ -36,8 +36,6 @@ from ..common import ProviderInfo
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
 from ..database import Storage
 from ..server import BroadcastRecipientManager
-from ..server import ServerMessenger, ServerMessagePacker, ServerMessageProcessor
-from ..server import PushCenter, DefaultPushService
 from ..server import Dispatcher
 
 from ..config import Config
@@ -146,8 +144,6 @@ def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, SessionDBI]
     for node in neighbors:
         print('adding neighbor node: %s' % node)
         sdb.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
-    manager = BroadcastRecipientManager()
-    manager.database = sdb
     return adb, mdb, sdb
 
 
@@ -173,33 +169,21 @@ def create_ans(config: Config) -> AddressNameServer:
     ans_records = config.ans_records
     if ans_records is not None:
         ans.fix(records=ans_records)
+    # Search Engine
+    se = ans.identifier(name='archivist')
+    if se is not None:
+        bots = set()
+        bots.add(se)
+        manager = BroadcastRecipientManager()
+        # set Search Engine to receive message for 'everyone@everywhere'
+        manager.station_bots = bots
     return ans
 
 
-def create_apns(shared: GlobalVariable) -> PushCenter:
-    """ Step 5: create push center """
-    # 1. create messenger with session and MessageDB
-    session = None
-    facebook = shared.facebook
-    database = shared.database
-    messenger = ServerMessenger(session=session, facebook=facebook, database=database)
-    # 2. create packer, processor, filter for messenger
-    #    they have weak references to session, facebook & messenger
-    messenger.packer = ServerMessagePacker(facebook=facebook, messenger=messenger)
-    messenger.processor = ServerMessageProcessor(facebook=facebook, messenger=messenger)
-    # 3. create push service
-    center = PushCenter()
-    keeper = center.badge_keeper
-    service = DefaultPushService(facebook=facebook, messenger=messenger, badge_keeper=keeper)
-    center.service = service
-    return center
-
-
 def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
-    """ Step 6: create dispatcher """
+    """ Step 5: create dispatcher """
     dispatcher = Dispatcher()
     dispatcher.mdb = shared.mdb
     dispatcher.sdb = shared.sdb
     dispatcher.facebook = shared.facebook
-    dispatcher.start()
     return dispatcher

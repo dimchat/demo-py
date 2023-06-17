@@ -38,11 +38,11 @@ from dimp import Content
 
 from dimsdk.cpu import BaseCommandProcessor
 
-from ...utils import Log, Logging
+from ...utils import Log
 from ...common import AnsCommand
 
 
-class AnsCommandProcessor(BaseCommandProcessor, Logging):
+class AnsCommandProcessor(BaseCommandProcessor):
 
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
@@ -55,7 +55,7 @@ class AnsCommandProcessor(BaseCommandProcessor, Logging):
         missed = []
         for item in names:
             # get record from ANS factory
-            identifier = ans_id(name=item)
+            identifier = self.ans_id(name=item)
             if identifier is None:
                 missed.append(item)
             else:
@@ -65,9 +65,9 @@ class AnsCommandProcessor(BaseCommandProcessor, Logging):
             res['missed'] = missed
         return [res]
 
-
-def ans_id(name: str) -> Optional[ID]:
-    try:
-        return ID.parse(identifier=name)
-    except ValueError as e:
-        Log.warning(msg='ANS record not exists: %s, %s' % (name, e))
+    @classmethod
+    def ans_id(cls, name: str) -> Optional[ID]:
+        try:
+            return ID.parse(identifier=name)
+        except ValueError as e:
+            Log.warning(msg='ANS record not exists: %s, %s' % (name, e))
