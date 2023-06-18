@@ -169,5 +169,21 @@ class FilterManager:
 
     def __init__(self):
         super().__init__()
-        self.block_filter = BlockFilter()
-        self.mute_filter = MuteFilter()
+        self.__block_filter = BlockFilter()
+        self.__mute_filter = MuteFilter()
+
+    @property
+    def block_filter(self) -> BlockFilter:
+        return self.__block_filter
+
+    @block_filter.setter
+    def block_filter(self, delegate: BlockFilter):
+        self.__block_filter = delegate
+
+    @property
+    def mute_filter(self) -> MuteFilter:
+        return self.__mute_filter
+
+    @mute_filter.setter
+    def mute_filter(self, delegate: MuteFilter):
+        self.__mute_filter = delegate

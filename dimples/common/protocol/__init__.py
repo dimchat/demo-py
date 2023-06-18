@@ -34,9 +34,6 @@ from .login import LoginCommand
 from .report import ReportCommand
 from .ans import AnsCommand
 
-from .apns import PushNotificationCommand
-from .apns import PushAlert, PushInfo, PushItem
-
 
 def register_all_factories():
     # Register core factories
@@ -52,9 +49,6 @@ def register_all_factories():
     Command.register(cmd=ReportCommand.REPORT, factory=CommandFactoryBuilder(command_class=ReportCommand))
     # ANS
     Command.register(cmd=AnsCommand.ANS, factory=CommandFactoryBuilder(command_class=AnsCommand))
-    # APNs
-    Command.register(cmd=PushNotificationCommand.PUSH,
-                     factory=CommandFactoryBuilder(command_class=PushNotificationCommand))
 
 
 register_all_factories()
@@ -68,7 +62,4 @@ __all__ = [
     'LoginCommand',
     'ReportCommand',
     'AnsCommand',
-
-    'PushNotificationCommand',
-    'PushAlert', 'PushInfo', 'PushItem',
 ]

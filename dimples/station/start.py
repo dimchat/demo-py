@@ -44,8 +44,8 @@ from dimples.utils import Log
 
 from dimples.station.shared import GlobalVariable
 from dimples.station.shared import create_config, create_database, create_facebook
-from dimples.station.shared import create_ans
 from dimples.station.shared import create_dispatcher
+from dimples.station.shared import create_ans
 from dimples.station.handler import RequestHandler
 
 
@@ -74,10 +74,10 @@ def main():
     assert sid is not None, 'current station ID not set: %s' % config
     facebook = create_facebook(database=adb, current_user=sid)
     shared.facebook = facebook
-    # Step 4: create ANS
-    create_ans(config=config)
-    # Step 5: create dispatcher
+    # Step 4: create dispatcher
     create_dispatcher(shared=shared)
+    # Step 5: create ANS
+    create_ans(config=config)
     # check bind host & port
     host = config.station_host
     port = config.station_port

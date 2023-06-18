@@ -27,10 +27,10 @@ import getopt
 import sys
 from typing import Optional, Tuple
 
-from dimsdk import Address, ID, IDFactory
+from dimsdk import ID
 
 from ..utils import Singleton
-from ..common import AddressNameServer, CommonFacebook
+from ..common import AddressNameServer, ANSFactory, CommonFacebook
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..common import ProviderInfo
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
@@ -39,31 +39,6 @@ from ..server import BroadcastRecipientManager
 from ..server import Dispatcher
 
 from ..config import Config
-
-
-class ANSFactory(IDFactory):
-
-    def __init__(self, factory: IDFactory, ans: AddressNameServer):
-        super().__init__()
-        self.__origin = factory
-        self.__ans = ans
-
-    # Override
-    def generate_id(self, meta, network: int, terminal: Optional[str] = None) -> ID:
-        return self.__origin.generate_id(meta=meta, network=network, terminal=terminal)
-
-    # Override
-    def create_id(self, name: Optional[str], address: Address, terminal: Optional[str] = None) -> ID:
-        return self.__origin.create_id(address=address, name=name, terminal=terminal)
-
-    # Override
-    def parse_id(self, identifier: str) -> Optional[ID]:
-        # try ANS record
-        aid = self.__ans.identifier(name=identifier)
-        if aid is None:
-            # parse by original factory
-            aid = self.__origin.parse_id(identifier=identifier)
-        return aid
 
 
 @Singleton
@@ -160,8 +135,17 @@ def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
     return facebook
 
 
+def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
+    """ Step 4: create dispatcher """
+    dispatcher = Dispatcher()
+    dispatcher.mdb = shared.mdb
+    dispatcher.sdb = shared.sdb
+    dispatcher.facebook = shared.facebook
+    return dispatcher
+
+
 def create_ans(config: Config) -> AddressNameServer:
-    """ Step 4: create ANS """
+    """ Step 5: create ANS """
     ans = AddressNameServer()
     factory = ID.factory()
     ID.register(factory=ANSFactory(factory=factory, ans=ans))
@@ -178,12 +162,3 @@ def create_ans(config: Config) -> AddressNameServer:
         manager = BroadcastRecipientManager()
         manager.station_bots = bots
     return ans
-
-
-def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
-    """ Step 5: create dispatcher """
-    dispatcher = Dispatcher()
-    dispatcher.mdb = shared.mdb
-    dispatcher.sdb = shared.sdb
-    dispatcher.facebook = shared.facebook
-    return dispatcher

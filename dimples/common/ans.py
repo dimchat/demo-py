@@ -32,7 +32,7 @@
 
 from typing import Optional, List, Dict
 
-from dimsdk import ID
+from dimsdk import Address, ID, IDFactory
 from dimsdk import ANYONE, EVERYONE, FOUNDER
 from dimsdk import AddressNameService
 
@@ -110,6 +110,7 @@ class AddressNameServer(AddressNameService):
         """ remove the keywords temporary before save new records """
         count = 0
         self.__reserved['apns'] = False
+        self.__reserved['master'] = False
         self.__reserved['archivist'] = False
         self.__reserved['assistant'] = False
         # self.__reserved['station'] = False
@@ -124,5 +125,31 @@ class AddressNameServer(AddressNameService):
         # self.__reserved['station'] = True
         self.__reserved['assistant'] = True
         self.__reserved['archivist'] = True
+        self.__reserved['master'] = True
         self.__reserved['apns'] = True
         return count
+
+
+class ANSFactory(IDFactory):
+
+    def __init__(self, factory: IDFactory, ans: AddressNameServer):
+        super().__init__()
+        self.__origin = factory
+        self.__ans = ans
+
+    # Override
+    def generate_id(self, meta, network: int, terminal: Optional[str] = None) -> ID:
+        return self.__origin.generate_id(meta=meta, network=network, terminal=terminal)
+
+    # Override
+    def create_id(self, name: Optional[str], address: Address, terminal: Optional[str] = None) -> ID:
+        return self.__origin.create_id(address=address, name=name, terminal=terminal)
+
+    # Override
+    def parse_id(self, identifier: str) -> Optional[ID]:
+        # try ANS record
+        aid = self.__ans.identifier(name=identifier)
+        if aid is None:
+            # parse by original factory
+            aid = self.__origin.parse_id(identifier=identifier)
+        return aid
