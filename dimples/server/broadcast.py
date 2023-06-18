@@ -43,6 +43,7 @@ from ..utils import Singleton, Log, Logging
 from ..common import StationInfo
 
 from .cpu import AnsCommandProcessor
+from .trace import TraceManager
 from .dispatcher import Dispatcher
 from .session_center import SessionCenter
 
@@ -115,12 +116,11 @@ class BroadcastRecipientManager(Logging):
             neighbors.add(sid)
         return neighbors
 
-    def get_recipients(self, msg: ReliableMessage, receiver: ID) -> Set[ID]:
+    def get_recipients(self, msg: ReliableMessage, receiver: ID, station: ID) -> Set[ID]:
+        """ get nodes passed through, includes current node which is just added before """
         recipients = set()
-        # get nodes passed through, includes current node which is just added before
-        traces = msg.get('traces')
-        if traces is None:
-            traces = []
+        tm = TraceManager()
+        traces = tm.get_traces(msg=msg)
         # if this message is sending to 'stations@everywhere' or 'everyone@everywhere'
         # get all neighbor stations to broadcast, but
         # traced nodes should be ignored to avoid cycled delivering
@@ -129,8 +129,8 @@ class BroadcastRecipientManager(Logging):
             # get neighbor stations
             neighbors = self.all_neighbors
             for sid in neighbors:
-                if sid in traces:  # or sid == station:
-                    self.warning(msg='ignore duplicated neighbor: %s' % sid)
+                if traces.search(node=sid) >= 0 or sid == station:
+                    self.warning(msg='skip duplicated station: %s' % sid)
                     continue
                 recipients.add(sid)
             # get station bots
@@ -138,18 +138,18 @@ class BroadcastRecipientManager(Logging):
                 # include station bots as 'everyone@everywhere'
                 bots = self.station_bots
                 for bid in bots:
-                    if bid in traces:
-                        self.warning(msg='ignore duplicated bot: %s' % bid)
+                    if traces.search(node=bid) >= 0:
+                        self.warning(msg='skip duplicated bot: %s' % bid)
                         continue
                     recipients.add(bid)
         elif receiver.is_user:
-            # 'archivist@anywhere', 'apns@anywhere'
+            # 'archivist@anywhere', 'apns@anywhere', 'master@anywhere'
             name = receiver.name
             if name is not None:
                 assert name != 'station' and name != 'anyone', 'receiver error: %s' % receiver
                 bot = AnsCommandProcessor.ans_id(name=name)
                 self.info(msg='forward to bot: %s -> %s' % (name, bot))
-                if bot is not None and bot not in traces:
+                if bot is not None and traces.search(node=bot) < 0:
                     recipients.add(bot)
         self.info(msg='recipients: %s -> %s' % (receiver, recipients))
         return recipients
@@ -159,7 +159,7 @@ def broadcast_reliable_message(msg: ReliableMessage, station: ID):
     receiver = msg.receiver
     # get other recipients for broadcast message
     manager = BroadcastRecipientManager()
-    recipients = manager.get_recipients(msg=msg, receiver=receiver)
+    recipients = manager.get_recipients(msg=msg, receiver=receiver, station=station)
     if len(recipients) == 0:
         Log.warning('other recipients not found: %s' % receiver)
         return 0
@@ -168,18 +168,31 @@ def broadcast_reliable_message(msg: ReliableMessage, station: ID):
     dispatcher = Dispatcher()
     for target in recipients:
         assert not target.is_broadcast, 'recipient error: %s, %s' % (target, receiver)
-        if target == station:
-            Log.warning(msg='current station should not exists here: %s, %s' % (target, recipients))
-            continue
-        elif target == sender:
-            Log.warning(msg='skip sender: %s, %s' % (target, recipients))
-            continue
-        dispatcher.deliver_message(msg=msg, receiver=target)
-
+        deliver_message(msg=msg, receiver=target, recipients=recipients, station=station, dispatcher=dispatcher)
         # TODO: after deliver to connected neighbors, the dispatcher will continue
         #       delivering via station bridge, should we mark 'sent_neighbors' in
         #       only one message to the bridge, let the bridge to separate for other
         #       neighbors which not connect to this station directly?
     # OK
-    Log.info(msg='Broadcast message delivered: %s, sender: %s' % (recipients, sender))
+    Log.info(msg='Broadcast message delivered: %s => %s' % (sender, recipients))
     return len(recipients)
+
+
+def deliver_message(msg: ReliableMessage, receiver: ID, recipients: Set[ID], station: ID, dispatcher: Dispatcher):
+    if receiver == station:
+        Log.warning(msg='skip current node: %s, %s' % (receiver, recipients))
+        return None
+    elif receiver == msg.sender:
+        Log.warning(msg='skip sender: %s, %s' % (receiver, recipients))
+        return None
+    assert isinstance(recipients, set), 'recipients error: %s' % recipients
+    # clone
+    msg = ReliableMessage.parse(msg=msg.dictionary)
+    recipients = recipients.copy()
+    recipients.discard(receiver)  # exclude receiver
+    recipients.add(station)       # include current station
+    # set trace nodes
+    tm = TraceManager()
+    tm.set_nodes(msg=msg, nodes=recipients)
+    # deliver message with traces
+    return dispatcher.deliver_message(msg=msg, receiver=receiver)

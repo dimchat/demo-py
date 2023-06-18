@@ -169,13 +169,13 @@ def create_ans(config: Config) -> AddressNameServer:
     ans_records = config.ans_records
     if ans_records is not None:
         ans.fix(records=ans_records)
-    # Search Engine
-    se = ans.identifier(name='archivist')
+    # set bots to receive message for 'everyone@everywhere'
+    bots = set()
+    se = ans.identifier(name='archivist')  # Search Engine
     if se is not None:
-        bots = set()
         bots.add(se)
+    if len(bots) > 0:
         manager = BroadcastRecipientManager()
-        # set Search Engine to receive message for 'everyone@everywhere'
         manager.station_bots = bots
     return ans
 

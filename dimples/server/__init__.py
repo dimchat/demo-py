@@ -42,6 +42,9 @@ from .push import PushCenter
 # from .dispatcher import Roamer, MessageDeliver, DeliverWorker
 from .dispatcher import Dispatcher
 
+from .trace import TraceNode, TraceList
+from .trace import TraceManager
+
 from .packer import BlockFilter, MuteFilter, FilterManager
 
 from .packer import ServerMessagePacker
@@ -69,6 +72,10 @@ __all__ = [
     # Dispatcher
     # 'Roamer', 'MessageDeliver', 'DeliverWorker',
     'Dispatcher',
+
+    # Trace
+    'TraceNode', 'TraceList',
+    'TraceManager',
 
     # Filter
     'BlockFilter', 'MuteFilter', 'FilterManager',

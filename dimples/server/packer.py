@@ -28,7 +28,7 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
-from typing import Optional, Dict
+from typing import Optional
 
 from dimsdk import EntityType, ID
 from dimsdk import SecureMessage, ReliableMessage
@@ -36,6 +36,8 @@ from dimsdk import SecureMessage, ReliableMessage
 from ..utils import Singleton, Logging
 from ..common import CommonFacebook
 from ..common import CommonMessagePacker
+
+from .trace import TraceManager
 
 
 class ServerMessagePacker(CommonMessagePacker):
@@ -49,25 +51,11 @@ class ServerMessagePacker(CommonMessagePacker):
         return sid
 
     def __is_traced(self, msg: ReliableMessage) -> bool:
-        is_traced = False
+        """ check & append current node in msg['traces'] """
         node = self.__current()
-        # check current node in msg['traces']
-        traces = msg.get('traces')
-        if traces is None:
-            # start from here
-            msg['traces'] = [str(node)]
-        else:
-            for item in traces:
-                if isinstance(item, Dict):
-                    sid = item.get('ID')
-                else:
-                    # assert isinstance(item, str), 'MTA error: %s' % item
-                    sid = item
-                if node == sid:
-                    is_traced = True
-                    break
-            # append current node to msg['traces']
-            traces.append(str(node))
+        tm = TraceManager()
+        is_traced = tm.is_traced(msg=msg, node=node)
+        tm.add_node(msg=msg, node=node)
         return is_traced
 
     def __is_trusted(self, sender: ID) -> bool:
