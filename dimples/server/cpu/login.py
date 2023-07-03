@@ -86,7 +86,8 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         session.set_active(active=True)
         # only respond the user login to this station
         self.info(msg='user login: %s -> %s' % (sender, roaming))
-        return self._respond_text(text='Login received.')
+        text = 'Login command received: %s' % sender
+        return self._respond_text(text=text)
 
 
 def add_roaming(user: ID, station: ID):

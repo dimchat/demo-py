@@ -111,6 +111,7 @@ class AddressNameServer(AddressNameService):
         count = 0
         self.__reserved['apns'] = False
         self.__reserved['master'] = False
+        self.__reserved['monitor'] = False
         self.__reserved['archivist'] = False
         self.__reserved['assistant'] = False
         # self.__reserved['station'] = False
@@ -125,6 +126,7 @@ class AddressNameServer(AddressNameService):
         # self.__reserved['station'] = True
         self.__reserved['assistant'] = True
         self.__reserved['archivist'] = True
+        self.__reserved['monitor'] = True
         self.__reserved['master'] = True
         self.__reserved['apns'] = True
         return count

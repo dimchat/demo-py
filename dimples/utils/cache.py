@@ -191,7 +191,7 @@ class CacheManager:
     def purge(self, now: float) -> int:
         """ purge all pools """
         count = 0
-        names = list(self.__pools.keys())
+        names = set(self.__pools.keys())
         for name in names:
             pool = self.__pools.get(name)
             if pool is not None:

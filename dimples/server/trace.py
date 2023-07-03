@@ -275,9 +275,10 @@ class TraceManager:
             after that, check whether this node exists
         """
         pool = self.__pool
-        pool.purge(now=msg.time)  # call when verifying new message
         cached = pool.set_traces(msg=msg)
-        return cached.search(node=node) >= 0
+        pos = cached.search(node=node)
+        pool.purge(now=msg.time)  # call when verifying new message
+        return pos >= 0
 
     def get_traces(self, msg: ReliableMessage) -> TraceList:
         """ merge traces from msg into cached pool """

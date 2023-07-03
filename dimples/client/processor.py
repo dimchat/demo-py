@@ -121,7 +121,7 @@ class ClientContentProcessorCreator(BaseContentProcessorCreator):
     # Override
     def create_content_processor(self, msg_type: Union[int, ContentType]) -> Optional[ContentProcessor]:
         # text
-        if msg_type == ContentType.TEXT:
+        if msg_type == ContentType.TEXT.value:
             return TextContentProcessor(facebook=self.facebook, messenger=self.messenger)
         # history
         if msg_type == ContentType.HISTORY.value:
