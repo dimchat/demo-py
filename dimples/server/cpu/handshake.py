@@ -54,8 +54,12 @@ class HandshakeCommandProcessor(BaseCommandProcessor):
         title = content.title
         if title in ['DIM?', 'DIM!']:
             # S -> C
-            text = 'Handshake command error: %s' % title
-            return self._respond_text(text=text)
+            return self._respond_text(text='Command not support.', extra={
+                'template': 'Handshake command error: title="${title}".',
+                'replacements': {
+                    'title': title,
+                }
+            })
         # C -> S: Hello world!
         assert 'Hello world!' == title, 'Handshake command error: %s' % content
         # set/update session in session server with new session key

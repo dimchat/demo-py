@@ -31,24 +31,22 @@
 import time
 from typing import List, Optional, Union
 
-from dimp import EntityType
-from dimp import SecureMessage, ReliableMessage
-from dimp import ContentType, Content, TextContent
-from dimp import GroupCommand
-
+from dimsdk import EntityType
+from dimsdk import SecureMessage, ReliableMessage
+from dimsdk import ContentType, Content, TextContent
+from dimsdk import GroupCommand
+from dimsdk import ReceiptCommand
 from dimsdk import ContentProcessor, ContentProcessorCreator
 from dimsdk import MessageProcessor
-
-from dimsdk.cpu import BaseContentProcessor, BaseContentProcessorCreator
+from dimsdk import BaseContentProcessor, BaseContentProcessorCreator
 
 from ..utils import Logging
-from ..common import HandshakeCommand, ReceiptCommand, LoginCommand
+from ..common import HandshakeCommand, LoginCommand
 from ..common import CommonMessenger
 
 from .cpu import TextContentProcessor
 from .cpu import HandshakeCommandProcessor
 from .cpu import LoginCommandProcessor
-from .cpu import ReceiptCommandProcessor
 from .cpu import HistoryCommandProcessor, GroupCommandProcessor
 from .cpu import InviteCommandProcessor, ExpelCommandProcessor, QuitCommandProcessor
 from .cpu import ResetCommandProcessor, QueryCommandProcessor
@@ -140,9 +138,6 @@ class ClientContentProcessorCreator(BaseContentProcessorCreator):
         # login
         if cmd == LoginCommand.LOGIN:
             return LoginCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        # receipt
-        if cmd == ReceiptCommand.RECEIPT:
-            return ReceiptCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # group commands
         if cmd == 'group':
             return GroupCommandProcessor(facebook=self.facebook, messenger=self.messenger)

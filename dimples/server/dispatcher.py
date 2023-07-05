@@ -35,13 +35,13 @@ from abc import ABC, abstractmethod
 from typing import Optional, List
 
 from dimsdk import EntityType, ID
-from dimsdk import Content
+from dimsdk import Content, ReceiptCommand
 from dimsdk import ReliableMessage
 
 from ..utils import Singleton, Logging, Runner
 from ..common import CommonFacebook
 from ..common import MessageDBI, SessionDBI
-from ..common import LoginCommand, ReceiptCommand
+from ..common import LoginCommand
 
 from .session_center import SessionCenter
 from .push import PushCenter
@@ -168,12 +168,12 @@ class Dispatcher(MessageDeliver):
         # OK
         if responses is None:
             # user not online, and not roaming to other station
-            text = 'Message cached'
+            text = 'Message cached.'
             res = ReceiptCommand.create(text=text, msg=msg)
             return [res]
         elif len(responses) == 0:
             # user roamed to other station, but bridge not found
-            text = 'Message received'
+            text = 'Message received.'
             res = ReceiptCommand.create(text=text, msg=msg)
             return [res]
         else:
@@ -296,7 +296,7 @@ class DeliverWorker(Logging):
         assert receiver.type != EntityType.STATION, 'should not push message for station: %s' % receiver
         # 1. try to push message directly
         if session_push(msg=msg, receiver=receiver) > 0:
-            text = 'Message delivered for recipient'
+            text = 'Message delivered.'
             cmd = ReceiptCommand.create(text=text, msg=msg)
             cmd['recipient'] = str(receiver)
             return [cmd]
@@ -330,7 +330,7 @@ class DeliverWorker(Logging):
             return None
         # 1. try to push message to neighbor station directly
         if session_push(msg=msg, receiver=neighbor) > 0:
-            text = 'Message redirected to neighbor station'
+            text = 'Message redirected.'
             cmd = ReceiptCommand.create(text=text, msg=msg)
             cmd['neighbor'] = str(neighbor)
             return [cmd]
@@ -354,7 +354,7 @@ def bridge_message(msg: ReliableMessage, neighbor: ID, bridge: ID) -> Optional[L
     # msg = ReliableMessage.parse(msg=clone)
     msg['neighbor'] = str(neighbor)
     if session_push(msg=msg, receiver=bridge) > 0:
-        text = 'Message redirected to neighbor station via the bridge'
+        text = 'Message redirected.'
         cmd = ReceiptCommand.create(text=text, msg=msg)
         cmd['neighbor'] = str(neighbor)
         return [cmd]

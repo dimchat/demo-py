@@ -34,7 +34,6 @@ from .text import TextContentProcessor
 
 from .handshake import HandshakeCommandProcessor
 from .login import LoginCommandProcessor
-from .receipt import ReceiptCommandProcessor
 
 from .history import HistoryCommandProcessor, GroupCommandProcessor
 from .grp_invite import InviteCommandProcessor
@@ -44,14 +43,15 @@ from .grp_reset import ResetCommandProcessor
 from .grp_query import QueryCommandProcessor
 
 __all__ = [
+
     'TextContentProcessor',
 
     'HandshakeCommandProcessor',
     'LoginCommandProcessor',
-    'ReceiptCommandProcessor',
 
     'HistoryCommandProcessor',
     'GroupCommandProcessor',
     'InviteCommandProcessor', 'ExpelCommandProcessor', 'QuitCommandProcessor',
     'ResetCommandProcessor', 'QueryCommandProcessor',
+
 ]

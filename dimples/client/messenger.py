@@ -190,7 +190,7 @@ class ClientMessenger(CommonMessenger):
         responses = super().process_reliable_message(msg=msg)
         if len(responses) == 0 and self._needs_receipt(msg=msg):
             current_user = self.facebook.current_user
-            res = ReceiptCommand.create(text='Message received', msg=msg)
+            res = ReceiptCommand.create(text='Message received.', msg=msg)
             env = Envelope.create(sender=current_user.identifier, receiver=msg.sender)
             i_msg = InstantMessage.create(head=env, body=res)
             s_msg = self.encrypt_message(msg=i_msg)

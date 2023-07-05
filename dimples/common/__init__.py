@@ -44,7 +44,6 @@ __all__ = [
     #   protocol
     #
     'HandshakeCommand', 'HandshakeState',
-    'ReceiptCommand',
     'LoginCommand',
     'ReportCommand',
     'AnsCommand',

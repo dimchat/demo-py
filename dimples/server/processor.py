@@ -33,7 +33,8 @@ from typing import List, Optional, Union
 
 from dimsdk import EntityType
 from dimsdk import ReliableMessage
-from dimsdk import Content, ContentType, TextContent, Command
+from dimsdk import Content, ContentType, Command
+from dimsdk import TextContent, ReceiptCommand
 from dimsdk import ContentProcessor, ContentProcessorCreator
 from dimsdk import MessageProcessor
 
@@ -41,7 +42,7 @@ from dimsdk.cpu import BaseContentProcessor, BaseContentProcessorCreator
 
 from ..utils import Logging
 from ..common import HandshakeCommand, LoginCommand
-from ..common import ReceiptCommand, ReportCommand, AnsCommand
+from ..common import ReportCommand, AnsCommand
 from ..common import CommonMessenger
 
 from .cpu import HandshakeCommandProcessor
@@ -50,7 +51,6 @@ from .cpu import ReportCommandProcessor
 from .cpu import AnsCommandProcessor
 
 from .cpu import DocumentCommandProcessor
-from .cpu import ReceiptCommandProcessor
 
 
 class ServerMessageProcessor(MessageProcessor, Logging):
@@ -122,9 +122,6 @@ class ServerContentProcessorCreator(BaseContentProcessorCreator):
         # login
         if cmd == LoginCommand.LOGIN:
             return LoginCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        # receipt
-        if cmd == ReceiptCommand.RECEIPT:
-            return ReceiptCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # report
         if cmd == ReportCommand.REPORT:
             return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)

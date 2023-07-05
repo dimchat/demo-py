@@ -29,7 +29,6 @@ from dimsdk import register_all_factories as register_core_factories
 from dimplugins import register_plugins
 
 from .handshake import HandshakeCommand, HandshakeState
-from .receipt import ReceiptCommand
 from .login import LoginCommand
 from .report import ReportCommand
 from .ans import AnsCommand
@@ -41,8 +40,6 @@ def register_all_factories():
 
     # Handshake
     Command.register(cmd=HandshakeCommand.HANDSHAKE, factory=CommandFactoryBuilder(command_class=HandshakeCommand))
-    # Receipt
-    Command.register(cmd=ReceiptCommand.RECEIPT, factory=CommandFactoryBuilder(command_class=ReceiptCommand))
     # Login
     Command.register(cmd=LoginCommand.LOGIN, factory=CommandFactoryBuilder(command_class=LoginCommand))
     # Report
@@ -58,7 +55,6 @@ register_plugins()
 __all__ = [
 
     'HandshakeCommand', 'HandshakeState',
-    'ReceiptCommand',
     'LoginCommand',
     'ReportCommand',
     'AnsCommand',

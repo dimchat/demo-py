@@ -37,10 +37,9 @@ from .ans import AnsCommandProcessor
 
 from .document import DocumentCommandProcessor
 
-from .receipt import ReceiptCommandProcessor
-
 
 __all__ = [
+
     'HandshakeCommandProcessor',
     'LoginCommandProcessor',
     'ReportCommandProcessor',
@@ -48,5 +47,4 @@ __all__ = [
 
     'DocumentCommandProcessor',
 
-    'ReceiptCommandProcessor',
 ]

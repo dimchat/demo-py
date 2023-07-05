@@ -48,8 +48,8 @@ class AnsCommandProcessor(BaseCommandProcessor):
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, AnsCommand), 'report command error: %s' % content
         names = content.names
-        if names is None or len(names) == 0:
-            text = 'ANS command error'
+        if len(names) == 0:
+            text = 'ANS command error.'
             return self._respond_text(text=text)
         records = {}
         missed = []
