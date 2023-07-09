@@ -50,8 +50,6 @@ from .history import GroupCommandProcessor
 
 class QueryCommandProcessor(GroupCommandProcessor):
 
-    STR_QUERY_NOT_ALLOWED = 'Sorry, you are not allowed to query this group.'
-
     def _respond_group_members(self, owner: ID, group: ID, members: List[ID]) -> Content:
         facebook = self.facebook
         assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
@@ -71,16 +69,24 @@ class QueryCommandProcessor(GroupCommandProcessor):
         members = facebook.members(identifier=group)
         # 0. check group
         if owner is None or members is None or len(members) == 0:
-            text = self.STR_GROUP_EMPTY
-            return self._respond_text(text=text, group=group)
+            return self._respond_receipt(text='Group empty.', msg=msg, group=group, extra={
+                'template': 'Group empty: ${ID}',
+                'replacements': {
+                    'ID': str(group),
+                }
+            })
         # 1. check permission
         sender = msg.sender
         if sender not in members:
             # not a member? check assistants
             assistants = facebook.assistants(identifier=group)
             if assistants is None or sender not in assistants:
-                text = self.STR_QUERY_NOT_ALLOWED
-                return self._respond_text(text=text, group=group)
+                return self._respond_receipt(text='Permission denied.', msg=msg, group=group, extra={
+                    'template': 'Not allowed to query members of group: ${ID}',
+                    'replacements': {
+                        'ID': str(group),
+                    }
+                })
         # 2. respond
         res = self._respond_group_members(owner=owner, group=group, members=members)
         return [] if res is None else [res]

@@ -39,6 +39,7 @@
 
 from typing import List
 
+from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content
 from dimp import QuitCommand
@@ -48,14 +49,16 @@ from .history import GroupCommandProcessor
 
 class QuitCommandProcessor(GroupCommandProcessor):
 
-    STR_OWNER_CANNOT_QUIT = 'Sorry, owner cannot quit.'
-    STR_ASSISTANT_CANNOT_QUIT = 'Sorry, assistant cannot quit.'
-
     # noinspection PyUnusedLocal
-    def _remove_assistant(self, content: QuitCommand, msg: ReliableMessage) -> List[Content]:
+    def _remove_assistant(self, content: QuitCommand, sender: ID, msg: ReliableMessage) -> List[Content]:
         # NOTICE: group assistant should be retired by the owner
-        text = self.STR_ASSISTANT_CANNOT_QUIT
-        return self._respond_text(text=text, group=content.group)
+        group = content.group
+        return self._respond_receipt(text='Permission denied.', msg=msg, group=group, extra={
+            'template': 'Assistant cannot quit from group: ${ID}',
+            'replacements': {
+                'ID': str(group),
+            }
+        })
 
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
@@ -66,16 +69,24 @@ class QuitCommandProcessor(GroupCommandProcessor):
         members = facebook.members(identifier=group)
         # 0. check group
         if owner is None or members is None or len(members) == 0:
-            text = self.STR_GROUP_EMPTY
-            return self._respond_text(text=text, group=group)
+            return self._respond_receipt(text='Group empty.', msg=msg, group=group, extra={
+                'template': 'Group empty: ${ID}',
+                'replacements': {
+                    'ID': str(group),
+                }
+            })
         # 1. check permission
         sender = msg.sender
         if sender == owner:
-            text = self.STR_OWNER_CANNOT_QUIT
-            return self._respond_text(text=text, group=group)
+            return self._respond_receipt(text='Permission denied.', msg=msg, group=group, extra={
+                'template': 'Owner cannot quit from group: ${ID}',
+                'replacements': {
+                    'ID': str(group),
+                }
+            })
         assistants = facebook.assistants(identifier=group)
         if assistants is not None and sender in assistants:
-            return self._remove_assistant(content=content, msg=msg)
+            return self._remove_assistant(content=content, sender=sender, msg=msg)
         # 2. remove sender from group members
         if sender in members:
             members.remove(sender)

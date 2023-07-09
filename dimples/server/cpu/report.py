@@ -65,7 +65,7 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
         if title == ReportCommand.ONLINE:
             # online
             session.set_active(active=True, when=content.time)
-            return self._respond_text(text='Online received.', extra={
+            return self._respond_receipt(text='Online received.', msg=msg, extra={
                 'template': 'Online command received: ${ID}.',
                 'replacements': {
                     'ID': str(sender),
@@ -74,14 +74,10 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
         elif title == ReportCommand.OFFLINE:
             # offline
             session.set_active(active=False, when=content.time)
-            return self._respond_text(text='Offline received.', extra={
-                'template': 'Offline command received: ${ID}.',
-                'replacements': {
-                    'ID': str(sender),
-                }
-            })
+            # respond nothing when user offline
+            return []
         else:
-            return self._respond_text(text='Command not support.', extra={
+            return self._respond_receipt(text='Command not support.', msg=msg, extra={
                 'template': 'Report command (title: ${title}) not support yet!',
                 'replacements': {
                     'title': title,

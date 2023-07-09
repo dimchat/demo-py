@@ -48,9 +48,6 @@ from .grp_reset import ResetCommandProcessor
 
 class InviteCommandProcessor(ResetCommandProcessor):
 
-    STR_INVITE_CMD_ERROR = 'Invite command error.'
-    STR_INVITE_NOT_ALLOWED = 'Sorry, you are not allowed to invite new members into this group.'
-
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, InviteCommand), 'invite command error: %s' % content
@@ -62,25 +59,33 @@ class InviteCommandProcessor(ResetCommandProcessor):
         if owner is None or members is None or len(members) == 0:
             # NOTICE: group membership lost?
             #         reset group members
-            return self._temporary_save(content=content, sender=msg.sender)
+            return self._temporary_save(content=content, sender=msg.sender, msg=msg)
         # 1. check permission
         sender = msg.sender
         if sender not in members:
             # not a member? check assistants
             assistants = facebook.assistants(identifier=group)
             if assistants is None or sender not in assistants:
-                text = self.STR_INVITE_NOT_ALLOWED
-                return self._respond_text(text=text, group=group)
+                return self._respond_receipt(text='Permission denied.', msg=msg, group=group, extra={
+                    'template': 'Not allowed to invite member into group: ${ID}',
+                    'replacements': {
+                        'ID': str(group),
+                    }
+                })
         # 2. inviting members
         invite_list = self.members(content=content)
         if invite_list is None or len(invite_list) == 0:
-            text = self.STR_INVITE_CMD_ERROR
-            return self._respond_text(text=text, group=group)
+            return self._respond_receipt(text='Command error.', msg=msg, group=group, extra={
+                'template': 'Invite list is empty: ${ID}',
+                'replacements': {
+                    'ID': str(group),
+                }
+            })
         # 2.1. check for reset
         if sender == owner and owner in invite_list:
             # NOTICE: owner invites owner?
             #         it means this should be a 'reset' command
-            return self._temporary_save(content=content, sender=sender)
+            return self._temporary_save(content=content, sender=sender, msg=msg)
         # 2.2. build invited-list
         add_list = []
         for item in invite_list:

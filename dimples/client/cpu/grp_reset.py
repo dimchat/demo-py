@@ -55,23 +55,24 @@ from .history import GroupCommandProcessor
 
 class ResetCommandProcessor(GroupCommandProcessor):
 
-    STR_RESET_CMD_ERROR = 'Reset command error.'
-    STR_RESET_NOT_ALLOWED = 'Sorry, you are not allowed to reset this group.'
-
     def _query_owner(self, owner: ID, group: ID):
         command = GroupCommand.query(group=group)
         messenger = self.messenger
         assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
         messenger.send_content(sender=None, receiver=owner, content=command, priority=1)
 
-    def _temporary_save(self, content: GroupCommand, sender: ID) -> List[Content]:
+    def _temporary_save(self, content: GroupCommand, sender: ID, msg: ReliableMessage) -> List[Content]:
         facebook = self.facebook
         group = content.group
         # check whether the owner contained in the new members
         new_members = self.members(content=content)
         if new_members is None or len(new_members) == 0:
-            text = self.STR_RESET_CMD_ERROR
-            return self._respond_text(text=text, group=group)
+            return self._respond_receipt(text='Command error.', msg=msg, group=group, extra={
+                'template': 'New member list is empty: ${ID}',
+                'replacements': {
+                    'ID': str(group),
+                }
+            })
         man = group_manager()
         for item in new_members:
             if facebook.meta(identifier=item) is None:
@@ -106,24 +107,36 @@ class ResetCommandProcessor(GroupCommandProcessor):
         if owner is None or members is None or len(members) == 0:
             # FIXME: group profile lost?
             # FIXME: how to avoid strangers impersonating group members?
-            return self._temporary_save(content=content, sender=msg.sender)
+            return self._temporary_save(content=content, sender=msg.sender, msg=msg)
         # 1. check permission
         sender = msg.sender
         if sender != owner:
             # not the owner? check assistants
             assistants = facebook.assistants(identifier=group)
             if assistants is None or sender not in assistants:
-                text = self.STR_RESET_NOT_ALLOWED
-                return self._respond_text(text=text, group=group)
+                return self._respond_receipt(text='Permission denied.', msg=msg, group=group, extra={
+                    'template': 'Not allowed to reset members of group: ${ID}',
+                    'replacements': {
+                        'ID': str(group),
+                    }
+                })
         # 2. resetting members
         new_members = self.members(content=content)
         if new_members is None or len(new_members) == 0:
-            text = self.STR_RESET_CMD_ERROR
-            return self._respond_text(text=text, group=group)
+            return self._respond_receipt(text='Command error.', msg=msg, group=group, extra={
+                'template': 'New member list is empty: ${ID}',
+                'replacements': {
+                    'ID': str(group),
+                }
+            })
         # 2.1. check owner
         if owner not in new_members:
-            text = self.STR_RESET_CMD_ERROR
-            return self._respond_text(text=text, group=group)
+            return self._respond_receipt(text='Permission denied.', msg=msg, group=group, extra={
+                'template': 'Owner not in the new member list of group: ${ID}',
+                'replacements': {
+                    'ID': str(group),
+                }
+            })
         # 2.2. build expelled-list
         remove_list = []
         for item in members:

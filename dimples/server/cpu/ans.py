@@ -49,8 +49,7 @@ class AnsCommandProcessor(BaseCommandProcessor):
         assert isinstance(content, AnsCommand), 'report command error: %s' % content
         names = content.names
         if len(names) == 0:
-            text = 'ANS command error.'
-            return self._respond_text(text=text)
+            return self._respond_receipt(text='ANS command error.', msg=msg)
         records = {}
         missed = []
         for item in names:

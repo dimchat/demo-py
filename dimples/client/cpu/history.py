@@ -45,19 +45,18 @@ from dimsdk.cpu import BaseCommandProcessor
 
 class HistoryCommandProcessor(BaseCommandProcessor):
 
-    FMT_HIS_CMD_NOT_SUPPORT = 'History command (name: %s) not support yet!'
-
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, Command), 'history command error: %s' % content
-        text = self.FMT_HIS_CMD_NOT_SUPPORT % content.cmd
-        return self._respond_text(text=text, group=content.group)
+        return self._respond_receipt(text='Command not support.', msg=msg, group=content.group, extra={
+            'template': 'History command (name: ${command}) not support yet!',
+            'replacements': {
+                'command': content.cmd,
+            }
+        })
 
 
 class GroupCommandProcessor(HistoryCommandProcessor):
-
-    FMT_GRP_CMD_NOT_SUPPORT = 'Group command (name: %s) not support yet!'
-    STR_GROUP_EMPTY = 'Group empty.'
 
     @staticmethod
     def members(content: GroupCommand) -> List[ID]:
@@ -75,5 +74,9 @@ class GroupCommandProcessor(HistoryCommandProcessor):
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, GroupCommand), 'group command error: %s' % content
-        text = self.FMT_GRP_CMD_NOT_SUPPORT % content.cmd
-        return self._respond_text(text=text, group=content.group)
+        return self._respond_receipt(text='Command not support.', msg=msg, group=content.group, extra={
+            'template': 'Group command (name: ${command}) not support yet!',
+            'replacements': {
+                'command': content.cmd,
+            }
+        })

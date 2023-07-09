@@ -69,7 +69,7 @@ class ServerMessageProcessor(MessageProcessor, Logging):
         sender = r_msg.sender
         # 1. check login
         session = messenger.session
-        if session.identifier is None or not session.active:
+        if session.identifier is None:  # or not session.active:
             # not login yet, force to handshake again
             if not isinstance(content, HandshakeCommand):
                 handshake = HandshakeCommand.ask(session=session.key)

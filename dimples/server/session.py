@@ -99,7 +99,8 @@ class ServerSession(BaseSession):
     def set_active(self, active: bool, when: float = None):
         if super().set_active(active=active, when=when):
             session_change_active(session=self, active=active)
-            load_cached_messages(session=self)
+            if active:
+                load_cached_messages(session=self)
             return True
 
     @property  # Override

@@ -48,10 +48,6 @@ from .history import GroupCommandProcessor
 
 class ExpelCommandProcessor(GroupCommandProcessor):
 
-    STR_EXPEL_CMD_ERROR = 'Expel command error.'
-    STR_EXPEL_NOT_ALLOWED = 'Sorry, you are not allowed to expel member from this group.'
-    STR_CANNOT_EXPEL_OWNER = 'Group owner cannot be expelled.'
-
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ExpelCommand), 'expel command error: %s' % content
@@ -61,25 +57,41 @@ class ExpelCommandProcessor(GroupCommandProcessor):
         members = facebook.members(identifier=group)
         # 0. check group
         if owner is None or members is None or len(members) == 0:
-            text = self.STR_GROUP_EMPTY
-            return self._respond_text(text=text, group=group)
+            return self._respond_receipt(text='Group empty.', msg=msg, group=group, extra={
+                'template': 'Group empty: ${ID}',
+                'replacements': {
+                    'ID': str(group),
+                }
+            })
         # 1. check permission
         sender = msg.sender
         if sender != owner:
             # not the owner? check assistants
             assistants = facebook.assistants(identifier=group)
             if assistants is None or sender not in assistants:
-                text = self.STR_EXPEL_NOT_ALLOWED
-                return self._respond_text(text=text, group=group)
+                return self._respond_receipt(text='Permission denied.', msg=msg, group=group, extra={
+                    'template': 'Not allowed to expel member from group: ${ID}',
+                    'replacements': {
+                        'ID': str(group),
+                    }
+                })
         # 2. expelling members
         expel_list = self.members(content=content)
         if expel_list is None or len(expel_list) == 0:
-            text = self.STR_EXPEL_CMD_ERROR
-            return self._respond_text(text=text, group=group)
+            return self._respond_receipt(text='Command error.', msg=msg, group=group, extra={
+                'template': 'Expel list is empty: ${ID}',
+                'replacements': {
+                    'ID': str(group),
+                }
+            })
         # 2.1. check owner
         if owner in expel_list:
-            text = self.STR_CANNOT_EXPEL_OWNER
-            return self._respond_text(text=text, group=group)
+            return self._respond_receipt(text='Permission denied.', msg=msg, group=group, extra={
+                'template': 'Not allowed to expel owner of group: ${ID}',
+                'replacements': {
+                    'ID': str(group),
+                }
+            })
         # 2.2. build removed-list
         remove_list = []
         for item in expel_list:
