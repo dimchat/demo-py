@@ -36,7 +36,9 @@ from dimsdk import DocumentCommand
 from dimsdk import Messenger
 
 from ..utils import base64_encode, sha256
+from ..conn.session import get_sig
 from ..common import CommonFacebook, CommonMessagePacker
+from .checkpoint import Checkpoint
 
 
 class ClientMessagePacker(CommonMessagePacker):
@@ -84,6 +86,19 @@ class ClientMessagePacker(CommonMessagePacker):
     def serialize_message(self, msg: ReliableMessage) -> bytes:
         attach_key_digest(msg=msg, messenger=self.messenger)
         return super().serialize_message(msg=msg)
+
+    # Override
+    def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
+        msg = super().deserialize_message(data=data)
+        if msg is not None and self._message_duplicated(msg=msg):
+            msg = None
+        return msg
+
+    def _message_duplicated(self, msg: ReliableMessage) -> bool:
+        if g_checkpoint.duplicated(msg=msg):
+            sig = get_sig(msg=msg)
+            self.warning(msg='drop duplicated message (%s): %s -> %s' % (sig, msg.sender, msg.receiver))
+            return True
 
     # # Override
     # def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
@@ -173,3 +188,6 @@ def key_digest(key: SymmetricKey) -> Optional[str]:
     # get last 8 chars as key digest
     pos = len(base64) - 8
     return base64[pos:]
+
+
+g_checkpoint = Checkpoint()

@@ -39,6 +39,7 @@ from .messenger import ClientMessenger
 from .packer import ClientMessagePacker
 from .processor import ClientMessageProcessor, ClientContentProcessorCreator
 from .terminal import Terminal
+from .checkpoint import Checkpoint
 
 
 __all__ = [
@@ -59,4 +60,5 @@ __all__ = [
     'ClientMessagePacker',
     'ClientMessageProcessor', 'ClientContentProcessorCreator',
     'Terminal',
+    'Checkpoint',
 ]

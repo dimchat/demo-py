@@ -75,6 +75,7 @@ class HandshakeCommandProcessor(BaseCommandProcessor):
             # session key not match
             # ask client to sign it with the new session key
             res = HandshakeCommand.again(session=session.key)
+        res['remote_address'] = session.remote_address
         return [res]
 
 

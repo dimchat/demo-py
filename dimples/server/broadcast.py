@@ -143,7 +143,7 @@ class BroadcastRecipientManager(Logging):
                         continue
                     recipients.add(bid)
         elif receiver.is_user:
-            # 'archivist@anywhere', 'apns@anywhere', 'master@anywhere'
+            # 'archivist@anywhere', 'announcer@anywhere', 'monitor@anywhere'
             name = receiver.name
             if name is not None:
                 assert name != 'station' and name != 'anyone', 'receiver error: %s' % receiver

@@ -162,7 +162,7 @@ class ServerMessenger(CommonMessenger):
             if receiver.is_group:
                 return s_msg
             # otherwise, this message should have been redirected
-            # e.g.: 'archivist@anywhere', 'apns@anywhere'
+            # e.g.: 'archivist@anywhere', 'announcer@anywhere', 'monitor@anywhere'
             return None
         elif receiver.is_group:
             self.error(msg='group message should not send to station: %s -> %s' % (sender, receiver))

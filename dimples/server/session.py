@@ -96,7 +96,7 @@ class ServerSession(BaseSession):
             return True
 
     # Override
-    def set_active(self, active: bool, when: float = None):
+    def set_active(self, active: bool, when: float = None) -> bool:
         if super().set_active(active=active, when=when):
             session_change_active(session=self, active=active)
             if active:

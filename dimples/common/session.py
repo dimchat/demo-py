@@ -109,7 +109,7 @@ class Session(Transmitter, ABC):
         raise NotImplemented
 
     @abstractmethod
-    def set_active(self, active: bool, when: float = None):
+    def set_active(self, active: bool, when: float = None) -> bool:
         """ Update active flag and return True on changed """
         raise NotImplemented
 
