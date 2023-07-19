@@ -41,6 +41,7 @@ from dimsdk import ReliableMessage
 from ..utils import Singleton, Logging, Runner
 from ..common import CommonFacebook
 from ..common import MessageDBI, SessionDBI
+from ..common import ReliableMessageDBI
 from ..common import LoginCommand
 
 from .session_center import SessionCenter
@@ -194,7 +195,6 @@ class RoamingInfo:
         super().__init__()
         self.user = user
         self.station = station
-        self.start_pos = 0
 
 
 class Roamer(Runner, Logging):
@@ -240,18 +240,11 @@ class Roamer(Runner, Logging):
             return False
         receiver = info.user
         roaming = info.station
-        start = info.start_pos
-        limit = 1024
+        limit = ReliableMessageDBI.CACHE_LIMIT
         try:
             db = self.database
-            cached_messages, remaining = db.reliable_messages(receiver=receiver, start=start, limit=limit)
-            if remaining > 0:
-                # there are remaining messages, push the roaming user back for next try
-                info.start_pos = start + limit
-                self.__append(info=info)
-            elif cached_messages is None or len(cached_messages) == 0:
-                self.debug(msg='no cached message for this user: %s' % receiver)
-                return True
+            cached_messages = db.reliable_messages(receiver=receiver, limit=limit)
+            self.debug(msg='got %d cached messages for roaming user: %s' % (len(cached_messages), receiver))
             # get deliver delegate for receiver
             dispatcher = Dispatcher()
             worker = dispatcher.deliver_worker

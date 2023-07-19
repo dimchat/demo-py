@@ -24,7 +24,7 @@
 # ==============================================================================
 
 import time
-from typing import List, Tuple
+from typing import List
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
@@ -35,8 +35,6 @@ from ..common import ReliableMessageDBI
 
 class ReliableMessageTable(ReliableMessageDBI):
     """ Implementations of ReliableMessageDBI """
-
-    CACHE_LIMIT = 71680  # only cache last messages
 
     # noinspection PyUnusedLocal
     def __init__(self, root: str = None, public: str = None, private: str = None):
@@ -53,21 +51,17 @@ class ReliableMessageTable(ReliableMessageDBI):
     #
 
     # Override
-    def reliable_messages(self, receiver: ID, start: int = 0, limit: int = 1024) -> Tuple[List[ReliableMessage], int]:
+    def reliable_messages(self, receiver: ID, limit: int = 1024) -> List[ReliableMessage]:
         now = time.time()
         # get all messages
         messages, _ = self.__msg_cache.fetch(key=receiver, now=now)
         if messages is None:
-            messages = []
-            total = 0
-        else:
-            total = len(messages)
-        # check range: [start, end)
-        start, end = get_range(start=start, limit=limit, total=total)
-        if 0 < start or end < total:
-            messages = messages[start:end]
-        # return message list and remaining count
-        return messages, total - end
+            return []
+        # only last cached messages will be returned
+        total = len(messages)
+        if total > limit:
+            messages = messages[-limit:]
+        return messages
 
     # Override
     def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
@@ -82,7 +76,7 @@ class ReliableMessageTable(ReliableMessageDBI):
             return False
         else:
             assert isinstance(messages, list), 'msg cache list error: %s' % messages
-            while len(messages) > self.CACHE_LIMIT:
+            while len(messages) > ReliableMessageDBI.CACHE_LIMIT:
                 # overflow
                 messages.pop(0)
             # append to tail
@@ -118,25 +112,3 @@ def find_message(msg: ReliableMessage, messages: List[ReliableMessage]) -> int:
         index += 1
     # not found
     return -1
-
-
-def get_range(start: int, limit: int, total: int) -> Tuple[int, int]:
-    """ make range: [start, end) """
-    assert limit > 0, 'limit error: %d' % limit
-    assert total >= 0, 'total count error: %d' % total
-    # seek for start
-    if start < 0:
-        # seek from the tail
-        start += total
-        if start < 0:
-            # too few data, start from the head
-            start = 0
-    elif start > total:
-        # out of range
-        start = total
-    # seek for end
-    end = start + limit
-    if end > total:
-        # too few data, stop at the tail
-        end = total
-    return start, end

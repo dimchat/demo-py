@@ -230,7 +230,7 @@ class GateKeeper(Runner, DockerDelegate, Logging):
         ok = gate.send_ship(ship=wrapper, remote=self.remote_address, local=None)
         if not ok:
             self.error(msg='gate error, failed to send data')
-        return True
+        return ok
 
     def _docker_pack(self, payload: bytes, priority: int = 0) -> Departure:
         docker = self.gate.get_docker(remote=self.remote_address, local=None, advance_party=[])

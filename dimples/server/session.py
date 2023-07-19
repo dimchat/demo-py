@@ -47,7 +47,7 @@ from startrek import Arrival
 from ..utils import hex_encode, random_bytes
 from ..utils import Log
 from ..common import SessionDBI
-from ..database import ReliableMessageTable
+from ..common import ReliableMessageDBI
 from ..conn import BaseSession
 from ..conn import WSArrival, MarsStreamArrival, MTPStreamArrival
 
@@ -204,20 +204,11 @@ def load_cached_messages(session: ServerSession) -> int:
         return -1
     messenger = session.messenger
     db = messenger.database
-    total = 0
-    start = 0
-    limit = 1024
-    remaining = 1
-    while remaining > 0:
-        messages, remaining = db.reliable_messages(receiver=identifier, start=start, limit=limit)
-        start += limit
-        cnt = len(messages)
-        total += cnt
-        Log.info(msg='[DB] %d cached message(s) loaded for: %s' % (cnt, identifier))
-        for msg in messages:
-            data = messenger.serialize_message(msg=msg)
-            session.queue_message_package(msg=msg, data=data, priority=1)
-        if total > ReliableMessageTable.CACHE_LIMIT:
-            Log.warning(msg='[DB] too many cached messages for: %s' % identifier)
-            break
-    return total
+    limit = ReliableMessageDBI.CACHE_LIMIT
+    messages = db.reliable_messages(receiver=identifier, limit=limit)
+    cnt = len(messages)
+    Log.info(msg='[DB] %d cached message(s) loaded for: %s' % (cnt, identifier))
+    for msg in messages:
+        data = messenger.serialize_message(msg=msg)
+        session.queue_message_package(msg=msg, data=data, priority=1)
+    return cnt
