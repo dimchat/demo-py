@@ -48,7 +48,7 @@ from .messenger import ClientMessenger
 class Terminal(Runner, StateDelegate, Logging):
 
     def __init__(self, messenger: ClientMessenger):
-        super().__init__()
+        super().__init__(interval=60)
         self.__messenger = messenger
         # session state
         fsm = StateMachine(session=messenger.session)
@@ -97,10 +97,6 @@ class Terminal(Runner, StateDelegate, Logging):
         self.__fsm.stop()
         self.session.stop()
         super().finish()
-
-    # Override
-    def _idle(self):
-        time.sleep(60)
 
     # Override
     def process(self) -> bool:

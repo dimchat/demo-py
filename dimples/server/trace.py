@@ -204,14 +204,15 @@ class TracePool:
         """ remove expired traces """
         if now < self._next_time:
             return False
+        else:
+            # purge it next hour
+            self._next_time = now + 3600
         expired = now - self.EXPIRES
         keys = set(self.__caches.keys())
         for sig in keys:
             cached = self.__caches.get(sig)
             if cached is None or cached.time < expired:
                 self.__caches.pop(sig, None)
-        # purge it next hour
-        self._next_time = now + 3600
         return True
 
     def get_traces(self, msg: ReliableMessage) -> TraceList:

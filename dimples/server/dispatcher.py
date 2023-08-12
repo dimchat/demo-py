@@ -201,7 +201,7 @@ class Roamer(Runner, Logging):
     """ Delegate for redirect cached messages to roamed station """
 
     def __init__(self, database: MessageDBI):
-        super().__init__()
+        super().__init__(interval=Runner.INTERVAL_SLOW)
         self.__database = database
         # roaming (user id => station id)
         self.__queue: List[RoamingInfo] = []

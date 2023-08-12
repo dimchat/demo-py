@@ -31,7 +31,6 @@
 """
 
 import threading
-import time
 import weakref
 from abc import ABC, abstractmethod
 from typing import Optional, List, Set
@@ -62,7 +61,7 @@ from .shared import create_session
 class Octopus(Runner, Logging):
 
     def __init__(self, shared: GlobalVariable, local_host: str = '127.0.0.1', local_port: int = 9394):
-        super().__init__()
+        super().__init__(interval=60)
         self.__shared = shared
         self.__inner = self.create_inner_terminal(host=local_host, port=local_port)
         self.__outers: Set[Terminal] = set()
@@ -128,10 +127,6 @@ class Octopus(Runner, Logging):
             outers = set(self.__outers)
         for out in outers:
             out.stop()
-
-    # Override
-    def _idle(self):
-        time.sleep(60)
 
     # Override
     def process(self) -> bool:

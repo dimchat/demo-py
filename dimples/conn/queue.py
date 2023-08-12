@@ -36,6 +36,7 @@
 """
 
 import threading
+import time
 from typing import Optional, List, Dict
 
 from dimsdk import ReliableMessage
@@ -95,6 +96,8 @@ class MessageQueue:
         self.__priorities: List[int] = []
         self.__fleets: Dict[int, List[MessageWrapper]] = {}  # priority => List[MessageWrapper]
         self.__lock = threading.Lock()
+        # purge
+        self.__next_purge_time = 0
 
     def append(self, msg: ReliableMessage, ship: Departure) -> bool:
         priority = ship.priority
@@ -147,6 +150,12 @@ class MessageQueue:
                     return fleet.pop(0)
 
     def purge(self):
+        now = time.time()
+        if now < self.__next_purge_time:
+            return -1
+        else:
+            # next purge after half a minute
+            self.__next_purge_time = now + 30
         with self.__lock:
             priorities = list(self.__priorities)
             for prior in priorities:

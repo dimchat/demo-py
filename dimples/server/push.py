@@ -119,7 +119,7 @@ class PushService(ABC):
 class PushCenter(Runner, Logging):
 
     def __init__(self):
-        super().__init__()
+        super().__init__(interval=Runner.INTERVAL_SLOW)
         self.__queue = MessageQueue()
         self.__keeper = BadgeKeeper()
         self.__service: Optional[PushService] = None

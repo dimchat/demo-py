@@ -46,14 +46,15 @@ class SigPool:
         """ remove expired traces """
         if now < self._next_time:
             return False
+        else:
+            # purge it next hour
+            self._next_time = now + 3600
         expired = now - self.EXPIRES
         keys = set(self.__caches.keys())
         for sig in keys:
             msg_time = self.__caches.get(sig)
             if msg_time is None or msg_time < expired:
                 self.__caches.pop(sig, None)
-        # purge it next hour
-        self._next_time = now + 3600
         return True
 
     def duplicated(self, msg: ReliableMessage) -> bool:

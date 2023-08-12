@@ -118,7 +118,7 @@ class GateKeeper(Runner, DockerDelegate, Logging):
     SEND_BUFFER_SIZE = 64 * 1024  # 64 KB
 
     def __init__(self, remote: Tuple[str, int], sock: Optional[socket.socket]):
-        super().__init__()
+        super().__init__(interval=Runner.INTERVAL_SLOW)
         self.__remote = remote
         self.__gate = self._create_gate(remote=remote, sock=sock)
         self.__queue = MessageQueue()
