@@ -142,11 +142,11 @@ class ANSFactory(IDFactory):
         self.__ans = ans
 
     # Override
-    def generate_id(self, meta, network: int, terminal: Optional[str] = None) -> ID:
+    def generate_id(self, meta, network: int, terminal: Optional[str]) -> ID:
         return self.__origin.generate_id(meta=meta, network=network, terminal=terminal)
 
     # Override
-    def create_id(self, name: Optional[str], address: Address, terminal: Optional[str] = None) -> ID:
+    def create_id(self, name: Optional[str], address: Address, terminal: Optional[str]) -> ID:
         return self.__origin.create_id(address=address, name=name, terminal=terminal)
 
     # Override

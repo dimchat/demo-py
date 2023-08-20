@@ -130,47 +130,12 @@ class UserDBI(ABC):
     """ User Table """
 
     @abstractmethod
-    def local_users(self) -> List[ID]:
-        raise NotImplemented
-
-    @abstractmethod
-    def save_local_users(self, users: List[ID]) -> bool:
-        raise NotImplemented
-
-    @abstractmethod
-    def add_user(self, user: ID) -> bool:
-        raise NotImplemented
-
-    @abstractmethod
-    def remove_user(self, user: ID) -> bool:
-        raise NotImplemented
-
-    @abstractmethod
-    def current_user(self) -> Optional[ID]:
-        raise NotImplemented
-
-    @abstractmethod
-    def set_current_user(self, user: ID) -> bool:
-        raise NotImplemented
-
-
-class ContactDBI(ABC):
-
-    @abstractmethod
     def contacts(self, user: ID) -> List[ID]:
         """ contacts for user """
         raise NotImplemented
 
     @abstractmethod
     def save_contacts(self, contacts: List[ID], user: ID) -> bool:
-        raise NotImplemented
-
-    @abstractmethod
-    def add_contact(self, contact: ID, user: ID) -> bool:
-        raise NotImplemented
-
-    @abstractmethod
-    def remove_contact(self, contact: ID, user: ID) -> bool:
         raise NotImplemented
 
 
@@ -194,18 +159,6 @@ class GroupDBI(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def add_member(self, member: ID, group: ID) -> bool:
-        raise NotImplemented
-
-    @abstractmethod
-    def remove_member(self, member: ID, group: ID) -> bool:
-        raise NotImplemented
-
-    @abstractmethod
-    def remove_group(self, group: ID) -> bool:
-        raise NotImplemented
-
-    @abstractmethod
     def assistants(self, group: ID) -> List[ID]:
         raise NotImplemented
 
@@ -215,6 +168,6 @@ class GroupDBI(ABC):
 
 
 # noinspection PyAbstractClass
-class AccountDBI(PrivateKeyDBI, MetaDBI, DocumentDBI, UserDBI, ContactDBI, GroupDBI, ABC):
+class AccountDBI(PrivateKeyDBI, MetaDBI, DocumentDBI, UserDBI, GroupDBI, ABC):
     """ Account Database """
     pass

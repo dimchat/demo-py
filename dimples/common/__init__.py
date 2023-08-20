@@ -52,7 +52,7 @@ __all__ = [
     #   Database Interface
     #
     'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
-    'UserDBI', 'ContactDBI', 'GroupDBI',
+    'UserDBI', 'GroupDBI',
     'AccountDBI',
 
     'ReliableMessageDBI', 'CipherKeyDBI',

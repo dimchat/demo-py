@@ -32,7 +32,7 @@
 from typing import Optional
 
 from .account import PrivateKeyDBI, MetaDBI, DocumentDBI
-from .account import UserDBI, ContactDBI, GroupDBI
+from .account import UserDBI, GroupDBI
 from .account import AccountDBI
 
 from .message import ReliableMessageDBI, CipherKeyDBI
@@ -58,7 +58,7 @@ __all__ = [
     #   Account
     #
     'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
-    'UserDBI', 'ContactDBI', 'GroupDBI',
+    'UserDBI', 'GroupDBI',
     'AccountDBI',
 
     #

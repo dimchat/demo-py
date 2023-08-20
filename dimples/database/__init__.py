@@ -55,7 +55,7 @@ __all__ = [
     #   DBI
     #
     'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
-    'UserDBI', 'ContactDBI', 'GroupDBI',
+    'UserDBI', 'GroupDBI',
     'AccountDBI',
 
     'ReliableMessageDBI', 'CipherKeyDBI',

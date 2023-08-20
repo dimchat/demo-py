@@ -62,32 +62,13 @@ class CommonFacebook(Facebook):
 
     @property  # Override
     def local_users(self) -> List[User]:
-        db = self.database
-        array = db.local_users()
-        # 'users.js' empty?
-        if len(array) == 0:
-            current = self.__current
-            return [] if current is None else [current]
-        # create users
-        users = []
-        for item in array:
-            assert self.private_key_for_signature(identifier=item) is not None, 'error: %s' % item
-            usr = self.user(identifier=item)
-            assert usr is not None, 'failed to create user: %s' % item
-            users.append(usr)
-        return users
+        current = self.__current
+        return [] if current is None else [current]
 
     @property
     def current_user(self) -> Optional[User]:
         """ Get current user (for signing and sending message) """
-        current = self.__current
-        if current is None:
-            # current = super().current_user
-            users = self.local_users
-            if len(users) > 0:
-                current = users[0]
-                self.__current = current
-        return current
+        return self.__current
 
     @current_user.setter
     def current_user(self, user: User):

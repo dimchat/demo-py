@@ -51,7 +51,7 @@ class GroupStorage(Storage, GroupDBI):
         return template_replace(path, 'ADDRESS', str(identifier.address))
 
     #
-    #   User DBI
+    #   Group DBI
     #
 
     # Override
@@ -81,30 +81,6 @@ class GroupStorage(Storage, GroupDBI):
         path = self.__members_path(identifier=group)
         self.info(msg='Saving members into: %s' % path)
         return self.write_json(container=ID.revert(array=members), path=path)
-
-    # Override
-    def add_member(self, member: ID, group: ID) -> bool:
-        array = self.members(group=group)
-        if member in array:
-            self.warning(msg='member exists: %s, group: %s' % (member, group))
-            return True
-        array.append(member)
-        return self.save_members(members=array, group=group)
-
-    # Override
-    def remove_member(self, member: ID, group: ID) -> bool:
-        array = self.members(group=group)
-        if member not in array:
-            self.warning(msg='member not exists: %s, group: %s' % (member, group))
-            return True
-        array.remove(member)
-        return self.save_members(members=array, group=group)
-
-    # Override
-    def remove_group(self, group: ID) -> bool:
-        # TODO: remove group
-        self.warning(msg='TODO: remove group: %s' % group)
-        return False
 
     # Override
     def assistants(self, group: ID) -> List[ID]:

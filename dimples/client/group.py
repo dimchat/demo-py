@@ -113,12 +113,12 @@ class GroupManager(GroupDataSource):
         meta = self.meta(identifier=group)
         if meta is None:
             raise AssertionError('failed to get meta for group: %s' % group)
-        visa = self.document(identifier=group, doc_type='*')
-        if visa is None:
+        doc = self.document(identifier=group)
+        if doc is None:
             # empty document
             command = MetaCommand.response(identifier=group, meta=meta)
         else:
-            command = DocumentCommand.response(identifier=group, meta=meta, document=visa)
+            command = DocumentCommand.response(identifier=group, meta=meta, document=doc)
         bots = self.assistants(identifier=group)
         # 1. send 'meta/document' command
         self.send_command(content=command, members=bots)                # to all assistants

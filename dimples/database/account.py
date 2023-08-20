@@ -118,48 +118,12 @@ class AccountDatabase(AccountDBI):
     #
 
     # Override
-    def local_users(self) -> List[ID]:
-        return self.__user_table.local_users()
-
-    # Override
-    def save_local_users(self, users: List[ID]) -> bool:
-        return self.__user_table.save_local_users(users=users)
-
-    # Override
-    def add_user(self, user: ID) -> bool:
-        return self.__user_table.add_user(user=user)
-
-    # Override
-    def remove_user(self, user: ID) -> bool:
-        return self.__user_table.remove_user(user=user)
-
-    # Override
-    def current_user(self) -> Optional[ID]:
-        return self.__user_table.current_user()
-
-    # Override
-    def set_current_user(self, user: ID) -> bool:
-        return self.__user_table.set_current_user(user=user)
-
-    #
-    #   Contact DBI
-    #
-
-    # Override
     def contacts(self, user: ID) -> List[ID]:
         return self.__user_table.contacts(user=user)
 
     # Override
     def save_contacts(self, contacts: List[ID], user: ID) -> bool:
         return self.__user_table.save_contacts(contacts=contacts, user=user)
-
-    # Override
-    def add_contact(self, contact: ID, user: ID) -> bool:
-        return self.__user_table.add_contact(contact=contact, user=user)
-
-    # Override
-    def remove_contact(self, contact: ID, user: ID) -> bool:
-        return self.__user_table.remove_contact(contact=contact, user=user)
 
     #
     #   Group DBI
@@ -180,18 +144,6 @@ class AccountDatabase(AccountDBI):
     # Override
     def save_members(self, members: List[ID], group: ID) -> bool:
         return self.__group_table.save_members(members=members, group=group)
-
-    # Override
-    def add_member(self, member: ID, group: ID) -> bool:
-        return self.__group_table.add_member(member=member, group=group)
-
-    # Override
-    def remove_member(self, member: ID, group: ID) -> bool:
-        return self.__group_table.remove_member(member=member, group=group)
-
-    # Override
-    def remove_group(self, group: ID) -> bool:
-        return self.__group_table.remove_group(group=group)
 
     # Override
     def assistants(self, group: ID) -> List[ID]:

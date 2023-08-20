@@ -54,14 +54,22 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
         """ for checking whether group's ready """
         facebook = get_facebook(packer=self)
         messenger = get_messenger(packer=self)
+        # # check document
+        # bulletin = facebook.document(identifier=group)
+        # if bulletin is None:
+        #     # group not ready, try to query document for it
+        #     if messenger.query_document(identifier=group):
+        #         self.info(msg='querying document for group: %s' % group)
+        #     return None
+        # check meta
         meta = facebook.meta(identifier=group)
         if meta is None:  # or meta.key is None:
             # group not ready, try to query meta for it
             if messenger.query_meta(identifier=group):
                 self.info(msg='querying meta for group: %s' % group)
             return None
-        grp = facebook.group(identifier=group)
-        members = grp.members
+        # check members
+        members = facebook.members(identifier=group)
         if len(members) == 0:
             # group not ready, try to query members for it
             if messenger.query_members(identifier=group):
