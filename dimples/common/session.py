@@ -31,9 +31,9 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
-from dimp import ID
-from dimp import Content
-from dimp import InstantMessage, ReliableMessage
+from dimsdk import ID
+from dimsdk import Content
+from dimsdk import InstantMessage, ReliableMessage
 
 from .dbi import SessionDBI
 

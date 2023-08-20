@@ -33,7 +33,7 @@
 from typing import List
 
 from dimsdk import ID, Content, ReliableMessage
-from dimsdk.cpu import BaseCommandProcessor
+from dimsdk import BaseCommandProcessor
 
 from ...utils import Log
 from ...common import HandshakeCommand
@@ -49,12 +49,12 @@ class HandshakeCommandProcessor(BaseCommandProcessor):
         return transceiver
 
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, HandshakeCommand), 'handshake command error: %s' % content
         title = content.title
         if title in ['DIM?', 'DIM!']:
             # S -> C
-            return self._respond_receipt(text='Command not support.', msg=msg, extra={
+            return self._respond_receipt(text='Command not support.', msg=r_msg, extra={
                 'template': 'Handshake command error: title="${title}".',
                 'replacements': {
                     'title': title,
@@ -67,9 +67,9 @@ class HandshakeCommandProcessor(BaseCommandProcessor):
         session = messenger.session
         if session.key == content.session:
             # session key match
-            Log.info(msg='handshake accepted: %s, session: %s' % (msg.sender, session.key))
+            Log.info(msg='handshake accepted: %s, session: %s' % (r_msg.sender, session.key))
             # verified success
-            handshake_accepted(identifier=msg.sender, session=session, messenger=messenger)
+            handshake_accepted(identifier=r_msg.sender, session=session, messenger=messenger)
             res = HandshakeCommand.success(session=session.key)
         else:
             # session key not match

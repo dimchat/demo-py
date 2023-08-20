@@ -146,10 +146,8 @@ class ClientSession(BaseSession):
             try:
                 # 2. process each data package
                 responses = messenger.process_package(data=pack)
-                if responses is None:
-                    continue
                 for res in responses:
-                    if res is None or len(res) == 0:
+                    if len(res) == 0:
                         # should not happen
                         continue
                     all_responses.append(res)

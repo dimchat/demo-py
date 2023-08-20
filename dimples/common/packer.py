@@ -62,7 +62,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
             return None
         grp = facebook.group(identifier=group)
         members = grp.members
-        if members is None or len(members) == 0:
+        if len(members) == 0:
             # group not ready, try to query members for it
             if messenger.query_members(identifier=group):
                 self.info(msg='querying members for group: %s' % group)

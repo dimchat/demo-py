@@ -31,10 +31,9 @@
 
 from typing import List
 
-from dimp import ReliableMessage
-from dimp import Content, TextContent
-
-from dimsdk.cpu import BaseContentProcessor
+from dimsdk import ReliableMessage
+from dimsdk import Content, TextContent
+from dimsdk import BaseContentProcessor
 
 from ...utils import Log
 
@@ -42,7 +41,8 @@ from ...utils import Log
 class TextContentProcessor(BaseContentProcessor):
 
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, TextContent), 'text content error: %s' % content
-        Log.warning(msg='received text content: %s, %s => %s' % (content.get_str(key='text'), msg.sender, msg.receiver))
+        Log.warning(msg='received text content: %s, %s => %s'
+                        % (content.get_str(key='text'), r_msg.sender, r_msg.receiver))
         return []

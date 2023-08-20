@@ -100,7 +100,7 @@ class BaseGate(StarGate, Generic[H], ABC):
     # Override
     def _cache_advance_party(self, data: bytes, connection: Connection) -> List[bytes]:
         # TODO: cache the advance party before decide which docker to use
-        if data is None or len(data) == 0:
+        if len(data) == 0:
             return []
         else:
             return [data]

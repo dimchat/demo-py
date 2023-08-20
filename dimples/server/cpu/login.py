@@ -32,11 +32,10 @@
 
 from typing import List
 
-from dimp import ID
-from dimp import ReliableMessage
-from dimp import Content
-
-from dimsdk.cpu import BaseCommandProcessor
+from dimsdk import ID
+from dimsdk import ReliableMessage
+from dimsdk import Content
+from dimsdk import BaseCommandProcessor
 
 from ...utils import Logging
 from ...common import LoginCommand
@@ -58,13 +57,13 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         return transceiver
 
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, LoginCommand), 'command error: %s' % content
         sender = content.identifier
         # 1. store login command
         session = self.messenger.session
         db = session.database
-        if not db.save_login_command_message(user=sender, content=content, msg=msg):
+        if not db.save_login_command_message(user=sender, content=content, msg=r_msg):
             self.error(msg='login command error/expired: %s' % content)
             return []
         # 2. check roaming station
@@ -86,7 +85,7 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         session.set_active(active=True)
         # only respond the user login to this station
         self.info(msg='user login: %s -> %s' % (sender, roaming))
-        return self._respond_receipt(text='Login received.', msg=msg, extra={
+        return self._respond_receipt(text='Login received.', msg=r_msg, extra={
             'template': 'Login command received: ${ID}.',
             'replacements': {
                 'ID': str(sender),

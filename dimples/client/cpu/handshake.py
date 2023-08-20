@@ -32,10 +32,9 @@
 
 from typing import List
 
-from dimp import ReliableMessage
-from dimp import Content
-
-from dimsdk.cpu import BaseCommandProcessor
+from dimsdk import ReliableMessage
+from dimsdk import Content
+from dimsdk import BaseCommandProcessor
 
 from ...utils import Logging
 from ...common import HandshakeCommand
@@ -44,14 +43,14 @@ from ...common import HandshakeCommand
 class HandshakeCommandProcessor(BaseCommandProcessor, Logging):
 
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, HandshakeCommand), 'handshake command error: %s' % content
         messenger = get_client_messenger(cpu=self)
         client_session = get_client_session(messenger=messenger)
         # update station's default ID ('station@anywhere') to sender (real ID)
         station = client_session.station
         oid = station.identifier
-        sender = msg.sender
+        sender = r_msg.sender
         if oid is None or oid.is_broadcast:
             station.identifier = sender
         else:

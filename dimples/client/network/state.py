@@ -86,6 +86,7 @@ class StateMachine(AutoMachine, Context):
             return docker.status
 
 
+# noinspection PyAbstractClass
 class StateTransition(BaseTransition[StateMachine], ABC):
 
     # noinspection PyMethodMayBeStatic

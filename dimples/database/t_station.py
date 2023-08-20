@@ -73,7 +73,7 @@ class StationTable(ProviderDBI, StationDBI):
                 holder.renewal(duration=128, now=now)
             # 2. check local storage
             value = self.__station_storage.all_providers()
-            if value is None or len(value) == 0:
+            if len(value) == 0:
                 value = [ProviderInfo(identifier=ProviderInfo.GSP, chosen=0)]
             # 3. update memory cache
             self.__dim_cache.update(key='providers', value=value, life_span=600, now=now)

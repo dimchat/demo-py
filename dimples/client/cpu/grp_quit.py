@@ -39,15 +39,23 @@
 
 from typing import List
 
-from dimp import ID
-from dimp import ReliableMessage
-from dimp import Content
-from dimp import QuitCommand
+from dimsdk import ID
+from dimsdk import ReliableMessage
+from dimsdk import Content
+from dimsdk import QuitCommand
+
+from ...common import CommonFacebook
 
 from .history import GroupCommandProcessor
 
 
 class QuitCommandProcessor(GroupCommandProcessor):
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
 
     # noinspection PyUnusedLocal
     def _remove_assistant(self, content: QuitCommand, sender: ID, msg: ReliableMessage) -> List[Content]:
@@ -61,32 +69,32 @@ class QuitCommandProcessor(GroupCommandProcessor):
         })
 
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, QuitCommand), 'quit command error: %s' % content
         facebook = self.facebook
         group = content.group
         owner = facebook.owner(identifier=group)
         members = facebook.members(identifier=group)
         # 0. check group
-        if owner is None or members is None or len(members) == 0:
-            return self._respond_receipt(text='Group empty.', msg=msg, group=group, extra={
+        if owner is None or len(members) == 0:
+            return self._respond_receipt(text='Group empty.', msg=r_msg, group=group, extra={
                 'template': 'Group empty: ${ID}',
                 'replacements': {
                     'ID': str(group),
                 }
             })
         # 1. check permission
-        sender = msg.sender
+        sender = r_msg.sender
         if sender == owner:
-            return self._respond_receipt(text='Permission denied.', msg=msg, group=group, extra={
+            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
                 'template': 'Owner cannot quit from group: ${ID}',
                 'replacements': {
                     'ID': str(group),
                 }
             })
         assistants = facebook.assistants(identifier=group)
-        if assistants is not None and sender in assistants:
-            return self._remove_assistant(content=content, sender=sender, msg=msg)
+        if sender in assistants:
+            return self._remove_assistant(content=content, sender=sender, msg=r_msg)
         # 2. remove sender from group members
         if sender in members:
             members.remove(sender)

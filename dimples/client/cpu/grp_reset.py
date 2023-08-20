@@ -43,30 +43,40 @@
 
 from typing import List
 
-from dimp import ID
-from dimp import ReliableMessage
-from dimp import Content
-from dimp import GroupCommand, InviteCommand, ResetCommand
+from dimsdk import ID
+from dimsdk import ReliableMessage
+from dimsdk import Content
+from dimsdk import GroupCommand, InviteCommand, ResetCommand
 
-from ...common import CommonMessenger
+from ...common import CommonFacebook, CommonMessenger
 
 from .history import GroupCommandProcessor
 
 
 class ResetCommandProcessor(GroupCommandProcessor):
 
+    @property
+    def facebook(self) -> CommonFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
+
+    @property
+    def messenger(self) -> CommonMessenger:
+        transceiver = super().messenger
+        assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
+        return transceiver
+
     def _query_owner(self, owner: ID, group: ID):
         command = GroupCommand.query(group=group)
-        messenger = self.messenger
-        assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
-        messenger.send_content(sender=None, receiver=owner, content=command, priority=1)
+        self.messenger.send_content(sender=None, receiver=owner, content=command, priority=1)
 
     def _temporary_save(self, content: GroupCommand, sender: ID, msg: ReliableMessage) -> List[Content]:
         facebook = self.facebook
         group = content.group
         # check whether the owner contained in the new members
         new_members = self.members(content=content)
-        if new_members is None or len(new_members) == 0:
+        if len(new_members) == 0:
             return self._respond_receipt(text='Command error.', msg=msg, group=group, extra={
                 'template': 'New member list is empty: ${ID}',
                 'replacements': {
@@ -95,26 +105,24 @@ class ResetCommandProcessor(GroupCommandProcessor):
         return [query]
 
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, InviteCommand) or isinstance(content, ResetCommand), 'group cmd error: %s' % content
         facebook = self.facebook
-        # from ..facebook import Facebook
-        # assert isinstance(facebook, Facebook)
         group = content.group
         owner = facebook.owner(identifier=group)
         members = facebook.members(identifier=group)
         # 0. check group
-        if owner is None or members is None or len(members) == 0:
+        if owner is None or len(members) == 0:
             # FIXME: group profile lost?
             # FIXME: how to avoid strangers impersonating group members?
-            return self._temporary_save(content=content, sender=msg.sender, msg=msg)
+            return self._temporary_save(content=content, sender=r_msg.sender, msg=r_msg)
         # 1. check permission
-        sender = msg.sender
+        sender = r_msg.sender
         if sender != owner:
             # not the owner? check assistants
             assistants = facebook.assistants(identifier=group)
-            if assistants is None or sender not in assistants:
-                return self._respond_receipt(text='Permission denied.', msg=msg, group=group, extra={
+            if sender not in assistants:
+                return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
                     'template': 'Not allowed to reset members of group: ${ID}',
                     'replacements': {
                         'ID': str(group),
@@ -122,8 +130,8 @@ class ResetCommandProcessor(GroupCommandProcessor):
                 })
         # 2. resetting members
         new_members = self.members(content=content)
-        if new_members is None or len(new_members) == 0:
-            return self._respond_receipt(text='Command error.', msg=msg, group=group, extra={
+        if len(new_members) == 0:
+            return self._respond_receipt(text='Command error.', msg=r_msg, group=group, extra={
                 'template': 'New member list is empty: ${ID}',
                 'replacements': {
                     'ID': str(group),
@@ -131,7 +139,7 @@ class ResetCommandProcessor(GroupCommandProcessor):
             })
         # 2.1. check owner
         if owner not in new_members:
-            return self._respond_receipt(text='Permission denied.', msg=msg, group=group, extra={
+            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
                 'template': 'Owner not in the new member list of group: ${ID}',
                 'replacements': {
                     'ID': str(group),

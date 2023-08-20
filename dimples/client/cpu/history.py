@@ -36,19 +36,18 @@
 
 from typing import List
 
-from dimp import ID, ReliableMessage
-from dimp import Content
-from dimp import Command, GroupCommand
-
-from dimsdk.cpu import BaseCommandProcessor
+from dimsdk import ID, ReliableMessage
+from dimsdk import Content
+from dimsdk import Command, GroupCommand
+from dimsdk import BaseCommandProcessor
 
 
 class HistoryCommandProcessor(BaseCommandProcessor):
 
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, Command), 'history command error: %s' % content
-        return self._respond_receipt(text='Command not support.', msg=msg, group=content.group, extra={
+        return self._respond_receipt(text='Command not support.', msg=r_msg, group=content.group, extra={
             'template': 'History command (name: ${command}) not support yet!',
             'replacements': {
                 'command': content.cmd,
@@ -72,9 +71,9 @@ class GroupCommandProcessor(HistoryCommandProcessor):
         return array
 
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, GroupCommand), 'group command error: %s' % content
-        return self._respond_receipt(text='Command not support.', msg=msg, group=content.group, extra={
+        return self._respond_receipt(text='Command not support.', msg=r_msg, group=content.group, extra={
             'template': 'Group command (name: ${command}) not support yet!',
             'replacements': {
                 'command': content.cmd,

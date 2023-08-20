@@ -65,7 +65,7 @@ class CommonFacebook(Facebook):
         db = self.database
         array = db.local_users()
         # 'users.js' empty?
-        if array is None or len(array) == 0:
+        if len(array) == 0:
             current = self.__current
             return [] if current is None else [current]
         # create users
@@ -84,7 +84,7 @@ class CommonFacebook(Facebook):
         if current is None:
             # current = super().current_user
             users = self.local_users
-            if users is not None and len(users) > 0:
+            if len(users) > 0:
                 current = users[0]
                 self.__current = current
         return current
@@ -170,7 +170,7 @@ class CommonFacebook(Facebook):
     #
 
     # Override
-    def founder(self, identifier: ID) -> ID:
+    def founder(self, identifier: ID) -> Optional[ID]:
         db = self.database
         user = db.founder(group=identifier)
         if user is not None:
@@ -179,7 +179,7 @@ class CommonFacebook(Facebook):
         return super().founder(identifier=identifier)
 
     # Override
-    def owner(self, identifier: ID) -> ID:
+    def owner(self, identifier: ID) -> Optional[ID]:
         db = self.database
         user = db.owner(group=identifier)
         if user is not None:
@@ -188,19 +188,19 @@ class CommonFacebook(Facebook):
         return super().owner(identifier=identifier)
 
     # Override
-    def members(self, identifier: ID) -> Optional[List[ID]]:
+    def members(self, identifier: ID) -> List[ID]:
         db = self.database
         users = db.members(group=identifier)
-        if users is not None and len(users) > 0:
+        if len(users) > 0:
             # got from database
             return users
         return super().members(identifier=identifier)
 
     # Override
-    def assistants(self, identifier: ID) -> Optional[List[ID]]:
+    def assistants(self, identifier: ID) -> List[ID]:
         db = self.database
         bots = db.assistants(group=identifier)
-        if bots is not None and len(bots) > 0:
+        if len(bots) > 0:
             # got from database
             return bots
         return super().assistants(identifier=identifier)

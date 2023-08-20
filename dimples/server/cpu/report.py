@@ -32,10 +32,9 @@
 
 from typing import List
 
-from dimp import ReliableMessage
-from dimp import Content
-
-from dimsdk.cpu import BaseCommandProcessor
+from dimsdk import ReliableMessage
+from dimsdk import Content
+from dimsdk import BaseCommandProcessor
 
 from ...utils import Logging
 from ...common import ReportCommand
@@ -51,11 +50,11 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
         return messenger.session
 
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ReportCommand), 'report command error: %s' % content
         # check session sender
         session = self.session
-        sender = msg.sender
+        sender = r_msg.sender
         if session.identifier is None:
             self.error(msg='session not login, drop report command: %s => %s' % (sender, content))
             return []
@@ -65,7 +64,7 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
         if title == ReportCommand.ONLINE:
             # online
             session.set_active(active=True, when=content.time)
-            return self._respond_receipt(text='Online received.', msg=msg, extra={
+            return self._respond_receipt(text='Online received.', msg=r_msg, extra={
                 'template': 'Online command received: ${ID}.',
                 'replacements': {
                     'ID': str(sender),
@@ -77,7 +76,7 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
             # respond nothing when user offline
             return []
         else:
-            return self._respond_receipt(text='Command not support.', msg=msg, extra={
+            return self._respond_receipt(text='Command not support.', msg=r_msg, extra={
                 'template': 'Report command (title: ${title}) not support yet!',
                 'replacements': {
                     'title': title,

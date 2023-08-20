@@ -37,8 +37,7 @@ from dimsdk import Content, ContentType, Command
 from dimsdk import TextContent, ReceiptCommand
 from dimsdk import ContentProcessor, ContentProcessorCreator
 from dimsdk import MessageProcessor
-
-from dimsdk.cpu import BaseContentProcessor, BaseContentProcessorCreator
+from dimsdk import BaseContentProcessor, BaseContentProcessorCreator
 
 from ..utils import Logging
 from ..common import HandshakeCommand, LoginCommand

@@ -32,11 +32,10 @@
 
 from typing import Optional, List
 
-from dimp import ID
-from dimp import ReliableMessage
-from dimp import Content
-
-from dimsdk.cpu import BaseCommandProcessor
+from dimsdk import ID
+from dimsdk import ReliableMessage
+from dimsdk import Content
+from dimsdk import BaseCommandProcessor
 
 from ...utils import Log
 from ...common import AnsCommand
@@ -45,11 +44,11 @@ from ...common import AnsCommand
 class AnsCommandProcessor(BaseCommandProcessor):
 
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, AnsCommand), 'report command error: %s' % content
         names = content.names
         if len(names) == 0:
-            return self._respond_receipt(text='ANS command error.', msg=msg)
+            return self._respond_receipt(text='ANS command error.', msg=r_msg)
         records = {}
         missed = []
         for item in names:

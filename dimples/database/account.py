@@ -99,12 +99,14 @@ class AccountDatabase(AccountDBI):
 
     # Override
     def save_document(self, document: Document) -> bool:
-        # check with exists
+        # check meta first
         meta = self.__meta_table.meta(identifier=document.identifier)
         if meta is None:
             raise LookupError('meta not exists: %s' % document.identifier)
+        # check document valid before saving it
         if not (document.valid or document.verify(public_key=meta.key)):
             raise ValueError('document error: %s' % document.identifier)
+        # document ok, try to save it
         return self.__doc_table.save_document(document=document)
 
     # Override

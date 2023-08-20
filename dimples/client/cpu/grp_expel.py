@@ -38,38 +38,46 @@
 
 from typing import List
 
-from dimp import ID
-from dimp import ReliableMessage
-from dimp import Content
-from dimp import ExpelCommand
+from dimsdk import ID
+from dimsdk import ReliableMessage
+from dimsdk import Content
+from dimsdk import ExpelCommand
+
+from ...common import CommonFacebook
 
 from .history import GroupCommandProcessor
 
 
 class ExpelCommandProcessor(GroupCommandProcessor):
 
+    @property
+    def facebook(self) -> CommonFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
+
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ExpelCommand), 'expel command error: %s' % content
         facebook = self.facebook
         group = content.group
         owner = facebook.owner(identifier=group)
         members = facebook.members(identifier=group)
         # 0. check group
-        if owner is None or members is None or len(members) == 0:
-            return self._respond_receipt(text='Group empty.', msg=msg, group=group, extra={
+        if owner is None or len(members) == 0:
+            return self._respond_receipt(text='Group empty.', msg=r_msg, group=group, extra={
                 'template': 'Group empty: ${ID}',
                 'replacements': {
                     'ID': str(group),
                 }
             })
         # 1. check permission
-        sender = msg.sender
+        sender = r_msg.sender
         if sender != owner:
             # not the owner? check assistants
             assistants = facebook.assistants(identifier=group)
-            if assistants is None or sender not in assistants:
-                return self._respond_receipt(text='Permission denied.', msg=msg, group=group, extra={
+            if sender not in assistants:
+                return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
                     'template': 'Not allowed to expel member from group: ${ID}',
                     'replacements': {
                         'ID': str(group),
@@ -77,8 +85,8 @@ class ExpelCommandProcessor(GroupCommandProcessor):
                 })
         # 2. expelling members
         expel_list = self.members(content=content)
-        if expel_list is None or len(expel_list) == 0:
-            return self._respond_receipt(text='Command error.', msg=msg, group=group, extra={
+        if len(expel_list) == 0:
+            return self._respond_receipt(text='Command error.', msg=r_msg, group=group, extra={
                 'template': 'Expel list is empty: ${ID}',
                 'replacements': {
                     'ID': str(group),
@@ -86,7 +94,7 @@ class ExpelCommandProcessor(GroupCommandProcessor):
             })
         # 2.1. check owner
         if owner in expel_list:
-            return self._respond_receipt(text='Permission denied.', msg=msg, group=group, extra={
+            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
                 'template': 'Not allowed to expel owner of group: ${ID}',
                 'replacements': {
                     'ID': str(group),

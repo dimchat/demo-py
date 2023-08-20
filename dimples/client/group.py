@@ -25,10 +25,10 @@
 
 from typing import Optional, List, Dict
 
-from dimp import EntityType, ID, ANYONE, FOUNDER
-from dimp import Document, Meta
-from dimp import User, GroupDataSource
-from dimp import Content, Command, MetaCommand, DocumentCommand, GroupCommand
+from dimsdk import EntityType, ID, ANYONE, FOUNDER
+from dimsdk import Document, Meta
+from dimsdk import User, GroupDataSource
+from dimsdk import Content, Command, MetaCommand, DocumentCommand, GroupCommand
 
 from ..utils import Singleton
 from ..common import CommonFacebook, CommonMessenger
@@ -40,7 +40,7 @@ class GroupManager(GroupDataSource):
 
     def __init__(self):
         super().__init__()
-        self.messenger = None  # ClientMessenger
+        self.__messenger = None  # ClientMessenger
         self._cache_group_founders:   Dict[ID, ID] = {}
         self._cache_group_owners:     Dict[ID, ID] = {}
         self._cache_group_members:    Dict[ID, List[ID]] = {}
@@ -50,14 +50,22 @@ class GroupManager(GroupDataSource):
     @property
     def facebook(self) -> Optional[CommonFacebook]:
         messenger = self.messenger
-        if messenger is not None:
-            return messenger.facebook
+        assert messenger is not None, 'messenger not set yet'
+        return messenger.facebook
+
+    @property
+    def messenger(self) -> Optional[CommonMessenger]:
+        return self.__messenger
+
+    @messenger.setter
+    def messenger(self, transceiver: CommonMessenger):
+        self.__messenger = transceiver
 
     @property
     def current_user(self) -> Optional[User]:
         facebook = self.facebook
-        if facebook is not None:
-            return facebook.current_user
+        assert facebook is not None, 'facebook not found'
+        return facebook.current_user
 
     def send_content(self, content: Content, group: ID) -> bool:
         """ Send group message content """
@@ -67,7 +75,7 @@ class GroupManager(GroupDataSource):
         elif gid != group:
             raise AssertionError('group ID not match: %s, %s' % (gid, group))
         messenger = self.messenger
-        assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
+        assert messenger is not None, 'messenger not set yet'
         assistants = self.assistants(identifier=group)
         for bot in assistants:
             # send to any bot
@@ -80,7 +88,7 @@ class GroupManager(GroupDataSource):
     # private
     def send_command(self, content: Command, receiver: ID = None, members: List[ID] = None):
         messenger = self.messenger
-        assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
+        assert messenger is not None, 'messenger not set yet'
         if receiver is not None:
             messenger.send_content(sender=None, receiver=receiver, content=content)
         if members is not None:
@@ -201,8 +209,8 @@ class GroupManager(GroupDataSource):
     def query(self, group: ID) -> bool:
         """ Query group info """
         messenger = self.messenger
-        if isinstance(messenger, CommonMessenger):
-            return messenger.query_members(identifier=group)
+        assert messenger is not None, 'messenger not set yet'
+        return messenger.query_members(identifier=group)
 
     #
     #   EntityDataSource
@@ -211,14 +219,14 @@ class GroupManager(GroupDataSource):
     # Override
     def meta(self, identifier: ID) -> Optional[Meta]:
         facebook = self.facebook
-        if facebook is not None:
-            return facebook.meta(identifier=identifier)
+        assert facebook is not None, 'facebook not found'
+        return facebook.meta(identifier=identifier)
 
     # Override
-    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
+    def document(self, identifier: ID, doc_type: str = '*') -> Optional[Document]:
         facebook = self.facebook
-        if facebook is not None:
-            return facebook.document(identifier=identifier, doc_type=doc_type)
+        assert facebook is not None, 'facebook not found'
+        return facebook.document(identifier=identifier, doc_type=doc_type)
 
     #
     #   GroupDataSource
@@ -229,7 +237,8 @@ class GroupManager(GroupDataSource):
         user = self._cache_group_founders.get(identifier)
         if user is None:
             facebook = self.facebook
-            user = None if facebook is None else facebook.founder(identifier=identifier)
+            assert facebook is not None, 'facebook not found'
+            user = facebook.founder(identifier=identifier)
             if user is None:
                 user = FOUNDER  # place holder
             self._cache_group_founders[identifier] = user
@@ -240,7 +249,8 @@ class GroupManager(GroupDataSource):
         user = self._cache_group_owners.get(identifier)
         if user is None:
             facebook = self.facebook
-            user = None if facebook is None else facebook.owner(identifier=identifier)
+            assert facebook is not None, 'facebook not found'
+            user = facebook.owner(identifier=identifier)
             if user is None:
                 user = ANYONE  # place holder
             self._cache_group_owners[identifier] = user
@@ -251,7 +261,8 @@ class GroupManager(GroupDataSource):
         users = self._cache_group_members.get(identifier)
         if users is None:
             facebook = self.facebook
-            users = None if facebook is None else facebook.members(identifier=identifier)
+            assert facebook is not None, 'facebook not found'
+            users = facebook.members(identifier=identifier)
             if users is None:
                 users = []  # place holder
             self._cache_group_members[identifier] = users
@@ -262,7 +273,8 @@ class GroupManager(GroupDataSource):
         users = self._cache_group_assistants.get(identifier)
         if users is None:
             facebook = self.facebook
-            users = None if facebook is None else facebook.assistants(identifier=identifier)
+            assert facebook is not None, 'facebook not found'
+            users = facebook.assistants(identifier=identifier)
             if users is None:
                 users = []  # place holder
             self._cache_group_assistants[identifier] = users
@@ -351,7 +363,8 @@ class GroupManager(GroupDataSource):
 
     def save_members(self, members: List[ID], group: ID) -> bool:
         facebook = self.facebook
-        db = None if facebook is None else facebook.database
+        assert facebook is not None, 'facebook not found'
+        db = facebook.database
         assert db is not None, 'account database not set'
         if db.save_members(members=members, group=group):
             # erase cache for reload
@@ -386,7 +399,8 @@ class GroupManager(GroupDataSource):
 
     def save_assistants(self, bots: List[ID], group: ID) -> bool:
         facebook = self.facebook
-        db = None if facebook is None else facebook.database
+        assert facebook is not None, 'facebook not found'
+        db = facebook.database
         assert db is not None, 'account database not set'
         if db.save_assistants(assistants=bots, group=group):
             # erase cache for reload

@@ -120,7 +120,7 @@ def modify_user(document: Document, sign_key: SignKey, msg_keys: List[DecryptKey
     if msg_keys is None:
         msg_keys = []
     if not isinstance(sign_key, DecryptKey):
-        if msg_keys is None or len(msg_keys) == 0:
+        if len(msg_keys) == 0:
             # generate msg key
             pri_key = PrivateKey.generate(algorithm=PrivateKey.RSA)
             msg_keys = [pri_key]

@@ -31,11 +31,10 @@
 
 from typing import Optional, List
 
-from dimp import EntityType, ID
-from dimp import ReliableMessage
-from dimp import Content, ForwardContent, DocumentCommand
-
-from dimsdk.cpu import DocumentCommandProcessor as SuperCommandProcessor
+from dimsdk import EntityType, ID
+from dimsdk import ReliableMessage
+from dimsdk import Content, ForwardContent, DocumentCommand
+from dimsdk import DocumentCommandProcessor as SuperCommandProcessor
 
 from ...common import CommonFacebook, CommonMessenger
 from ...common import Session, SessionDBI
@@ -56,9 +55,9 @@ class DocumentCommandProcessor(SuperCommandProcessor):
         return messenger.session
 
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, DocumentCommand), 'document command error: %s' % content
-        responses = super().process(content=content, msg=msg)
+        responses = super().process_content(content=content, r_msg=r_msg)
         if content.document is None:
             # this is a request, check DocumentCommand & LoginCommand
             if has_document(contents=responses):
@@ -68,7 +67,7 @@ class DocumentCommandProcessor(SuperCommandProcessor):
                 assert db is not None, 'session DB not found'
                 assert sid is not None, 'current station not found: %s' % current
                 # forward login message after document command
-                res = forward_login_msg(doc_id=content.identifier, sender=msg.sender, node=sid, database=db)
+                res = forward_login_msg(doc_id=content.identifier, sender=r_msg.sender, node=sid, database=db)
                 if res is not None:
                     responses.append(res)
         return responses

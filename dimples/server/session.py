@@ -130,12 +130,14 @@ class ServerSession(BaseSession):
         # super().docker_received(ship=ship, docker=docker)
         all_responses = []
         messenger = self.messenger
+        # 1. get data packages from arrival ship's payload
         packages = get_data_packages(ship=ship)
         for pack in packages:
             try:
+                # 2. process each data package
                 responses = messenger.process_package(data=pack)
                 for res in responses:
-                    if res is None or len(res) == 0:
+                    if len(res) == 0:
                         # should not happen
                         continue
                     all_responses.append(res)
@@ -148,6 +150,7 @@ class ServerSession(BaseSession):
         gate = self.gate
         source = docker.remote_address
         destination = docker.local_address
+        # 3. send responses
         if len(all_responses) > 0:
             # respond separately
             for res in all_responses:

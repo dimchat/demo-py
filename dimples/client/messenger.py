@@ -175,7 +175,7 @@ class ClientMessenger(CommonMessenger):
         self.info(msg='querying members: %s from any station' % identifier)
         man = GroupManager()
         assistants = man.assistants(identifier=identifier)
-        if assistants is None or len(assistants) == 0:
+        if len(assistants) == 0:
             self.error(msg='group assistants not found: %s' % identifier)
             return False
         # querying members from bot

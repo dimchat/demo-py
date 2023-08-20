@@ -75,7 +75,7 @@ class ClientMessageProcessor(MessageProcessor, Logging):
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         responses = super().process_content(content=content, r_msg=r_msg)
-        if responses is None or len(responses) == 0:
+        if len(responses) == 0:
             # respond nothing
             return []
         elif isinstance(responses[0], HandshakeCommand):

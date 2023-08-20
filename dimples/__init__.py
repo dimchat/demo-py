@@ -28,13 +28,8 @@
 # SOFTWARE.
 # ==============================================================================
 
-from mkm.protocol import *
-from dimp.mkm import *
-from dimp.dkd import *
 from dimsdk import *
 from dimplugins import *
-from dimplugins.network import NetworkType
-from dimplugins.entity import EntityID, EntityIDFactory
 
 from .common import *
 from .config import Config

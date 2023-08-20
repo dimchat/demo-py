@@ -130,7 +130,7 @@ def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
     sign_key = facebook.private_key_for_visa_signature(identifier=current_user)
     msg_keys = facebook.private_keys_for_decryption(identifier=current_user)
     assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
-    assert msg_keys is not None and len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
+    assert len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
     print('set current user: %s' % current_user)
     user = facebook.user(identifier=current_user)
     assert user is not None, 'failed to get current user: %s' % current_user
