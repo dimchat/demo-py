@@ -24,10 +24,12 @@
 # ==============================================================================
 
 from abc import ABC, abstractmethod
-from typing import Optional, Union, Any, List, Dict
+from typing import Optional, Union, Any, Dict, List, Tuple
 
 from dimsdk import PrivateKey, SignKey, DecryptKey
 from dimsdk import ID, Meta, Document
+from dimsdk import ReliableMessage
+from dimsdk import ResetCommand
 
 
 class PrivateKeyDBI(ABC):
@@ -143,14 +145,6 @@ class GroupDBI(ABC):
     """ Group/Member Table """
 
     @abstractmethod
-    def founder(self, group: ID) -> Optional[ID]:
-        raise NotImplemented
-
-    @abstractmethod
-    def owner(self, group: ID) -> Optional[ID]:
-        raise NotImplemented
-
-    @abstractmethod
     def members(self, group: ID) -> List[ID]:
         raise NotImplemented
 
@@ -166,8 +160,31 @@ class GroupDBI(ABC):
     def save_assistants(self, assistants: List[ID], group: ID) -> bool:
         raise NotImplemented
 
+    @abstractmethod
+    def administrators(self, group: ID) -> List[ID]:
+        raise NotImplemented
+
+    @abstractmethod
+    def save_administrators(self, administrators: List[ID], group: ID) -> bool:
+        raise NotImplemented
+
+
+class ResetGroupDBI(ABC):
+    """ Reset Group Command Table """
+
+    #
+    #   reset group command message
+    #
+    @abstractmethod
+    def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
+        raise NotImplemented
+
+    @abstractmethod
+    def save_reset_command_message(self, group: ID, content: ResetCommand, msg: ReliableMessage) -> bool:
+        raise NotImplemented
+
 
 # noinspection PyAbstractClass
-class AccountDBI(PrivateKeyDBI, MetaDBI, DocumentDBI, UserDBI, GroupDBI, ABC):
+class AccountDBI(PrivateKeyDBI, MetaDBI, DocumentDBI, UserDBI, GroupDBI, ResetGroupDBI, ABC):
     """ Account Database """
     pass

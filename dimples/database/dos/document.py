@@ -43,7 +43,7 @@ class DocumentStorage(Storage, DocumentDBI):
 
     def show_info(self):
         path = template_replace(self.doc_path, 'PUBLIC', self._public)
-        print('!!!       doc path: %s' % path)
+        print('!!!       document path: %s' % path)
 
     def __doc_path(self, identifier: ID) -> str:
         path = self.doc_path

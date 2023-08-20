@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2022 Albert Moky
+# Copyright (c) 2023 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,29 +27,31 @@ from typing import Optional, Tuple
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
+from dimsdk import ResetCommand, ResetGroupCommand
 
-from ...common import LoginDBI, LoginCommand
+from ...common import ResetGroupDBI
 
 from .base import Storage
 from .base import template_replace
 
 
-class LoginStorage(Storage, LoginDBI):
+class ResetGroupStorage(Storage, ResetGroupDBI):
     """
-        Login Command Storage
-        ~~~~~~~~~~~~~~~~~~~~~
-        file path: '.dim/public/{ADDRESS}/login.js'
+        Reset Group Command Storage
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        file path: '.dim/private/{ADDRESS}/group_reset.js'
     """
 
-    login_path = '{PUBLIC}/{ADDRESS}/login.js'
+    reset_path = '{PRIVATE}/{ADDRESS}/group_reset.js'
 
     def show_info(self):
-        path = template_replace(self.login_path, 'PUBLIC', self._public)
-        print('!!!      login cmd path: %s' % path)
+        path = template_replace(self.reset_path, 'PRIVATE', self._private)
+        print('!!!  reset grp cmd path: %s' % path)
 
-    def __login_path(self, identifier: ID) -> str:
-        path = self.login_path
-        path = template_replace(path, 'PUBLIC', self._public)
+    def __reset_path(self, identifier: ID) -> str:
+        path = self.reset_path
+        path = template_replace(path, 'PRIVATE', self._private)
         return template_replace(path, 'ADDRESS', str(identifier.address))
 
     #
@@ -57,10 +59,10 @@ class LoginStorage(Storage, LoginDBI):
     #
 
     # Override
-    def login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
-        """ load login command from file """
-        path = self.__login_path(identifier=user)
-        self.info(msg='Loading login command from: %s' % path)
+    def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
+        """ load reset group command from file """
+        path = self.__reset_path(identifier=group)
+        self.info(msg='Loading reset group command from: %s' % path)
         info = self.read_json(path=path)
         if info is None:
             # command not found
@@ -68,16 +70,16 @@ class LoginStorage(Storage, LoginDBI):
         cmd = info.get('cmd')
         msg = info.get('msg')
         if cmd is not None:
-            cmd = LoginCommand(content=cmd)
+            cmd = ResetGroupCommand(content=cmd)
         return cmd, ReliableMessage.parse(msg=msg)
 
     # Override
-    def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
-        """ save login command into file """
+    def save_reset_command_message(self, group: ID, content: ResetCommand, msg: ReliableMessage) -> bool:
+        """ save reset group command into file """
         info = {
             'cmd': content.dictionary,
             'msg': msg.dictionary
         }
-        path = self.__login_path(identifier=user)
-        self.info(msg='Saving login command into: %s' % path)
+        path = self.__reset_path(identifier=group)
+        self.info(msg='Saving reset group command into: %s' % path)
         return self.write_json(container=info, path=path)

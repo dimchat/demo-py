@@ -151,24 +151,6 @@ class CommonFacebook(Facebook):
     #
 
     # Override
-    def founder(self, identifier: ID) -> Optional[ID]:
-        db = self.database
-        user = db.founder(group=identifier)
-        if user is not None:
-            # got from database
-            return user
-        return super().founder(identifier=identifier)
-
-    # Override
-    def owner(self, identifier: ID) -> Optional[ID]:
-        db = self.database
-        user = db.owner(group=identifier)
-        if user is not None:
-            # got from database
-            return user
-        return super().owner(identifier=identifier)
-
-    # Override
     def members(self, identifier: ID) -> List[ID]:
         db = self.database
         users = db.members(group=identifier)

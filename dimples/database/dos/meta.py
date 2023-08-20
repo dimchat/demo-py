@@ -43,7 +43,7 @@ class MetaStorage(Storage, MetaDBI):
 
     def show_info(self):
         path = template_replace(self.meta_path, 'PUBLIC', self._public)
-        print('!!!      meta path: %s' % path)
+        print('!!!           meta path: %s' % path)
 
     def __meta_path(self, identifier: ID) -> str:
         path = self.meta_path

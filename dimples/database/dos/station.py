@@ -48,8 +48,8 @@ class StationStorage(Storage, ProviderDBI, StationDBI):
     def show_info(self):
         path1 = template_replace(self.providers_path, 'PUBLIC', self._public)
         path2 = template_replace(self.stations_path, 'PUBLIC', self._public)
-        print('!!! providers path: %s' % path1)
-        print('!!!  stations path: %s' % path2)
+        print('!!!      providers path: %s' % path1)
+        print('!!!       stations path: %s' % path2)
 
     def __providers_path(self) -> str:
         path = self.providers_path

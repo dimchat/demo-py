@@ -23,10 +23,12 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
+from dimp import ResetCommand
 from dimsdk import PrivateKey, DecryptKey, SignKey
-from dimsdk import ID, Meta, Document
+from dimsdk import ID, Meta, Document, Bulletin
+from dkd import ReliableMessage
 
 from ..common import AccountDBI
 
@@ -35,6 +37,7 @@ from .t_meta import MetaTable
 from .t_document import DocumentTable
 from .t_user import UserTable
 from .t_group import GroupTable
+from .t_group_reset import ResetGroupTable
 
 
 class AccountDatabase(AccountDBI):
@@ -50,6 +53,7 @@ class AccountDatabase(AccountDBI):
         self.__doc_table = DocumentTable(root=root, public=public, private=private)
         self.__user_table = UserTable(root=root, public=public, private=private)
         self.__group_table = GroupTable(root=root, public=public, private=private)
+        self.__reset_table = ResetGroupTable(root=root, public=public, private=private)
 
     def show_info(self):
         self.__private_table.show_info()
@@ -57,6 +61,7 @@ class AccountDatabase(AccountDBI):
         self.__doc_table.show_info()
         self.__user_table.show_info()
         self.__group_table.show_info()
+        self.__reset_table.show_info()
 
     #
     #   PrivateKey DBI
@@ -106,6 +111,13 @@ class AccountDatabase(AccountDBI):
         # check document valid before saving it
         if not (document.valid or document.verify(public_key=meta.key)):
             raise ValueError('document error: %s' % document.identifier)
+        # check founder in group document
+        if isinstance(document, Bulletin):
+            founder = document.founder
+            if founder is not None:
+                f_meta = self.__meta_table.meta(identifier=founder)
+                if f_meta is None or meta.key != meta.key:
+                    raise ValueError('founder error: %s, group: %s' % (founder, document.identifier))
         # document ok, try to save it
         return self.__doc_table.save_document(document=document)
 
@@ -130,14 +142,6 @@ class AccountDatabase(AccountDBI):
     #
 
     # Override
-    def founder(self, group: ID) -> Optional[ID]:
-        return self.__group_table.founder(group=group)
-
-    # Override
-    def owner(self, group: ID) -> Optional[ID]:
-        return self.__group_table.owner(group=group)
-
-    # Override
     def members(self, group: ID) -> List[ID]:
         return self.__group_table.members(group=group)
 
@@ -152,3 +156,23 @@ class AccountDatabase(AccountDBI):
     # Override
     def save_assistants(self, assistants: List[ID], group: ID) -> bool:
         return self.__group_table.save_assistants(assistants=assistants, group=group)
+
+    # Override
+    def administrators(self, group: ID) -> List[ID]:
+        return self.__group_table.administrators(group=group)
+
+    # Override
+    def save_administrators(self, administrators: List[ID], group: ID) -> bool:
+        return self.__group_table.save_administrators(administrators=administrators, group=group)
+
+    #
+    #   Reset Group DBI
+    #
+
+    # Override
+    def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
+        return self.__reset_table.reset_command_message(group=group)
+
+    # Override
+    def save_reset_command_message(self, group: ID, content: ResetCommand, msg: ReliableMessage) -> bool:
+        return self.__reset_table.save_reset_command_message(group=group, content=content, msg=msg)

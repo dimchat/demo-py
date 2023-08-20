@@ -56,8 +56,8 @@ class PrivateKeyStorage(Storage, PrivateKeyDBI):
     def show_info(self):
         path1 = template_replace(self.id_key_path, 'PRIVATE', self._private)
         path2 = template_replace(self.msg_keys_path, 'PRIVATE', self._private)
-        print('!!!    id key path: %s' % path1)
-        print('!!!  msg keys path: %s' % path2)
+        print('!!!         id key path: %s' % path1)
+        print('!!!       msg keys path: %s' % path2)
 
     def __id_key_path(self, identifier: ID) -> str:
         path = self.id_key_path

@@ -38,6 +38,7 @@ from .t_meta import MetaTable
 from .t_document import DocumentTable
 from .t_user import UserTable
 from .t_group import GroupTable
+from .t_group_reset import ResetGroupTable
 
 from .t_message import ReliableMessageTable
 from .t_cipherkey import CipherKeyTable
@@ -55,7 +56,7 @@ __all__ = [
     #   DBI
     #
     'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
-    'UserDBI', 'GroupDBI',
+    'UserDBI', 'GroupDBI', 'ResetGroupDBI',
     'AccountDBI',
 
     'ReliableMessageDBI', 'CipherKeyDBI',
@@ -70,14 +71,14 @@ __all__ = [
     #
     'Storage',
     'PrivateKeyStorage', 'MetaStorage', 'DocumentStorage',
-    'UserStorage', 'GroupStorage',
+    'UserStorage', 'GroupStorage', 'ResetGroupStorage',
     'LoginStorage',
 
     #
     #   Table
     #
     'PrivateKeyTable', 'MetaTable', 'DocumentTable',
-    'UserTable', 'GroupTable',
+    'UserTable', 'GroupTable', 'ResetGroupTable',
     'ReliableMessageTable', 'CipherKeyTable',
     'LoginTable', 'StationTable',
 

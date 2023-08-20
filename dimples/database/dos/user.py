@@ -44,7 +44,7 @@ class UserStorage(Storage, UserDBI):
 
     def show_info(self):
         path = template_replace(self.contacts_path, 'PRIVATE', self._private)
-        print('!!!  contacts path: %s' % path)
+        print('!!!       contacts path: %s' % path)
 
     def __contacts_path(self, identifier: ID) -> str:
         path = self.contacts_path
