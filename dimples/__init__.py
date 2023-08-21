@@ -219,7 +219,7 @@ __all__ = [
     #
     'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI', 'UserDBI', 'GroupDBI', 'ResetGroupDBI',
     'AccountDBI',
-    'ReliableMessageDBI', 'CipherKeyDBI',
+    'ReliableMessageDBI', 'CipherKeyDBI', 'GroupKeysDBI',
     'MessageDBI',
     'LoginDBI', 'ProviderDBI', 'StationDBI',
     'SessionDBI',

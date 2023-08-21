@@ -23,7 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from dimsdk import SymmetricKey
 from dimsdk import ID
@@ -31,6 +31,7 @@ from dimsdk import ReliableMessage
 
 from ..common import MessageDBI
 
+from .t_group_keys import GroupKeysTable
 from .t_cipherkey import CipherKeyTable
 from .t_message import ReliableMessageTable
 
@@ -43,12 +44,25 @@ class MessageDatabase(MessageDBI):
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
+        self.__group_keys_table = GroupKeysTable(root=root, public=public, private=private)
         self.__cipher_table = CipherKeyTable(root=root, public=public, private=private)
         self.__msg_table = ReliableMessageTable(root=root, public=public, private=private)
 
     def show_info(self):
+        self.__group_keys_table.show_info()
         self.__cipher_table.show_info()
         self.__msg_table.show_info()
+
+    #
+    #   GroupKeys DBI
+
+    # Override
+    def group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
+        return self.__group_keys_table.group_keys(group=group, sender=sender)
+
+    # Override
+    def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
+        return self.__group_keys_table.save_group_keys(group=group, sender=sender, keys=keys)
 
     #
     #   CipherKey DBI

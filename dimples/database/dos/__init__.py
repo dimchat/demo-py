@@ -39,6 +39,8 @@ from .user import UserStorage
 from .group import GroupStorage
 from .group_reset import ResetGroupStorage
 
+from .group_keys import GroupKeysStorage
+
 from .login import LoginStorage
 
 from .station import StationStorage
@@ -54,6 +56,8 @@ __all__ = [
     'UserStorage',
     'GroupStorage',
     'ResetGroupStorage',
+
+    'GroupKeysStorage',
 
     'LoginStorage',
 

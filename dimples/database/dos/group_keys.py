@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2022 Albert Moky
+# Copyright (c) 2023 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,56 +23,50 @@
 # SOFTWARE.
 # ==============================================================================
 
-from abc import ABC, abstractmethod
-from typing import Optional, Dict, List
+from typing import Optional, Dict
 
-from dimsdk import ID, ReliableMessage, CipherKeyDelegate
+from dimsdk import ID
 
+from ...common import GroupKeysDBI
 
-class ReliableMessageDBI(ABC):
-    """ ReliableMessage Table """
-
-    CACHE_LIMIT = 20480  # only cache last messages
-
-    @abstractmethod
-    def reliable_messages(self, receiver: ID, limit: int = 1024) -> List[ReliableMessage]:
-        """
-        Get network messages
-
-        :param receiver: actual receiver
-        :param limit:    cache limit
-        :return: last cached messages
-        """
-        raise NotImplemented
-
-    @abstractmethod
-    def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
-        raise NotImplemented
-
-    @abstractmethod
-    def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
-        raise NotImplemented
+from .base import Storage
+from .base import template_replace
 
 
-# noinspection PyAbstractClass
-class CipherKeyDBI(CipherKeyDelegate, ABC):
-    """ CipherKey Table """
-    pass
+class GroupKeysStorage(Storage, GroupKeysDBI):
+    """
+        Group Keys Storage
+        ~~~~~~~~~~~~~~~~~~
 
+        file path: '.dim/private/{GROUP_ADDRESS}/{SENDER_ADDRESS}.keys.js'
+    """
 
-class GroupKeysDBI(ABC):
-    """ Group Keys Table """
+    keys_path = '{PRIVATE}/{GROUP_ADDRESS}/{SENDER_ADDRESS}.keys.js'
 
-    @abstractmethod
+    def show_info(self):
+        path = template_replace(self.keys_path, 'PRIVATE', self._private)
+        print('!!!     group keys path: %s' % path)
+
+    def __keys_path(self, group: ID, sender: ID) -> str:
+        path = self.keys_path
+        path = template_replace(path, 'SENDER_ADDRESS', str(sender.address))
+        path = template_replace(path, 'GROUP_ADDRESS', str(group.address))
+        return template_replace(path, 'PRIVATE', self._private)
+
+    #
+    #   Group Keys DBI
+    #
+
+    # Override
     def group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
-        raise NotImplemented
+        """ load group keys from file """
+        path = self.__keys_path(group=group, sender=sender)
+        self.info(msg='Loading group keys from: %s' % path)
+        return self.read_json(path=path)
 
-    @abstractmethod
+    # Override
     def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
-        raise NotImplemented
-
-
-# noinspection PyAbstractClass
-class MessageDBI(ReliableMessageDBI, CipherKeyDBI, GroupKeysDBI, ABC):
-    """ Message Database """
-    pass
+        """ save group keys into file """
+        path = self.__keys_path(group=group, sender=sender)
+        self.info(msg='Saving group keys into: %s' % path)
+        return self.write_json(container=keys, path=path)
