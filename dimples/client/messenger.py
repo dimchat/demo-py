@@ -43,8 +43,6 @@ from ..common import CommonMessenger
 
 from .network import ClientSession
 
-from .group import GroupManager
-
 
 class ClientMessenger(CommonMessenger):
 
@@ -173,8 +171,7 @@ class ClientMessenger(CommonMessenger):
             self.debug(msg='members query not expired yet: %s' % identifier)
             return False
         self.info(msg='querying members: %s from any station' % identifier)
-        man = GroupManager()
-        assistants = man.assistants(identifier=identifier)
+        assistants = self.facebook.assistants(identifier=identifier)
         if len(assistants) == 0:
             self.error(msg='group assistants not found: %s' % identifier)
             return False

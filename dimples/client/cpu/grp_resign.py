@@ -29,28 +29,30 @@
 # ==============================================================================
 
 """
-    Quit Group Command Processor
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Resign Group Admin Command Processor
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    1. quit the group
-    2. owner and administrator cannot quit
+    1. resign the group administrator
+    3. administrator can be hired/fired by owner only
 """
 
 from typing import List
 
-from dimsdk import ID
+from dimsdk import ID, Bulletin
 from dimsdk import ReliableMessage
 from dimsdk import Content
-from dimsdk import GroupCommand, QuitCommand
+from dimsdk import DocumentCommand
+
+from ...common.protocol import ResignCommand
 
 from .history import GroupCommandProcessor
 
 
-class QuitCommandProcessor(GroupCommandProcessor):
+class ResignCommandProcessor(GroupCommandProcessor):
 
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
-        assert isinstance(content, QuitCommand), 'quit command error: %s' % content
+        assert isinstance(content, ResignCommand), 'resign command error: %s' % content
         group = content.group
         # 1. check group
         owner = self.group_owner(group=group)
@@ -62,47 +64,44 @@ class QuitCommandProcessor(GroupCommandProcessor):
                     'ID': str(group),
                 }
             })
-        # 2. check permission
-        sender = r_msg.sender
-        if sender == owner:
-            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
-                'template': 'Owner cannot quit from group: ${ID}',
-                'replacements': {
-                    'ID': str(group),
-                }
-            })
         administrators = self.group_administrators(group=group)
-        if sender in administrators:
+        # 2. update database
+        sender = r_msg.sender
+        sender_is_admin = sender in administrators
+        if sender_is_admin:
+            # admin do exist, remove it and update database
+            administrators.remove(sender)
+            self.save_administrators(administrators=administrators, group=group)
+        # 3. update bulletin
+        user = self.facebook.current_user
+        if user.identifier == owner:
+            # maybe the bulletin in the owner's storage not contains this administrator,
+            # but if it can still receive a resign command here, then
+            # the owner should update the bulletin and send it out again.
+            self.__refresh_administrators(group=group, owner=owner, administrators=administrators)
+        if not sender_is_admin:
             return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
-                'template': 'Administrator cannot quit from group: ${ID}',
+                'template': 'Not an administrator of group: ${ID}',
                 'replacements': {
                     'ID': str(group),
                 }
             })
-        # 3. do quit
-        if sender in members:
-            members.remove(sender)
-            if self.save_members(members=members, group=group):
-                content['removed'] = [str(sender)]
-        # 4. send reset command
-        self.__broadcast_reset_command(group=group, members=members, sender=sender)
         # no need to response this group command
         return []
 
-    def __broadcast_reset_command(self, group: ID, members: List[ID], sender: ID):
-        """ send a reset command with newest members to the bots """
-        owner = self.group_owner(group=group)
-        assistants = self.group_assistants(group=group)
-        administrators = self.group_administrators(group=group)
-        user = self.facebook.current_user
-        if user.identifier == owner or user.identifier in administrators:
-            # this is the group owner (or administrator), so
-            # it has permission to reset group members here.
-            content = GroupCommand.reset(group=group, members=members)
-            messenger = self.messenger
-            if len(assistants) == 0:
-                messenger.send_content(sender=user.identifier, receiver=sender, content=content, priority=1)
-                return True
-            for bot in assistants:
-                messenger.send_content(sender=user.identifier, receiver=bot, content=content, priority=1)
-                return True
+    def __refresh_administrators(self, group: ID, owner: ID, administrators: List[ID]):
+        facebook = self.facebook
+        sign_key = facebook.private_key_for_visa_signature(identifier=owner)
+        # 1. update bulletin
+        meta = facebook.meta(identifier=group)
+        bulletin = facebook.document(identifier=group)
+        assert isinstance(bulletin, Bulletin), 'group document error: %s => %s' % (group, bulletin)
+        bulletin.set_property(key='administrators', value=ID.revert(array=administrators))
+        bulletin.sign(private_key=sign_key)
+        facebook.save_document(document=bulletin)
+        # 2. sent to assistants
+        command = DocumentCommand.response(document=bulletin, meta=meta, identifier=group)
+        assistants = facebook.assistants(identifier=group)
+        messenger = self.messenger
+        for bot in assistants:
+            messenger.send_content(sender=owner, receiver=bot, content=command, priority=1)

@@ -33,37 +33,38 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     1. remove group member(s)
-    2. only group owner or assistant can expel member
+    2. only group owner or administrator can expel member
 """
 
-from typing import List
+from typing import Optional, List
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
 from dimsdk import Content
 from dimsdk import ExpelCommand
 
-from ...common import CommonFacebook
-
 from .history import GroupCommandProcessor
 
 
+# Deprecated
 class ExpelCommandProcessor(GroupCommandProcessor):
-
-    @property
-    def facebook(self) -> CommonFacebook:
-        barrack = super().facebook
-        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
-        return barrack
 
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ExpelCommand), 'expel command error: %s' % content
-        facebook = self.facebook
         group = content.group
-        owner = facebook.owner(identifier=group)
-        members = facebook.members(identifier=group)
-        # 0. check group
+        # 0. check command
+        expel_list = self.command_members(content=content)
+        if len(expel_list) == 0:
+            return self._respond_receipt(text='Command error.', msg=r_msg, group=group, extra={
+                'template': 'Expel list is empty: ${ID}',
+                'replacements': {
+                    'ID': str(group),
+                }
+            })
+        # 1. check group
+        owner = self.group_owner(group=group)
+        members = self.group_members(group=group)
         if owner is None or len(members) == 0:
             return self._respond_receipt(text='Group empty.', msg=r_msg, group=group, extra={
                 'template': 'Group empty: ${ID}',
@@ -71,23 +72,12 @@ class ExpelCommandProcessor(GroupCommandProcessor):
                     'ID': str(group),
                 }
             })
-        # 1. check permission
+        administrators = self.group_administrators(group=group)
+        # 2. check permission
         sender = r_msg.sender
-        if sender != owner:
-            # not the owner? check assistants
-            assistants = facebook.assistants(identifier=group)
-            if sender not in assistants:
-                return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
-                    'template': 'Not allowed to expel member from group: ${ID}',
-                    'replacements': {
-                        'ID': str(group),
-                    }
-                })
-        # 2. expelling members
-        expel_list = self.members(content=content)
-        if len(expel_list) == 0:
-            return self._respond_receipt(text='Command error.', msg=r_msg, group=group, extra={
-                'template': 'Expel list is empty: ${ID}',
+        if sender != owner and sender not in administrators:
+            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
+                'template': 'Not allowed to expel member from group: ${ID}',
                 'replacements': {
                     'ID': str(group),
                 }
@@ -100,7 +90,27 @@ class ExpelCommandProcessor(GroupCommandProcessor):
                     'ID': str(group),
                 }
             })
-        # 2.2. build removed-list
+        # 2.2. check admins
+        expel_admin = False
+        for admin in administrators:
+            if admin in expel_list:
+                expel_admin = True
+                break
+        if expel_admin:
+            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
+                'template': 'Not allowed to expel administrator of group: ${ID}',
+                'replacements': {
+                    'ID': str(group),
+                }
+            })
+        # 3. do expel
+        remove_list = self.__remove_members(group=group, members=members, expel_list=expel_list)
+        if remove_list is not None:
+            content['removed'] = ID.revert(array=remove_list)
+        # no need to response this group command
+        return []
+
+    def __remove_members(self, group: ID, members: List[ID], expel_list: List[ID]) -> Optional[List[ID]]:
         remove_list = []
         for item in expel_list:
             if item not in members:
@@ -108,15 +118,9 @@ class ExpelCommandProcessor(GroupCommandProcessor):
             # expelled member found
             remove_list.append(item)
             members.remove(item)
-        # 2.3. do expel
-        if len(remove_list) > 0:
-            man = group_manager()
-            if man.save_members(members=members, group=group):
-                content['removed'] = ID.revert(remove_list)
-        # 3. response (no need to response this group command)
-        return []
-
-
-def group_manager():
-    from ..group import GroupManager
-    return GroupManager()
+        if len(remove_list) == 0:
+            # nothing changed
+            return None
+        if self.save_members(members=members, group=group):
+            return remove_list
+        assert False, 'failed to save members in group: %s, %s' % (group, members)

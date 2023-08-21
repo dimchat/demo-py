@@ -38,9 +38,11 @@ from .login import LoginCommandProcessor
 from .history import HistoryCommandProcessor, GroupCommandProcessor
 from .grp_invite import InviteCommandProcessor
 from .grp_expel import ExpelCommandProcessor
+from .grp_join import JoinCommandProcessor
 from .grp_quit import QuitCommandProcessor
 from .grp_reset import ResetCommandProcessor
 from .grp_query import QueryCommandProcessor
+from .grp_resign import ResignCommandProcessor
 
 __all__ = [
 
@@ -51,7 +53,9 @@ __all__ = [
 
     'HistoryCommandProcessor',
     'GroupCommandProcessor',
-    'InviteCommandProcessor', 'ExpelCommandProcessor', 'QuitCommandProcessor',
+    'InviteCommandProcessor', 'ExpelCommandProcessor',
+    'JoinCommandProcessor', 'QuitCommandProcessor',
     'ResetCommandProcessor', 'QueryCommandProcessor',
+    'ResignCommandProcessor',
 
 ]

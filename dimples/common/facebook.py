@@ -152,18 +152,23 @@ class CommonFacebook(Facebook):
 
     # Override
     def members(self, identifier: ID) -> List[ID]:
+        owner = self.owner(identifier=identifier)
+        if owner is None:
+            # assert False, 'group owner not found: %s' % identifier
+            return []
         db = self.database
         users = db.members(group=identifier)
-        if len(users) > 0:
-            # got from database
-            return users
-        return super().members(identifier=identifier)
+        if len(users) == 0:
+            users = super().members(identifier=identifier)
+            if len(users) == 0:
+                users = [owner]
+        assert owner == users[0], 'group owner must be the first member: %s, group: %s' % (owner, identifier)
+        return users
 
     # Override
     def assistants(self, identifier: ID) -> List[ID]:
         db = self.database
         bots = db.assistants(group=identifier)
-        if len(bots) > 0:
-            # got from database
-            return bots
-        return super().assistants(identifier=identifier)
+        if len(bots) == 0:
+            bots = super().assistants(identifier=identifier)
+        return bots

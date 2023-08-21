@@ -41,95 +41,24 @@
        after that, we will send 'query' to the owner to get the newest members-list.
 """
 
-from typing import List
+from typing import Optional, Tuple, List
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
 from dimsdk import Content
-from dimsdk import GroupCommand, InviteCommand, ResetCommand
-
-from ...common import CommonFacebook, CommonMessenger
+from dimsdk import ResetCommand
 
 from .history import GroupCommandProcessor
 
 
 class ResetCommandProcessor(GroupCommandProcessor):
 
-    @property
-    def facebook(self) -> CommonFacebook:
-        barrack = super().facebook
-        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
-        return barrack
-
-    @property
-    def messenger(self) -> CommonMessenger:
-        transceiver = super().messenger
-        assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
-        return transceiver
-
-    def _query_owner(self, owner: ID, group: ID):
-        command = GroupCommand.query(group=group)
-        self.messenger.send_content(sender=None, receiver=owner, content=command, priority=1)
-
-    def _temporary_save(self, content: GroupCommand, sender: ID, msg: ReliableMessage) -> List[Content]:
-        facebook = self.facebook
-        group = content.group
-        # check whether the owner contained in the new members
-        new_members = self.members(content=content)
-        if len(new_members) == 0:
-            return self._respond_receipt(text='Command error.', msg=msg, group=group, extra={
-                'template': 'New member list is empty: ${ID}',
-                'replacements': {
-                    'ID': str(group),
-                }
-            })
-        man = group_manager()
-        for item in new_members:
-            if facebook.meta(identifier=item) is None:
-                # TODO: waiting for member's meta?
-                continue
-            elif not man.is_owner(member=item, group=group):
-                # not owner, skip it
-                continue
-            # it's a full list, save it now
-            if man.save_members(members=new_members, group=group):
-                if item != sender:
-                    # NOTICE: to prevent counterfeit,
-                    #         query the owner for newest member-list
-                    self._query_owner(owner=item, group=group)
-            # response (no need to respond this group command)
-            return []
-        # NOTICE: this is a partial member-list
-        #         query the sender for full-list
-        query = GroupCommand.query(group=group)
-        return [query]
-
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
-        assert isinstance(content, InviteCommand) or isinstance(content, ResetCommand), 'group cmd error: %s' % content
-        facebook = self.facebook
+        assert isinstance(content, ResetCommand), 'group cmd error: %s' % content
         group = content.group
-        owner = facebook.owner(identifier=group)
-        members = facebook.members(identifier=group)
-        # 0. check group
-        if owner is None or len(members) == 0:
-            # FIXME: group profile lost?
-            # FIXME: how to avoid strangers impersonating group members?
-            return self._temporary_save(content=content, sender=r_msg.sender, msg=r_msg)
-        # 1. check permission
-        sender = r_msg.sender
-        if sender != owner:
-            # not the owner? check assistants
-            assistants = facebook.assistants(identifier=group)
-            if sender not in assistants:
-                return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
-                    'template': 'Not allowed to reset members of group: ${ID}',
-                    'replacements': {
-                        'ID': str(group),
-                    }
-                })
-        # 2. resetting members
-        new_members = self.members(content=content)
+        # 0. check command
+        new_members = self.command_members(content=content)
         if len(new_members) == 0:
             return self._respond_receipt(text='Command error.', msg=r_msg, group=group, extra={
                 'template': 'New member list is empty: ${ID}',
@@ -137,38 +66,85 @@ class ResetCommandProcessor(GroupCommandProcessor):
                     'ID': str(group),
                 }
             })
-        # 2.1. check owner
-        if owner not in new_members:
-            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
-                'template': 'Owner not in the new member list of group: ${ID}',
+        # 1. check group
+        owner = self.group_owner(group=group)
+        members = self.group_members(group=group)
+        if owner is None or len(members) == 0:
+            return self._respond_receipt(text='Group empty.', msg=r_msg, group=group, extra={
+                'template': 'Group empty: ${ID}',
                 'replacements': {
                     'ID': str(group),
                 }
             })
-        # 2.2. build expelled-list
+        administrators = self.group_administrators(group=group)
+        # 2. check permission
+        sender = r_msg.sender
+        if sender != owner and sender not in administrators:
+            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
+                'template': 'Not allowed to reset members of group: ${ID}',
+                'replacements': {
+                    'ID': str(group),
+                }
+            })
+        # 2.1. check owner
+        if owner != new_members[0]:
+            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
+                'template': 'Owner must be the first member of group: ${ID}',
+                'replacements': {
+                    'ID': str(group),
+                }
+            })
+        # 2.2. check admins
+        expel_admin = False
+        for admin in administrators:
+            if admin not in new_members:
+                expel_admin = True
+                break
+        if expel_admin:
+            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
+                'template': 'Not allowed to expel administrator of group: ${ID}',
+                'replacements': {
+                    'ID': str(group),
+                }
+            })
+        # 3. do reset
+        add_list, remove_list = self.__reset_members(group=group, old_members=members, new_members=new_members)
+        if add_list is not None and len(add_list) > 0:
+            content['added'] = ID.revert(add_list)
+        if remove_list is not None and len(remove_list) > 0:
+            content['removed'] = ID.revert(remove_list)
+        # 4. save the reset command
+        user = self.facebook.current_user
+        if user.identifier == owner or user.identifier in administrators:
+            # this is the group owner (or administrator),
+            # it has permission to reset group members, so
+            # no need to save the reset command here.
+            pass
+        else:
+            # this is a group bot, it has no permission to change group members,
+            # so save the reset command here for next querying from other members.
+            db = self.facebook.database
+            db.save_reset_command_message(group=group, content=content, msg=r_msg)
+        # no need to response this group command
+        return []
+
+    def __reset_members(self, group: ID, old_members: List[ID],
+                        new_members: List[ID]) -> Tuple[Optional[List[ID]], Optional[List[ID]]]:
+        # build invited-list
+        add_list = []
+        for item in new_members:
+            if item not in old_members:
+                # adding member found
+                add_list.append(item)
+        # build expelled-list
         remove_list = []
-        for item in members:
+        for item in old_members:
             if item not in new_members:
                 # removing member found
                 remove_list.append(item)
-        # 2.3. build invited-list
-        add_list = []
-        for item in new_members:
-            if item not in members:
-                # adding member found
-                add_list.append(item)
-        # 2.4. do reset
-        if len(add_list) > 0 or len(remove_list) > 0:
-            man = group_manager()
-            if man.save_members(members=new_members, group=group):
-                if len(add_list) > 0:
-                    content['added'] = ID.revert(add_list)
-                if len(remove_list) > 0:
-                    content['removed'] = ID.revert(remove_list)
-        # 3. response (no need to response this group command)
-        return []
-
-
-def group_manager():
-    from ..group import GroupManager
-    return GroupManager()
+        if len(add_list) == 0 and len(remove_list) == 0:
+            # nothing changed
+            return None, None
+        if self.save_members(members=new_members, group=group):
+            return add_list, remove_list
+        assert False, 'failed to save members in group: %s, %s' % (group, new_members)

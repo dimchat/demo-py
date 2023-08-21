@@ -48,8 +48,10 @@ from .cpu import TextContentProcessor
 from .cpu import HandshakeCommandProcessor
 from .cpu import LoginCommandProcessor
 from .cpu import HistoryCommandProcessor, GroupCommandProcessor
-from .cpu import InviteCommandProcessor, ExpelCommandProcessor, QuitCommandProcessor
+from .cpu import InviteCommandProcessor, ExpelCommandProcessor
+from .cpu import JoinCommandProcessor, QuitCommandProcessor
 from .cpu import ResetCommandProcessor, QueryCommandProcessor
+from .cpu import ResignCommandProcessor
 
 
 class ClientMessageProcessor(MessageProcessor, Logging):
@@ -145,11 +147,15 @@ class ClientContentProcessorCreator(BaseContentProcessorCreator):
             return InviteCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd == GroupCommand.EXPEL:
             return ExpelCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        elif cmd == GroupCommand.JOIN:
+            return JoinCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd == GroupCommand.QUIT:
             return QuitCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd == GroupCommand.QUERY:
             return QueryCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd == GroupCommand.RESET:
             return ResetCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        elif cmd == GroupCommand.RESIGN:
+            return ResignCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
         return super().create_command_processor(msg_type=msg_type, cmd=cmd)

@@ -34,12 +34,16 @@
 
 """
 
-from typing import List
+from typing import Optional, Union, List
 
-from dimsdk import ID, ReliableMessage
-from dimsdk import Content
+from dimsdk import ID, Bulletin
+from dimsdk import ReliableMessage
+from dimsdk import Content, ForwardContent
 from dimsdk import Command, GroupCommand
+from dimsdk import InviteCommand, JoinCommand
 from dimsdk import BaseCommandProcessor
+
+from ...common import CommonFacebook, CommonMessenger
 
 
 class HistoryCommandProcessor(BaseCommandProcessor):
@@ -57,8 +61,44 @@ class HistoryCommandProcessor(BaseCommandProcessor):
 
 class GroupCommandProcessor(HistoryCommandProcessor):
 
+    @property
+    def messenger(self) -> CommonMessenger:
+        transceiver = super().messenger
+        assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
+        return transceiver
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
+
+    def group_owner(self, group: ID) -> Optional[ID]:
+        facebook = self.facebook
+        return facebook.owner(identifier=group)
+
+    def group_members(self, group: ID) -> List[ID]:
+        facebook = self.facebook
+        return facebook.members(identifier=group)
+
+    def group_assistants(self, group: ID) -> List[ID]:
+        facebook = self.facebook
+        return facebook.assistants(identifier=group)
+
+    def group_administrators(self, group: ID) -> List[ID]:
+        db = self.facebook.database
+        return db.administrators(group=group)
+
+    def save_members(self, members: List[ID], group: ID) -> bool:
+        db = self.facebook.database
+        return db.save_members(members=members, group=group)
+
+    def save_administrators(self, administrators: List[ID], group: ID) -> bool:
+        db = self.facebook.database
+        return db.save_administrators(administrators=administrators, group=group)
+
     @staticmethod
-    def members(content: GroupCommand) -> List[ID]:
+    def command_members(content: GroupCommand) -> List[ID]:
         # get from 'members'
         array = content.members
         if array is None:
@@ -79,3 +119,41 @@ class GroupCommandProcessor(HistoryCommandProcessor):
                 'command': content.cmd,
             }
         })
+
+    def _add_invitation(self, content: Union[InviteCommand, JoinCommand]):
+        """ add 'invite', 'join' commands to bulletin.invitations for owner/admins to review """
+        group = content.group
+        owner = self.group_owner(group=group)
+        administrators = self.group_administrators(group=group)
+        user = self.facebook.current_user
+        if user.identifier != owner and user.identifier not in administrators:
+            # only add invitation for owner/admin
+            return False
+        bulletin = self.facebook.document(identifier=group)
+        assert isinstance(bulletin, Bulletin), 'group document error: %s, %s' % (group, bulletin)
+        invitations = bulletin.get('invitations')
+        if isinstance(invitations, List):
+            invitations.append(content.dictionary)
+        else:
+            bulletin['invitations'] = [content.dictionary]
+        return self.facebook.save_document(document=bulletin)
+
+    def _send_reset_command(self, group: ID, members: List[ID], receiver: ID):
+        """ send a reset command with newest members to the receiver """
+        owner = self.group_owner(group=group)
+        administrators = self.group_administrators(group=group)
+        user = self.facebook.current_user
+        if user.identifier == owner or user.identifier in administrators:
+            # this is the group owner (or administrator), so
+            # it has permission to reset group members here.
+            content = GroupCommand.reset(group=group, members=members)
+        else:
+            # this is a group bot, it has no permission to change group members,
+            # try to load reset command from database which sent by the owner or an administrator
+            db = self.facebook.database
+            _, msg = db.reset_command_message(group=group)
+            if msg is None:
+                return False
+            content = ForwardContent.create(message=msg)
+        self.messenger.send_content(sender=user.identifier, receiver=receiver, content=content, priority=1)
+        return True

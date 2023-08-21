@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
+#
+#   DIMP : Decentralized Instant Messaging Protocol
+#
+#                                Written in 2019 by Moky <albert.moky@gmail.com>
+#
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2022 Albert Moky
+# Copyright (c) 2019 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,53 +29,31 @@
 # ==============================================================================
 
 """
-    Database Interfaces
-    ~~~~~~~~~~~~~~~~~~~
-
+    Group Command Protocol
+    ~~~~~~~~~~~~~~~~~~~~~~
 """
 
-from typing import Optional
+from abc import ABC
+from typing import Dict, Any
 
-from .account import PrivateKeyDBI, MetaDBI, DocumentDBI
-from .account import UserDBI, GroupDBI, ResetGroupDBI
-from .account import AccountDBI
-
-from .message import ReliableMessageDBI, CipherKeyDBI, GroupKeysDBI
-from .message import MessageDBI
-
-from .session import LoginDBI, ProviderDBI, StationDBI
-from .session import SessionDBI
-from .session import ProviderInfo, StationInfo
+from dimsdk import ID
+from dimsdk import GroupCommand, BaseGroupCommand
 
 
-def is_expired(old_time: Optional[float], new_time: Optional[float]) -> bool:
-    if old_time is None or new_time is None:
-        return False
-    else:
-        return 0 < new_time < old_time
+# noinspection PyAbstractClass
+class ResignCommand(GroupCommand, ABC):
+    pass
 
 
-__all__ = [
+class ResignGroupCommand(BaseGroupCommand, ResignCommand):
 
-    'is_expired',
+    def __init__(self, content: Dict[str, Any] = None, group: ID = None):
+        """
+        Create resign group administrator command
 
-    #
-    #   Account
-    #
-    'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
-    'UserDBI', 'GroupDBI', 'ResetGroupDBI',
-    'AccountDBI',
-
-    #
-    #   Message
-    #
-    'ReliableMessageDBI', 'CipherKeyDBI', 'GroupKeysDBI',
-    'MessageDBI',
-
-    #
-    #   Session
-    #
-    'LoginDBI', 'ProviderDBI', 'StationDBI',
-    'SessionDBI',
-    'ProviderInfo', 'StationInfo',
-]
+        :param content: command content
+        :param group:   group ID
+        :return: ResignCommand object
+        """
+        super().__init__(content=content, cmd=GroupCommand.RESIGN,
+                         group=group)

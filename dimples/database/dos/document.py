@@ -92,4 +92,9 @@ def parse_document(dictionary: dict, identifier: ID = None, doc_type: str = '*')
     signature = dictionary.get('signature')
     if data is None or signature is None:
         raise ValueError('document error: %s' % dictionary)
-    return Document.create(doc_type=doc_type, identifier=identifier, data=data, signature=signature)
+    doc = Document.create(doc_type=doc_type, identifier=identifier, data=data, signature=signature)
+    for key in dictionary:
+        if key == 'ID' or key == 'data' or key == 'signature':
+            continue
+        doc[key] = dictionary[key]
+    return doc

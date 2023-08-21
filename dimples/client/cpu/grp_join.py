@@ -2,12 +2,12 @@
 #
 #   DIM-SDK : Decentralized Instant Messaging Software Development Kit
 #
-#                                Written in 2019 by Moky <albert.moky@gmail.com>
+#                                Written in 2023 by Moky <albert.moky@gmail.com>
 #
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2019 Albert Moky
+# Copyright (c) 2023 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,27 +29,27 @@
 # ==============================================================================
 
 """
-    Query Group Command Processor
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Join Group Command Processor
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    1. query for group members-list
-    2. any existed member or assistant can query group members-list
+    1. stranger can join a group
+    2. only group owner or administrator can review this command
 """
 
 from typing import List
 
 from dimsdk import ReliableMessage
 from dimsdk import Content
-from dimsdk import QueryCommand
+from dimsdk import JoinCommand
 
 from .history import GroupCommandProcessor
 
 
-class QueryCommandProcessor(GroupCommandProcessor):
+class JoinCommandProcessor(GroupCommandProcessor):
 
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
-        assert isinstance(content, QueryCommand), 'query command error: %s' % content
+        assert isinstance(content, JoinCommand), 'join command error: %s' % content
         group = content.group
         # 1. check group
         owner = self.group_owner(group=group)
@@ -61,17 +61,15 @@ class QueryCommandProcessor(GroupCommandProcessor):
                     'ID': str(group),
                 }
             })
-        assistants = self.group_assistants(group=group)
-        # 2. check permission
+        # 2. check membership
         sender = r_msg.sender
-        if sender not in members and sender not in assistants:
-            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
-                'template': 'Not allowed to query members of group: ${ID}',
-                'replacements': {
-                    'ID': str(group),
-                }
-            })
-        # 3. send the reset command with newest members
-        self._send_reset_command(group=group, members=members, receiver=sender)
+        if sender in members:
+            # maybe the sender is already a member,
+            # but if it can still receive a join command here,
+            # we should respond the sender with the newest membership again.
+            self._send_reset_command(group=group, members=members, receiver=sender)
+        else:
+            # add an invitation in bulletin for reviewing
+            self._add_invitation(content=content)
         # no need to response this group command
         return []

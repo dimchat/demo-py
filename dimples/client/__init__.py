@@ -29,8 +29,6 @@
 
 """
 
-from .cpu import *
-
 from .network import ClientSession
 from .network import SessionState
 
@@ -43,12 +41,6 @@ from .checkpoint import Checkpoint
 
 
 __all__ = [
-
-    #
-    #   CPU
-    #
-    'HandshakeCommandProcessor',
-    'LoginCommandProcessor',
 
     #
     #   Client
