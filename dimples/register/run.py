@@ -43,8 +43,7 @@ from dimples.database import Storage
 from dimples.config import Config
 from dimples.register.shared import GlobalVariable
 from dimples.register.shared import create_database
-from dimples.register.generate import generate
-from dimples.register.modify import modify
+from dimples.register.shared import generate, modify
 
 
 #
@@ -110,11 +109,11 @@ def main():
     create_database(shared=shared)
     # check actions
     if len(args) == 1 and args[0] == 'generate':
-        generate(db=shared.adb)
+        generate(database=shared.adb)
     elif len(args) == 2 and args[0] == 'modify':
         identifier = ID.parse(identifier=args[1])
         assert identifier is not None, 'ID error: %s' % args[1]
-        modify(identifier=identifier, db=shared.adb)
+        modify(identifier=identifier, database=shared.adb)
     else:
         show_help()
 

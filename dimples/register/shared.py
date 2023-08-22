@@ -25,11 +25,20 @@
 
 from typing import Optional
 
+from dimsdk import EntityType
+from dimsdk import ID, Bulletin
+from dimplugins.network import NetworkType, network_to_type
+
 from ..utils import Singleton
 from ..common import AccountDBI
 from ..database import AccountDatabase
 
 from ..config import Config
+
+
+from .base import BaseAccount
+from .ext import GroupAccount
+from .ext import UserAccount, BotAccount, StationAccount
 
 
 @Singleton
@@ -51,3 +60,61 @@ def create_database(shared: GlobalVariable) -> AccountDBI:
     adb.show_info()
     shared.adb = adb
     return adb
+
+
+def create_account(network: int, database: AccountDBI) -> BaseAccount:
+    if EntityType.is_group(network=network_to_type(network=network)):
+        return GroupAccount(database=database)
+    elif network in [EntityType.STATION, NetworkType.STATION]:
+        return StationAccount(database=database)
+    elif network in [EntityType.BOT, NetworkType.BOT]:
+        return BotAccount(database=database)
+    else:
+        return UserAccount(database=database)
+
+
+def generate(database: AccountDBI):
+    print('Generating DIM account...')
+    #
+    #   Step 0. get entity type, meta type & meta seed (ID.name)
+    #
+    network = BaseAccount.get_address_type()
+    version = BaseAccount.get_meta_type(address_type=network)
+    seed = BaseAccount.get_meta_seed(meta_type=version, address_type=network)
+    #
+    #   Step 1. generate account
+    #
+    account = create_account(network=network, database=database)
+    if isinstance(account, GroupAccount):
+        founder = account.get_founder()
+        assert founder is not None, 'failed to get founder'
+        account.load_founder(founder=founder)
+    account.generate(network=network, version=version, seed=seed)
+    #
+    #   Step 2. edit & save
+    #
+    account.update()
+    account.show_info()
+
+
+def modify(identifier: ID, database: AccountDBI):
+    print('Modifying DIM account...')
+    #
+    #   Step 0: check meta & document
+    #
+    network = identifier.type
+    #
+    #   Step 1: create account
+    #
+    account = create_account(network=network, database=database)
+    meta, doc = account.load_info(identifier=identifier)
+    if isinstance(account, GroupAccount):
+        assert isinstance(doc, Bulletin), 'group document error: %s' % doc
+        founder = doc.founder
+        assert founder is not None, 'founder not found: %s' % doc
+        account.load_founder(founder=founder)
+    #
+    #   Step 2. edit & save
+    #
+    account.update()
+    account.show_info()
