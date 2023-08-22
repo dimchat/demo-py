@@ -32,7 +32,6 @@
 from .network import ClientSession
 from .network import SessionState
 
-from .group import GroupManager
 from .messenger import ClientMessenger
 from .packer import ClientMessagePacker
 from .processor import ClientMessageProcessor, ClientContentProcessorCreator
@@ -47,7 +46,6 @@ __all__ = [
     #
     'ClientSession', 'SessionState',
 
-    'GroupManager',
     'ClientMessenger',
     'ClientMessagePacker',
     'ClientMessageProcessor', 'ClientContentProcessorCreator',

@@ -175,6 +175,7 @@ def gen_group(network: int, seed: str, founder: ID, sign_key: SignKey) -> Accoun
     assert isinstance(doc, Bulletin), 'bulletin error: %s' % doc
     name = input('>>> please input group name: ')
     doc.name = name
+    doc.set_property(key='founder', value=str(founder))
     print('!!! group info: %s "%s", founder: %s' % (identifier, name, founder))
     # sign
     doc.sign(private_key=sign_key)
