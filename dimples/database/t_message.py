@@ -58,8 +58,7 @@ class ReliableMessageTable(ReliableMessageDBI):
         if messages is None:
             return []
         # only last cached messages will be returned
-        total = len(messages)
-        if total > limit:
+        if 0 < limit < len(messages):
             messages = messages[-limit:]
         return messages
 

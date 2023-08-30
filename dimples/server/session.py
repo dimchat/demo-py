@@ -87,12 +87,19 @@ class ServerSession(BaseSession):
     def key(self) -> str:
         return self.__key
 
+    async def __load_cached_messages(self):
+        if self.identifier is None or not self.active:
+            return False
+        # load cached message asynchronously
+        await load_cached_messages(self)
+        return True
+
     # Override
     def set_identifier(self, identifier: ID) -> bool:
         old = self.identifier
         if super().set_identifier(identifier=identifier):
             session_change_id(session=self, new_id=identifier, old_id=old)
-            load_cached_messages(session=self)
+            self.__load_cached_messages()
             return True
 
     # Override
@@ -100,7 +107,7 @@ class ServerSession(BaseSession):
         if super().set_active(active=active, when=when):
             session_change_active(session=self, active=active)
             if active:
-                load_cached_messages(session=self)
+                self.__load_cached_messages()
             return True
 
     @property  # Override
@@ -201,10 +208,9 @@ def session_change_active(session: ServerSession, active: bool):
         return True
 
 
-def load_cached_messages(session: ServerSession) -> int:
+async def load_cached_messages(session: ServerSession):
     identifier = session.identifier
-    if identifier is None or not session.active:
-        return -1
+    assert identifier is not None and session.active, 'session error: %s' % identifier
     messenger = session.messenger
     db = messenger.database
     limit = ReliableMessageDBI.CACHE_LIMIT
@@ -214,4 +220,3 @@ def load_cached_messages(session: ServerSession) -> int:
     for msg in messages:
         data = messenger.serialize_message(msg=msg)
         session.queue_message_package(msg=msg, data=data, priority=1)
-    return cnt
