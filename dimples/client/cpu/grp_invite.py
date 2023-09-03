@@ -37,7 +37,7 @@
     3. invited by ordinary member should be reviewed by owner/administrator
 """
 
-from typing import Optional, List
+from typing import List, Tuple
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
@@ -54,6 +54,9 @@ class InviteCommandProcessor(GroupCommandProcessor):
         assert isinstance(content, InviteCommand), 'invite command error: %s' % content
         group = content.group
         # 0. check command
+        if self._is_command_expired(command=content):
+            # ignore expired command
+            return []
         invite_list = self.command_members(content=content)
         if len(invite_list) == 0:
             return self._respond_receipt(text='Command error.', msg=r_msg, group=group, extra={
@@ -66,6 +69,7 @@ class InviteCommandProcessor(GroupCommandProcessor):
         owner = self.group_owner(group=group)
         members = self.group_members(group=group)
         if owner is None or len(members) == 0:
+            # TODO: query group members?
             return self._respond_receipt(text='Group empty.', msg=r_msg, group=group, extra={
                 'template': 'Group empty: ${ID}',
                 'replacements': {
@@ -83,27 +87,30 @@ class InviteCommandProcessor(GroupCommandProcessor):
             })
         administrators = self.group_administrators(group=group)
         # 3. do invite
+        new_members, added_list = calculate_invited(members=members, invite_list=invite_list)
         if sender == owner or sender in administrators:
             # invite by owner or admin, so
             # append them directly.
-            added_list = self.__append_members(group=group, members=members, invite_list=invite_list)
-            if added_list is not None:
+            if len(added_list) > 0 and self.save_members(members=new_members, group=group):
                 content['added'] = ID.revert(array=added_list)
         else:
-            # add an invitation in bulletin for reviewing
-            self._add_invitation(content=content)
+            if len(added_list) == 0:
+                # maybe the invited users are already become members,
+                # but if it can still receive a join command here,
+                # we should respond the sender with the newest membership again.
+                self._send_reset_command(group=group, members=new_members, receiver=sender)
+            else:
+                # add 'invite' application for waiting review
+                self._add_application(command=content, message=r_msg)
         # no need to response this group command
         return []
 
-    def __append_members(self, group: ID, members: List[ID], invite_list: List[ID]) -> Optional[List[ID]]:
-        added_list = []
-        for item in invite_list:
-            if item not in members:
-                members.append(item)
-                added_list.append(item)
-        if len(added_list) == 0:
-            # nothing changed
-            return None
-        if self.save_members(members=members, group=group):
-            return added_list
-        assert False, 'failed to save members in group: %s, %s' % (group, members)
+
+def calculate_invited(members: List[ID], invite_list: List[ID]) -> Tuple[List[ID], List[ID]]:
+    new_members = members.copy()
+    added_list = []
+    for item in invite_list:
+        if item not in new_members:
+            new_members.append(item)
+            added_list.append(item)
+    return new_members, added_list

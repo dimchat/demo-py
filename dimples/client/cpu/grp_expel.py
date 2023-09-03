@@ -36,7 +36,7 @@
     2. only group owner or administrator can expel member
 """
 
-from typing import Optional, List
+from typing import List, Tuple
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
@@ -54,6 +54,9 @@ class ExpelCommandProcessor(GroupCommandProcessor):
         assert isinstance(content, ExpelCommand), 'expel command error: %s' % content
         group = content.group
         # 0. check command
+        if self._is_command_expired(command=content):
+            # ignore expired command
+            return []
         expel_list = self.command_members(content=content)
         if len(expel_list) == 0:
             return self._respond_receipt(text='Command error.', msg=r_msg, group=group, extra={
@@ -66,6 +69,7 @@ class ExpelCommandProcessor(GroupCommandProcessor):
         owner = self.group_owner(group=group)
         members = self.group_members(group=group)
         if owner is None or len(members) == 0:
+            # TODO: query group members?
             return self._respond_receipt(text='Group empty.', msg=r_msg, group=group, extra={
                 'template': 'Group empty: ${ID}',
                 'replacements': {
@@ -104,23 +108,20 @@ class ExpelCommandProcessor(GroupCommandProcessor):
                 }
             })
         # 3. do expel
-        remove_list = self.__remove_members(group=group, members=members, expel_list=expel_list)
-        if remove_list is not None:
+        new_members, remove_list = calculate_expelled(members=members, expel_list=expel_list)
+        if len(remove_list) > 0 and self.save_members(members=new_members, group=group):
             content['removed'] = ID.revert(array=remove_list)
         # no need to response this group command
         return []
 
-    def __remove_members(self, group: ID, members: List[ID], expel_list: List[ID]) -> Optional[List[ID]]:
-        remove_list = []
-        for item in expel_list:
-            if item not in members:
-                continue
+
+def calculate_expelled(members: List[ID], expel_list: List[ID]) -> Tuple[List[ID], List[ID]]:
+    new_members = []
+    remove_list = []
+    for item in members:
+        if item in expel_list:
             # expelled member found
             remove_list.append(item)
-            members.remove(item)
-        if len(remove_list) == 0:
-            # nothing changed
-            return None
-        if self.save_members(members=members, group=group):
-            return remove_list
-        assert False, 'failed to save members in group: %s, %s' % (group, members)
+        else:
+            new_members.append(item)
+    return new_members, remove_list

@@ -49,6 +49,7 @@ from dimsdk import Content
 from dimsdk import ResetCommand
 
 from .history import GroupCommandProcessor
+from .history import update_reset_command_message
 
 
 class ResetCommandProcessor(GroupCommandProcessor):
@@ -70,6 +71,7 @@ class ResetCommandProcessor(GroupCommandProcessor):
         owner = self.group_owner(group=group)
         members = self.group_members(group=group)
         if owner is None or len(members) == 0:
+            # TODO: query group members?
             return self._respond_receipt(text='Group empty.', msg=r_msg, group=group, extra={
                 'template': 'Group empty: ${ID}',
                 'replacements': {
@@ -107,24 +109,17 @@ class ResetCommandProcessor(GroupCommandProcessor):
                     'ID': str(group),
                 }
             })
-        # 3. do reset
+        # 3. try to save 'reset' command
+        db = self.messenger.facebook.database
+        if not update_reset_command_message(group=group, cmd=content, msg=r_msg, database=db):
+            # newer 'reset' command exists, drop this command
+            return []
+        # 4. do reset
         add_list, remove_list = self.__reset_members(group=group, old_members=members, new_members=new_members)
         if add_list is not None and len(add_list) > 0:
             content['added'] = ID.revert(add_list)
         if remove_list is not None and len(remove_list) > 0:
             content['removed'] = ID.revert(remove_list)
-        # 4. save the reset command
-        user = self.facebook.current_user
-        if user.identifier == owner or user.identifier in administrators:
-            # this is the group owner (or administrator),
-            # it has permission to reset group members, so
-            # no need to save the reset command here.
-            pass
-        else:
-            # this is a group bot, it has no permission to change group members,
-            # so save the reset command here for next querying from other members.
-            db = self.facebook.database
-            db.save_reset_command_message(group=group, content=content, msg=r_msg)
         # no need to response this group command
         return []
 

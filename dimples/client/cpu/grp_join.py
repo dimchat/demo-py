@@ -51,10 +51,15 @@ class JoinCommandProcessor(GroupCommandProcessor):
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, JoinCommand), 'join command error: %s' % content
         group = content.group
+        # 0. check command
+        if self._is_command_expired(command=content):
+            # ignore expired command
+            return []
         # 1. check group
         owner = self.group_owner(group=group)
         members = self.group_members(group=group)
         if owner is None or len(members) == 0:
+            # TODO: query group members?
             return self._respond_receipt(text='Group empty.', msg=r_msg, group=group, extra={
                 'template': 'Group empty: ${ID}',
                 'replacements': {
@@ -69,7 +74,7 @@ class JoinCommandProcessor(GroupCommandProcessor):
             # we should respond the sender with the newest membership again.
             self._send_reset_command(group=group, members=members, receiver=sender)
         else:
-            # add an invitation in bulletin for reviewing
-            self._add_invitation(content=content)
+            # add 'join' application for waiting review
+            self._add_application(command=content, message=r_msg)
         # no need to response this group command
         return []
