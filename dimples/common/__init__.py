@@ -57,6 +57,7 @@ __all__ = [
 
     'ReliableMessageDBI', 'CipherKeyDBI', 'GroupKeysDBI',
     'MessageDBI',
+    'get_msg_sig',
 
     'LoginDBI', 'ProviderDBI', 'StationDBI',
     'SessionDBI',

@@ -39,15 +39,17 @@ import socket
 import traceback
 from typing import Optional, List, Tuple
 
-from dimsdk import ID
+from dimsdk import ID, EntityType
+from dimsdk import ReliableMessage
 
 from startrek import Docker, DockerStatus
-from startrek import Arrival
+from startrek import Arrival, Departure
 
 from ..utils import hex_encode, random_bytes
 from ..utils import Log
-from ..common import SessionDBI
-from ..common import ReliableMessageDBI
+from ..common import get_msg_sig
+from ..common import SessionDBI, MessageDBI, ReliableMessageDBI
+from ..conn import MessageWrapper
 from ..conn import BaseSession
 from ..conn import WSArrival, MarsStreamArrival, MTPStreamArrival
 
@@ -166,6 +168,16 @@ class ServerSession(BaseSession):
             # station MUST respond something to client request (Tencent Mars)
             gate.send_response(payload=b'', ship=ship, remote=source, local=destination)
 
+    # Override
+    def docker_sent(self, ship: Departure, docker: Docker):
+        if isinstance(ship, MessageWrapper):
+            msg = ship.msg
+            if msg is not None:
+                # remove from database for actual receiver
+                receiver = self.identifier
+                db = self.messenger.database
+                remove_reliable_message(msg=msg, receiver=receiver, database=db)
+
 
 def get_data_packages(ship: Arrival) -> List[bytes]:
     # get payload
@@ -220,3 +232,25 @@ async def load_cached_messages(session: ServerSession):
     for msg in messages:
         data = messenger.serialize_message(msg=msg)
         session.queue_message_package(msg=msg, data=data, priority=1)
+
+
+def remove_reliable_message(msg: ReliableMessage, receiver: ID, database: MessageDBI):
+    # 0. if session ID is empty, means user not login;
+    #    this message must be a handshake command, and
+    #    its receiver must be the targeted user.
+    # 1. if this session is a station, check original receiver;
+    #    a message to station won't be stored.
+    # 2. if the msg.receiver is a different user ID, means it's
+    #    a roaming message, remove it for actual receiver.
+    # 3. if the original receiver is a group, it must had been
+    #    replaced to the group assistant ID by GroupDeliver.
+    if receiver is None or receiver.type == EntityType.STATION:
+        # if msg.receiver == receiver:
+        #     # station message won't be stored
+        #     return False
+        receiver = msg.receiver
+    sig = get_msg_sig(msg=msg)
+    print('[QUEUE] message (%s) sent, remove from db: %s => %s (%s)'
+          % (sig, msg.sender, msg.receiver, receiver))
+    # remove sent message from database
+    return database.remove_reliable_message(msg=msg, receiver=receiver)

@@ -37,6 +37,7 @@ from .account import AccountDBI
 
 from .message import ReliableMessageDBI, CipherKeyDBI, GroupKeysDBI
 from .message import MessageDBI
+from .message import get_msg_sig
 
 from .session import LoginDBI, ProviderDBI, StationDBI
 from .session import SessionDBI
@@ -66,6 +67,7 @@ __all__ = [
     #
     'ReliableMessageDBI', 'CipherKeyDBI', 'GroupKeysDBI',
     'MessageDBI',
+    'get_msg_sig',
 
     #
     #   Session

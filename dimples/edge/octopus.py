@@ -46,7 +46,7 @@ from ..common import CommonFacebook
 from ..common import ProviderInfo
 from ..common import MessageDBI, SessionDBI
 from ..common import HandshakeCommand
-from ..conn.session import get_sig
+from ..common import get_msg_sig
 
 from ..client import ClientSession
 from ..client import ClientMessenger
@@ -168,7 +168,7 @@ class Octopus(Runner, Logging):
 
     def income_message(self, msg: ReliableMessage, priority: int = 0) -> List[ReliableMessage]:
         """ redirect message from remote station """
-        sig = get_sig(msg=msg)
+        sig = get_msg_sig(msg=msg)
         messenger = self.inner_messenger
         if messenger.send_reliable_message(msg=msg, priority=priority):
             self.info(msg='redirected msg (%s) for receiver (%s)' % (sig, msg.receiver))
@@ -191,11 +191,11 @@ class Octopus(Runner, Logging):
             return []
         msg.pop('neighbor', None)
         if messenger.send_reliable_message(msg=msg, priority=priority):
-            sig = get_sig(msg=msg)
+            sig = get_msg_sig(msg=msg)
             self.info(msg='redirected msg (%s) to target (%s) for receiver (%s)' % (sig, target, msg.receiver))
             # no need to respond receipt for station
             return []
-        sig = get_sig(msg=msg)
+        sig = get_msg_sig(msg=msg)
         self.error(msg='failed to redirect msg (%s) to target (%s) for receiver (%s)' % (sig, target, msg.receiver))
         return []
 
@@ -257,7 +257,7 @@ class OctopusMessenger(ClientMessenger, ABC):
                        % (msg.type, msg.sender, msg.receiver, get_remote_station(messenger=self), msg.get('traces')))
             return []
         # handshake accepted, redirecting message
-        sig = get_sig(msg=msg)
+        sig = get_msg_sig(msg=msg)
         self.info(msg='redirect msg(type=%d, sig=%s): %s -> %s | from %s, traces: %s'
                   % (msg.type, sig, msg.sender, msg.receiver, get_remote_station(messenger=self), msg.get('traces')))
         return self._deliver_message(msg=msg)

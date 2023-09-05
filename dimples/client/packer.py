@@ -36,7 +36,7 @@ from dimsdk import DocumentCommand
 from dimsdk import Messenger
 
 from ..utils import base64_encode, sha256
-from ..conn.session import get_sig
+from ..common import get_msg_sig
 from ..common import CommonFacebook, CommonMessagePacker
 from .checkpoint import Checkpoint
 
@@ -96,7 +96,7 @@ class ClientMessagePacker(CommonMessagePacker):
 
     def _message_duplicated(self, msg: ReliableMessage) -> bool:
         if g_checkpoint.duplicated(msg=msg):
-            sig = get_sig(msg=msg)
+            sig = get_msg_sig(msg=msg)
             self.warning(msg='drop duplicated message (%s): %s -> %s' % (sig, msg.sender, msg.receiver))
             return True
 
