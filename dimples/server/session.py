@@ -35,6 +35,7 @@
     for login user
 """
 
+import asyncio
 import socket
 import traceback
 from typing import Optional, List, Tuple
@@ -89,11 +90,11 @@ class ServerSession(BaseSession):
     def key(self) -> str:
         return self.__key
 
-    async def __load_cached_messages(self):
+    def __load_cached_messages(self):
         if self.identifier is None or not self.active:
             return False
         # load cached message asynchronously
-        await load_cached_messages(self)
+        asyncio.run(load_cached_messages(self))
         return True
 
     # Override

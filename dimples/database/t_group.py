@@ -37,16 +37,19 @@ from .dos import GroupStorage
 class GroupTable(GroupDBI):
     """ Implementations of GroupDBI """
 
+    CACHE_EXPIRES = 300    # seconds
+    CACHE_REFRESHING = 32  # seconds
+
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
+        self.__dos = GroupStorage(root=root, public=public, private=private)
         man = CacheManager()
         self.__members_cache = man.get_pool(name='group.members')                # ID => List[ID]
         self.__assistants_cache = man.get_pool(name='group.assistants')          # ID => List[ID]
         self.__administrators_cache = man.get_pool(name='group.administrators')  # ID => List[ID]
-        self.__group_storage = GroupStorage(root=root, public=public, private=private)
 
     def show_info(self):
-        self.__group_storage.show_info()
+        self.__dos.show_info()
 
     #
     #   Group DBI
@@ -62,26 +65,26 @@ class GroupTable(GroupDBI):
             # cache empty
             if holder is None:
                 # cache not load yet, wait to load
-                self.__members_cache.update(key=group, life_span=128, now=now)
+                self.__members_cache.update(key=group, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
                     # cache not exists
                     return []
                 # cache expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            value = self.__group_storage.members(group=group)
+            value = self.__dos.members(group=group)
             # 3. update memory cache
-            self.__members_cache.update(key=group, value=value, life_span=600, now=now)
+            self.__members_cache.update(key=group, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
     # Override
     def save_members(self, members: List[ID], group: ID) -> bool:
         # 1. store into memory cache
-        self.__members_cache.update(key=group, value=members, life_span=600)
+        self.__members_cache.update(key=group, value=members, life_span=self.CACHE_EXPIRES)
         # 2. store into local storage
-        return self.__group_storage.save_members(members=members, group=group)
+        return self.__dos.save_members(members=members, group=group)
 
     # Override
     def assistants(self, group: ID) -> List[ID]:
@@ -93,26 +96,26 @@ class GroupTable(GroupDBI):
             # cache empty
             if holder is None:
                 # cache not load yet, wait to load
-                self.__assistants_cache.update(key=group, life_span=128, now=now)
+                self.__assistants_cache.update(key=group, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
                     # cache not exists
                     return []
                 # cache expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            value = self.__group_storage.assistants(group=group)
+            value = self.__dos.assistants(group=group)
             # 3. update memory cache
-            self.__assistants_cache.update(key=group, value=value, life_span=600, now=now)
+            self.__assistants_cache.update(key=group, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
     # Override
     def save_assistants(self, assistants: List[ID], group: ID) -> bool:
         # 1. store into memory cache
-        self.__assistants_cache.update(key=group, value=assistants, life_span=600)
+        self.__assistants_cache.update(key=group, value=assistants, life_span=self.CACHE_EXPIRES)
         # 2. store into local storage
-        return self.__group_storage.save_assistants(assistants=assistants, group=group)
+        return self.__dos.save_assistants(assistants=assistants, group=group)
 
     # Override
     def administrators(self, group: ID) -> List[ID]:
@@ -124,23 +127,23 @@ class GroupTable(GroupDBI):
             # cache empty
             if holder is None:
                 # cache not load yet, wait to load
-                self.__administrators_cache.update(key=group, life_span=128, now=now)
+                self.__administrators_cache.update(key=group, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
                     # cache not exists
                     return []
                 # cache expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            value = self.__group_storage.administrators(group=group)
+            value = self.__dos.administrators(group=group)
             # 3. update memory cache
-            self.__administrators_cache.update(key=group, value=value, life_span=600, now=now)
+            self.__administrators_cache.update(key=group, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
     # Override
     def save_administrators(self, administrators: List[ID], group: ID) -> bool:
         # 1. store into memory cache
-        self.__administrators_cache.update(key=group, value=administrators, life_span=600)
+        self.__administrators_cache.update(key=group, value=administrators, life_span=self.CACHE_EXPIRES)
         # 2. store into local storage
-        return self.__group_storage.save_administrators(administrators=administrators, group=group)
+        return self.__dos.save_administrators(administrators=administrators, group=group)

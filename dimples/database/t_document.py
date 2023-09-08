@@ -38,14 +38,31 @@ from .dos import DocumentStorage
 class DocumentTable(DocumentDBI):
     """ Implementations of DocumentDBI """
 
+    CACHE_EXPIRES = 300    # seconds
+    CACHE_REFRESHING = 32  # seconds
+
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
+        self.__dos = DocumentStorage(root=root, public=public, private=private)
         man = CacheManager()
         self.__doc_cache = man.get_pool(name='document')  # ID => Document
-        self.__doc_storage = DocumentStorage(root=root, public=public, private=private)
 
     def show_info(self):
-        self.__doc_storage.show_info()
+        self.__dos.show_info()
+
+    def _is_expired(self, document: Document) -> bool:
+        """ check old record with document time """
+        new_time = document.time
+        if new_time is None or new_time <= 0:
+            return False
+        doc_type = document.type
+        if doc_type is None:
+            doc_type = '*'
+        # check old record
+        old = self.document(identifier=document.identifier, doc_type=doc_type)
+        if old is not None and is_expired(old_time=old.time, new_time=new_time):
+            # cache expired, drop it
+            return True
 
     #
     #   Document DBI
@@ -54,17 +71,15 @@ class DocumentTable(DocumentDBI):
     # Override
     def save_document(self, document: Document) -> bool:
         assert document.valid, 'document invalid: %s' % document
-        identifier = document.identifier
-        doc_type = document.type
-        # 0. check old record with time
-        old = self.document(identifier=identifier, doc_type=doc_type)
-        if old is not None and is_expired(old_time=old.time, new_time=document.time):
+        # 0. check document time
+        if self._is_expired(document=document):
             # document expired, drop it
             return False
+        identifier = document.identifier
         # 1. store into memory cache
-        self.__doc_cache.update(key=identifier, value=document, life_span=600)
+        self.__doc_cache.update(key=identifier, value=document, life_span=self.CACHE_EXPIRES)
         # 2. store into local storage
-        return self.__doc_storage.save_document(document=document)
+        return self.__dos.save_document(document=document)
 
     # Override
     def document(self, identifier: ID, doc_type: str = '*') -> Optional[Document]:
@@ -75,17 +90,17 @@ class DocumentTable(DocumentDBI):
         if value is None:
             # cache empty
             if holder is None:
-                # document not load yet, wait to load
-                self.__doc_cache.update(key=identifier, life_span=128, now=now)
+                # cache not load yet, wait to load
+                self.__doc_cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
-                    # document not exists
+                    # cache not exists
                     return None
-                # document expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                # cache expired, wait to reload
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            value = self.__doc_storage.document(identifier=identifier, doc_type=doc_type)
+            value = self.__dos.document(identifier=identifier, doc_type=doc_type)
             # 3. update memory cache
-            self.__doc_cache.update(key=identifier, value=value, life_span=600, now=now)
+            self.__doc_cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value

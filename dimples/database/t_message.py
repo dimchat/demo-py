@@ -36,18 +36,20 @@ from ..common import ReliableMessageDBI
 class ReliableMessageTable(ReliableMessageDBI):
     """ Implementations of ReliableMessageDBI """
 
+    CACHE_EXPIRES = 3600*24*7  # seconds
+
     # noinspection PyUnusedLocal
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         man = CacheManager()
-        self.__msg_cache = man.get_pool(name='message')  # ID => List[ReliableMessage]
+        self.__msg_cache = man.get_pool(name='reliable_messages')  # ID => List[ReliableMessage]
 
     # noinspection PyMethodMayBeStatic
     def show_info(self):
         print('!!! messages cached in memory only !!!')
 
     #
-    #   ReliableMessage DBI
+    #   Reliable Message DBI
     #
 
     # Override
@@ -69,19 +71,20 @@ class ReliableMessageTable(ReliableMessageDBI):
         messages, holder = self.__msg_cache.fetch(key=receiver, now=now)
         if messages is None:
             messages = [msg]
-            self.__msg_cache.update(key=receiver, value=messages, life_span=3600*24*7, now=now)
-        elif find_message(msg=msg, messages=messages) >= 0:
-            # duplicated
-            return False
-        else:
-            assert isinstance(messages, list), 'msg cache list error: %s' % messages
+            self.__msg_cache.update(key=receiver, value=messages, life_span=self.CACHE_EXPIRES, now=now)
+            return True
+        elif find_message(msg=msg, messages=messages) < 0:
+            assert isinstance(messages, List), 'msg cache list error: %s' % messages
             while len(messages) > ReliableMessageDBI.CACHE_LIMIT:
                 # overflow
                 messages.pop(0)
             # append to tail
             messages.append(msg)
             holder.update(value=messages, now=now)
-        return True
+            return True
+        else:
+            # duplicated
+            return False
 
     # Override
     def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:

@@ -36,31 +36,34 @@ from ..common import CipherKeyDBI
 class CipherKeyTable(CipherKeyDBI):
     """ Implementations of CipherKeyDBI """
 
+    CACHE_EXPIRES = 3600*24*7  # seconds
+
     # noinspection PyUnusedLocal
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         man = CacheManager()
-        self.__cipher_cache = man.get_pool(name='cipher')  # (ID, ID) => SymmetricKey
+        self.__keys_cache = man.get_pool(name='cipher_keys')  # (ID, ID) => SymmetricKey
 
     # noinspection PyMethodMayBeStatic
     def show_info(self):
         print('!!!      cipher key in memory only !!!')
 
     #
-    #   CipherKey DBI
+    #   Cipher Key DBI
     #
 
     # Override
     def cipher_key(self, sender: ID, receiver: ID, generate: bool = False) -> Optional[SymmetricKey]:
         if receiver.is_broadcast:
-            return plain_key
+            return PlainKey()
         now = time.time()
-        key, _ = self.__cipher_cache.fetch(key=(sender, receiver), now=now)
+        direction = (sender, receiver)
+        key, _ = self.__keys_cache.fetch(key=direction, now=now)
         if key is None and generate:
             # generate and cache it
             key = SymmetricKey.generate(algorithm=SymmetricKey.AES)
             assert key is not None, 'failed to generate symmetric key'
-            self.__cipher_cache.update(key=(sender, receiver), value=key, life_span=3600*24*7, now=now)
+            self.__keys_cache.update(key=direction, value=key, life_span=self.CACHE_EXPIRES, now=now)
         return key
 
     # Override
@@ -69,8 +72,7 @@ class CipherKeyTable(CipherKeyDBI):
             # no need to store cipher key for broadcast message
             return False
         now = time.time()
-        self.__cipher_cache.update(key=(sender, receiver), value=key, life_span=3600*24*7, now=now)
+        direction = (sender, receiver)
+        # 1. store into memory cache
+        self.__keys_cache.update(key=direction, value=key, life_span=self.CACHE_EXPIRES, now=now)
         return True
-
-
-plain_key = PlainKey()

@@ -40,14 +40,43 @@ from .dos import ResetGroupStorage
 class ResetGroupTable(ResetGroupDBI):
     """ Implementations of ResetGroupDBI """
 
+    CACHE_EXPIRES = 300    # seconds
+    CACHE_REFRESHING = 32  # seconds
+
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
+        self.__dos = ResetGroupStorage(root=root, public=public, private=private)
         man = CacheManager()
-        self.__reset_cache = man.get_pool(name='reset_group')  # ID => (ResetCommand, ReliableMessage)
-        self.__reset_storage = ResetGroupStorage(root=root, public=public, private=private)
+        self.__reset_cache = man.get_pool(name='group.reset')  # ID => (ResetCommand, ReliableMessage)
 
     def show_info(self):
-        self.__reset_storage.show_info()
+        self.__dos.show_info()
+
+    def _is_expired(self, group: ID, content: ResetCommand) -> bool:
+        """ check old record with document time """
+        new_time = content.time
+        if new_time is None or new_time <= 0:
+            return False
+        # check old record
+        old, _ = self.reset_command_message(group=group)
+        if old is not None and is_expired(old_time=old.time, new_time=new_time):
+            # command expired
+            return False
+
+    #
+    #   Reset Group DBI
+    #
+
+    # Override
+    def save_reset_command_message(self, group: ID, content: ResetCommand, msg: ReliableMessage) -> bool:
+        # 0. check command time
+        if self._is_expired(group=group, content=content):
+            # command expired, drop it
+            return False
+        # 1. store into memory cache
+        self.__reset_cache.update(key=group, value=(content, msg), life_span=self.CACHE_EXPIRES)
+        # 2. store into local storage
+        return self.__dos.save_reset_command_message(group=group, content=content, msg=msg)
 
     # Override
     def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
@@ -59,29 +88,17 @@ class ResetGroupTable(ResetGroupDBI):
             # cache empty
             if holder is None:
                 # cache not load yet, wait to load
-                self.__reset_cache.update(key=group, life_span=128, now=now)
+                self.__reset_cache.update(key=group, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
                     # cache not exists
                     return None, None
                 # cache expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            cmd, msg = self.__reset_storage.reset_command_message(group=group)
+            cmd, msg = self.__dos.reset_command_message(group=group)
             value = (cmd, msg)
             # 3. update memory cache
-            self.__reset_cache.update(key=group, value=value, life_span=600, now=now)
+            self.__reset_cache.update(key=group, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
-
-    # Override
-    def save_reset_command_message(self, group: ID, content: ResetCommand, msg: ReliableMessage) -> bool:
-        # 1. check old record
-        old, _ = self.reset_command_message(group=group)
-        if isinstance(old, ResetCommand) and is_expired(old_time=old.time, new_time=content.time):
-            # command expired
-            return False
-        # 2. store into memory cache
-        self.__reset_cache.update(key=group, value=(content, msg), life_span=600)
-        # 3. store into local storage
-        return self.__reset_storage.save_reset_command_message(group=group, content=content, msg=msg)

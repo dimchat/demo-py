@@ -39,14 +39,43 @@ from .dos import LoginStorage
 class LoginTable(LoginDBI):
     """ Implementations of LoginDBI """
 
+    CACHE_EXPIRES = 300    # seconds
+    CACHE_REFRESHING = 32  # seconds
+
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
+        self.__dos = LoginStorage(root=root, public=public, private=private)
         man = CacheManager()
         self.__login_cache = man.get_pool(name='login')  # ID => (LoginCommand, ReliableMessage)
-        self.__login_storage = LoginStorage(root=root, public=public, private=private)
 
     def show_info(self):
-        self.__login_storage.show_info()
+        self.__dos.show_info()
+
+    def _is_expired(self, user: ID, content: LoginCommand) -> bool:
+        """ check old record with command time """
+        new_time = content.time
+        if new_time is None or new_time <= 0:
+            return False
+        # check old record
+        old, _ = self.login_command_message(user=user)
+        if old is not None and is_expired(old_time=old.time, new_time=new_time):
+            # command expired
+            return False
+
+    #
+    #   Login DBI
+    #
+
+    # Override
+    def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
+        # 0. check command time
+        if self._is_expired(user=user, content=content):
+            # command expired, drop it
+            return False
+        # 1. store into memory cache
+        self.__login_cache.update(key=user, value=(content, msg), life_span=self.CACHE_EXPIRES)
+        # 2. store into local storage
+        return self.__dos.save_login_command_message(user=user, content=content, msg=msg)
 
     # Override
     def login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
@@ -58,29 +87,17 @@ class LoginTable(LoginDBI):
             # cache empty
             if holder is None:
                 # cache not load yet, wait to load
-                self.__login_cache.update(key=user, life_span=128, now=now)
+                self.__login_cache.update(key=user, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
                     # cache not exists
                     return None, None
                 # cache expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            cmd, msg = self.__login_storage.login_command_message(user=user)
+            cmd, msg = self.__dos.login_command_message(user=user)
             value = (cmd, msg)
             # 3. update memory cache
-            self.__login_cache.update(key=user, value=value, life_span=600, now=now)
+            self.__login_cache.update(key=user, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
-
-    # Override
-    def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
-        # 1. check old record
-        old, _ = self.login_command_message(user=user)
-        if isinstance(old, LoginCommand) and is_expired(old_time=old.time, new_time=content.time):
-            # command expired
-            return False
-        # 2. store into memory cache
-        self.__login_cache.update(key=user, value=(content, msg), life_span=600)
-        # 3. store into local storage
-        return self.__login_storage.save_login_command_message(user=user, content=content, msg=msg)

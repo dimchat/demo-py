@@ -37,59 +37,71 @@ from .dos import GroupKeysStorage
 class GroupKeysTable(GroupKeysDBI):
     """ Implementations of GroupKeysDBI """
 
+    CACHE_EXPIRES = 300    # seconds
+    CACHE_REFRESHING = 32  # seconds
+
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
+        self.__dos = GroupKeysStorage(root=root, public=public, private=private)
         man = CacheManager()
-        self.__group_keys_cache = man.get_pool(name='group_keys')  # (ID, ID) => Dict
-        self.__group_keys_storage = GroupKeysStorage(root=root, public=public, private=private)
+        self.__keys_cache = man.get_pool(name='group.keys')  # (ID, ID) => Dict
 
     def show_info(self):
-        self.__group_keys_storage.show_info()
+        self.__dos.show_info()
+
+    def _merge_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> Dict[str, str]:
+        if 'digest' not in keys:
+            # FIXME: old version?
+            return keys
+        # 0. check old record
+        table = self.group_keys(group=group, sender=sender)
+        if table is None or 'digest' not in table:
+            # new keys
+            return keys
+        elif table.get('digest') != keys.get('digest'):
+            # key changed
+            return keys
+        else:
+            # same digest, merge keys
+            table = table.copy()
+            for receiver in keys:
+                table[receiver] = keys[receiver]
+            return table
 
     #
     #   Group Keys DBI
     #
 
     # Override
-    def group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
+    def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
         identifier = (group, sender)
+        # 0. check old record
+        keys = self._merge_keys(group=group, sender=sender, keys=keys)
+        # 1. store into memory cache
+        self.__keys_cache.update(key=identifier, value=keys, life_span=self.CACHE_EXPIRES)
+        # 2. store into local storage
+        return self.__dos.save_group_keys(group=group, sender=sender, keys=keys)
+
+    # Override
+    def group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
         now = time.time()
+        identifier = (group, sender)
         # 1. check memory cache
-        value, holder = self.__group_keys_cache.fetch(key=identifier, now=now)
+        value, holder = self.__keys_cache.fetch(key=identifier, now=now)
         if value is None:
             # cache empty
             if holder is None:
                 # cache not load yet, wait to load
-                self.__group_keys_cache.update(key=identifier, life_span=128, now=now)
+                self.__keys_cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
                     # cache not exists
                     return None
                 # cache expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            value = self.__group_keys_storage.group_keys(group=group, sender=sender)
+            value = self.__dos.group_keys(group=group, sender=sender)
             # 3. update memory cache
-            self.__group_keys_cache.update(key=identifier, value=value, life_span=600, now=now)
+            self.__keys_cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
-
-    # Override
-    def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
-        identifier = (group, sender)
-        # 0. check old record
-        table = self.group_keys(group=group, sender=sender)
-        if table is None or 'digest' not in table or 'digest' not in keys:
-            # new keys
-            table = keys
-        elif table.get('digest') != keys.get('digest'):
-            # key changed
-            table = keys
-        else:
-            # same digest, merge keys
-            for receiver in keys:
-                table[receiver] = keys[receiver]
-        # 1. store into memory cache
-        self.__group_keys_cache.update(key=identifier, value=table, life_span=600)
-        # 2. store into local storage
-        return self.__group_keys_storage.save_group_keys(group=group, sender=sender, keys=table)

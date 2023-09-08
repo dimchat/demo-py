@@ -38,17 +38,19 @@ from .dos import StationStorage
 class StationTable(ProviderDBI, StationDBI):
     """ Implementations of ProviderDBI """
 
+    CACHE_EXPIRES = 300    # seconds
+    CACHE_REFRESHING = 32  # seconds
+
     # noinspection PyUnusedLocal
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
+        self.__dos = StationStorage(root=root, public=public, private=private)
         man = CacheManager()
         self.__dim_cache = man.get_pool(name='dim')            # 'providers' => List[ProviderInfo]
         self.__stations_cache = man.get_pool(name='stations')  # SP_ID => List[StationInfo]
-        self.__station_storage = StationStorage(root=root, public=public, private=private)
 
-    # noinspection PyMethodMayBeStatic
     def show_info(self):
-        self.__station_storage.show_info()
+        self.__dos.show_info()
 
     #
     #   Provider DBI
@@ -64,19 +66,20 @@ class StationTable(ProviderDBI, StationDBI):
             # cache empty
             if holder is None:
                 # cache not load yet, wait for loading
-                self.__dim_cache.update(key='providers', life_span=128, now=now)
+                self.__dim_cache.update(key='providers', life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
                     # cache not exists
                     return []
                 # cache expired, wait for reloading
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            value = self.__station_storage.all_providers()
+            value = self.__dos.all_providers()
             if len(value) == 0:
+                # default providers
                 value = [ProviderInfo(identifier=ProviderInfo.GSP, chosen=0)]
             # 3. update memory cache
-            self.__dim_cache.update(key='providers', value=value, life_span=600, now=now)
+            self.__dim_cache.update(key='providers', value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
@@ -85,21 +88,21 @@ class StationTable(ProviderDBI, StationDBI):
         # 1. clear cache to reload
         self.__dim_cache.erase(key='providers')
         # 2. store into local storage
-        return self.__station_storage.add_provider(identifier=identifier, chosen=chosen)
+        return self.__dos.add_provider(identifier=identifier, chosen=chosen)
 
     # Override
     def update_provider(self, identifier: ID, chosen: int) -> bool:
         # 1. clear cache to reload
         self.__dim_cache.erase(key='providers')
         # 2. store into local storage
-        return self.__station_storage.update_provider(identifier=identifier, chosen=chosen)
+        return self.__dos.update_provider(identifier=identifier, chosen=chosen)
 
     # Override
     def remove_provider(self, identifier: ID) -> bool:
         # 1. clear cache to reload
         self.__dim_cache.erase(key='providers')
         # 2. store into local storage
-        return self.__station_storage.remove_provider(identifier=identifier)
+        return self.__dos.remove_provider(identifier=identifier)
 
     #
     #   Station DBI
@@ -115,17 +118,17 @@ class StationTable(ProviderDBI, StationDBI):
             # cache empty
             if holder is None:
                 # cache not load yet, wait for loading
-                self.__stations_cache.update(key=provider, life_span=128, now=now)
+                self.__stations_cache.update(key=provider, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
                     # cache not exists
                     return []
                 # cache expired, wait for reloading
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            value = self.__station_storage.all_stations(provider=provider)
+            value = self.__dos.all_stations(provider=provider)
             # 3. update memory cache
-            self.__stations_cache.update(key=provider, value=value, life_span=600, now=now)
+            self.__stations_cache.update(key=provider, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
@@ -134,27 +137,25 @@ class StationTable(ProviderDBI, StationDBI):
         # 1. clear cache to reload
         self.__stations_cache.erase(key=provider)
         # 2. store into local storage
-        return self.__station_storage.add_station(identifier=identifier, host=host, port=port,
-                                                  provider=provider, chosen=chosen)
+        return self.__dos.add_station(identifier=identifier, host=host, port=port, provider=provider, chosen=chosen)
 
     # Override
     def update_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = None) -> bool:
         # 1. clear cache to reload
         self.__stations_cache.erase(key=provider)
         # 2. store into local storage
-        return self.__station_storage.update_station(identifier=identifier, host=host, port=port,
-                                                     provider=provider, chosen=chosen)
+        return self.__dos.update_station(identifier=identifier, host=host, port=port, provider=provider, chosen=chosen)
 
     # Override
     def remove_station(self, host: str, port: int, provider: ID) -> bool:
         # 1. clear cache to reload
         self.__stations_cache.erase(key=provider)
         # 2. store into local storage
-        return self.__station_storage.remove_station(host=host, port=port, provider=provider)
+        return self.__dos.remove_station(host=host, port=port, provider=provider)
 
     # Override
     def remove_stations(self, provider: ID) -> bool:
         # 1. clear cache to reload
         self.__stations_cache.erase(key=provider)
         # 2. store into local storage
-        return self.__station_storage.remove_stations(provider=provider)
+        return self.__dos.remove_stations(provider=provider)

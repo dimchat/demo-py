@@ -37,14 +37,17 @@ from .dos import UserStorage
 class UserTable(UserDBI):
     """ Implementations of UserDBI """
 
+    CACHE_EXPIRES = 300    # seconds
+    CACHE_REFRESHING = 32  # seconds
+
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
+        self.__dos = UserStorage(root=root, public=public, private=private)
         man = CacheManager()
         self.__contacts_cache = man.get_pool(name='contacts')  # ID => List[ID]
-        self.__user_storage = UserStorage(root=root, public=public, private=private)
 
     def show_info(self):
-        self.__user_storage.show_info()
+        self.__dos.show_info()
 
     #
     #   User DBI
@@ -60,23 +63,23 @@ class UserTable(UserDBI):
             # cache empty
             if holder is None:
                 # contacts not load yet, wait to load
-                self.__contacts_cache.update(key=user, life_span=128, now=now)
+                self.__contacts_cache.update(key=user, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
                     # contacts not exists
                     return []
                 # contacts expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            value = self.__user_storage.contacts(user=user)
+            value = self.__dos.contacts(user=user)
             # 3. update memory cache
-            self.__contacts_cache.update(key=user, value=value, life_span=600, now=now)
+            self.__contacts_cache.update(key=user, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
     # Override
     def save_contacts(self, contacts: List[ID], user: ID) -> bool:
         # 1. store into memory cache
-        self.__contacts_cache.update(key=user, value=contacts, life_span=600)
+        self.__contacts_cache.update(key=user, value=contacts, life_span=self.CACHE_EXPIRES)
         # 2. store into local storage
-        return self.__user_storage.save_contacts(contacts=contacts, user=user)
+        return self.__dos.save_contacts(contacts=contacts, user=user)
