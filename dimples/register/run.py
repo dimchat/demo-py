@@ -29,7 +29,7 @@ import os
 import sys
 import getopt
 
-from mkm import ID
+from dimsdk import ID
 
 path = os.path.abspath(__file__)
 path = os.path.dirname(path)
@@ -37,10 +37,9 @@ path = os.path.dirname(path)
 path = os.path.dirname(path)
 sys.path.insert(0, path)
 
-from dimples.utils import Log
+from dimples.utils import Log, Config
 from dimples.database import Storage
 
-from dimples.config import Config
 from dimples.register.shared import GlobalVariable
 from dimples.register.shared import create_database
 from dimples.register.shared import generate, modify

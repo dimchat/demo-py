@@ -35,8 +35,8 @@
     for login user
 """
 
-import asyncio
 import socket
+import threading
 import traceback
 from typing import Optional, List, Tuple
 
@@ -46,9 +46,9 @@ from dimsdk import ReliableMessage
 from startrek import Docker, DockerStatus
 from startrek import Arrival, Departure
 
-from ..utils import hex_encode, random_bytes
 from ..utils import Log
-from ..common import get_msg_sig
+from ..utils import hex_encode, random_bytes
+from ..utils import get_msg_sig
 from ..common import SessionDBI, MessageDBI, ReliableMessageDBI
 from ..conn import MessageWrapper
 from ..conn import BaseSession
@@ -94,7 +94,8 @@ class ServerSession(BaseSession):
         if self.identifier is None or not self.active:
             return False
         # load cached message asynchronously
-        asyncio.run(load_cached_messages(self))
+        threading.Thread(target=load_cached_messages, args=(self,)).start()
+        # load_cached_messages(session=self)
         return True
 
     # Override
@@ -221,7 +222,7 @@ def session_change_active(session: ServerSession, active: bool):
         return True
 
 
-async def load_cached_messages(session: ServerSession):
+def load_cached_messages(session: ServerSession):
     identifier = session.identifier
     assert identifier is not None and session.active, 'session error: %s' % identifier
     messenger = session.messenger
@@ -232,7 +233,9 @@ async def load_cached_messages(session: ServerSession):
     Log.info(msg='[DB] %d cached message(s) loaded for: %s' % (cnt, identifier))
     for msg in messages:
         data = messenger.serialize_message(msg=msg)
-        session.queue_message_package(msg=msg, data=data, priority=1)
+        ok = session.queue_message_package(msg=msg, data=data, priority=1)
+        sig = get_msg_sig(msg=msg)
+        Log.info(msg='queue message for: %s, %s, %s' % (identifier, ok, sig))
 
 
 def remove_reliable_message(msg: ReliableMessage, receiver: ID, database: MessageDBI):

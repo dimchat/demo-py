@@ -33,7 +33,8 @@
 from typing import List
 
 from dimsdk import ID, Content, ReliableMessage
-from dimsdk import BaseCommandProcessor
+
+from dimsdk.cpu import BaseCommandProcessor
 
 from ...utils import Log
 from ...common import HandshakeCommand
@@ -54,7 +55,8 @@ class HandshakeCommandProcessor(BaseCommandProcessor):
         title = content.title
         if title in ['DIM?', 'DIM!']:
             # S -> C
-            return self._respond_receipt(text='Command not support.', msg=r_msg, extra={
+            text = 'Command not support.'
+            return self.respond_receipt(text=text, envelope=r_msg.envelope, content=content, extra={
                 'template': 'Handshake command error: title="${title}".',
                 'replacements': {
                     'title': title,

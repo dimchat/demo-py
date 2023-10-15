@@ -33,14 +33,24 @@
                                              -- Albert Moky @ Jan. 23, 2019
 """
 
-from dimsdk import md5, sha1, sha256
-from dimsdk import base64_encode, base64_decode
-from dimsdk import utf8_encode, utf8_decode
+from typing import Optional
+
+from dimsdk import md5, sha1, sha256, keccak256, ripemd160
+from dimsdk import base64_encode, base64_decode, base58_encode, base58_decode
 from dimsdk import hex_encode, hex_decode
+from dimsdk import utf8_encode, utf8_decode
 from dimsdk import json_encode, json_decode
-from dimplugins.aes import random_bytes
+
+from dimsdk import Converter
+from dimsdk import DateTime
+from dimsdk import ReliableMessage
+
+from dimplugins.crypto.aes import random_bytes
 
 from startrek.fsm import Runnable, Runner
+from startrek.fsm import Delegate as StateDelegate
+from startrek.net.channel import get_remote_address, get_local_address
+
 
 from .singleton import Singleton
 from .log import Log, Logging
@@ -48,21 +58,60 @@ from .dos import Path, File, TextFile, JSONFile
 from .cache import CachePool, CacheHolder, CacheManager
 from .checker import FrequencyChecker, QueryFrequencyChecker
 
+from .config import Config
+
+
+def is_before(old_time: Optional[DateTime], new_time: Optional[DateTime]) -> bool:
+    """ check whether new time is before old time """
+    if old_time is None or new_time is None:
+        return False
+    else:
+        return new_time.before(other=old_time)
+        # return 0 < new_time < old_time
+
+
+def get_msg_sig(msg: ReliableMessage) -> str:
+    """ last 6 bytes (signature in base64) """
+    sig = msg.get('signature')
+    # assert isinstance(sig, str), 'signature error: %s' % sig
+    sig = sig.strip()
+    return sig[-8:]  # last 6 bytes (signature in base64)
+
+
+def template_replace(template: str, key: str, value: str) -> str:
+    """ replace '{key}' with value """
+    tag = '{%s}' % key
+    return template.replace(tag, value)
+
 
 __all__ = [
 
-    'md5', 'sha1', 'sha256',
-    'base64_encode', 'base64_decode',
-    'utf8_encode', 'utf8_decode',
+    'md5', 'sha1', 'sha256', 'keccak256', 'ripemd160',
+    'base64_encode', 'base64_decode', 'base58_encode', 'base58_decode',
     'hex_encode', 'hex_decode',
+    'utf8_encode', 'utf8_decode',
     'json_encode', 'json_decode',
+
     'random_bytes',
 
+    'Converter',
+
     'Runnable', 'Runner',
+    'StateDelegate',
+
+    'get_remote_address', 'get_local_address',
+
 
     'Singleton',
     'Log', 'Logging',
     'Path', 'File', 'TextFile', 'JSONFile',
     'CachePool', 'CacheHolder', 'CacheManager',
     'FrequencyChecker', 'QueryFrequencyChecker',
+
+    'Config',
+
+    'is_before',
+    'get_msg_sig',
+    'template_replace',
+
 ]

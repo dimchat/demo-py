@@ -29,7 +29,7 @@ from typing import Optional, Union, Any, Dict, List, Tuple
 from dimsdk import PrivateKey, SignKey, DecryptKey
 from dimsdk import ID, Meta, Document
 from dimsdk import ReliableMessage
-from dimsdk import ResetCommand
+from dimsdk import GroupCommand, ResetCommand
 
 
 class PrivateKeyDBI(ABC):
@@ -132,6 +132,19 @@ class UserDBI(ABC):
     """ User Table """
 
     @abstractmethod
+    def local_users(self) -> List[ID]:
+        """ local user ID list """
+        raise NotImplemented
+
+    @abstractmethod
+    def save_local_users(self, users: List[ID]) -> bool:
+        raise NotImplemented
+
+
+class ContactDBI(ABC):
+    """ Contact Table """
+
+    @abstractmethod
     def contacts(self, user: ID) -> List[ID]:
         """ contacts for user """
         raise NotImplemented
@@ -145,7 +158,16 @@ class GroupDBI(ABC):
     """ Group/Member Table """
 
     @abstractmethod
+    def founder(self, group: ID) -> Optional[ID]:
+        raise NotImplemented
+
+    @abstractmethod
+    def owner(self, group: ID) -> Optional[ID]:
+        raise NotImplemented
+
+    @abstractmethod
     def members(self, group: ID) -> List[ID]:
+        """ group members """
         raise NotImplemented
 
     @abstractmethod
@@ -154,6 +176,7 @@ class GroupDBI(ABC):
 
     @abstractmethod
     def assistants(self, group: ID) -> List[ID]:
+        """ bots for group """
         raise NotImplemented
 
     @abstractmethod
@@ -162,6 +185,7 @@ class GroupDBI(ABC):
 
     @abstractmethod
     def administrators(self, group: ID) -> List[ID]:
+        """ group admins """
         raise NotImplemented
 
     @abstractmethod
@@ -169,22 +193,58 @@ class GroupDBI(ABC):
         raise NotImplemented
 
 
-class ResetGroupDBI(ABC):
-    """ Reset Group Command Table """
+class GroupHistoryDBI(ABC):
+    """ Group History Command Command Table """
 
-    #
-    #   reset group command message
-    #
     @abstractmethod
-    def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
+    def save_group_history(self, group: ID, content: GroupCommand, message: ReliableMessage) -> bool:
+        """ save group commands:
+                invite
+                expel (deprecated)
+                join
+                quit
+                reset
+                resign
+        """
         raise NotImplemented
 
     @abstractmethod
-    def save_reset_command_message(self, group: ID, content: ResetCommand, msg: ReliableMessage) -> bool:
+    def group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
+        """ load group commands:
+                invite
+                expel (deprecated)
+                join
+                quit
+                reset
+                resign
+        """
+        raise NotImplemented
+
+    @abstractmethod
+    def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
+        """ load last 'reset' group command """
+        raise NotImplemented
+
+    @abstractmethod
+    def clear_group_member_histories(self, group: ID) -> bool:
+        """ clear group commands for members:
+                invite
+                expel (deprecated)
+                join
+                quit
+                reset
+        """
+        raise NotImplemented
+
+    @abstractmethod
+    def clear_group_admin_histories(self, group: ID) -> bool:
+        """ clear group commands for administrators:
+                resign
+        """
         raise NotImplemented
 
 
 # noinspection PyAbstractClass
-class AccountDBI(PrivateKeyDBI, MetaDBI, DocumentDBI, UserDBI, GroupDBI, ResetGroupDBI, ABC):
+class AccountDBI(PrivateKeyDBI, MetaDBI, DocumentDBI, UserDBI, ContactDBI, GroupDBI, GroupHistoryDBI, ABC):
     """ Account Database """
     pass

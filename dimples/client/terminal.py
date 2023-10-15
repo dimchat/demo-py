@@ -33,11 +33,10 @@
 import threading
 import time
 
-from startrek.fsm import Delegate as StateDelegate
-
 from dimples import EntityType
 
 from ..utils import Runner, Logging
+from ..utils import StateDelegate
 
 from .network import ClientSession
 from .network import StateMachine, SessionState

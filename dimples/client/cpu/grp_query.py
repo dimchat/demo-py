@@ -42,7 +42,7 @@ from dimsdk import ReliableMessage
 from dimsdk import Content
 from dimsdk import QueryCommand
 
-from .history import GroupCommandProcessor
+from .group import GroupCommandProcessor
 
 
 class QueryCommandProcessor(GroupCommandProcessor):
@@ -50,28 +50,42 @@ class QueryCommandProcessor(GroupCommandProcessor):
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, QueryCommand), 'query command error: %s' % content
-        group = content.group
+
+        # 0. check command
+        pair = self._check_expired(content=content, r_msg=r_msg)
+        group = pair[0]
+        errors = pair[1]
+        if group is None:
+            # ignore expired command
+            return errors
+
         # 1. check group
-        owner = self.group_owner(group=group)
-        members = self.group_members(group=group)
+        trip = self._check_group_members(content=content, r_msg=r_msg)
+        owner = trip[0]
+        members = trip[1]
+        errors = trip[2]
         if owner is None or len(members) == 0:
-            return self._respond_receipt(text='Group empty.', msg=r_msg, group=group, extra={
-                'template': 'Group empty: ${ID}',
-                'replacements': {
-                    'ID': str(group),
-                }
-            })
-        assistants = self.group_assistants(group=group)
-        # 2. check permission
+            return errors
+
         sender = r_msg.sender
-        if sender not in members and sender not in assistants:
-            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
+        bots = self._assistants(group=group)
+        is_member = sender in members
+        is_bot = sender in bots
+        can_query = is_member or is_bot
+
+        # 2. check permission
+        if not can_query:
+            text = 'Permission denied.'
+            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Not allowed to query members of group: ${ID}',
                 'replacements': {
                     'ID': str(group),
                 }
             })
-        # 3. send the reset command with newest members
-        self._send_reset_command(group=group, members=members, receiver=sender)
+
+        # 3. send newest group history commands
+        ok = self.send_group_histories(group=group, receiver=sender)
+        assert ok, 'failed to send history for group: %s => %s' % (group, sender)
+
         # no need to response this group command
         return []

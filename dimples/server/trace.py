@@ -27,10 +27,10 @@
 # ==============================================================================
 
 import threading
-import time
 from typing import Union, Any, Dict, List, Set
 
-from mkm.types import Mapper, Dictionary
+from dimsdk import DateTime
+from dimsdk import Mapper, Dictionary
 from dimsdk import ID, ReliableMessage
 
 from ..utils import Singleton
@@ -45,7 +45,7 @@ class TraceNode(Dictionary):
 
     @property
     def time(self) -> float:
-        return self.get_float(key='time')
+        return self.get_float(key='time', default=0)
 
     def __eq__(self, other) -> bool:
         """ Return self == other. """
@@ -94,12 +94,12 @@ class TraceNode(Dictionary):
             return self.time < other.time
 
     @classmethod
-    def create(cls, identifier: ID, when: float = None):
+    def create(cls, identifier: ID, when: DateTime = None):
         if when is None:
-            when = time.time()
+            when = DateTime.now()
         node = {
             'ID': str(identifier),
-            'time': when,
+            'time': when.timestamp,
         }
         return cls(dictionary=node)
 
@@ -148,14 +148,16 @@ class TraceNode(Dictionary):
 class TraceList:
     """ Trace list with message time """
 
-    def __init__(self, msg_time: float, traces: List[TraceNode]):
+    def __init__(self, msg_time: DateTime, traces: List[TraceNode]):
         super().__init__()
         self.__time = msg_time
         self.__traces = traces
 
     @property
     def time(self) -> float:
-        return self.__time
+        value = self.__time
+        if value is not None:
+            return value.timestamp
 
     @property
     def nodes(self) -> List[TraceNode]:
@@ -200,8 +202,10 @@ class TracePool:
         self._next_time = 0
         self.__caches: Dict[str, TraceList] = {}  # str(msg.signature) => TraceList
 
-    def purge(self, now: float):
+    def purge(self, now: DateTime):
         """ remove expired traces """
+        if isinstance(now, DateTime):
+            now = now.timestamp
         if now < self._next_time:
             return False
         else:
@@ -249,12 +253,12 @@ class LockedPool(TracePool):
         self.__lock = threading.Lock()
 
     # Override
-    def purge(self, now: float):
+    def purge(self, now: DateTime):
         if now < self._next_time:
             # we can treat the msg.time as real time for initial checking
             return False
         # if message time out, check with real time
-        now = time.time()
+        now = DateTime.now()
         with self.__lock:
             super().purge(now=now)
 
@@ -291,7 +295,7 @@ class TraceManager:
             after that, check for these nodes, append them if not exists,
             and then update traces in msg
         """
-        now = time.time()
+        now = DateTime.now()
         pool = self.__pool
         cached = pool.get_traces(msg=msg)
         for item in nodes:

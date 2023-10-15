@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
 from typing import List
 
+from dimsdk import DateTime
 from dimsdk import ID
 
 from ..utils import CacheManager
@@ -54,9 +54,21 @@ class UserTable(UserDBI):
     #
 
     # Override
+    def local_users(self) -> List[ID]:
+        return []
+
+    # Override
+    def save_local_users(self, users: List[ID]) -> bool:
+        pass
+
+    #
+    #   Contact DBI
+    #
+
+    # Override
     def contacts(self, user: ID) -> List[ID]:
         """ get contacts for user """
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__contacts_cache.fetch(key=user, now=now)
         if value is None:

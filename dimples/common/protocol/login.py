@@ -72,13 +72,15 @@ class LoginCommand(BaseCommand):
 
     def __init__(self, content: Dict[str, Any] = None, identifier: ID = None):
         if content is None:
-            # create with ID
-            super().__init__(cmd=self.LOGIN)
+            # 1. new command with ID
             assert identifier is not None, 'login ID should not empty'
+            cmd = self.LOGIN
+            super().__init__(cmd=cmd)
             self['ID'] = str(identifier)
         else:
-            # create with command content
-            super().__init__(content=content)
+            # 2. command info from network
+            assert identifier is None, 'params error: %s, %s' % (content, identifier)
+            super().__init__(content)
 
     #
     #   Client Info
@@ -90,7 +92,7 @@ class LoginCommand(BaseCommand):
     # Device ID
     @property
     def device(self) -> Optional[str]:
-        return self.get('device')
+        return self.get_str(key='device', default=None)
 
     @device.setter
     def device(self, value: str):
@@ -102,7 +104,7 @@ class LoginCommand(BaseCommand):
     # User Agent
     @property
     def agent(self) -> Optional[str]:
-        return self.get('agent')
+        return self.get_str(key='agent', default=None)
 
     @agent.setter
     def agent(self, value: str):

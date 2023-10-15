@@ -61,21 +61,23 @@ class AnsCommand(BaseCommand):
 
     def __init__(self, content: Dict[str, Any] = None, names: str = None):
         if content is None:
-            # create with names
-            super().__init__(cmd=AnsCommand.ANS)
-            if names is not None:
-                self['names'] = names
+            # 1. new command with names
+            assert names is not None, 'ANS command error'
+            cmd = AnsCommand.ANS
+            super().__init__(cmd=cmd)
+            self['names'] = names
         else:
-            # create with command content
-            super().__init__(content=content)
+            # 2. command info from network
+            assert names is None, 'params error: %s, %s' % (content, names)
+            super().__init__(content)
 
     #
     #   ANS aliases
     #
     @property
     def names(self) -> List[str]:
-        string = self.get_str(key='names')
-        return [] if string is None else string.split()
+        string = self.get_str(key='names', default='')
+        return string.split()
 
     @property
     def records(self) -> Dict[str, str]:

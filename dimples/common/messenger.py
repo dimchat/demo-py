@@ -34,9 +34,11 @@ import threading
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple, List, Dict
 
+from dimsdk import SymmetricKey
 from dimsdk import ID
 from dimsdk import Content, Envelope
-from dimsdk import InstantMessage, ReliableMessage
+from dimsdk import Command
+from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import EntityDelegate, CipherKeyDelegate
 from dimsdk import Messenger, Packer, Processor
 
@@ -46,6 +48,8 @@ from .dbi import MessageDBI
 
 from .facebook import CommonFacebook
 from .session import Transmitter, Session
+
+from .compat import fix_command
 
 
 class CommonMessenger(Messenger, Transmitter, Logging, ABC):
@@ -123,7 +127,12 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     #
 
     def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
-        """ Add income message in a queue for waiting sender's visa """
+        """
+        Add income message in a queue for waiting sender's visa
+
+        :param msg:   incoming message
+        :param error: error info
+        """
         self.warning(msg='suspend message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
         msg['error'] = error
         with self.__suspend_lock:
@@ -138,7 +147,12 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
             return messages
 
     def suspend_instant_message(self, msg: InstantMessage, error: Dict):
-        """ Add outgo message in a queue for waiting receiver's visa """
+        """
+        Add outgo message in a queue for waiting receiver's visa
+
+        :param msg:   outgo message
+        :param error: error info
+        """
         self.warning(msg='suspend message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
         msg['error'] = error
         with self.__suspend_lock:
@@ -151,6 +165,19 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
             messages = self.__outgoing_messages
             self.__outgoing_messages = []
             return messages
+
+    # Override
+    def serialize_content(self, content: Content, key: SymmetricKey, msg: InstantMessage) -> bytes:
+        if isinstance(content, Command):
+            content = fix_command(content=content)
+        return super().serialize_content(content=content, key=key, msg=msg)
+
+    # Override
+    def deserialize_content(self, data: bytes, key: SymmetricKey, msg: SecureMessage) -> Optional[Content]:
+        content = super().deserialize_content(data=data, key=key, msg=msg)
+        if isinstance(content, Command):
+            content = fix_command(content=content)
+        return content
 
     # # Override
     # def serialize_key(self, key: Union[dict, SymmetricKey], msg: InstantMessage) -> Optional[bytes]:

@@ -27,11 +27,11 @@ from typing import Optional, List
 
 from dimsdk import ID
 
+from ...utils import template_replace
 from ...common import ProviderInfo, StationInfo
 from ...common import ProviderDBI, StationDBI
 
 from .base import Storage
-from .base import template_replace
 
 
 class StationStorage(Storage, ProviderDBI, StationDBI):
@@ -46,19 +46,17 @@ class StationStorage(Storage, ProviderDBI, StationDBI):
     stations_path = '{PUBLIC}/{ADDRESS}/stations.js'
 
     def show_info(self):
-        path1 = template_replace(self.providers_path, 'PUBLIC', self._public)
-        path2 = template_replace(self.stations_path, 'PUBLIC', self._public)
+        path1 = self.public_path(self.providers_path)
+        path2 = self.public_path(self.stations_path)
         print('!!!      providers path: %s' % path1)
         print('!!!       stations path: %s' % path2)
 
     def __providers_path(self) -> str:
-        path = self.providers_path
-        return template_replace(path, 'PUBLIC', self._public)
+        return self.public_path(self.providers_path)
 
     def __stations_path(self, provider: ID) -> str:
-        path = self.stations_path
-        path = template_replace(path, 'PUBLIC', self._public)
-        return template_replace(path, 'ADDRESS', str(provider.address))
+        path = self.public_path(self.stations_path)
+        return template_replace(path, key='ADDRESS', value=str(provider.address))
 
     #
     #   Provider DBI

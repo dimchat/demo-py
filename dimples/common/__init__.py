@@ -38,6 +38,13 @@ from .messenger import CommonMessenger
 from .packer import CommonMessagePacker
 from .session import Transmitter, Session
 
+from .compat import register_compatible_factories
+
+
+register_all_factories()
+register_plugins()
+register_compatible_factories()
+
 
 __all__ = [
     #
@@ -52,12 +59,11 @@ __all__ = [
     #   Database Interface
     #
     'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
-    'UserDBI', 'GroupDBI', 'ResetGroupDBI',
+    'UserDBI', 'ContactDBI', 'GroupDBI', 'GroupHistoryDBI',
     'AccountDBI',
 
     'ReliableMessageDBI', 'CipherKeyDBI', 'GroupKeysDBI',
     'MessageDBI',
-    'get_msg_sig',
 
     'LoginDBI', 'ProviderDBI', 'StationDBI',
     'SessionDBI',

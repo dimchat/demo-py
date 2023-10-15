@@ -69,29 +69,31 @@ class HandshakeCommand(BaseCommand):
 
     def __init__(self, content: Dict[str, Any] = None, title: str = None, session: str = None):
         if content is None:
-            # create with title, session key
-            super().__init__(cmd=self.HANDSHAKE)
-            assert title is not None, 'new handshake command error'
+            # 1. new command with title & session key
+            assert title is not None, 'handshake command error: %s' % session
+            cmd = self.HANDSHAKE
+            super().__init__(cmd=cmd)
             self['title'] = title
             self['message'] = title  # TODO: remove after all clients upgraded
             if session is not None:
                 self['session'] = session
         else:
-            # create with command content
-            super().__init__(content=content)
+            # 2. command info from network
+            assert title is None and session is None, 'params error: %s, %s, %s' % (content, title, session)
+            super().__init__(content)
 
     @property
     def title(self) -> str:
         # TODO: modify after all clients upgraded
-        text = self.get('title')
+        text = self.get_str(key='title', default=None)
         if text is None:
             # compatible with v1.0
-            text = self.get('message')
+            text = self.get_str(key='message', default='')
         return text
 
     @property
     def session(self) -> Optional[str]:
-        return self.get('session')
+        return self.get_str(key='session', default=None)
 
     @property
     def state(self) -> HandshakeState:

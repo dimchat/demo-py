@@ -170,12 +170,12 @@ class Dispatcher(MessageDeliver):
         if responses is None:
             # user not online, and not roaming to other station
             text = 'Message cached.'
-            res = ReceiptCommand.create(text=text, msg=msg)
+            res = ReceiptCommand.create(text=text, envelope=msg.envelope)
             return [res]
         elif len(responses) == 0:
             # user roamed to other station, but bridge not found
             text = 'Message received.'
-            res = ReceiptCommand.create(text=text, msg=msg)
+            res = ReceiptCommand.create(text=text, envelope=msg.envelope)
             return [res]
         else:
             # message delivered
@@ -290,7 +290,7 @@ class DeliverWorker(Logging):
         # 1. try to push message directly
         if session_push(msg=msg, receiver=receiver) > 0:
             text = 'Message delivered.'
-            cmd = ReceiptCommand.create(text=text, msg=msg)
+            cmd = ReceiptCommand.create(text=text, envelope=msg.envelope)
             cmd['recipient'] = str(receiver)
             return [cmd]
         # 2. get roaming station
@@ -324,7 +324,7 @@ class DeliverWorker(Logging):
         # 1. try to push message to neighbor station directly
         if session_push(msg=msg, receiver=neighbor) > 0:
             text = 'Message redirected.'
-            cmd = ReceiptCommand.create(text=text, msg=msg)
+            cmd = ReceiptCommand.create(text=text, envelope=msg.envelope)
             cmd['neighbor'] = str(neighbor)
             return [cmd]
         # 2. push message to bridge
@@ -348,7 +348,7 @@ def bridge_message(msg: ReliableMessage, neighbor: ID, bridge: ID) -> Optional[L
     msg['neighbor'] = str(neighbor)
     if session_push(msg=msg, receiver=bridge) > 0:
         text = 'Message redirected.'
-        cmd = ReceiptCommand.create(text=text, msg=msg)
+        cmd = ReceiptCommand.create(text=text, envelope=msg.envelope)
         cmd['neighbor'] = str(neighbor)
         return [cmd]
     else:

@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
-from typing import List
+from typing import Optional, List
 
+from dimsdk import DateTime
 from dimsdk import ID
 
 from ..utils import CacheManager
@@ -56,9 +56,17 @@ class GroupTable(GroupDBI):
     #
 
     # Override
+    def founder(self, group: ID) -> Optional[ID]:
+        pass
+
+    # Override
+    def owner(self, group: ID) -> Optional[ID]:
+        pass
+
+    # Override
     def members(self, group: ID) -> List[ID]:
         """ get members of group """
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__members_cache.fetch(key=group, now=now)
         if value is None:
@@ -89,7 +97,7 @@ class GroupTable(GroupDBI):
     # Override
     def assistants(self, group: ID) -> List[ID]:
         """ get assistants of group """
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__assistants_cache.fetch(key=group, now=now)
         if value is None:
@@ -120,7 +128,7 @@ class GroupTable(GroupDBI):
     # Override
     def administrators(self, group: ID) -> List[ID]:
         """ get administrators of group """
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__administrators_cache.fetch(key=group, now=now)
         if value is None:

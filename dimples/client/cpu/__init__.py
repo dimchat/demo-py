@@ -35,7 +35,9 @@ from .text import TextContentProcessor
 from .handshake import HandshakeCommandProcessor
 from .login import LoginCommandProcessor
 
-from .history import HistoryCommandProcessor, GroupCommandProcessor
+from .group import HistoryCommandProcessor, GroupCommandProcessor
+from .group_helper import GroupCommandHelper
+from .group_builder import GroupHistoryBuilder
 from .grp_invite import InviteCommandProcessor
 from .grp_expel import ExpelCommandProcessor
 from .grp_join import JoinCommandProcessor
@@ -43,6 +45,8 @@ from .grp_quit import QuitCommandProcessor
 from .grp_reset import ResetCommandProcessor
 from .grp_query import QueryCommandProcessor
 from .grp_resign import ResignCommandProcessor
+
+from .creator import ClientContentProcessorCreator
 
 __all__ = [
 
@@ -57,5 +61,9 @@ __all__ = [
     'JoinCommandProcessor', 'QuitCommandProcessor',
     'ResetCommandProcessor', 'QueryCommandProcessor',
     'ResignCommandProcessor',
+
+    'GroupCommandHelper', 'GroupHistoryBuilder',
+
+    'ClientContentProcessorCreator',
 
 ]

@@ -24,9 +24,9 @@
 # ==============================================================================
 
 import threading
-import time
 from typing import Dict
 
+from dimsdk import DateTime
 from dimsdk import ReliableMessage
 
 from ..utils import Singleton
@@ -42,14 +42,15 @@ class SigPool:
         self._next_time = 0
         self.__caches: Dict[str, float] = {}  # str(msg.signature) => timestamp
 
-    def purge(self, now: float):
+    def purge(self, now: DateTime):
         """ remove expired traces """
-        if now < self._next_time:
+        timestamp = now.timestamp
+        if timestamp < self._next_time:
             return False
         else:
             # purge it next hour
-            self._next_time = now + 3600
-        expired = now - self.EXPIRES
+            self._next_time = timestamp + 3600
+        expired = timestamp - self.EXPIRES
         keys = set(self.__caches.keys())
         for sig in keys:
             msg_time = self.__caches.get(sig)
@@ -59,12 +60,14 @@ class SigPool:
 
     def duplicated(self, msg: ReliableMessage) -> bool:
         """ check whether duplicated """
-        sig = msg['signature']
+        sig = msg.get('signature')
+        assert sig is not None, 'message error: %s' % msg
         cached = self.__caches.get(sig)
         if cached is None:
             # cache not found, create a new one with message time
             when = msg.time
-            self.__caches[sig] = when
+            timestamp = 0 if when is None else when.timestamp
+            self.__caches[sig] = timestamp
             return False
         else:
             return True
@@ -77,12 +80,12 @@ class LockedSigPool(SigPool):
         self.__lock = threading.Lock()
 
     # Override
-    def purge(self, now: float):
-        if now < self._next_time:
+    def purge(self, now: DateTime):
+        if now.timestamp < self._next_time:
             # we can treat the msg.time as real time for initial checking
             return False
         # if message time out, check with real time
-        now = time.time()
+        now = DateTime.now()
         with self.__lock:
             super().purge(now=now)
 
@@ -103,5 +106,7 @@ class Checkpoint:
     def duplicated(self, msg: ReliableMessage) -> bool:
         pool = self.__pool
         repeated = pool.duplicated(msg=msg)
-        pool.purge(now=msg.time)
+        when = msg.time
+        if when is not None:
+            pool.purge(now=when)
         return repeated

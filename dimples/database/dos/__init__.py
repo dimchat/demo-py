@@ -37,7 +37,7 @@ from .document import DocumentStorage
 
 from .user import UserStorage
 from .group import GroupStorage
-from .group_reset import ResetGroupStorage
+from .group_history import GroupHistoryStorage
 
 from .group_keys import GroupKeysStorage
 
@@ -55,7 +55,7 @@ __all__ = [
 
     'UserStorage',
     'GroupStorage',
-    'ResetGroupStorage',
+    'GroupHistoryStorage',
 
     'GroupKeysStorage',
 

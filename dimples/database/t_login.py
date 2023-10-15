@@ -23,15 +23,15 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
 from typing import Optional, Tuple
 
+from dimsdk import DateTime
 from dimsdk import ID
 from dimsdk import ReliableMessage
 
 from ..utils import CacheManager
+from ..utils import is_before
 from ..common import LoginDBI, LoginCommand
-from ..common.dbi import is_expired
 
 from .dos import LoginStorage
 
@@ -58,7 +58,7 @@ class LoginTable(LoginDBI):
             return False
         # check old record
         old, _ = self.login_command_message(user=user)
-        if old is not None and is_expired(old_time=old.time, new_time=new_time):
+        if old is not None and is_before(old_time=old.time, new_time=new_time):
             # command expired
             return False
 
@@ -80,7 +80,7 @@ class LoginTable(LoginDBI):
     # Override
     def login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
         """ get login command message for user """
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__login_cache.fetch(key=user, now=now)
         if value is None:

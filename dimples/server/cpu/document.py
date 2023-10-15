@@ -34,7 +34,8 @@ from typing import Optional, List
 from dimsdk import EntityType, ID
 from dimsdk import ReliableMessage
 from dimsdk import Content, ForwardContent, DocumentCommand
-from dimsdk import DocumentCommandProcessor as SuperCommandProcessor
+
+from dimsdk.cpu import DocumentCommandProcessor as SuperCommandProcessor
 
 from ...common import CommonFacebook, CommonMessenger
 from ...common import Session, SessionDBI

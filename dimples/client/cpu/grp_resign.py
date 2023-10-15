@@ -32,21 +32,17 @@
     Resign Group Admin Command Processor
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    1. resign the group administrator
-    3. administrator can be hired/fired by owner only
+    1. remove the sender from administrators of the group
+    2. administrator can be hired/fired by owner only
 """
 
 from typing import List
 
-from dimsdk import ID, Bulletin
 from dimsdk import ReliableMessage
 from dimsdk import Content
-from dimsdk import DocumentCommand
+from dimsdk import ResignCommand
 
-from ...common.protocol import ResignCommand
-from ...common import CommonFacebook
-
-from .history import GroupCommandProcessor
+from .group import GroupCommandProcessor
 
 
 class ResignCommandProcessor(GroupCommandProcessor):
@@ -54,76 +50,57 @@ class ResignCommandProcessor(GroupCommandProcessor):
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ResignCommand), 'resign command error: %s' % content
-        group = content.group
+
         # 0. check command
-        if self._is_command_expired(command=content):
+        pair = self._check_expired(content=content, r_msg=r_msg)
+        group = pair[0]
+        errors = pair[1]
+        if group is None:
             # ignore expired command
-            return []
+            return errors
+
         # 1. check group
-        owner = self.group_owner(group=group)
-        members = self.group_members(group=group)
+        trip = self._check_group_members(content=content, r_msg=r_msg)
+        owner = trip[0]
+        members = trip[1]
+        errors = trip[2]
         if owner is None or len(members) == 0:
-            # TODO: query group members?
-            return self._respond_receipt(text='Group empty.', msg=r_msg, group=group, extra={
-                'template': 'Group empty: ${ID}',
-                'replacements': {
-                    'ID': str(group),
-                }
-            })
+            return errors
+
         sender = r_msg.sender
-        administrators = self.group_administrators(group=group)
-        # 2. do resign
-        administrators = administrators.copy()
-        sender_is_admin = sender in administrators
-        if sender_is_admin:
-            # admin do exist, remove it and update database
-            administrators.remove(sender)
-            self.save_administrators(administrators=administrators, group=group)
-        # 3. update bulletin property: 'administrators'
-        user = self.facebook.current_user
-        assert user is not None, 'failed to get current user'
-        me = user.identifier
-        if me == owner:
-            # maybe the bulletin in the owner's storage not contains this administrator,
-            # but if it can still receive a resign command here, then
-            # the owner should update the bulletin and send it out again.
-            self.__refresh_administrators(group=group, owner=owner, administrators=administrators)
-        else:
-            # add 'resign' application for waiting owner to update
-            self._add_application(command=content, message=r_msg)
-        if not sender_is_admin:
-            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
-                'template': 'Not an administrator of group: ${ID}',
+        admins = self._administrators(group=group)
+        is_owner = sender == owner
+        is_admin = sender in admins
+
+        # 2. check permission
+        if is_owner:
+            text = 'Permission denied.'
+            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
+                'template': 'Owner cannot resign from group: ${ID}',
                 'replacements': {
                     'ID': str(group),
                 }
             })
+        if is_admin:
+            new_admins = admins.copy()
+            new_admins.remove(sender)
+            admins = new_admins
+
+        # 3. do resign
+        if not is_admin:
+            # the sender is not an administrator now,
+            # shall we notify the sender that the administrators list was updated?
+            self.warning(msg='not an administrator now: %s, %s' % (sender, group))
+        elif not self._save_group_history(group=group, content=content, r_msg=r_msg):
+            # here try to append the 'resign' command to local storage as group history
+            # it should not failed unless the command is expired
+            self.error(msg='failed to save "resign" command for group: %s' % group)
+        elif self._save_administrators(administrators=admins, group=group):
+            # here try to remove the sender from admin list
+            content['removed'] = [str(sender)]
+        else:
+            # DB error?
+            assert False, 'failed to save members for group: %s' % group
+
         # no need to response this group command
         return []
-
-    def __refresh_administrators(self, group: ID, owner: ID, administrators: List[ID]):
-        facebook = self.facebook
-        # 1. update bulletin
-        bulletin = update_administrators(group=group, owner=owner, administrators=administrators, facebook=facebook)
-        if not facebook.save_document(document=bulletin):
-            return False
-        meta = facebook.meta(identifier=group)
-        command = DocumentCommand.response(document=bulletin, meta=meta, identifier=group)
-        # 2. sent to assistants
-        assistants = facebook.assistants(identifier=group)
-        messenger = self.messenger
-        for bot in assistants:
-            assert bot != owner, 'group bot should not be owner: %s, %s, group: %s' % (owner, bot, group)
-            messenger.send_content(sender=owner, receiver=bot, content=command, priority=1)
-
-
-def update_administrators(group: ID, owner: ID, administrators: List[ID], facebook: CommonFacebook) -> Bulletin:
-    # update document property
-    bulletin = facebook.document(identifier=group)
-    assert isinstance(bulletin, Bulletin), 'group document error: %s => %s' % (group, bulletin)
-    bulletin.set_property(key='administrators', value=ID.revert(array=administrators))
-    # sign document
-    sign_key = facebook.private_key_for_visa_signature(identifier=owner)
-    signature = bulletin.sign(private_key=sign_key)
-    assert signature is not None, 'failed to sign bulletin for group: %s' % group
-    return bulletin

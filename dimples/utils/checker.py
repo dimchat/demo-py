@@ -31,12 +31,12 @@
 """
 
 import threading
-import time
 from typing import Generic, TypeVar, Dict
 
+from dimsdk import DateTime
 from dimsdk import ID
 
-from ..utils import Singleton
+from .singleton import Singleton
 
 
 K = TypeVar('K')
@@ -48,11 +48,11 @@ class FrequencyChecker(Generic[K]):
     def __init__(self, expires: float = 3600):
         super().__init__()
         self.__expires = expires
-        self.__records: Dict[K, float] = {}
+        self.__records: Dict[K, DateTime] = {}
 
-    def expired(self, key: K, now: float = None, force: bool = False) -> bool:
+    def expired(self, key: K, now: DateTime = None, force: bool = False) -> bool:
         if now is None:
-            now = time.time()
+            now = DateTime.now()
         if force:
             # ignore last updated time, force to update now
             pass
@@ -62,7 +62,7 @@ class FrequencyChecker(Generic[K]):
             if expired is not None and expired > now:
                 # record exists and not expired yet
                 return False
-        self.__records[key] = now + self.__expires
+        self.__records[key] = DateTime(now.timestamp + self.__expires)
         return True
 
 
@@ -87,18 +87,18 @@ class QueryFrequencyChecker:
         # response for document
         self.__document_responses: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
 
-    def meta_query_expired(self, identifier: ID, now: float = None) -> bool:
+    def meta_query_expired(self, identifier: ID, now: DateTime = None) -> bool:
         with self.__meta_lock:
             return self.__meta_queries.expired(key=identifier, now=now)
 
-    def document_query_expired(self, identifier: ID, now: float = None) -> bool:
+    def document_query_expired(self, identifier: ID, now: DateTime = None) -> bool:
         with self.__document_lock:
             return self.__document_queries.expired(key=identifier, now=now)
 
-    def members_query_expired(self, identifier: ID, now: float = None) -> bool:
+    def members_query_expired(self, identifier: ID, now: DateTime = None) -> bool:
         with self.__members_lock:
             return self.__members_queries.expired(key=identifier, now=now)
 
-    def document_response_expired(self, identifier: ID, now: float = None, force: bool = False) -> bool:
+    def document_response_expired(self, identifier: ID, now: DateTime = None, force: bool = False) -> bool:
         with self.__document_lock:
             return self.__document_responses.expired(key=identifier, now=now, force=force)

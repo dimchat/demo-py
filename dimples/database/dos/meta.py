@@ -27,10 +27,10 @@ from typing import Optional
 
 from dimsdk import ID, Meta
 
+from ...utils import template_replace
 from ...common import MetaDBI
 
 from .base import Storage
-from .base import template_replace
 
 
 class MetaStorage(Storage, MetaDBI):
@@ -42,13 +42,12 @@ class MetaStorage(Storage, MetaDBI):
     meta_path = '{PUBLIC}/{ADDRESS}/meta.js'
 
     def show_info(self):
-        path = template_replace(self.meta_path, 'PUBLIC', self._public)
+        path = self.public_path(self.meta_path)
         print('!!!           meta path: %s' % path)
 
     def __meta_path(self, identifier: ID) -> str:
-        path = self.meta_path
-        path = template_replace(path, 'PUBLIC', self._public)
-        return template_replace(path, 'ADDRESS', str(identifier.address))
+        path = self.public_path(self.meta_path)
+        return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
     #
     #   Meta DBI

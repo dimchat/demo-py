@@ -27,13 +27,13 @@ from typing import List
 
 from dimsdk import ID
 
-from ...common import UserDBI
+from ...utils import template_replace
+from ...common import UserDBI, ContactDBI
 
 from .base import Storage
-from .base import template_replace
 
 
-class UserStorage(Storage, UserDBI):
+class UserStorage(Storage, UserDBI, ContactDBI):
     """
         User Storage
         ~~~~~~~~~~~~
@@ -43,16 +43,27 @@ class UserStorage(Storage, UserDBI):
     contacts_path = '{PRIVATE}/{ADDRESS}/contacts.js'
 
     def show_info(self):
-        path = template_replace(self.contacts_path, 'PRIVATE', self._private)
+        path = self.private_path(self.contacts_path)
         print('!!!       contacts path: %s' % path)
 
     def __contacts_path(self, identifier: ID) -> str:
-        path = self.contacts_path
-        path = template_replace(path, 'PRIVATE', self._private)
-        return template_replace(path, 'ADDRESS', str(identifier.address))
+        path = self.private_path(self.contacts_path)
+        return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
     #
     #   User DBI
+    #
+
+    # Override
+    def local_users(self) -> List[ID]:
+        return []
+
+    # Override
+    def save_local_users(self, users: List[ID]) -> bool:
+        pass
+
+    #
+    #   Contact DBI
     #
 
     # Override

@@ -32,9 +32,9 @@
 """
 
 import threading
-import time
 from typing import Set, List
 
+from dimsdk import DateTime
 from dimsdk import EntityType, ID, EVERYONE
 from dimsdk import Station
 from dimsdk import ReliableMessage
@@ -72,9 +72,9 @@ class BroadcastRecipientManager(Logging):
     @property
     def proactive_neighbors(self) -> Set[ID]:
         """ get neighbor stations connected to current station """
-        now = time.time()
+        now = DateTime.now()
         with self.__lock:
-            if self.__expires < now:
+            if self.__expires < now.timestamp:
                 neighbors = set()
                 center = SessionCenter()
                 all_users = center.all_users()
@@ -82,7 +82,7 @@ class BroadcastRecipientManager(Logging):
                     if item.type == EntityType.STATION:
                         neighbors.add(item)
                 self.__neighbors = neighbors
-                self.__expires = now + 128
+                self.__expires = now.timestamp + 128
             return self.__neighbors
 
     @property

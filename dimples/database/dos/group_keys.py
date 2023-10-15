@@ -27,10 +27,10 @@ from typing import Optional, Dict
 
 from dimsdk import ID
 
+from ...utils import template_replace
 from ...common import GroupKeysDBI
 
 from .base import Storage
-from .base import template_replace
 
 
 class GroupKeysStorage(Storage, GroupKeysDBI):
@@ -44,14 +44,13 @@ class GroupKeysStorage(Storage, GroupKeysDBI):
     keys_path = '{PRIVATE}/{GROUP_ADDRESS}/{SENDER_ADDRESS}.keys.js'
 
     def show_info(self):
-        path = template_replace(self.keys_path, 'PRIVATE', self._private)
+        path = self.private_path(self.keys_path)
         print('!!!     group keys path: %s' % path)
 
     def __keys_path(self, group: ID, sender: ID) -> str:
-        path = self.keys_path
-        path = template_replace(path, 'SENDER_ADDRESS', str(sender.address))
-        path = template_replace(path, 'GROUP_ADDRESS', str(group.address))
-        return template_replace(path, 'PRIVATE', self._private)
+        path = self.private_path(self.keys_path)
+        path = template_replace(path, key='SENDER_ADDRESS', value=str(sender.address))
+        return template_replace(path, key='GROUP_ADDRESS', value=str(group.address))
 
     #
     #   Group Keys DBI

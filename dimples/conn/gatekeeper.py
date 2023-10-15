@@ -34,7 +34,6 @@ from typing import Optional, Tuple
 
 from dimsdk import ReliableMessage
 
-from startrek.net.channel import get_remote_address, get_local_address
 from startrek import Hub
 from startrek import BaseChannel
 from startrek import Connection, ConnectionDelegate, BaseConnection
@@ -44,6 +43,7 @@ from startrek import Docker, DockerStatus, DockerDelegate
 from tcp import StreamChannel
 from tcp import ServerHub, ClientHub
 
+from ..utils import get_remote_address, get_local_address
 from ..utils import Runner, Logging
 
 from .protocol import DeparturePacker

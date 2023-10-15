@@ -44,7 +44,7 @@ from dimsdk import ReliableMessage
 from dimsdk import Content
 from dimsdk import InviteCommand
 
-from .history import GroupCommandProcessor
+from .group import GroupCommandProcessor
 
 
 class InviteCommandProcessor(GroupCommandProcessor):
@@ -52,56 +52,82 @@ class InviteCommandProcessor(GroupCommandProcessor):
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, InviteCommand), 'invite command error: %s' % content
-        group = content.group
+
         # 0. check command
-        if self._is_command_expired(command=content):
+        pair = self._check_expired(content=content, r_msg=r_msg)
+        group = pair[0]
+        errors = pair[1]
+        if group is None:
             # ignore expired command
-            return []
-        invite_list = self.command_members(content=content)
+            return errors
+        pair = self._check_command_members(content=content, r_msg=r_msg)
+        invite_list = pair[0]
+        errors = pair[1]
         if len(invite_list) == 0:
-            return self._respond_receipt(text='Command error.', msg=r_msg, group=group, extra={
-                'template': 'Invite list is empty: ${ID}',
-                'replacements': {
-                    'ID': str(group),
-                }
-            })
+            # command error
+            return errors
+
         # 1. check group
-        owner = self.group_owner(group=group)
-        members = self.group_members(group=group)
+        trip = self._check_group_members(content=content, r_msg=r_msg)
+        owner = trip[0]
+        members = trip[1]
+        errors = trip[2]
         if owner is None or len(members) == 0:
-            # TODO: query group members?
-            return self._respond_receipt(text='Group empty.', msg=r_msg, group=group, extra={
-                'template': 'Group empty: ${ID}',
-                'replacements': {
-                    'ID': str(group),
-                }
-            })
-        # 2. check permission
+            return errors
+
         sender = r_msg.sender
-        if sender not in members:
-            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
+        admins = self._administrators(group=group)
+        is_owner = sender == owner
+        is_admin = sender in admins
+        is_member = sender in members
+        can_reset = is_owner or is_admin
+        cannot_reset = not can_reset
+
+        # 2. check permission
+        if not is_member:
+            text = 'Permission denied.'
+            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Not allowed to invite member into group: ${ID}',
                 'replacements': {
                     'ID': str(group),
                 }
             })
-        administrators = self.group_administrators(group=group)
+
         # 3. do invite
-        new_members, added_list = calculate_invited(members=members, invite_list=invite_list)
-        if sender == owner or sender in administrators:
-            # invite by owner or admin, so
-            # append them directly.
-            if len(added_list) > 0 and self.save_members(members=new_members, group=group):
-                content['added'] = ID.revert(array=added_list)
+        pair = calculate_invited(members=members, invite_list=invite_list)
+        new_members = pair[0]
+        added_list = pair[1]
+        if len(added_list) == 0:
+            # maybe those users are already become members,
+            # but if it can still receive an 'invite' command here,
+            # we should respond the sender with the newest membership again.
+            user = self.facebook.current_user
+            if cannot_reset and owner == user.identifier:
+                # the sender cannot reset the group, means it's an ordinary member now,
+                # and if I am the owner, then send the group history commands
+                # to update the sender's memory.
+                ok = self.send_group_histories(group=group, receiver=sender)
+                assert ok, 'failed to send history for group: %s => %s' % (group, sender)
+        elif not self._save_group_history(group=group, content=content, r_msg=r_msg):
+            # here try to append the 'invite' command to local storage as group history
+            # it should not failed unless the command is expired
+            self.error(msg='failed to save "invite" command for group: %s' % group)
+        elif cannot_reset:
+            # the sender cannot reset the group, means it's invited by ordinary member,
+            # and the 'invite' command was saved, now waiting for review.
+            self.info(msg='"invite" command saved, waiting review now')
+        elif self._save_members(members=new_members, group=group):
+            # FIXME: this sender has permission to reset the group,
+            #        means it must be the owner or an administrator,
+            #        usually it should send a 'reset' command instead;
+            #        if we received the 'invite' command here, maybe it was confused,
+            #        anyway, we just append the new members directly.
+            self.warning(msg='invited by administrator: %s, group: %s' % (sender, group))
+            content['added'] = ID.revert(added_list)
         else:
-            if len(added_list) == 0:
-                # maybe the invited users are already become members,
-                # but if it can still receive a join command here,
-                # we should respond the sender with the newest membership again.
-                self._send_reset_command(group=group, members=new_members, receiver=sender)
-            else:
-                # add 'invite' application for waiting review
-                self._add_application(command=content, message=r_msg)
+            # DB error?
+            assert False, 'failed to save members for group: %s' % group
+
         # no need to response this group command
         return []
 

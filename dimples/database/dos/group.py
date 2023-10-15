@@ -23,14 +23,14 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import List
+from typing import List, Optional
 
 from dimsdk import ID
 
+from ...utils import template_replace
 from ...common import GroupDBI
 
 from .base import Storage
-from .base import template_replace
 
 
 class GroupStorage(Storage, GroupDBI):
@@ -42,36 +42,42 @@ class GroupStorage(Storage, GroupDBI):
         file path: '.dim/private/{ADDRESS}/assistants.js'
         file path: '.dim/private/{ADDRESS}/administrators.js'
     """
+
     members_path = '{PRIVATE}/{ADDRESS}/members.js'
     assistants_path = '{PRIVATE}/{ADDRESS}/assistants.js'
     administrators_path = '{PRIVATE}/{ADDRESS}/administrators.js'
 
     def show_info(self):
-        path1 = template_replace(self.members_path, 'PRIVATE', self._private)
-        path2 = template_replace(self.assistants_path, 'PRIVATE', self._private)
-        path3 = template_replace(self.administrators_path, 'PRIVATE', self._private)
+        path1 = self.private_path(self.members_path)
+        path2 = self.private_path(self.assistants_path)
+        path3 = self.private_path(self.administrators_path)
         print('!!!        members path: %s' % path1)
         print('!!!     assistants path: %s' % path2)
         print('!!! administrators path: %s' % path3)
 
     def __members_path(self, identifier: ID) -> str:
-        path = self.members_path
-        path = template_replace(path, 'PRIVATE', self._private)
-        return template_replace(path, 'ADDRESS', str(identifier.address))
+        path = self.private_path(self.members_path)
+        return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
     def __assistants_path(self, identifier: ID) -> str:
-        path = self.assistants_path
-        path = template_replace(path, 'PRIVATE', self._private)
-        return template_replace(path, 'ADDRESS', str(identifier.address))
+        path = self.private_path(self.assistants_path)
+        return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
     def __administrators_path(self, identifier: ID) -> str:
-        path = self.administrators_path
-        path = template_replace(path, 'PRIVATE', self._private)
-        return template_replace(path, 'ADDRESS', str(identifier.address))
+        path = self.private_path(self.administrators_path)
+        return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
     #
     #   Group DBI
     #
+
+    # Override
+    def founder(self, group: ID) -> Optional[ID]:
+        pass
+
+    # Override
+    def owner(self, group: ID) -> Optional[ID]:
+        pass
 
     # Override
     def members(self, group: ID) -> List[ID]:

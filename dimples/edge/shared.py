@@ -30,15 +30,13 @@ from typing import Optional, Tuple
 
 from dimsdk import ID, Station
 
-from ..utils import Singleton
+from ..utils import Singleton, Config
 from ..common import CommonFacebook
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..common import ProviderInfo
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
 from ..database import Storage
 from ..client import ClientSession
-
-from ..config import Config
 
 
 @Singleton

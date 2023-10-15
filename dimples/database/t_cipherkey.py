@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
 from typing import Optional
 
+from dimsdk import DateTime
 from dimsdk import ID, SymmetricKey
 from dimplugins import PlainKey
 
@@ -56,7 +56,7 @@ class CipherKeyTable(CipherKeyDBI):
     def cipher_key(self, sender: ID, receiver: ID, generate: bool = False) -> Optional[SymmetricKey]:
         if receiver.is_broadcast:
             return PlainKey()
-        now = time.time()
+        now = DateTime.now()
         direction = (sender, receiver)
         key, _ = self.__keys_cache.fetch(key=direction, now=now)
         if key is None and generate:
@@ -71,7 +71,7 @@ class CipherKeyTable(CipherKeyDBI):
         if receiver.is_broadcast:
             # no need to store cipher key for broadcast message
             return False
-        now = time.time()
+        now = DateTime.now()
         direction = (sender, receiver)
         # 1. store into memory cache
         self.__keys_cache.update(key=direction, value=key, life_span=self.CACHE_EXPIRES, now=now)

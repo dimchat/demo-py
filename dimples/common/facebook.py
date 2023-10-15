@@ -36,10 +36,12 @@ from dimsdk import SignKey, DecryptKey
 from dimsdk import ID, Meta, Document, User
 from dimsdk import Facebook
 
+from ..utils import Logging
+
 from .dbi import AccountDBI
 
 
-class CommonFacebook(Facebook):
+class CommonFacebook(Facebook, Logging):
 
     def __init__(self, database: AccountDBI):
         super().__init__()
@@ -78,29 +80,27 @@ class CommonFacebook(Facebook):
 
     # Override
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        db = self.database
-        return db.save_meta(meta=meta, identifier=identifier)
+        if meta.valid and meta.match_identifier(identifier=identifier):
+            db = self.database
+            return db.save_meta(meta=meta, identifier=identifier)
+        assert False, 'meta not valid: %s' % identifier
 
     # Override
     def save_document(self, document: Document) -> bool:
+        if not document.valid:
+            identifier = document.identifier
+            meta = self.meta(identifier=identifier)
+            if meta is None:
+                self.error(msg='meta not found: %s' % identifier)
+                return False
+            elif document.verify(public_key=meta.public_key):
+                self.debug(msg='document verified: %s' % identifier)
+            else:
+                self.error(msg='failed to verify document: %s' % identifier)
+                # assert False, 'document not valid: %s' % identifier
+                return False
         db = self.database
         return db.save_document(document=document)
-
-    # # Override
-    # def create_user(self, identifier: ID) -> Optional[User]:
-    #     if not identifier.is_broadcast:
-    #         if self.public_key_for_encryption(identifier=identifier) is None:
-    #             # visa.key not found
-    #             return None
-    #     return super().create_user(identifier=identifier)
-    #
-    # # Override
-    # def create_group(self, identifier: ID) -> Optional[Group]:
-    #     if not identifier.is_broadcast:
-    #         if self.meta(identifier=identifier) is None:
-    #             # meta not found
-    #             return None
-    #     return super().create_group(identifier=identifier)
 
     #
     #   EntityDataSource
@@ -149,6 +149,22 @@ class CommonFacebook(Facebook):
     #
     #    GroupDataSource
     #
+
+    # Override
+    def founder(self, identifier: ID) -> Optional[ID]:
+        db = self.database
+        user = db.founder(group=identifier)
+        if user is None:
+            user = super().founder(identifier=identifier)
+        return user
+
+    # Override
+    def owner(self, identifier: ID) -> Optional[ID]:
+        db = self.database
+        user = db.owner(group=identifier)
+        if user is None:
+            user = super().owner(identifier=identifier)
+        return user
 
     # Override
     def members(self, identifier: ID) -> List[ID]:

@@ -25,12 +25,13 @@
 
 from typing import Optional
 
+from dimsdk import TransportableData
 from dimsdk import ID, Document
 
+from ...utils import template_replace
 from ...common import DocumentDBI
 
 from .base import Storage
-from .base import template_replace
 
 
 class DocumentStorage(Storage, DocumentDBI):
@@ -42,13 +43,12 @@ class DocumentStorage(Storage, DocumentDBI):
     doc_path = '{PUBLIC}/{ADDRESS}/document.js'
 
     def show_info(self):
-        path = template_replace(self.doc_path, 'PUBLIC', self._public)
+        path = self.public_path(self.doc_path)
         print('!!!       document path: %s' % path)
 
     def __doc_path(self, identifier: ID) -> str:
-        path = self.doc_path
-        path = template_replace(path, 'PUBLIC', self._public)
-        return template_replace(path, 'ADDRESS', str(identifier.address))
+        path = self.public_path(self.doc_path)
+        return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
     #
     #   Document DBI
@@ -92,7 +92,8 @@ def parse_document(dictionary: dict, identifier: ID = None, doc_type: str = '*')
     signature = dictionary.get('signature')
     if data is None or signature is None:
         raise ValueError('document error: %s' % dictionary)
-    doc = Document.create(doc_type=doc_type, identifier=identifier, data=data, signature=signature)
+    ted = TransportableData.parse(signature)
+    doc = Document.create(doc_type=doc_type, identifier=identifier, data=data, signature=ted)
     for key in dictionary:
         if key == 'ID' or key == 'data' or key == 'signature':
             continue

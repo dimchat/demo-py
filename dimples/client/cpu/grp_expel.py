@@ -32,96 +32,27 @@
     Expel Group Command Processor
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    1. remove group member(s)
-    2. only group owner or administrator can expel member
+    Deprecated (use 'reset' instead)
 """
 
-from typing import List, Tuple
+from typing import List
 
-from dimsdk import ID
 from dimsdk import ReliableMessage
 from dimsdk import Content
 from dimsdk import ExpelCommand
 
-from .history import GroupCommandProcessor
+from ...utils import Logging
+
+from .group import GroupCommandProcessor
 
 
-# Deprecated
-class ExpelCommandProcessor(GroupCommandProcessor):
+class ExpelCommandProcessor(GroupCommandProcessor, Logging):
 
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ExpelCommand), 'expel command error: %s' % content
-        group = content.group
-        # 0. check command
-        if self._is_command_expired(command=content):
-            # ignore expired command
-            return []
-        expel_list = self.command_members(content=content)
-        if len(expel_list) == 0:
-            return self._respond_receipt(text='Command error.', msg=r_msg, group=group, extra={
-                'template': 'Expel list is empty: ${ID}',
-                'replacements': {
-                    'ID': str(group),
-                }
-            })
-        # 1. check group
-        owner = self.group_owner(group=group)
-        members = self.group_members(group=group)
-        if owner is None or len(members) == 0:
-            # TODO: query group members?
-            return self._respond_receipt(text='Group empty.', msg=r_msg, group=group, extra={
-                'template': 'Group empty: ${ID}',
-                'replacements': {
-                    'ID': str(group),
-                }
-            })
-        administrators = self.group_administrators(group=group)
-        # 2. check permission
-        sender = r_msg.sender
-        if sender != owner and sender not in administrators:
-            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
-                'template': 'Not allowed to expel member from group: ${ID}',
-                'replacements': {
-                    'ID': str(group),
-                }
-            })
-        # 2.1. check owner
-        if owner in expel_list:
-            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
-                'template': 'Not allowed to expel owner of group: ${ID}',
-                'replacements': {
-                    'ID': str(group),
-                }
-            })
-        # 2.2. check admins
-        expel_admin = False
-        for admin in administrators:
-            if admin in expel_list:
-                expel_admin = True
-                break
-        if expel_admin:
-            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
-                'template': 'Not allowed to expel administrator of group: ${ID}',
-                'replacements': {
-                    'ID': str(group),
-                }
-            })
-        # 3. do expel
-        new_members, remove_list = calculate_expelled(members=members, expel_list=expel_list)
-        if len(remove_list) > 0 and self.save_members(members=new_members, group=group):
-            content['removed'] = ID.revert(array=remove_list)
+
+        self.warning(msg='"expel" group command is deprecated, use "reset" instead.')
+
         # no need to response this group command
         return []
-
-
-def calculate_expelled(members: List[ID], expel_list: List[ID]) -> Tuple[List[ID], List[ID]]:
-    new_members = []
-    remove_list = []
-    for item in members:
-        if item in expel_list:
-            # expelled member found
-            remove_list.append(item)
-        else:
-            new_members.append(item)
-    return new_members, remove_list

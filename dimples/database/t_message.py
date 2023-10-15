@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
 from typing import List
 
+from dimsdk import DateTime
 from dimsdk import ID
 from dimsdk import ReliableMessage
 
@@ -54,7 +54,7 @@ class ReliableMessageTable(ReliableMessageDBI):
 
     # Override
     def reliable_messages(self, receiver: ID, limit: int = 1024) -> List[ReliableMessage]:
-        now = time.time()
+        now = DateTime.now()
         # get all messages
         messages, _ = self.__msg_cache.fetch(key=receiver, now=now)
         if messages is None:
@@ -66,7 +66,7 @@ class ReliableMessageTable(ReliableMessageDBI):
 
     # Override
     def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
-        now = time.time()
+        now = DateTime.now()
         # assert receiver.is_user, 'message receiver error: %s' % receiver
         messages, holder = self.__msg_cache.fetch(key=receiver, now=now)
         if messages is None:
@@ -88,7 +88,7 @@ class ReliableMessageTable(ReliableMessageDBI):
 
     # Override
     def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
-        now = time.time()
+        now = DateTime.now()
         # assert receiver.is_user, 'message receiver error: %s' % receiver
         messages, holder = self.__msg_cache.fetch(key=receiver, now=now)
         if messages is None:

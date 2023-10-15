@@ -35,7 +35,8 @@ from typing import List
 from dimsdk import ID
 from dimsdk import ReliableMessage
 from dimsdk import Content
-from dimsdk import BaseCommandProcessor
+
+from dimsdk.cpu import BaseCommandProcessor
 
 from ...utils import Logging
 from ...common import LoginCommand
@@ -85,7 +86,8 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         session.set_active(active=True)
         # only respond the user login to this station
         self.info(msg='user login: %s -> %s' % (sender, roaming))
-        return self._respond_receipt(text='Login received.', msg=r_msg, extra={
+        text = 'Login received.'
+        return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
             'template': 'Login command received: ${ID}.',
             'replacements': {
                 'ID': str(sender),

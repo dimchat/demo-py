@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
 from typing import Optional
 
+from dimsdk import DateTime
 from dimsdk import ID, Meta
 
 from ..utils import CacheManager
@@ -56,7 +56,7 @@ class MetaTable(MetaDBI):
     # Override
     def meta(self, identifier: ID) -> Optional[Meta]:
         """ get meta for ID """
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__meta_cache.fetch(key=identifier, now=now)
         if value is None:

@@ -34,22 +34,16 @@
 
     1. reset group members
     2. only group owner or assistant can reset group members
-
-    3. specially, if the group members info lost,
-       means you may not known who's the group owner immediately (and he may be not online),
-       so we accept the new members-list temporary, and find out who is the owner,
-       after that, we will send 'query' to the owner to get the newest members-list.
 """
 
-from typing import Optional, Tuple, List
+from typing import Tuple, List
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
 from dimsdk import Content
 from dimsdk import ResetCommand
 
-from .history import GroupCommandProcessor
-from .history import update_reset_command_message
+from .group import GroupCommandProcessor
 
 
 class ResetCommandProcessor(GroupCommandProcessor):
@@ -57,32 +51,40 @@ class ResetCommandProcessor(GroupCommandProcessor):
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ResetCommand), 'group cmd error: %s' % content
-        group = content.group
+
         # 0. check command
-        new_members = self.command_members(content=content)
+        pair = self._check_expired(content=content, r_msg=r_msg)
+        group = pair[0]
+        errors = pair[1]
+        if group is None:
+            # ignore expired command
+            return errors
+        pair = self._check_command_members(content=content, r_msg=r_msg)
+        new_members = pair[0]
+        errors = pair[1]
         if len(new_members) == 0:
-            return self._respond_receipt(text='Command error.', msg=r_msg, group=group, extra={
-                'template': 'New member list is empty: ${ID}',
-                'replacements': {
-                    'ID': str(group),
-                }
-            })
+            # command error
+            return errors
+
         # 1. check group
-        owner = self.group_owner(group=group)
-        members = self.group_members(group=group)
+        trip = self._check_group_members(content=content, r_msg=r_msg)
+        owner = trip[0]
+        members = trip[1]
+        errors = trip[2]
         if owner is None or len(members) == 0:
-            # TODO: query group members?
-            return self._respond_receipt(text='Group empty.', msg=r_msg, group=group, extra={
-                'template': 'Group empty: ${ID}',
-                'replacements': {
-                    'ID': str(group),
-                }
-            })
-        administrators = self.group_administrators(group=group)
-        # 2. check permission
+            return errors
+
         sender = r_msg.sender
-        if sender != owner and sender not in administrators:
-            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
+        administrators = self._administrators(group=group)
+        is_owner = sender == owner
+        is_admin = sender in administrators
+        can_reset = is_owner or is_admin
+        cannot_reset = not can_reset
+
+        # 2. check permission
+        if cannot_reset:
+            text = 'Permission denied.'
+            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Not allowed to reset members of group: ${ID}',
                 'replacements': {
                     'ID': str(group),
@@ -90,7 +92,8 @@ class ResetCommandProcessor(GroupCommandProcessor):
             })
         # 2.1. check owner
         if owner != new_members[0]:
-            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
+            text = 'Permission denied.'
+            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Owner must be the first member of group: ${ID}',
                 'replacements': {
                     'ID': str(group),
@@ -103,43 +106,48 @@ class ResetCommandProcessor(GroupCommandProcessor):
                 expel_admin = True
                 break
         if expel_admin:
-            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
+            text = 'Permission denied.'
+            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Not allowed to expel administrator of group: ${ID}',
                 'replacements': {
                     'ID': str(group),
                 }
             })
-        # 3. try to save 'reset' command
-        db = self.messenger.facebook.database
-        if not update_reset_command_message(group=group, cmd=content, msg=r_msg, database=db):
-            # newer 'reset' command exists, drop this command
-            return []
-        # 4. do reset
-        add_list, remove_list = self.__reset_members(group=group, old_members=members, new_members=new_members)
-        if add_list is not None and len(add_list) > 0:
-            content['added'] = ID.revert(add_list)
-        if remove_list is not None and len(remove_list) > 0:
-            content['removed'] = ID.revert(remove_list)
+
+        # 3. do reset
+        pair = calculate_reset(old_members=members, new_members=new_members)
+        add_list = pair[0]
+        remove_list = pair[1]
+        if not self._save_group_history(group=group, content=content, r_msg=r_msg):
+            # here try to save the 'reset' command to local storage as group history
+            # it should not failed unless the command is expired
+            self.error(msg='failed to save "reset" command for group: %s' % group)
+        elif len(add_list) == 0 and len(remove_list) == 0:
+            # nothing changed
+            self.warning(msg='nothing changed for group members: %d, %s' % (len(members), group))
+        elif self._save_members(members=new_members, group=group):
+            self.info(msg='new members saved in group: %s' % group)
+            if len(add_list) > 0:
+                content['added'] = ID.revert(add_list)
+            if len(remove_list) > 0:
+                content['removed'] = ID.revert(remove_list)
+        else:
+            # DB error?
+            assert False, 'failed to save members for group: %s' % group
+
         # no need to response this group command
         return []
 
-    def __reset_members(self, group: ID, old_members: List[ID],
-                        new_members: List[ID]) -> Tuple[Optional[List[ID]], Optional[List[ID]]]:
-        # build invited-list
-        add_list = []
-        for item in new_members:
-            if item not in old_members:
-                # adding member found
-                add_list.append(item)
-        # build expelled-list
-        remove_list = []
-        for item in old_members:
-            if item not in new_members:
-                # removing member found
-                remove_list.append(item)
-        if len(add_list) == 0 and len(remove_list) == 0:
-            # nothing changed
-            return None, None
-        if self.save_members(members=new_members, group=group):
-            return add_list, remove_list
-        assert False, 'failed to save members in group: %s, %s' % (group, new_members)
+
+def calculate_reset(old_members: List[ID], new_members: List[ID]) -> Tuple[List[ID], List[ID]]:
+    add_list = []
+    remove_list = []
+    # build invited-list
+    for item in new_members:
+        if item not in old_members:
+            add_list.append(item)
+    # build expelled-list
+    for item in old_members:
+        if item not in new_members:
+            remove_list.append(item)
+    return add_list, remove_list

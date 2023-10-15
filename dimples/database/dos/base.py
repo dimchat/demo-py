@@ -23,8 +23,10 @@
 # SOFTWARE.
 # ==============================================================================
 
+import os
 from typing import Optional, Union
 
+from ...utils import template_replace
 from ...utils import Log
 from ...utils import File, TextFile, JSONFile
 
@@ -37,11 +39,6 @@ from ...utils import File, TextFile, JSONFile
 root_dir = '/var/.dim'
 pub_dir = '{ROOT}/public'
 pri_dir = '{ROOT}/private'
-
-
-def template_replace(template: str, key: str, value: str) -> str:
-    tag = '{%s}' % key
-    return template.replace(tag, value)
 
 
 class Storage:
@@ -60,6 +57,32 @@ class Storage:
             private = template_replace(pri_dir, 'ROOT', root)
         self._public = public
         self._private = private
+
+    def public_path(self, template: str):
+        """ replace '{PUBLIC}' with public directory """
+        tag = '{PUBLIC}'
+        if template.startswith(tag):
+            # replace with tag
+            return template_replace(template=template, key='PUBLIC', value=self._public)
+        elif template.startswith('/') or template.find(':') > 0:
+            # absolute path
+            return template
+        else:
+            # relative path
+            return os.path.join(self._public, template)
+
+    def private_path(self, template: str):
+        """ replace '{PRIVATE}' with private directory """
+        tag = '{PRIVATE}'
+        if template.startswith(tag):
+            # replace with tag
+            return template_replace(template=template, key='PRIVATE', value=self._private)
+        elif template.startswith('/') or template.find(':') > 0:
+            # absolute path
+            return template
+        else:
+            # relative path
+            return os.path.join(self._public, template)
 
     @classmethod
     def exists(cls, path: str) -> bool:

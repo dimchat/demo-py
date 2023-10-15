@@ -26,8 +26,8 @@
 from configparser import ConfigParser
 from typing import Optional, Dict, List, Tuple
 
-from mkm.types import Dictionary
-from mkm import ID
+from dimsdk import Dictionary
+from dimsdk import ID
 
 
 class Node(Dictionary):

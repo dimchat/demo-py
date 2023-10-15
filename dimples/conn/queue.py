@@ -36,9 +36,9 @@
 """
 
 import threading
-import time
 from typing import Optional, List, Dict
 
+from dimsdk import DateTime
 from dimsdk import ReliableMessage
 
 from startrek import Arrival, Departure
@@ -150,12 +150,12 @@ class MessageQueue:
                     return fleet.pop(0)
 
     def purge(self):
-        now = time.time()
+        now = DateTime.now()
         if now < self.__next_purge_time:
             return -1
         else:
             # next purge after half a minute
-            self.__next_purge_time = now + 30
+            self.__next_purge_time = now.timestamp + 30
         with self.__lock:
             priorities = list(self.__priorities)
             for prior in priorities:

@@ -33,7 +33,8 @@ from typing import List
 
 from dimsdk import ReliableMessage
 from dimsdk import Content, TextContent
-from dimsdk import BaseContentProcessor
+
+from dimsdk.cpu import BaseContentProcessor
 
 from ...utils import Log
 
@@ -44,5 +45,5 @@ class TextContentProcessor(BaseContentProcessor):
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, TextContent), 'text content error: %s' % content
         Log.warning(msg='received text content: %s, %s => %s'
-                        % (content.get_str(key='text'), r_msg.sender, r_msg.receiver))
+                        % (content.get_str(key='text', default=None), r_msg.sender, r_msg.receiver))
         return []

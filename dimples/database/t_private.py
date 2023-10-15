@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
 from typing import Optional, List
 
+from dimsdk import DateTime
 from dimsdk import PrivateKey, DecryptKey, SignKey
 from dimsdk import ID
 
@@ -62,7 +62,7 @@ class PrivateKeyTable(PrivateKeyDBI):
 
     # Override
     def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
-        now = time.time()
+        now = DateTime.now()
         # 1. update memory cache
         if key_type == PrivateKeyStorage.ID_KEY_TAG:
             # update 'id_key'
@@ -81,7 +81,7 @@ class PrivateKeyTable(PrivateKeyDBI):
     # Override
     def private_keys_for_decryption(self, user: ID) -> List[DecryptKey]:
         """ get sign key for ID """
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__msg_keys_cache.fetch(key=user, now=now)
         if value is None:
@@ -113,7 +113,7 @@ class PrivateKeyTable(PrivateKeyDBI):
     # Override
     def private_key_for_visa_signature(self, user: ID) -> Optional[SignKey]:
         """ get sign key for ID """
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__id_key_cache.fetch(key=user, now=now)
         if value is None:

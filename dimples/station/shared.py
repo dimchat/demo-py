@@ -30,7 +30,7 @@ from typing import Optional, Tuple
 
 from dimsdk import ID
 
-from ..utils import Singleton
+from ..utils import Singleton, Config
 from ..common import AddressNameServer, ANSFactory, CommonFacebook
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..common import ProviderInfo
@@ -38,8 +38,6 @@ from ..database import AccountDatabase, MessageDatabase, SessionDatabase
 from ..database import Storage
 from ..server import BroadcastRecipientManager
 from ..server import Dispatcher
-
-from ..config import Config
 
 
 @Singleton

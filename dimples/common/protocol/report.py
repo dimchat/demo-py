@@ -62,13 +62,15 @@ class ReportCommand(BaseCommand):
 
     def __init__(self, content: Dict[str, Any] = None, title: str = None):
         if content is None:
-            # create with title
-            super().__init__(cmd=ReportCommand.REPORT)
+            # 1. new command with title
+            cmd = ReportCommand.REPORT
+            super().__init__(cmd=cmd)
             if title is not None:
                 self['title'] = title
         else:
-            # create with command content
-            super().__init__(content=content)
+            # 2. command info from network
+            assert title is None, 'params error: %s, %s' % (content, title)
+            super().__init__(content)
 
     #
     #   report title

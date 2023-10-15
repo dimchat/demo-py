@@ -29,37 +29,25 @@
 
 """
 
-from typing import Optional
-
 from .account import PrivateKeyDBI, MetaDBI, DocumentDBI
-from .account import UserDBI, GroupDBI, ResetGroupDBI
+from .account import UserDBI, ContactDBI, GroupDBI, GroupHistoryDBI
 from .account import AccountDBI
 
 from .message import ReliableMessageDBI, CipherKeyDBI, GroupKeysDBI
 from .message import MessageDBI
-from .message import get_msg_sig
 
 from .session import LoginDBI, ProviderDBI, StationDBI
 from .session import SessionDBI
 from .session import ProviderInfo, StationInfo
 
 
-def is_expired(old_time: Optional[float], new_time: Optional[float]) -> bool:
-    if old_time is None or new_time is None:
-        return False
-    else:
-        return 0 < new_time < old_time
-
-
 __all__ = [
-
-    'is_expired',
 
     #
     #   Account
     #
     'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
-    'UserDBI', 'GroupDBI', 'ResetGroupDBI',
+    'UserDBI', 'ContactDBI', 'GroupDBI', 'GroupHistoryDBI',
     'AccountDBI',
 
     #
@@ -67,7 +55,6 @@ __all__ = [
     #
     'ReliableMessageDBI', 'CipherKeyDBI', 'GroupKeysDBI',
     'MessageDBI',
-    'get_msg_sig',
 
     #
     #   Session

@@ -42,11 +42,11 @@ from dimsdk import Station
 
 from ..utils import Log, Logging
 from ..utils import Runner
+from ..utils import get_msg_sig
 from ..common import CommonFacebook
 from ..common import ProviderInfo
 from ..common import MessageDBI, SessionDBI
 from ..common import HandshakeCommand
-from ..common import get_msg_sig
 
 from ..client import ClientSession
 from ..client import ClientMessenger

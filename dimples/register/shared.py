@@ -27,13 +27,12 @@ from typing import Optional
 
 from dimsdk import EntityType
 from dimsdk import ID, Bulletin
-from dimplugins.network import NetworkType, network_to_type
 
-from ..utils import Singleton
+from ..common.compat import NetworkType, network_to_type
+
+from ..utils import Singleton, Config
 from ..common import AccountDBI
 from ..database import AccountDatabase
-
-from ..config import Config
 
 
 from .base import BaseAccount

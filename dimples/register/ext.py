@@ -25,10 +25,10 @@
 
 from typing import Optional, Tuple, List
 
-from mkm.crypto import PrivateKey, SignKey
-from mkm import ID
-from mkm import Meta
-from mkm import Document, Visa, Bulletin
+from dimsdk import PrivateKey, SignKey
+from dimsdk import ID
+from dimsdk import Meta
+from dimsdk import Document, Visa, Bulletin
 
 from ..common import AccountDBI
 from ..database import PrivateKeyStorage
@@ -177,7 +177,7 @@ class UserAccount(BaseAccount):
         doc = self.edit()
         assert isinstance(doc, Visa), 'failed to edit visa: %s' % doc
         # update visa.key and sign
-        doc.key = self.__msg_pri_keys[0].public_key
+        doc.public_key = self.__msg_pri_keys[0].public_key
         if doc.sign(private_key=self.__id_pri_key) is None:
             return None
         if not exists:

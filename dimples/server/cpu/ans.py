@@ -35,7 +35,8 @@ from typing import Optional, List
 from dimsdk import ID
 from dimsdk import ReliableMessage
 from dimsdk import Content
-from dimsdk import BaseCommandProcessor
+
+from dimsdk.cpu import BaseCommandProcessor
 
 from ...utils import Log
 from ...common import AnsCommand
@@ -48,7 +49,8 @@ class AnsCommandProcessor(BaseCommandProcessor):
         assert isinstance(content, AnsCommand), 'report command error: %s' % content
         names = content.names
         if len(names) == 0:
-            return self._respond_receipt(text='ANS command error.', msg=r_msg)
+            text = 'ANS command error.'
+            return self.respond_receipt(text=text, envelope=r_msg.envelope, content=content, extra={})
         records = {}
         missed = []
         for item in names:

@@ -42,7 +42,7 @@ from dimsdk import ReliableMessage
 from dimsdk import Content
 from dimsdk import JoinCommand
 
-from .history import GroupCommandProcessor
+from .group import GroupCommandProcessor
 
 
 class JoinCommandProcessor(GroupCommandProcessor):
@@ -50,31 +50,50 @@ class JoinCommandProcessor(GroupCommandProcessor):
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, JoinCommand), 'join command error: %s' % content
-        group = content.group
+
         # 0. check command
-        if self._is_command_expired(command=content):
+        pair = self._check_expired(content=content, r_msg=r_msg)
+        group = pair[0]
+        errors = pair[1]
+        if group is None:
             # ignore expired command
-            return []
+            return errors
+
         # 1. check group
-        owner = self.group_owner(group=group)
-        members = self.group_members(group=group)
+        trip = self._check_group_members(content=content, r_msg=r_msg)
+        owner = trip[0]
+        members = trip[1]
+        errors = trip[2]
         if owner is None or len(members) == 0:
-            # TODO: query group members?
-            return self._respond_receipt(text='Group empty.', msg=r_msg, group=group, extra={
-                'template': 'Group empty: ${ID}',
-                'replacements': {
-                    'ID': str(group),
-                }
-            })
-        # 2. check membership
+            return errors
+
         sender = r_msg.sender
-        if sender in members:
-            # maybe the sender is already a member,
-            # but if it can still receive a join command here,
-            # we should respond the sender with the newest membership again.
-            self._send_reset_command(group=group, members=members, receiver=sender)
+        admins = self._administrators(group=group)
+        is_owner = sender == owner
+        is_admin = sender in admins
+        is_member = sender in members
+        can_reset = is_owner or is_admin
+        cannot_reset = not can_reset
+
+        # 2. check membership
+        if is_member:
+            # maybe the command sender is already become a member,
+            # but if it can still receive a 'join' command here,
+            # we should notify the sender that the member list was updated.
+            user = self.facebook.current_user
+            if cannot_reset and owner == user.identifier:
+                # the sender cannot reset the group, means it's an ordinary member now,
+                # and if I am the owner, then send the group history commands
+                # to update the sender's memory.
+                ok = self.send_group_histories(group=group, receiver=sender)
+                assert ok, 'failed to send history for group: %s => %s' % (group, sender)
+        elif not self._save_group_history(group=group, content=content, r_msg=r_msg):
+            # here try to append the 'join' command to local storage as group history
+            # it should not failed unless the command is expired
+            self.error(msg='failed to save "join" command for group: %s' % group)
         else:
-            # add 'join' application for waiting review
-            self._add_application(command=content, message=r_msg)
+            # the 'join' command was saved, now waiting for review.
+            self.info(msg='"join" command saved, waiting review now')
+
         # no need to response this group command
         return []

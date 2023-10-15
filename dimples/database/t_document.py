@@ -23,14 +23,14 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
 from typing import Optional
 
+from dimsdk import DateTime
 from dimsdk import ID, Document
 
 from ..utils import CacheManager
+from ..utils import is_before
 from ..common import DocumentDBI
-from ..common.dbi import is_expired
 
 from .dos import DocumentStorage
 
@@ -60,7 +60,7 @@ class DocumentTable(DocumentDBI):
             doc_type = '*'
         # check old record
         old = self.document(identifier=document.identifier, doc_type=doc_type)
-        if old is not None and is_expired(old_time=old.time, new_time=new_time):
+        if old is not None and is_before(old_time=old.time, new_time=new_time):
             # cache expired, drop it
             return True
 
@@ -84,7 +84,7 @@ class DocumentTable(DocumentDBI):
     # Override
     def document(self, identifier: ID, doc_type: str = '*') -> Optional[Document]:
         """ get document for ID """
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__doc_cache.fetch(key=identifier, now=now)
         if value is None:

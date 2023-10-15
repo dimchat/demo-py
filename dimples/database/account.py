@@ -25,10 +25,10 @@
 
 from typing import Optional, List, Tuple
 
-from dimp import ResetCommand
+from dimsdk import GroupCommand, ResetCommand
 from dimsdk import PrivateKey, DecryptKey, SignKey
 from dimsdk import ID, Meta, Document, Bulletin
-from dkd import ReliableMessage
+from dimsdk import ReliableMessage
 
 from ..common import AccountDBI
 
@@ -37,7 +37,7 @@ from .t_meta import MetaTable
 from .t_document import DocumentTable
 from .t_user import UserTable
 from .t_group import GroupTable
-from .t_group_reset import ResetGroupTable
+from .t_group_history import GroupHistoryTable
 
 
 class AccountDatabase(AccountDBI):
@@ -53,7 +53,7 @@ class AccountDatabase(AccountDBI):
         self.__doc_table = DocumentTable(root=root, public=public, private=private)
         self.__user_table = UserTable(root=root, public=public, private=private)
         self.__group_table = GroupTable(root=root, public=public, private=private)
-        self.__reset_table = ResetGroupTable(root=root, public=public, private=private)
+        self.__history_table = GroupHistoryTable(root=root, public=public, private=private)
 
     def show_info(self):
         self.__private_table.show_info()
@@ -61,7 +61,7 @@ class AccountDatabase(AccountDBI):
         self.__doc_table.show_info()
         self.__user_table.show_info()
         self.__group_table.show_info()
-        self.__reset_table.show_info()
+        self.__history_table.show_info()
 
     #
     #   PrivateKey DBI
@@ -90,7 +90,7 @@ class AccountDatabase(AccountDBI):
     # Override
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         # check meta with ID
-        if not Meta.match_id(meta=meta, identifier=identifier):
+        if not meta.match_identifier(identifier=identifier):
             raise ValueError('meta not match: %s => %s' % (identifier, meta))
         return self.__meta_table.save_meta(meta=meta, identifier=identifier)
 
@@ -109,14 +109,14 @@ class AccountDatabase(AccountDBI):
         if meta is None:
             raise LookupError('meta not exists: %s' % document.identifier)
         # check document valid before saving it
-        if not (document.valid or document.verify(public_key=meta.key)):
+        if not (document.valid or document.verify(public_key=meta.public_key)):
             raise ValueError('document error: %s' % document.identifier)
         # check founder in group document
         if isinstance(document, Bulletin):
             founder = document.founder
             if founder is not None:
                 f_meta = self.__meta_table.meta(identifier=founder)
-                if f_meta is None or meta.key != meta.key:
+                if f_meta is None or meta.public_key != meta.public_key:
                     raise ValueError('founder error: %s, group: %s' % (founder, document.identifier))
         # document ok, try to save it
         return self.__doc_table.save_document(document=document)
@@ -130,6 +130,14 @@ class AccountDatabase(AccountDBI):
     #
 
     # Override
+    def local_users(self) -> List[ID]:
+        return self.__user_table.local_users()
+
+    # Override
+    def save_local_users(self, users: List[ID]) -> bool:
+        return self.__user_table.save_local_users(users=users)
+
+    # Override
     def contacts(self, user: ID) -> List[ID]:
         return self.__user_table.contacts(user=user)
 
@@ -140,6 +148,14 @@ class AccountDatabase(AccountDBI):
     #
     #   Group DBI
     #
+
+    # Override
+    def founder(self, group: ID) -> Optional[ID]:
+        return self.__group_table.founder(group=group)
+
+    # Override
+    def owner(self, group: ID) -> Optional[ID]:
+        return self.__group_table.owner(group=group)
 
     # Override
     def members(self, group: ID) -> List[ID]:
@@ -166,13 +182,25 @@ class AccountDatabase(AccountDBI):
         return self.__group_table.save_administrators(administrators=administrators, group=group)
 
     #
-    #   Reset Group DBI
+    #   Group History DBI
     #
 
     # Override
-    def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
-        return self.__reset_table.reset_command_message(group=group)
+    def save_group_history(self, group: ID, content: GroupCommand, message: ReliableMessage) -> bool:
+        return self.__history_table.save_group_history(group=group, content=content, message=message)
 
     # Override
-    def save_reset_command_message(self, group: ID, content: ResetCommand, msg: ReliableMessage) -> bool:
-        return self.__reset_table.save_reset_command_message(group=group, content=content, msg=msg)
+    def group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
+        return self.__history_table.group_histories(group=group)
+
+    # Override
+    def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
+        return self.__history_table.reset_command_message(group=group)
+
+    # Override
+    def clear_group_member_histories(self, group: ID) -> bool:
+        return self.__history_table.clear_group_member_histories(group=group)
+
+    # Override
+    def clear_group_admin_histories(self, group: ID) -> bool:
+        return self.__history_table.clear_group_admin_histories(group=group)

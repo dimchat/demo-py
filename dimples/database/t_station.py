@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
 from typing import Optional, List
 
+from dimsdk import DateTime
 from dimsdk import ID
 
 from ..utils import CacheManager
@@ -59,7 +59,7 @@ class StationTable(ProviderDBI, StationDBI):
     # Override
     def all_providers(self) -> List[ProviderInfo]:
         """ get providers """
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__dim_cache.fetch(key='providers', now=now)
         if value is None:
@@ -111,7 +111,7 @@ class StationTable(ProviderDBI, StationDBI):
     # Override
     def all_stations(self, provider: ID) -> List[StationInfo]:
         """ get stations with SP ID """
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__stations_cache.fetch(key=provider, now=now)
         if value is None:

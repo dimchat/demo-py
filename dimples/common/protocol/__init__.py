@@ -28,7 +28,6 @@ from dimsdk import CommandFactoryBuilder
 from dimsdk import register_all_factories as register_core_factories
 from dimplugins import register_plugins
 
-from .groups import ResignCommand, ResignGroupCommand
 from .handshake import HandshakeCommand, HandshakeState
 from .login import LoginCommand
 from .report import ReportCommand
@@ -49,16 +48,13 @@ def register_all_factories():
     Command.register(cmd=AnsCommand.ANS, factory=CommandFactoryBuilder(command_class=AnsCommand))
 
 
-register_all_factories()
-register_plugins()
-
-
 __all__ = [
-
-    'ResignCommand', 'ResignGroupCommand',
 
     'HandshakeCommand', 'HandshakeState',
     'LoginCommand',
     'ReportCommand',
     'AnsCommand',
+
+    'register_all_factories',
+    'register_plugins',
 ]

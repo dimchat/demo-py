@@ -34,7 +34,8 @@ from typing import List
 
 from dimsdk import ReliableMessage
 from dimsdk import Content
-from dimsdk import BaseCommandProcessor
+
+from dimsdk.cpu import BaseCommandProcessor
 
 from ...utils import Logging
 from ...common import ReportCommand
@@ -64,7 +65,8 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
         if title == ReportCommand.ONLINE:
             # online
             session.set_active(active=True, when=content.time)
-            return self._respond_receipt(text='Online received.', msg=r_msg, extra={
+            text = 'Online received.'
+            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Online command received: ${ID}.',
                 'replacements': {
                     'ID': str(sender),
@@ -76,7 +78,8 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
             # respond nothing when user offline
             return []
         else:
-            return self._respond_receipt(text='Command not support.', msg=r_msg, extra={
+            text = 'Command not support.'
+            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Report command (title: ${title}) not support yet!',
                 'replacements': {
                     'title': title,

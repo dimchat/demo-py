@@ -33,6 +33,8 @@ import time
 from threading import Thread
 from typing import TypeVar, Generic, Optional, Dict, Set, Tuple
 
+from dimsdk import DateTime
+
 from .singleton import Singleton
 
 
@@ -42,43 +44,43 @@ V = TypeVar('V')
 
 class CacheHolder(Generic[V]):
 
-    def __init__(self, value: Optional[V], life_span: float, now: float):
+    def __init__(self, value: Optional[V], life_span: float, now: DateTime):
         super().__init__()
         self.__value = value
         self.__life_span = life_span
         if now is None:
-            now = time.time()
-        self.__expired = now + life_span
-        self.__deprecated = now + life_span * 2
+            now = DateTime.now()
+        self.__expired = DateTime(now.timestamp + life_span)
+        self.__deprecated = DateTime(now.timestamp + life_span * 2)
 
     @property
     def value(self) -> Optional[V]:
         return self.__value
 
-    def update(self, value: V, now: float = None):
+    def update(self, value: V, now: DateTime = None):
         if now is None:
-            now = time.time()
+            now = DateTime.now()
         life_span = self.__life_span
         self.__value = value
-        self.__expired = now + life_span
-        self.__deprecated = now + life_span * 2
+        self.__expired = DateTime(now.timestamp + life_span)
+        self.__deprecated = DateTime(now.timestamp + life_span * 2)
 
-    def is_alive(self, now: float = None) -> bool:
+    def is_alive(self, now: DateTime = None) -> bool:
         if now is None:
-            now = time.time()
+            now = DateTime.now()
         return now < self.__expired
 
-    def is_deprecated(self, now: float = None) -> bool:
+    def is_deprecated(self, now: DateTime = None) -> bool:
         if now is None:
-            now = time.time()
+            now = DateTime.now()
         return now > self.__deprecated
 
-    def renewal(self, duration: float = 128, now: float = None):
+    def renewal(self, duration: float = 128, now: DateTime = None):
         if now is None:
-            now = time.time()
+            now = DateTime.now()
         life_span = self.__life_span
-        self.__deprecated = now + life_span * 2
-        self.__expired = now + duration
+        self.__deprecated = DateTime(now.timestamp + life_span * 2)
+        self.__expired = DateTime(now.timestamp + duration)
 
 
 class CachePool(Generic[K, V]):
@@ -90,14 +92,14 @@ class CachePool(Generic[K, V]):
         return set(self.__holders.keys())
 
     def update(self, key: K, holder: CacheHolder[V] = None,
-               value: V = None, life_span: float = 3600, now: float = None) -> CacheHolder[V]:
+               value: V = None, life_span: float = 3600, now: DateTime = None) -> CacheHolder[V]:
         """ update: key -> holder(value) """
         if holder is None:
             holder = CacheHolder(value=value, life_span=life_span, now=now)
         self.__holders[key] = holder
         return holder
 
-    def erase(self, key: K, now: float = None) -> Tuple[Optional[V], Optional[CacheHolder[V]]]:
+    def erase(self, key: K, now: DateTime = None) -> Tuple[Optional[V], Optional[CacheHolder[V]]]:
         """ erase value holder with key """
         if now is None:
             self.__holders.pop(key, None)
@@ -107,7 +109,7 @@ class CachePool(Generic[K, V]):
         self.__holders.pop(key, None)
         return value, holder
 
-    def fetch(self, key: K, now: float = None) -> Tuple[Optional[V], Optional[CacheHolder[V]]]:
+    def fetch(self, key: K, now: DateTime = None) -> Tuple[Optional[V], Optional[CacheHolder[V]]]:
         """ fetch value & holder with key """
         holder = self.__holders.get(key)
         if holder is None:
@@ -119,7 +121,7 @@ class CachePool(Generic[K, V]):
             # holder expired
             return None, holder
 
-    def purge(self, now: float = None) -> int:
+    def purge(self, now: DateTime = None) -> int:
         """ remove all expired cache holders """
         count = 0
         keys = self.all_keys()
@@ -167,12 +169,12 @@ class CacheManager:
         next_time = 0
         while self.running:
             # try to purge each 5 minutes
-            now = time.time()
+            now = DateTime.now()
             if now < next_time:
                 time.sleep(2)
                 continue
             else:
-                next_time = now + 300
+                next_time = DateTime(now.timestamp + 300)
             try:
                 count = self.purge(now=now)
                 print('[MEM] purge %d item(s) from cache pools' % count)
@@ -188,7 +190,7 @@ class CacheManager:
             self.__pools[name] = pool
         return pool
 
-    def purge(self, now: float) -> int:
+    def purge(self, now: DateTime) -> int:
         """ purge all pools """
         count = 0
         names = set(self.__pools.keys())

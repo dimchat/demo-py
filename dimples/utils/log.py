@@ -27,12 +27,12 @@
     Log Util
     ~~~~~~~~
 """
-import time
+
+from dimsdk import DateTime
 
 
 def current_time() -> str:
-    time_array = time.localtime()
-    return time.strftime('%Y-%m-%d %H:%M:%S', time_array)
+    return str(DateTime.now())
 
 
 DEBUG_FLAG = 0x01

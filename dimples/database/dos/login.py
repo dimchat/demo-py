@@ -28,10 +28,10 @@ from typing import Optional, Tuple
 from dimsdk import ID
 from dimsdk import ReliableMessage
 
+from ...utils import template_replace
 from ...common import LoginDBI, LoginCommand
 
 from .base import Storage
-from .base import template_replace
 
 
 class LoginStorage(Storage, LoginDBI):
@@ -44,13 +44,12 @@ class LoginStorage(Storage, LoginDBI):
     login_path = '{PUBLIC}/{ADDRESS}/login.js'
 
     def show_info(self):
-        path = template_replace(self.login_path, 'PUBLIC', self._public)
+        path = self.public_path(self.login_path)
         print('!!!      login cmd path: %s' % path)
 
     def __login_path(self, identifier: ID) -> str:
-        path = self.login_path
-        path = template_replace(path, 'PUBLIC', self._public)
-        return template_replace(path, 'ADDRESS', str(identifier.address))
+        path = self.public_path(self.login_path)
+        return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
     #
     #   Login DBI

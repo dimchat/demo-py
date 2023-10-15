@@ -28,10 +28,10 @@ from typing import Optional, List
 from dimsdk import PrivateKey, SignKey, DecryptKey
 from dimsdk import ID
 
+from ...utils import template_replace
 from ...common import PrivateKeyDBI
 
 from .base import Storage
-from .base import template_replace
 
 
 class PrivateKeyStorage(Storage, PrivateKeyDBI):
@@ -54,20 +54,18 @@ class PrivateKeyStorage(Storage, PrivateKeyDBI):
     MSG_KEY_TAG = 'V'  # private key pared to visa.key
 
     def show_info(self):
-        path1 = template_replace(self.id_key_path, 'PRIVATE', self._private)
-        path2 = template_replace(self.msg_keys_path, 'PRIVATE', self._private)
+        path1 = self.private_path(self.id_key_path)
+        path2 = self.private_path(self.msg_keys_path)
         print('!!!         id key path: %s' % path1)
         print('!!!       msg keys path: %s' % path2)
 
     def __id_key_path(self, identifier: ID) -> str:
-        path = self.id_key_path
-        path = template_replace(path, 'PRIVATE', self._private)
-        return template_replace(path, 'ADDRESS', str(identifier.address))
+        path = self.private_path(self.id_key_path)
+        return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
     def __msg_keys_path(self, identifier: ID) -> str:
-        path = self.msg_keys_path
-        path = template_replace(path, 'PRIVATE', self._private)
-        return template_replace(path, 'ADDRESS', str(identifier.address))
+        path = self.private_path(self.msg_keys_path)
+        return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
     def _save_id_key(self, key: PrivateKey, identifier: ID) -> bool:
         path = self.__id_key_path(identifier=identifier)

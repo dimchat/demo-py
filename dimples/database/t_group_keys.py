@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
 from typing import Optional, Dict
 
+from dimsdk import DateTime
 from dimsdk import ID
 
 from ..utils import CacheManager
@@ -84,7 +84,7 @@ class GroupKeysTable(GroupKeysDBI):
 
     # Override
     def group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
-        now = time.time()
+        now = DateTime.now()
         identifier = (group, sender)
         # 1. check memory cache
         value, holder = self.__keys_cache.fetch(key=identifier, now=now)

@@ -32,19 +32,17 @@
     Quit Group Command Processor
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    1. quit the group
+    1. remove the sender from members of the group
     2. owner and administrator cannot quit
 """
 
 from typing import List
 
-from dimsdk import ID
 from dimsdk import ReliableMessage
-from dimsdk import Content, ForwardContent
+from dimsdk import Content
 from dimsdk import QuitCommand
 
-from .history import GroupCommandProcessor
-from .history import create_reset_command, update_reset_command_message
+from .group import GroupCommandProcessor
 
 
 class QuitCommandProcessor(GroupCommandProcessor):
@@ -52,80 +50,66 @@ class QuitCommandProcessor(GroupCommandProcessor):
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, QuitCommand), 'quit command error: %s' % content
-        group = content.group
+
         # 0. check command
-        if self._is_command_expired(command=content):
+        pair = self._check_expired(content=content, r_msg=r_msg)
+        group = pair[0]
+        errors = pair[1]
+        if group is None:
             # ignore expired command
-            return []
+            return errors
+
         # 1. check group
-        owner = self.group_owner(group=group)
-        members = self.group_members(group=group)
+        trip = self._check_group_members(content=content, r_msg=r_msg)
+        owner = trip[0]
+        members = trip[1]
+        errors = trip[2]
         if owner is None or len(members) == 0:
-            # TODO: query group members?
-            return self._respond_receipt(text='Group empty.', msg=r_msg, group=group, extra={
-                'template': 'Group empty: ${ID}',
-                'replacements': {
-                    'ID': str(group),
-                }
-            })
-        # 2. check permission
+            return errors
+
         sender = r_msg.sender
-        if sender == owner:
-            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
+        admins = self._administrators(group=group)
+        is_owner = sender == owner
+        is_admin = sender in admins
+        is_member = sender in members
+
+        # 2. check permission
+        if is_owner:
+            text = 'Permission denied.'
+            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Owner cannot quit from group: ${ID}',
                 'replacements': {
                     'ID': str(group),
                 }
             })
-        administrators = self.group_administrators(group=group)
-        if sender in administrators:
-            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
+        if is_admin:
+            text = 'Permission denied.'
+            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Administrator cannot quit from group: ${ID}',
                 'replacements': {
                     'ID': str(group),
                 }
             })
+        if is_member:
+            new_members = members.copy()
+            new_members.remove(sender)
+            members = new_members
+
         # 3. do quit
-        members = members.copy()
-        sender_is_member = sender in members
-        if sender_is_member:
-            # member do exist, remove it and update database
-            members.remove(sender)
-            if self.save_members(members=members, group=group):
-                content['removed'] = [str(sender)]
-        # 4. update 'reset' command
-        user = self.facebook.current_user
-        assert user is not None, 'failed to get current user'
-        me = user.identifier
-        if me == owner or me in administrators:
-            # this is the group owner (or administrator), so
-            # it has permission to reset group members here.
-            self.__refresh_members(group=group, admin=me, members=members)
+        if not is_member:
+            # the sender is not a member now,
+            # shall we notify the sender that the member list was updated?
+            self.warning(msg='not a member now: %s, %s' % (sender, group))
+        elif not self._save_group_history(group=group, content=content, r_msg=r_msg):
+            # here try to append the 'quit' command to local storage as group history
+            # it should not failed unless the command is expired
+            self.error(msg='failed to save "quit" command for group: %s' % group)
+        elif self._save_members(members=members, group=group):
+            # here try to remove the sender from member list
+            content['removed'] = [str(sender)]
         else:
-            # add 'quit' application for waiting admin to update
-            self._add_application(command=content, message=r_msg)
-        if not sender_is_member:
-            return self._respond_receipt(text='Permission denied.', msg=r_msg, group=group, extra={
-                'template': 'Not a member of group: ${ID}',
-                'replacements': {
-                    'ID': str(group),
-                }
-            })
+            # DB error?
+            assert False, 'failed to save members for group: %s' % group
+
         # no need to response this group command
         return []
-
-    def __refresh_members(self, group: ID, admin: ID, members: List[ID]):
-        messenger = self.messenger
-        db = messenger.facebook.database
-        # 1. create new 'reset' command
-        cmd, msg = create_reset_command(sender=admin, group=group, members=members, messenger=messenger)
-        if not update_reset_command_message(group=group, cmd=cmd, msg=msg, database=db):
-            # failed to save 'reset' command message
-            return False
-        forward = ForwardContent.create(message=msg)
-        # 2. forward to assistants
-        assistants = self.group_assistants(group=group)
-        for bot in assistants:
-            assert bot != admin, 'group bot should not be admin: %s, %s, group: %s' % (admin, bot, group)
-            messenger.send_content(sender=admin, receiver=bot, content=forward, priority=1)
-        return True

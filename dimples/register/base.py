@@ -26,15 +26,14 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple, List
 
-from mkm.crypto import SignKey
-from mkm import EntityType, ID
-from mkm import MetaType, Meta
-from mkm import Document
-
-from dimplugins.network import NetworkType, network_to_type
+from dimsdk import SignKey
+from dimsdk import EntityType, ID
+from dimsdk import MetaType, Meta
+from dimsdk import Document
 
 from ..utils import Logging
 from ..common import AccountDBI
+from ..common.compat import NetworkType, network_to_type
 
 
 class BaseAccount(Logging, ABC):
@@ -194,7 +193,7 @@ class BaseAccount(Logging, ABC):
     def generate_meta(self, version: int, seed: Optional[str], sign_key: SignKey) -> Meta:
         """ 1. generate meta with sign key """
         assert self.__meta is None, 'meta exists: %s' % self.__meta
-        self.__meta = Meta.generate(version=version, key=sign_key, seed=seed)
+        self.__meta = Meta.generate(version=version, private_key=sign_key, seed=seed)
         return self.__meta
 
     # protected

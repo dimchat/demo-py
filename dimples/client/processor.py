@@ -29,29 +29,20 @@
 """
 
 import time
-from typing import List, Optional, Union
+from typing import List
 
 from dimsdk import EntityType
-from dimsdk import SecureMessage, ReliableMessage
-from dimsdk import ContentType, Content, TextContent
-from dimsdk import GroupCommand
+from dimsdk import ReliableMessage
+from dimsdk import Content, TextContent
 from dimsdk import ReceiptCommand
-from dimsdk import ContentProcessor, ContentProcessorCreator
+from dimsdk import ContentProcessorCreator
 from dimsdk import MessageProcessor
-from dimsdk import BaseContentProcessor, BaseContentProcessorCreator
 
 from ..utils import Logging
-from ..common import HandshakeCommand, LoginCommand
+from ..common import HandshakeCommand
 from ..common import CommonMessenger
 
-from .cpu import TextContentProcessor
-from .cpu import HandshakeCommandProcessor
-from .cpu import LoginCommandProcessor
-from .cpu import HistoryCommandProcessor, GroupCommandProcessor
-from .cpu import InviteCommandProcessor, ExpelCommandProcessor
-from .cpu import JoinCommandProcessor, QuitCommandProcessor
-from .cpu import ResetCommandProcessor, QueryCommandProcessor
-from .cpu import ResignCommandProcessor
+from .cpu import ClientContentProcessorCreator
 
 
 class ClientMessageProcessor(MessageProcessor, Logging):
@@ -62,17 +53,17 @@ class ClientMessageProcessor(MessageProcessor, Logging):
         assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
         return transceiver
 
-    # Override
-    def process_secure_message(self, msg: SecureMessage, r_msg: ReliableMessage) -> List[SecureMessage]:
-        try:
-            return super().process_secure_message(msg=msg, r_msg=r_msg)
-        except LookupError as error:
-            if str(error).startswith('receiver error'):
-                # not mine? ignore it
-                self.error(msg='wrong message: %s => %s' % (r_msg.sender, r_msg.receiver))
-                return []
-            else:
-                raise error
+    # # Override
+    # def process_secure_message(self, msg: SecureMessage, r_msg: ReliableMessage) -> List[SecureMessage]:
+    #     try:
+    #         return super().process_secure_message(msg=msg, r_msg=r_msg)
+    #     except LookupError as error:
+    #         if str(error).startswith('receiver error'):
+    #             # not mine? ignore it
+    #             self.error(msg='wrong message: %s => %s' % (r_msg.sender, r_msg.receiver))
+    #             return []
+    #         else:
+    #             raise error
 
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
@@ -95,13 +86,13 @@ class ClientMessageProcessor(MessageProcessor, Logging):
                 # should not happen
                 continue
             elif isinstance(res, ReceiptCommand):
-                if sender.type == EntityType.STATION:
+                if sender.type == EntityType.STATION or sender.type == EntityType.BOT:
                     # no need to respond receipt to station
                     when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
                     self.info(msg='drop receipt responding to %s, origin msg time=[%s]' % (sender, when))
                     continue
             elif isinstance(res, TextContent):
-                if sender.type == EntityType.STATION:
+                if sender.type == EntityType.STATION or sender.type == EntityType.BOT:
                     # no need to respond text message to station
                     when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
                     self.info(msg='drop text responding to %s, origin time=[%s], text=%s' % (sender, when, res.text))
@@ -114,48 +105,3 @@ class ClientMessageProcessor(MessageProcessor, Logging):
     # Override
     def _create_creator(self) -> ContentProcessorCreator:
         return ClientContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
-
-
-class ClientContentProcessorCreator(BaseContentProcessorCreator):
-
-    # Override
-    def create_content_processor(self, msg_type: Union[int, ContentType]) -> Optional[ContentProcessor]:
-        # text
-        if msg_type == ContentType.TEXT.value:
-            return TextContentProcessor(facebook=self.facebook, messenger=self.messenger)
-        # history
-        if msg_type == ContentType.HISTORY.value:
-            return HistoryCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        # default
-        if msg_type == 0:
-            return BaseContentProcessor(facebook=self.facebook, messenger=self.messenger)
-        # others
-        return super().create_content_processor(msg_type=msg_type)
-
-    # Override
-    def create_command_processor(self, msg_type: Union[int, ContentType], cmd: str) -> Optional[ContentProcessor]:
-        # handshake
-        if cmd == HandshakeCommand.HANDSHAKE:
-            return HandshakeCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        # login
-        if cmd == LoginCommand.LOGIN:
-            return LoginCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        # group commands
-        if cmd == 'group':
-            return GroupCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        elif cmd == GroupCommand.INVITE:
-            return InviteCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        elif cmd == GroupCommand.EXPEL:
-            return ExpelCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        elif cmd == GroupCommand.JOIN:
-            return JoinCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        elif cmd == GroupCommand.QUIT:
-            return QuitCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        elif cmd == GroupCommand.QUERY:
-            return QueryCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        elif cmd == GroupCommand.RESET:
-            return ResetCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        elif cmd == GroupCommand.RESIGN:
-            return ResignCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        # others
-        return super().create_command_processor(msg_type=msg_type, cmd=cmd)

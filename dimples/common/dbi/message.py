@@ -29,14 +29,6 @@ from typing import Optional, Dict, List
 from dimsdk import ID, ReliableMessage, CipherKeyDelegate
 
 
-def get_msg_sig(msg: ReliableMessage) -> str:
-    """ last 6 bytes (signature in base64) """
-    sig = msg.get('signature')
-    # assert isinstance(sig, str), 'signature error: %s' % sig
-    sig = sig.strip()
-    return sig[-8:]  # last 6 bytes (signature in base64)
-
-
 class ReliableMessageDBI(ABC):
     """ ReliableMessage Table """
 

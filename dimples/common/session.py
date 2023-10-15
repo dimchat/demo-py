@@ -31,6 +31,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
+from dimsdk import DateTime
 from dimsdk import ID
 from dimsdk import Content
 from dimsdk import InstantMessage, ReliableMessage
@@ -41,14 +42,14 @@ from .dbi import SessionDBI
 class Transmitter(ABC):
 
     @abstractmethod
-    def send_content(self, sender: Optional[ID], receiver: ID, content: Content,
+    def send_content(self, content: Content, sender: Optional[ID], receiver: ID,
                      priority: int = 0) -> Tuple[InstantMessage, Optional[ReliableMessage]]:
         """
         Send content from sender to receiver with priority
 
+        :param content:  message content
         :param sender:   from where
         :param receiver: to where
-        :param content:  message content
         :param priority: smaller is faster
         :return: (i_msg, None) on error
         """
@@ -109,7 +110,7 @@ class Session(Transmitter, ABC):
         raise NotImplemented
 
     @abstractmethod
-    def set_active(self, active: bool, when: float = None) -> bool:
+    def set_active(self, active: bool, when: DateTime = None) -> bool:
         """ Update active flag and return True on changed """
         raise NotImplemented
 
