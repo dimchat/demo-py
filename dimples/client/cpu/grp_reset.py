@@ -84,7 +84,7 @@ class ResetCommandProcessor(GroupCommandProcessor):
         # 2. check permission
         if cannot_reset:
             text = 'Permission denied.'
-            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
+            return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Not allowed to reset members of group: ${ID}',
                 'replacements': {
                     'ID': str(group),
@@ -93,7 +93,7 @@ class ResetCommandProcessor(GroupCommandProcessor):
         # 2.1. check owner
         if owner != new_members[0]:
             text = 'Permission denied.'
-            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
+            return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Owner must be the first member of group: ${ID}',
                 'replacements': {
                     'ID': str(group),
@@ -107,7 +107,7 @@ class ResetCommandProcessor(GroupCommandProcessor):
                 break
         if expel_admin:
             text = 'Permission denied.'
-            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
+            return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Not allowed to expel administrator of group: ${ID}',
                 'replacements': {
                     'ID': str(group),

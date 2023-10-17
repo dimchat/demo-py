@@ -76,7 +76,7 @@ class QuitCommandProcessor(GroupCommandProcessor):
         # 2. check permission
         if is_owner:
             text = 'Permission denied.'
-            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
+            return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Owner cannot quit from group: ${ID}',
                 'replacements': {
                     'ID': str(group),
@@ -84,7 +84,7 @@ class QuitCommandProcessor(GroupCommandProcessor):
             })
         if is_admin:
             text = 'Permission denied.'
-            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
+            return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Administrator cannot quit from group: ${ID}',
                 'replacements': {
                     'ID': str(group),

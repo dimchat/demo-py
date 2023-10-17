@@ -87,7 +87,7 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         # only respond the user login to this station
         self.info(msg='user login: %s -> %s' % (sender, roaming))
         text = 'Login received.'
-        return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
+        return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
             'template': 'Login command received: ${ID}.',
             'replacements': {
                 'ID': str(sender),

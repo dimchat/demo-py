@@ -75,7 +75,7 @@ class ResignCommandProcessor(GroupCommandProcessor):
         # 2. check permission
         if is_owner:
             text = 'Permission denied.'
-            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
+            return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Owner cannot resign from group: ${ID}',
                 'replacements': {
                     'ID': str(group),

@@ -50,7 +50,7 @@ class AnsCommandProcessor(BaseCommandProcessor):
         names = content.names
         if len(names) == 0:
             text = 'ANS command error.'
-            return self.respond_receipt(text=text, envelope=r_msg.envelope, content=content, extra={})
+            return self._respond_receipt(text=text, envelope=r_msg.envelope, content=content, extra={})
         records = {}
         missed = []
         for item in names:

@@ -75,7 +75,7 @@ class HistoryCommandProcessor(BaseCommandProcessor, Logging):
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, Command), 'history command error: %s' % content
         text = 'Command not support.'
-        return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
+        return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
             'template': 'History command (name: ${command}) not support yet!',
             'replacements': {
                 'command': content.cmd,
@@ -143,7 +143,7 @@ class GroupCommandProcessor(HistoryCommandProcessor):
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, GroupCommand), 'group command error: %s' % content
         text = 'Command not support.'
-        return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
+        return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
             'template': 'Group command (name: ${command}) not support yet!',
             'replacements': {
                 'command': content.cmd,
@@ -156,7 +156,7 @@ class GroupCommandProcessor(HistoryCommandProcessor):
         expired = self.helper.is_expired(content=content)
         if expired:
             text = 'Command expired.'
-            errors = self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
+            errors = self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Group command expired: ${cmd}, group: ${ID}.',
                 'replacements': {
                     'cmd': content.cmd,
@@ -175,7 +175,7 @@ class GroupCommandProcessor(HistoryCommandProcessor):
         members = self.helper.members_from_command(content=content)
         if len(members) == 0:
             text = 'Command error.'
-            errors = self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
+            errors = self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Group members empty: ${ID}.',
                 'replacements': {
                     'ID': str(group),
@@ -195,7 +195,7 @@ class GroupCommandProcessor(HistoryCommandProcessor):
         if owner is None or len(members) == 0:
             # TODO: query group members?
             text = 'Group empty.'
-            errors = self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
+            errors = self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Group empty: ${ID}.',
                 'replacements': {
                     'ID': str(group),

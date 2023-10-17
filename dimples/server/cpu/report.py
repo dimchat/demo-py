@@ -66,7 +66,7 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
             # online
             session.set_active(active=True, when=content.time)
             text = 'Online received.'
-            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
+            return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Online command received: ${ID}.',
                 'replacements': {
                     'ID': str(sender),
@@ -79,7 +79,7 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
             return []
         else:
             text = 'Command not support.'
-            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
+            return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Report command (title: ${title}) not support yet!',
                 'replacements': {
                     'title': title,

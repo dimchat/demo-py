@@ -56,7 +56,7 @@ class HandshakeCommandProcessor(BaseCommandProcessor):
         if title in ['DIM?', 'DIM!']:
             # S -> C
             text = 'Command not support.'
-            return self.respond_receipt(text=text, envelope=r_msg.envelope, content=content, extra={
+            return self._respond_receipt(text=text, envelope=r_msg.envelope, content=content, extra={
                 'template': 'Handshake command error: title="${title}".',
                 'replacements': {
                     'title': title,

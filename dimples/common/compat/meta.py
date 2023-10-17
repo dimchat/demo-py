@@ -58,9 +58,9 @@ from .btc import BTCAddress
 class CompatibleDefaultMeta(BaseMeta):
 
     def __init__(self, meta: Dict[str, Any] = None,
-                 version: int = None, key: VerifyKey = None,
+                 version: int = None, public_key: VerifyKey = None,
                  seed: Optional[str] = None, fingerprint: Optional[TransportableData] = None):
-        super().__init__(meta=meta, version=version, key=key, seed=seed, fingerprint=fingerprint)
+        super().__init__(meta=meta, version=version, public_key=public_key, seed=seed, fingerprint=fingerprint)
         # caches
         self.__addresses = {}
 
@@ -96,9 +96,9 @@ class CompatibleDefaultMeta(BaseMeta):
 class CompatibleBTCMeta(BaseMeta):
 
     def __init__(self, meta: Dict[str, Any] = None,
-                 version: int = None, key: VerifyKey = None,
+                 version: int = None, public_key: VerifyKey = None,
                  seed: Optional[str] = None, fingerprint: Optional[TransportableData] = None):
-        super().__init__(meta=meta, version=version, key=key, seed=seed, fingerprint=fingerprint)
+        super().__init__(meta=meta, version=version, public_key=public_key, seed=seed, fingerprint=fingerprint)
         # caches
         self.__address: Optional[Address] = None
 
@@ -124,27 +124,27 @@ class CompatibleMetaFactory(MetaFactory):
         self.__type = version
 
     # Override
-    def generate_meta(self, key: SignKey, seed: Optional[str]) -> Meta:
+    def generate_meta(self, private_key: SignKey, seed: Optional[str]) -> Meta:
         if seed is None or len(seed) == 0:
             fingerprint = None
         else:
-            sig = key.sign(data=utf8_encode(string=seed))
+            sig = private_key.sign(data=utf8_encode(string=seed))
             fingerprint = TransportableData.create(data=sig)
-        assert isinstance(key, PrivateKey), 'private key error: %s' % key
-        public_key = key.public_key
-        return self.create_meta(key=public_key, seed=seed, fingerprint=fingerprint)
+        assert isinstance(private_key, PrivateKey), 'private key error: %s' % private_key
+        public_key = private_key.public_key
+        return self.create_meta(public_key=public_key, seed=seed, fingerprint=fingerprint)
 
     # Override
-    def create_meta(self, key: VerifyKey, seed: Optional[str], fingerprint: Optional[TransportableData]) -> Meta:
+    def create_meta(self, public_key: VerifyKey, seed: Optional[str], fingerprint: Optional[TransportableData]) -> Meta:
         if self.__type == MetaType.MKM:
             # MKM
-            return CompatibleDefaultMeta(version=self.__type, key=key, seed=seed, fingerprint=fingerprint)
+            return CompatibleDefaultMeta(version=self.__type, public_key=public_key, seed=seed, fingerprint=fingerprint)
         elif self.__type == MetaType.BTC:
             # BTC
-            return CompatibleBTCMeta(version=self.__type, key=key)
+            return CompatibleBTCMeta(version=self.__type, public_key=public_key)
         elif self.__type == MetaType.ExBTC:
             # ExBTC
-            return CompatibleBTCMeta(version=self.__type, key=key, seed=seed, fingerprint=fingerprint)
+            return CompatibleBTCMeta(version=self.__type, public_key=public_key, seed=seed, fingerprint=fingerprint)
 
     # Override
     def parse_meta(self, meta: dict) -> Optional[Meta]:

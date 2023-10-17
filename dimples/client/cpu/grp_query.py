@@ -76,7 +76,7 @@ class QueryCommandProcessor(GroupCommandProcessor):
         # 2. check permission
         if not can_query:
             text = 'Permission denied.'
-            return self.respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
+            return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Not allowed to query members of group: ${ID}',
                 'replacements': {
                     'ID': str(group),
