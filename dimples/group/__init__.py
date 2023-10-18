@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
+#
+#   DIM-SDK : Decentralized Instant Messaging Software Development Kit
+#
+#                                Written in 2023 by Moky <albert.moky@gmail.com>
+#
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2022 Albert Moky
+# Copyright (c) 2023 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,63 +28,27 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    Common module
-    ~~~~~~~~~~~~~
+from .delegate import GroupDelegate
+from .packer import GroupPacker
+from .emitter import GroupEmitter
 
-"""
+from .helper import GroupCommandHelper
+from .builder import GroupHistoryBuilder
 
-from .protocol import *
-from .dbi import *
-
-from .register import Register
-from .ans import AddressNameServer, ANSFactory
-
-from .facebook import CommonFacebook
-from .messenger import CommonMessenger
-from .packer import CommonMessagePacker
-from .session import Transmitter, Session
-
-from .compat import register_compatible_factories
-
-
-register_all_factories()
-register_plugins()
-register_compatible_factories()
+from .manager import GroupManager
+from .admin import AdminManager
 
 
 __all__ = [
-    #
-    #   protocol
-    #
-    'HandshakeCommand', 'HandshakeState',
-    'LoginCommand',
-    'ReportCommand',
-    'AnsCommand',
 
-    #
-    #   Database Interface
-    #
-    'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
-    'UserDBI', 'ContactDBI', 'GroupDBI', 'GroupHistoryDBI',
-    'AccountDBI',
+    'GroupDelegate',
+    'GroupPacker',
+    'GroupEmitter',
 
-    'ReliableMessageDBI', 'CipherKeyDBI', 'GroupKeysDBI',
-    'MessageDBI',
+    'GroupCommandHelper',
+    'GroupHistoryBuilder',
 
-    'LoginDBI', 'ProviderDBI', 'StationDBI',
-    'SessionDBI',
-    'ProviderInfo', 'StationInfo',
+    'GroupManager',
+    'AdminManager',
 
-    #
-    #   common
-    #
-    'Register',
-    'AddressNameServer', 'ANSFactory',
-
-    'CommonFacebook',
-    'CommonMessenger',
-    'CommonMessagePacker',
-    'Transmitter',
-    'Session',
 ]

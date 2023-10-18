@@ -35,6 +35,9 @@ from dimsdk import GroupCommand, ResetCommand
 class PrivateKeyDBI(ABC):
     """ PrivateKey Table """
 
+    META = 'M'  # ID_KEY_TAG
+    VISA = 'V'  # MSG_KEY_TAG
+
     @abstractmethod
     def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
         raise NotImplemented

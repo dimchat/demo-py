@@ -30,99 +30,30 @@
 
 from typing import Optional, Tuple, List
 
-from dimsdk import ID, Meta, Document
+from dimsdk import ID
 from dimsdk import ReliableMessage
 from dimsdk import GroupCommand, ResetCommand, ResignCommand
-from dimsdk import TwinsHelper
 
-from ...utils import Logging
-from ...utils import is_before
-from ...common import CommonFacebook, CommonMessenger
+from ..utils import Logging
+from ..utils import is_before
+from ..common import AccountDBI
+
+from .delegate import GroupDelegate
 
 
-class GroupCommandHelper(TwinsHelper, Logging):
+class GroupCommandHelper(Logging):
 
-    @property
-    def facebook(self) -> CommonFacebook:
-        barrack = super().facebook
-        assert isinstance(barrack, CommonFacebook), 'barrack error: %s' % barrack
-        return barrack
+    def __init__(self, delegate: GroupDelegate):
+        super().__init__()
+        self.__delegate = delegate
 
-    @property
-    def messenger(self) -> CommonMessenger:
-        transceiver = super().messenger
-        assert isinstance(transceiver, CommonMessenger), 'transceiver error: %s' % transceiver
-        return transceiver
+    @property  # protected
+    def delegate(self) -> GroupDelegate:
+        return self.__delegate
 
-    def meta(self, group: ID) -> Optional[Meta]:
-        """ get group meta
-            if not found, query it from any station
-        """
-        info = self.facebook.meta(identifier=group)
-        if info is None:
-            self.messenger.query_meta(identifier=group)
-        return info
-
-    def document(self, group: ID) -> Optional[Document]:
-        """ get group document
-            if not found, query it from any station
-        """
-        info = self.facebook.document(identifier=group)
-        if info is None:
-            self.messenger.query_document(identifier=group)
-        return info
-
-    def owner(self, group: ID) -> Optional[ID]:
-        """ get group owner
-            when bulletin document exists
-        """
-        doc = self.document(group=group)
-        if doc is None:
-            # the owner(founder) should be set in the bulletin document of group
-            return None
-        return self.facebook.owner(identifier=group)
-
-    def assistants(self, group: ID) -> List[ID]:
-        """ get group bots
-            when bulletin document exists
-        """
-        doc = self.document(group=group)
-        if doc is None:
-            # the group bots should be set in the bulletin document of group
-            return []
-        return self.facebook.assistants(identifier=group)
-
-    def administrators(self, group: ID) -> List[ID]:
-        """ get administrators
-            when bulletin document exists
-        """
-        doc = self.document(group=group)
-        if doc is None:
-            # the administrators should be set in the bulletin document of group
-            return []
-        db = self.facebook.database
-        return db.administrators(group=group)
-
-    def save_administrators(self, administrators: List[ID], group: ID) -> bool:
-        db = self.facebook.database
-        return db.save_administrators(administrators=administrators, group=group)
-
-    def members(self, group: ID) -> List[ID]:
-        """ get members when owner exists,
-            if not found, query from bots/admins/owner
-        """
-        owner = self.owner(group=group)
-        if owner is None:
-            # the owner must exists before members
-            return []
-        users = self.facebook.members(identifier=group)
-        if len(users) == 0:
-            self.messenger.query_members(identifier=group)
-        return users
-
-    def save_members(self, members: List[ID], group: ID) -> bool:
-        db = self.facebook.database
-        return db.save_members(members=members, group=group)
+    @property  # protected
+    def database(self) -> AccountDBI:
+        return self.delegate.facebook.database
 
     #
     #   Group History Command
@@ -132,26 +63,26 @@ class GroupCommandHelper(TwinsHelper, Logging):
         if self.is_expired(content=content):
             self.warning(msg='drop expired command: %s, %s => %s' % (content.cmd, message.sender, group))
             return False
-        db = self.facebook.database
+        db = self.database
         if isinstance(content, ResetCommand):
             self.warning(msg='cleaning group history for "reset" command: %s => %s' % (message.sender, group))
             db.clear_group_member_histories(group=group)
         return db.save_group_history(group=group, content=content, message=message)
 
     def group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
-        db = self.facebook.database
+        db = self.database
         return db.group_histories(group=group)
 
     def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
-        db = self.facebook.database
+        db = self.database
         return db.reset_command_message(group=group)
 
     def clear_group_member_histories(self, group: ID) -> bool:
-        db = self.facebook.database
+        db = self.database
         return db.clear_group_member_histories(group=group)
 
     def clear_group_admin_histories(self, group: ID) -> bool:
-        db = self.facebook.database
+        db = self.database
         return db.clear_group_admin_histories(group=group)
 
     def is_expired(self, content: GroupCommand) -> bool:
@@ -162,7 +93,7 @@ class GroupCommandHelper(TwinsHelper, Logging):
         assert group is not None, 'group content error: %s' % content
         if isinstance(content, ResignCommand):
             # administrator command, check with document time
-            doc = self.document(group=group)
+            doc = self.delegate.document(identifier=group)
             if doc is None:
                 self.error(msg='group document not exists: %s' % group)
                 return True

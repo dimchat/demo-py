@@ -46,9 +46,9 @@ from dimsdk.cpu import BaseCommandProcessor
 
 from ...utils import Logging
 from ...common import CommonFacebook, CommonMessenger
-
-from .group_helper import GroupCommandHelper
-from .group_builder import GroupHistoryBuilder
+from ...group import GroupDelegate
+from ...group import GroupCommandHelper
+from ...group import GroupHistoryBuilder
 
 
 class HistoryCommandProcessor(BaseCommandProcessor, Logging):
@@ -56,6 +56,7 @@ class HistoryCommandProcessor(BaseCommandProcessor, Logging):
     def __init__(self, facebook: CommonFacebook, messenger: CommonMessenger):
         super().__init__(facebook=facebook, messenger=messenger)
         # lazy
+        self.__delegate = None
         self.__helper = None
         self.__builder = None
 
@@ -87,6 +88,13 @@ class HistoryCommandProcessor(BaseCommandProcessor, Logging):
     #
 
     @property  # protected
+    def delegate(self) -> GroupDelegate:
+        ds = self.__delegate
+        if ds is None:
+            self.__delegate = ds = self._create_delegate()
+        return ds
+
+    @property  # protected
     def helper(self) -> GroupCommandHelper:
         delegate = self.__helper
         if delegate is None:
@@ -100,44 +108,48 @@ class HistoryCommandProcessor(BaseCommandProcessor, Logging):
             self.__builder = delegate = self._create_builder()
         return delegate
 
+    def _create_delegate(self) -> GroupDelegate:
+        """ override for customized data source """
+        return GroupDelegate(facebook=self.facebook, messenger=self.messenger)
+
     def _create_helper(self) -> GroupCommandHelper:
         """ override for customized helper """
-        return GroupCommandHelper(facebook=self.facebook, messenger=self.messenger)
+        return GroupCommandHelper(delegate=self.delegate)
 
     def _create_builder(self) -> GroupHistoryBuilder:
         """ override for customized builder """
-        return GroupHistoryBuilder(helper=self.helper)
+        return GroupHistoryBuilder(delegate=self.delegate)
 
 
 class GroupCommandProcessor(HistoryCommandProcessor):
 
     def _owner(self, group: ID) -> Optional[ID]:
-        helper = self.helper
-        return helper.owner(group=group)
+        delegate = self.delegate
+        return delegate.owner(identifier=group)
 
     def _assistants(self, group: ID) -> List[ID]:
-        helper = self.helper
-        return helper.assistants(group=group)
+        delegate = self.delegate
+        return delegate.assistants(identifier=group)
 
     def _administrators(self, group: ID) -> List[ID]:
-        helper = self.helper
-        return helper.administrators(group=group)
+        delegate = self.delegate
+        return delegate.administrators(group=group)
 
     def _save_administrators(self, administrators: List[ID], group: ID) -> bool:
-        helper = self.helper
-        return helper.save_administrators(administrators=administrators, group=group)
+        delegate = self.delegate
+        return delegate.save_administrators(administrators=administrators, group=group)
 
     def _members(self, group: ID) -> List[ID]:
-        helper = self.helper
-        return helper.members(group=group)
+        delegate = self.delegate
+        return delegate.members(identifier=group)
 
     def _save_members(self, members: List[ID], group: ID) -> bool:
-        helper = self.helper
-        return helper.save_members(members=members, group=group)
+        delegate = self.delegate
+        return delegate.save_members(members=members, group=group)
 
     def _save_group_history(self, group: ID, content: GroupCommand, r_msg: ReliableMessage) -> bool:
-        helper = self.helper
-        return helper.save_group_history(group=group, content=content, message=r_msg)
+        delegate = self.helper
+        return delegate.save_group_history(group=group, content=content, message=r_msg)
 
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
@@ -190,8 +202,8 @@ class GroupCommandProcessor(HistoryCommandProcessor):
                              r_msg: ReliableMessage) -> Tuple[Optional[ID], List[ID], List[Content]]:
         group = content.group
         assert group is not None, 'group command error: %s' % content
-        owner = self.helper.owner(group=group)
-        members = self.helper.members(group=group)
+        owner = self._owner(group=group)
+        members = self._members(group=group)
         if owner is None or len(members) == 0:
             # TODO: query group members?
             text = 'Group empty.'

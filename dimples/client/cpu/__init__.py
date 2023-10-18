@@ -36,8 +36,6 @@ from .handshake import HandshakeCommandProcessor
 from .login import LoginCommandProcessor
 
 from .group import HistoryCommandProcessor, GroupCommandProcessor
-from .group_helper import GroupCommandHelper
-from .group_builder import GroupHistoryBuilder
 from .grp_invite import InviteCommandProcessor
 from .grp_expel import ExpelCommandProcessor
 from .grp_join import JoinCommandProcessor
@@ -61,8 +59,6 @@ __all__ = [
     'JoinCommandProcessor', 'QuitCommandProcessor',
     'ResetCommandProcessor', 'QueryCommandProcessor',
     'ResignCommandProcessor',
-
-    'GroupCommandHelper', 'GroupHistoryBuilder',
 
     'ClientContentProcessorCreator',
 

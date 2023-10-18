@@ -36,30 +36,40 @@ from dimsdk import InstantMessage, ReliableMessage
 from dimsdk import Envelope, Content, DocumentCommand
 from dimsdk import GroupCommand, ResetCommand, ResignCommand
 
-from ...utils import Logging
-from ...utils import is_before
-from ...common import CommonFacebook, CommonMessenger
+from ..utils import Logging
+from ..utils import is_before
+from ..common import CommonFacebook, CommonMessenger
 
-from .group_helper import GroupCommandHelper
+from .delegate import GroupDelegate
+from .helper import GroupCommandHelper
 
 
 class GroupHistoryBuilder(Logging):
 
-    def __init__(self, helper: GroupCommandHelper):
+    def __init__(self, delegate: GroupDelegate):
         super().__init__()
-        self.__helper = helper
+        self.__delegate = delegate
+        self.__helper = self._create_helper()
 
-    @property
+    def _create_helper(self) -> GroupCommandHelper:
+        """ override for customized helper """
+        return GroupCommandHelper(self.delegate)
+
+    @property  # protected
+    def delegate(self) -> GroupDelegate:
+        return self.__delegate
+
+    @property  # protected
     def helper(self) -> GroupCommandHelper:
         return self.__helper
 
-    @property
+    @property  # protected
     def facebook(self) -> CommonFacebook:
-        return self.__helper.facebook
+        return self.delegate.facebook
 
-    @property
+    @property  # protected
     def messenger(self) -> CommonMessenger:
-        return self.__helper.messenger
+        return self.delegate.messenger
 
     def build_group_histories(self, group: ID) -> List[ReliableMessage]:
         """ build command list for group history:
@@ -68,7 +78,9 @@ class GroupHistoryBuilder(Logging):
                 2. other group commands
         """
         messages = []
-        # 0. build 'document' command
+        #
+        #  0. build 'document' command
+        #
         pair = self.build_document_command(group=group)
         doc = pair[0]
         msg = pair[1]
@@ -77,7 +89,9 @@ class GroupHistoryBuilder(Logging):
             return messages
         else:
             messages.append(msg)
-        # 1. append 'reset' command
+        #
+        #  1. append 'reset' command
+        #
         pair = self.helper.reset_command_message(group=group)
         reset = pair[0]
         msg = pair[1]
@@ -86,7 +100,9 @@ class GroupHistoryBuilder(Logging):
             return messages
         else:
             messages.append(msg)
-        # 2. append other group commands
+        #
+        #  2. append other group commands
+        #
         history = self.helper.group_histories(group=group)
         for pair in history:
             cmd = pair[0]
@@ -113,13 +129,13 @@ class GroupHistoryBuilder(Logging):
     def build_document_command(self, group: ID) -> Tuple[Optional[Document], Optional[ReliableMessage]]:
         """ create broadcast 'document' command """
         user = self.facebook.current_user
-        doc = self.helper.document(group=group)
+        doc = self.delegate.document(identifier=group)
         if user is None or doc is None:
             assert user is not None, 'failed to get current user'
             self.error(msg='document not found for group: %s' % group)
             return None, None
         me = user.identifier
-        meta = self.helper.meta(group=group)
+        meta = self.delegate.meta(identifier=group)
         cmd = DocumentCommand.response(identifier=group, meta=meta, document=doc)
         msg = self.__pack_broadcast_message(sender=me, content=cmd)
         return doc, msg
@@ -128,19 +144,19 @@ class GroupHistoryBuilder(Logging):
                               members: Optional[List[ID]]) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
         """ create broadcast 'reset' group command with newest member list """
         user = self.facebook.current_user
-        owner = self.helper.owner(group=group)
+        owner = self.delegate.owner(identifier=group)
         if user is None or owner is None:
             assert user is not None, 'failed to get current user'
             self.error(msg='owner not found for group: %s' % group)
             return None, None
         me = user.identifier
         if owner != me:
-            admins = self.helper.administrators(group=group)
+            admins = self.delegate.administrators(group=group)
             if me not in admins:
                 self.warning(msg='not permit to build "reset" command for group: %s, %s' % (group, me))
                 return None, None
         if members is None:
-            self.helper.members(group=group)
+            self.delegate.members(identifier=group)
         cmd = GroupCommand.reset(group=group, members=members)
         msg = self.__pack_broadcast_message(sender=me, content=cmd)
         return cmd, msg
