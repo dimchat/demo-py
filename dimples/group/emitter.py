@@ -248,7 +248,7 @@ class GroupEmitter(Logging, ABC):
             if sender == receiver:
                 self.error(msg='cycled message: %s => %s, %s' % (sender, receiver, group))
                 continue
-            ok = messenger.send_reliable_message(msg=r_msg, priority=priority)
+            ok = messenger.send_reliable_message(msg=item, priority=priority)
             assert ok, 'failed to send message: %s => %s, %s' % (sender, receiver, group)
         # sent
         return r_msg
@@ -278,7 +278,7 @@ class GroupEmitter(Logging, ABC):
             #
             #   2. send message
             #
-            r_msg = messenger.send_instant_message(msg=msg, priority=priority)
+            r_msg = messenger.send_instant_message(msg=item, priority=priority)
             if r_msg is None:
                 self.error(msg='failed to send message: %s => %s, %s' % (sender, receiver, group))
                 continue
