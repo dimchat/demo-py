@@ -81,9 +81,7 @@ class GroupHistoryBuilder(Logging):
         #
         #  0. build 'document' command
         #
-        pair = self.build_document_command(group=group)
-        doc = pair[0]
-        msg = pair[1]
+        doc, msg = self.build_document_command(group=group)
         if doc is None or msg is None:
             self.warning(msg='failed to build "document" command for group: %s' % group)
             return messages
@@ -92,9 +90,7 @@ class GroupHistoryBuilder(Logging):
         #
         #  1. append 'reset' command
         #
-        pair = self.helper.reset_command_message(group=group)
-        reset = pair[0]
-        msg = pair[1]
+        reset, msg = self.helper.reset_command_message(group=group)
         if reset is None or msg is None:
             self.warning(msg='failed to get "reset" command for group: %s' % group)
             return messages

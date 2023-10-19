@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+#
+#   DIM-SDK : Decentralized Instant Messaging Software Development Kit
+#
+#                                Written in 2022 by Moky <albert.moky@gmail.com>
+#
 # ==============================================================================
 # MIT License
 #
@@ -33,12 +38,14 @@
 from typing import Optional, List
 
 from dimsdk import SignKey, DecryptKey
-from dimsdk import ID, Meta, Document, User
+from dimsdk import ID, User, Meta, Document, Bulletin
 from dimsdk import Facebook
 
 from ..utils import Logging
 
 from .dbi import AccountDBI
+
+from .anonymous import Anonymous
 
 
 class CommonFacebook(Facebook, Logging):
@@ -78,6 +85,16 @@ class CommonFacebook(Facebook, Logging):
             user.data_source = self
         self.__current = user
 
+    def get_name(self, identifier: ID) -> str:
+        # get name from document
+        doc = self.document(identifier=identifier)
+        if doc is not None:
+            name = doc.name
+            if name is not None and len(name) > 0:
+                return name
+        # get name from ID
+        return Anonymous.get_name(identifier=identifier)
+
     # Override
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         if meta.valid and meta.match_identifier(identifier=identifier):
@@ -100,7 +117,20 @@ class CommonFacebook(Facebook, Logging):
                 # assert False, 'document not valid: %s' % identifier
                 return False
         db = self.database
-        return db.save_document(document=document)
+        ok = db.save_document(document=document)
+        if ok and isinstance(document, Bulletin):
+            # check administrators
+            array = document.get_property(key='administrators')
+            if array is not None:
+                group = document.identifier
+                assert group.is_group, 'group ID error: %s' % group
+                admins = ID.convert(array=array)
+                ok = self._save_administrators(administrators=admins, group=group)
+        return ok
+
+    def _save_administrators(self, administrators: List[ID], group: ID) -> bool:
+        db = self.database
+        return db.save_administrators(administrators=administrators, group=group)
 
     #
     #   EntityDataSource

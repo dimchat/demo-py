@@ -35,11 +35,12 @@ from dimsdk import ID, Document, Meta
 from dimsdk import GroupDataSource
 from dimsdk import TwinsHelper
 
+from ..utils import Logging
 from ..common import CommonFacebook, CommonMessenger
 from ..common import AccountDBI
 
 
-class GroupDelegate(TwinsHelper, GroupDataSource):
+class GroupDelegate(TwinsHelper, GroupDataSource, Logging):
 
     @property  # Override
     def facebook(self) -> CommonFacebook:
@@ -57,25 +58,13 @@ class GroupDelegate(TwinsHelper, GroupDataSource):
     def database(self) -> AccountDBI:
         return self.facebook.database
 
-    def __get_name(self, identifier: ID) -> str:
-        doc = self.facebook.document(identifier=identifier, doc_type='*')
-        if doc is not None:
-            name = doc.name
-            if name is not None:
-                return name
-        # get name from ID
-        name = identifier.name
-        if name is not None:
-            return name
-        name = str(identifier.address)
-        return name[-6:]
-
     def build_group_name(self, members: List[ID]) -> str:
         count = len(members)
         if count > 0:
-            text = self.__get_name(identifier=members[0])
+            facebook = self.facebook
+            text = facebook.get_name(identifier=members[0])
             for i in range(1, count):
-                nickname = self.__get_name(identifier=members[i])
+                nickname = facebook.get_name(identifier=members[i])
                 if len(nickname) == 0:
                     continue
                 text += ', %s' % nickname
@@ -189,7 +178,7 @@ class GroupDelegate(TwinsHelper, GroupDataSource):
         g_meta = self.meta(identifier=group)
         m_meta = self.meta(identifier=user)
         if g_meta is None or m_meta is None:
-            # assert False, 'failed to get meta for group: %s, user: %s' % (group, user)
+            self.warning(msg='failed to get meta for group: %s, user: %s' % (group, user))
             return False
         return g_meta.match_public_key(key=m_meta.public_key)
 

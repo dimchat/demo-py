@@ -99,9 +99,7 @@ class GroupCommandHelper(Logging):
                 return True
             return is_before(old_time=doc.time, new_time=content.time)
         # membership command, check with reset command
-        pair = self.reset_command_message(group=group)
-        cmd = pair[0]
-        # msg = pair[1]
+        cmd, _ = self.reset_command_message(group=group)
         if cmd is None:  # or msg is None:
             return False
         return is_before(old_time=cmd.time, new_time=content.time)

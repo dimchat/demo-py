@@ -33,6 +33,7 @@ from dimsdk.cpu import *
 from dimplugins import *
 
 from .common import *
+from .group import *
 
 name = 'DIMPLES'
 
@@ -324,11 +325,20 @@ __all__ = [
     #
     #   common
     #
+    'Anonymous', 'Register',
     'AddressNameServer', 'ANSFactory',
-    'CommonFacebook',
-    'CommonMessenger',
-    'CommonMessagePacker',
-    'Transmitter',
+    'CommonFacebook', 'CommonMessenger',
+    'CommonMessagePacker', 'Transmitter',
     'Session',
+
+    ####################################
+    #
+    #   Group
+    #
+    ####################################
+
+    'GroupDelegate', 'GroupPacker', 'GroupEmitter',
+    'GroupCommandHelper', 'GroupHistoryBuilder',
+    'GroupManager', 'AdminManager',
 
 ]

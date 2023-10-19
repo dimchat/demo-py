@@ -225,5 +225,5 @@ class GroupCommandProcessor(HistoryCommandProcessor):
             self.warning(msg='failed to build history for group: %s' % group)
             return False
         content = ForwardContent.create(messages=messages)
-        pair = self.messenger.send_content(sender=None, receiver=receiver, content=content, priority=1)
-        return pair[1] is not None
+        _, r_msg = self.messenger.send_content(sender=None, receiver=receiver, content=content, priority=1)
+        return r_msg is not None

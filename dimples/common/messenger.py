@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+#
+#   DIM-SDK : Decentralized Instant Messaging Software Development Kit
+#
+#                                Written in 2022 by Moky <albert.moky@gmail.com>
+#
 # ==============================================================================
 # MIT License
 #
@@ -32,7 +37,7 @@
 
 import threading
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, List, Dict
+from typing import Optional, Union, Tuple, List, Dict
 
 from dimsdk import SymmetricKey
 from dimsdk import ID
@@ -42,7 +47,7 @@ from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import EntityDelegate, CipherKeyDelegate
 from dimsdk import Messenger, Packer, Processor
 
-from ..utils import Logging
+from ..utils import Logging, Converter
 
 from .dbi import MessageDBI
 
@@ -167,6 +172,29 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
             return messages
 
     # Override
+    def serialize_key(self, key: Union[dict, SymmetricKey], msg: InstantMessage) -> Optional[bytes]:
+        # TODO: reuse message key
+        #
+        # 0. check message key
+        reused = key.get('reused')
+        digest = key.get('digest')
+        if reused is None and digest is None:
+            # flags not exist, serialize it directly
+            return super().serialize_key(key=key, msg=msg)
+        # 1. remove before serializing key
+        key.pop('reused', None)
+        key.pop('digest', None)
+        # 2. serialize key without flags
+        data = super().serialize_key(key=key, msg=msg)
+        # 3. put them back after serialized
+        if Converter.get_bool(value=reused, default=False):
+            key['reused'] = reused
+        if digest is not None:
+            key['digest'] = digest
+        # OK
+        return data
+
+    # Override
     def serialize_content(self, content: Content, key: SymmetricKey, msg: InstantMessage) -> bytes:
         if isinstance(content, Command):
             content = fix_command(content=content)
@@ -178,22 +206,6 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         if isinstance(content, Command):
             content = fix_command(content=content)
         return content
-
-    # # Override
-    # def serialize_key(self, key: Union[dict, SymmetricKey], msg: InstantMessage) -> Optional[bytes]:
-    #     # try to reuse message key
-    #     reused = key.get('reused')
-    #     if reused is not None:
-    #         if msg.receiver.is_group:
-    #             # reuse key for grouped message
-    #             return None
-    #         # remove before serialize key
-    #         key.pop('reused', None)
-    #     data = super().serialize_key(key=key, msg=msg)
-    #     if reused is not None:
-    #         # put it back
-    #         key['reused'] = reused
-    #     return data
 
     #
     #   Interfaces for Transmitting Message
@@ -215,15 +227,23 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     # Override
     def send_instant_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
         """ send instant message with priority """
-        # send message (secured + certified) to target station
+        # 0. check cycled message
+        if msg.sender == msg.receiver:
+            self.warning(msg='drop cycled message: %s => %s, %s' % (msg.sender, msg.receiver, msg.group))
+        else:
+            self.debug(msg='send instant message message (type=%d): %s => %s, %s'
+                           % (msg.content.type, msg.sender, msg.receiver, msg.group))
+        # 1. encrypt message
         s_msg = self.encrypt_message(msg=msg)
         if s_msg is None:
             # public key not found?
             return None
+        # 2. sign message
         r_msg = self.sign_message(msg=s_msg)
         if r_msg is None:
             # TODO: set msg.state = error
             raise AssertionError('failed to sign message: %s' % s_msg)
+        # 3. send message
         if self.send_reliable_message(msg=r_msg, priority=priority):
             return r_msg
         # failed
@@ -231,6 +251,10 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     # Override
     def send_reliable_message(self, msg: ReliableMessage, priority: int = 0) -> bool:
         """ send reliable message with priority """
+        # # 0. check cycled message
+        # if msg.sender == msg.receiver:
+        #     self.warning(msg='drop cycled message: %s => %s, %s' % (msg.sender, msg.receiver, msg.group))
+        #     return False
         # 1. serialize message
         data = self.serialize_message(msg=msg)
         assert data is not None, 'failed to serialize message: %s' % msg

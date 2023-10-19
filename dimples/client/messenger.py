@@ -226,8 +226,8 @@ class ClientMessenger(CommonMessenger):
             if sender == receiver:
                 self.warning(msg='ignore cycled querying: %s, group: %s' % (sender, group))
                 continue
-            pair = self.send_content(sender=sender, receiver=receiver, content=command, priority=1)
-            if pair[1] is not None:
+            _, r_msg = self.send_content(sender=sender, receiver=receiver, content=command, priority=1)
+            if r_msg is not None:
                 success += 1
         self.info(msg='querying members from bots: %s, group: %s' % (bots, group))
         return success > 0
@@ -245,8 +245,8 @@ class ClientMessenger(CommonMessenger):
             if sender == receiver:
                 self.warning(msg='ignore cycled querying: %s, group: %s' % (sender, group))
                 continue
-            pair = self.send_content(sender=sender, receiver=receiver, content=command, priority=1)
-            if pair[1] is not None:
+            _, r_msg = self.send_content(sender=sender, receiver=receiver, content=command, priority=1)
+            if r_msg is not None:
                 success += 1
         self.info(msg='querying members from admins: %s, group: %s' % (admins, group))
         return success > 0
@@ -261,9 +261,9 @@ class ClientMessenger(CommonMessenger):
             self.error(msg='you are the owner of group: %s' % group)
             return False
         # querying members from owner
-        pair = self.send_content(sender=sender, receiver=owner, content=command, priority=1)
+        _, r_msg = self.send_content(sender=sender, receiver=owner, content=command, priority=1)
         self.info(msg='querying members from owner: %s, group: %s' % (owner, group))
-        return pair[1] is not None
+        return r_msg is not None
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:

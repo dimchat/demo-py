@@ -32,6 +32,7 @@
 from .protocol import *
 from .dbi import *
 
+from .anonymous import Anonymous
 from .register import Register
 from .ans import AddressNameServer, ANSFactory
 
@@ -74,7 +75,7 @@ __all__ = [
     #
     #   common
     #
-    'Register',
+    'Anonymous', 'Register',
     'AddressNameServer', 'ANSFactory',
 
     'CommonFacebook',

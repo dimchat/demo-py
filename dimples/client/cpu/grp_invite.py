@@ -54,15 +54,11 @@ class InviteCommandProcessor(GroupCommandProcessor):
         assert isinstance(content, InviteCommand), 'invite command error: %s' % content
 
         # 0. check command
-        pair = self._check_expired(content=content, r_msg=r_msg)
-        group = pair[0]
-        errors = pair[1]
+        group, errors = self._check_expired(content=content, r_msg=r_msg)
         if group is None:
             # ignore expired command
             return errors
-        pair = self._check_command_members(content=content, r_msg=r_msg)
-        invite_list = pair[0]
-        errors = pair[1]
+        invite_list, errors = self._check_command_members(content=content, r_msg=r_msg)
         if len(invite_list) == 0:
             # command error
             return errors
@@ -94,9 +90,7 @@ class InviteCommandProcessor(GroupCommandProcessor):
             })
 
         # 3. do invite
-        pair = calculate_invited(members=members, invite_list=invite_list)
-        new_members = pair[0]
-        added_list = pair[1]
+        new_members, added_list = calculate_invited(members=members, invite_list=invite_list)
         if len(added_list) == 0:
             # maybe those users are already become members,
             # but if it can still receive an 'invite' command here,

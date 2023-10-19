@@ -53,24 +53,17 @@ class ResetCommandProcessor(GroupCommandProcessor):
         assert isinstance(content, ResetCommand), 'group cmd error: %s' % content
 
         # 0. check command
-        pair = self._check_expired(content=content, r_msg=r_msg)
-        group = pair[0]
-        errors = pair[1]
+        group, errors = self._check_expired(content=content, r_msg=r_msg)
         if group is None:
             # ignore expired command
             return errors
-        pair = self._check_command_members(content=content, r_msg=r_msg)
-        new_members = pair[0]
-        errors = pair[1]
+        new_members, errors = self._check_command_members(content=content, r_msg=r_msg)
         if len(new_members) == 0:
             # command error
             return errors
 
         # 1. check group
-        trip = self._check_group_members(content=content, r_msg=r_msg)
-        owner = trip[0]
-        members = trip[1]
-        errors = trip[2]
+        owner, members, errors = self._check_group_members(content=content, r_msg=r_msg)
         if owner is None or len(members) == 0:
             return errors
 
@@ -115,9 +108,7 @@ class ResetCommandProcessor(GroupCommandProcessor):
             })
 
         # 3. do reset
-        pair = calculate_reset(old_members=members, new_members=new_members)
-        add_list = pair[0]
-        remove_list = pair[1]
+        add_list, remove_list = calculate_reset(old_members=members, new_members=new_members)
         if not self._save_group_history(group=group, content=content, r_msg=r_msg):
             # here try to save the 'reset' command to local storage as group history
             # it should not failed unless the command is expired

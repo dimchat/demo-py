@@ -210,8 +210,8 @@ class GroupEmitter(Logging, ABC):
         #   2. forward the group message to any bot
         #
         content = ForwardContent.create(message=r_msg)
-        pair = messenger.send_content(sender=None, receiver=bot, content=content, priority=priority)
-        if pair is None or pair[1] is None:
+        _, out = messenger.send_content(sender=None, receiver=bot, content=content, priority=priority)
+        if out is None:
             self.error(msg='failed to forward message for group: %s, bot: %s' % (group, bot))
         # OK, return the forwarding message
         return r_msg

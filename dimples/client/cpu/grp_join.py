@@ -52,18 +52,13 @@ class JoinCommandProcessor(GroupCommandProcessor):
         assert isinstance(content, JoinCommand), 'join command error: %s' % content
 
         # 0. check command
-        pair = self._check_expired(content=content, r_msg=r_msg)
-        group = pair[0]
-        errors = pair[1]
+        group, errors = self._check_expired(content=content, r_msg=r_msg)
         if group is None:
             # ignore expired command
             return errors
 
         # 1. check group
-        trip = self._check_group_members(content=content, r_msg=r_msg)
-        owner = trip[0]
-        members = trip[1]
-        errors = trip[2]
+        owner, members, errors = self._check_group_members(content=content, r_msg=r_msg)
         if owner is None or len(members) == 0:
             return errors
 
