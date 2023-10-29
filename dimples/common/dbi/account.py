@@ -127,7 +127,7 @@ class DocumentDBI(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def document(self, identifier: ID, doc_type: str = '*') -> Optional[Document]:
+    def documents(self, identifier: ID) -> List[Document]:
         raise NotImplemented
 
 

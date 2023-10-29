@@ -122,8 +122,8 @@ class AccountDatabase(AccountDBI):
         return self.__doc_table.save_document(document=document)
 
     # Override
-    def document(self, identifier: ID, doc_type: str = '*') -> Optional[Document]:
-        return self.__doc_table.document(identifier=identifier, doc_type=doc_type)
+    def documents(self, identifier: ID) -> List[Document]:
+        return self.__doc_table.documents(identifier=identifier)
 
     #
     #   User DBI

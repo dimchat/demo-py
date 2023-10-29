@@ -44,6 +44,7 @@ from dimsdk import json_encode, json_decode
 from dimsdk import Converter
 from dimsdk import DateTime
 from dimsdk import ReliableMessage
+from dimsdk import DocumentHelper
 
 from dimplugins.crypto.aes import random_bytes
 
@@ -63,11 +64,7 @@ from .config import Config
 
 def is_before(old_time: Optional[DateTime], new_time: Optional[DateTime]) -> bool:
     """ check whether new time is before old time """
-    if old_time is None or new_time is None:
-        return False
-    else:
-        return new_time.before(other=old_time)
-        # return 0 < new_time < old_time
+    return DocumentHelper.is_before(old_time, new_time)
 
 
 def get_msg_sig(msg: ReliableMessage) -> str:

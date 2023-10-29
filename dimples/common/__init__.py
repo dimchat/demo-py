@@ -50,6 +50,7 @@ register_compatible_factories()
 
 
 __all__ = [
+
     #
     #   protocol
     #
@@ -57,6 +58,9 @@ __all__ = [
     'LoginCommand',
     'ReportCommand',
     'AnsCommand',
+
+    'BlockCommand',
+    'MuteCommand',
 
     #
     #   Database Interface
@@ -83,4 +87,5 @@ __all__ = [
     'CommonMessagePacker',
     'Transmitter',
     'Session',
+
 ]

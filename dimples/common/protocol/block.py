@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+#
+#   DIMP : Decentralized Instant Messaging Protocol
+#
+#                                Written in 2019 by Moky <albert.moky@gmail.com>
+#
 # ==============================================================================
 # MIT License
 #
@@ -24,32 +29,52 @@
 # ==============================================================================
 
 """
-    Client Module
-    ~~~~~~~~~~~~~
+    Block Protocol
+    ~~~~~~~~~~~~~~
 
+    Ignore all messages in this conversation, which ID(user/group) contains in 'list'.
+    If value of 'list' is None, means querying block-list from station
 """
 
-from .network import ClientSession
-from .network import SessionState
+from typing import Optional, Any, Dict, List
 
-from .facebook import ClientFacebook
-from .messenger import ClientMessenger
-from .packer import ClientMessagePacker
-from .processor import ClientMessageProcessor, ClientContentProcessorCreator
-from .terminal import Terminal
-from .checkpoint import Checkpoint
+from dimsdk import ID, BaseCommand
 
 
-__all__ = [
+class BlockCommand(BaseCommand):
+    """
+        Block Command
+        ~~~~~~~~~~~~~
+
+        data format: {
+            type : 0x88,
+            sn   : 123,
+
+            command : "block", // command name
+            list    : []       // block-list
+        }
+    """
+
+    BLOCK = 'block'
+
+    def __init__(self, content: Optional[Dict[str, Any]] = None):
+        if content is None:
+            super().__init__(cmd=BlockCommand.BLOCK)
+        else:
+            super().__init__(content=content)
 
     #
-    #   Client
+    #   block-list
     #
-    'ClientSession', 'SessionState',
+    @property
+    def block_list(self) -> Optional[List[ID]]:
+        array = self.get('list')
+        if array is not None:
+            return ID.convert(array=array)
 
-    'ClientFacebook', 'ClientMessenger',
-    'ClientMessagePacker',
-    'ClientMessageProcessor', 'ClientContentProcessorCreator',
-    'Terminal',
-    'Checkpoint',
-]
+    @block_list.setter
+    def block_list(self, value: List[ID]):
+        if value is None:
+            self.pop('list', None)
+        else:
+            self['list'] = ID.revert(array=value)

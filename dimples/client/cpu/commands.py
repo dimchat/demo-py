@@ -47,3 +47,8 @@ class LoginCommandProcessor(BaseCommandProcessor):
         assert isinstance(content, LoginCommand), 'login command error: %s' % content
         # return ReceiptCommand.new(message='Login received')
         return []
+
+
+# TODO: AnsCommandProcessor
+
+# TODO: ReceiptCommandProcessor

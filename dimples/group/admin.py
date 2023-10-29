@@ -90,7 +90,7 @@ class AdminManager(Logging):
         #
         #   2. update document
         #
-        doc = delegate.document(identifier=group)
+        doc = delegate.bulletin(group)
         if doc is None:
             # TODO: create new one?
             self.error(msg='failed to get group document: %s, owner: %s' % (group, me))

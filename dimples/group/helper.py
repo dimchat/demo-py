@@ -33,6 +33,7 @@ from typing import Optional, Tuple, List
 from dimsdk import ID
 from dimsdk import ReliableMessage
 from dimsdk import GroupCommand, ResetCommand, ResignCommand
+from dimsdk import DocumentHelper
 
 from ..utils import Logging
 from ..utils import is_before
@@ -93,7 +94,7 @@ class GroupCommandHelper(Logging):
         assert group is not None, 'group content error: %s' % content
         if isinstance(content, ResignCommand):
             # administrator command, check with document time
-            doc = self.delegate.document(identifier=group)
+            doc = self.delegate.bulletin(group)
             if doc is None:
                 self.error(msg='group document not exists: %s' % group)
                 return True

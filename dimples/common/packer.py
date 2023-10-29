@@ -30,7 +30,7 @@ from dimsdk import EncryptKey
 from dimsdk import ID
 from dimsdk import ReceiptCommand, DocumentCommand
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
-from dimsdk import MessagePacker
+from dimsdk import MessagePacker, MessageHelper
 
 from ..utils import Logging
 
@@ -71,8 +71,8 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
     def _members(self, group: ID) -> List[ID]:
         """ for checking whether group's ready """
         # check document
-        bulletin = self.facebook.document(identifier=group)
-        if bulletin is None:
+        doc = self.facebook.bulletin(identifier=group)
+        if doc is None:
             # group not ready, try to query document for it
             if self.messenger.query_document(identifier=group):
                 self.info(msg='querying document for group: %s' % group)
@@ -91,7 +91,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
         sender = msg.sender
         assert sender.is_user, 'sender error: %s' % sender
         # check sender's meta & document
-        visa = msg.visa
+        visa = MessageHelper.get_visa(msg=msg)
         if visa is not None:
             # first handshake?
             assert visa.identifier == sender, 'visa ID not match: %s => %s' % (sender, visa)

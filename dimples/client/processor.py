@@ -70,14 +70,16 @@ class ClientMessageProcessor(MessageProcessor, Logging):
         responses = super().process_content(content=content, r_msg=r_msg)
         if len(responses) == 0:
             # respond nothing
-            return []
+            return responses
         elif isinstance(responses[0], HandshakeCommand):
             # urgent command
             return responses
         sender = r_msg.sender
         receiver = r_msg.receiver
         user = self.facebook.select_user(receiver=receiver)
-        assert user is not None, 'receiver error: %s' % receiver
+        if user is None:
+            # assert False, 'receiver error: %s' % receiver
+            return responses
         receiver = user.identifier
         messenger = self.messenger
         # check responses

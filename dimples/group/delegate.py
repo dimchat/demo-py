@@ -31,7 +31,8 @@
 from typing import Optional, List
 
 from dimsdk import EntityType
-from dimsdk import ID, Document, Meta
+from dimsdk import ID, Meta, Bulletin
+from dimsdk import Document, DocumentHelper
 from dimsdk import GroupDataSource
 from dimsdk import TwinsHelper
 
@@ -88,12 +89,16 @@ class GroupDelegate(TwinsHelper, GroupDataSource, Logging):
         return info
 
     # Override
-    def document(self, identifier: ID, doc_type: str = '*') -> Optional[Document]:
-        doc = self.facebook.document(identifier=identifier, doc_type=doc_type)
-        if doc is None:
+    def documents(self, identifier: ID) -> List[Document]:
+        docs = self.facebook.documents(identifier=identifier)
+        if len(docs) == 0:
             # if not found, query it from any station
             self.messenger.query_document(identifier=identifier)
-        return doc
+        return docs
+
+    def bulletin(self, group: ID) -> Optional[Bulletin]:
+        docs = self.documents(identifier=group)
+        return DocumentHelper.last_bulletin(documents=docs)
 
     def save_document(self, document: Document) -> bool:
         return self.facebook.save_document(document=document)
@@ -105,7 +110,7 @@ class GroupDelegate(TwinsHelper, GroupDataSource, Logging):
     # Override
     def founder(self, identifier: ID) -> Optional[ID]:
         assert identifier.is_group, 'ID error: %s' % identifier
-        doc = self.document(identifier=identifier)
+        doc = self.bulletin(identifier)
         if doc is None:
             # the owner(founder) should be set in the bulletin document of group
             return None
@@ -114,7 +119,7 @@ class GroupDelegate(TwinsHelper, GroupDataSource, Logging):
     # Override
     def owner(self, identifier: ID) -> Optional[ID]:
         assert identifier.is_group, 'ID error: %s' % identifier
-        doc = self.document(identifier=identifier)
+        doc = self.bulletin(identifier)
         if doc is None:
             # the owner(founder) should be set in the bulletin document of group
             return None
@@ -123,7 +128,7 @@ class GroupDelegate(TwinsHelper, GroupDataSource, Logging):
     # Override
     def assistants(self, identifier: ID) -> List[ID]:
         assert identifier.is_group, 'ID error: %s' % identifier
-        doc = self.document(identifier=identifier)
+        doc = self.bulletin(identifier)
         if doc is None:
             # the group assistants should be set in the bulletin document
             return []
@@ -132,7 +137,7 @@ class GroupDelegate(TwinsHelper, GroupDataSource, Logging):
     # Override
     def members(self, identifier: ID) -> List[ID]:
         assert identifier.is_group, 'ID error: %s' % identifier
-        doc = self.document(identifier=identifier)
+        doc = self.bulletin(identifier)
         if doc is None:
             # group not ready
             return []
@@ -151,7 +156,7 @@ class GroupDelegate(TwinsHelper, GroupDataSource, Logging):
 
     def administrators(self, group: ID) -> List[ID]:
         assert group.is_group, 'ID error: %s' % group
-        doc = self.document(identifier=group)
+        doc = self.bulletin(group)
         if doc is None:
             # group not ready
             return []

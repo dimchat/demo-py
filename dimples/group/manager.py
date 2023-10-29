@@ -137,7 +137,7 @@ class GroupManager(Logging):
         #   DISCUSS: should we let the neighbor stations know the group info?
         #
         meta = self.delegate.meta(identifier=group)
-        doc = self.delegate.document(identifier=group)
+        doc = self.delegate.bulletin(group)
         if doc is not None:
             content = DocumentCommand.response(identifier=group, meta=meta, document=doc)
         elif meta is not None:
@@ -239,7 +239,7 @@ class GroupManager(Logging):
         if len(bots) > 0:
             # let the group bots know the newest member ID list,
             # so they can split group message correctly for us.
-            self.__send_command(content=forward, members=bots)          # to all assistants
+            return self.__send_command(content=forward, members=bots)   # to all assistants
         else:
             # group bots not exist,
             # send the command to all members

@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+#
+#   DIMP : Decentralized Instant Messaging Protocol
+#
+#                                Written in 2019 by Moky <albert.moky@gmail.com>
+#
 # ==============================================================================
 # MIT License
 #
@@ -24,32 +29,52 @@
 # ==============================================================================
 
 """
-    Client Module
+    Mute Protocol
     ~~~~~~~~~~~~~
 
+    Mute all messages(skip Pushing Notification) in this conversation, which ID(user/group) contains in 'list'.
+    If value of 'list' is None, means querying mute-list from station
 """
 
-from .network import ClientSession
-from .network import SessionState
+from typing import Optional, Any, Dict, List
 
-from .facebook import ClientFacebook
-from .messenger import ClientMessenger
-from .packer import ClientMessagePacker
-from .processor import ClientMessageProcessor, ClientContentProcessorCreator
-from .terminal import Terminal
-from .checkpoint import Checkpoint
+from dimsdk import ID, BaseCommand
 
 
-__all__ = [
+class MuteCommand(BaseCommand):
+    """
+        Mute Command
+        ~~~~~~~~~~~~
+
+        data format: {
+            type : 0x88,
+            sn   : 123,
+
+            command : "mute", // command name
+            list    : []      // mute-list
+        }
+    """
+
+    MUTE = 'mute'
+
+    def __init__(self, content: Optional[Dict[str, Any]] = None):
+        if content is None:
+            super().__init__(cmd=MuteCommand.MUTE)
+        else:
+            super().__init__(content=content)
 
     #
-    #   Client
+    #   mute-list
     #
-    'ClientSession', 'SessionState',
+    @property
+    def mute_list(self) -> Optional[List[ID]]:
+        array = self.get('list')
+        if array is not None:
+            return ID.convert(array=array)
 
-    'ClientFacebook', 'ClientMessenger',
-    'ClientMessagePacker',
-    'ClientMessageProcessor', 'ClientContentProcessorCreator',
-    'Terminal',
-    'Checkpoint',
-]
+    @mute_list.setter
+    def mute_list(self, value: List[ID]):
+        if value is None:
+            self.pop('list', None)
+        else:
+            self['list'] = ID.revert(array=value)

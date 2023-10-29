@@ -38,7 +38,9 @@
 from typing import Optional, List
 
 from dimsdk import SignKey, DecryptKey
-from dimsdk import ID, User, Meta, Document, Bulletin
+from dimsdk import ID, User
+from dimsdk import Meta
+from dimsdk import Document, DocumentHelper
 from dimsdk import Facebook
 
 from ..utils import Logging
@@ -85,9 +87,23 @@ class CommonFacebook(Facebook, Logging):
             user.data_source = self
         self.__current = user
 
+    def document(self, identifier: ID, doc_type: str = '*') -> Optional[Document]:
+        all_documents = self.documents(identifier=identifier)
+        doc = DocumentHelper.last_document(all_documents, doc_type)
+        # compatible for document type
+        if doc is None and doc_type == Document.VISA:
+            doc = DocumentHelper.last_document(all_documents, 'profile')
+        return doc
+
     def get_name(self, identifier: ID) -> str:
+        if identifier.is_user:
+            doc_type = Document.VISA
+        elif identifier.is_group:
+            doc_type = Document.BULLETIN
+        else:
+            doc_type = '*'
         # get name from document
-        doc = self.document(identifier=identifier)
+        doc = self.document(identifier=identifier, doc_type=doc_type)
         if doc is not None:
             name = doc.name
             if name is not None and len(name) > 0:
@@ -97,15 +113,26 @@ class CommonFacebook(Facebook, Logging):
 
     # Override
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
+        # check valid
         if meta.valid and meta.match_identifier(identifier=identifier):
-            db = self.database
-            return db.save_meta(meta=meta, identifier=identifier)
-        assert False, 'meta not valid: %s' % identifier
+            pass
+        else:
+            # assert False, 'meta not valid: %s' % identifier
+            return False
+        # check old meta
+        old = self.meta(identifier=identifier)
+        if old is not None:
+            assert meta == old, 'meta should not changed'
+            return True
+        # meta not exists yet, save it
+        db = self.database
+        return db.save_meta(meta=meta, identifier=identifier)
 
     # Override
     def save_document(self, document: Document) -> bool:
+        identifier = document.identifier
         if not document.valid:
-            identifier = document.identifier
+            # try to verify
             meta = self.meta(identifier=identifier)
             if meta is None:
                 self.error(msg='meta not found: %s' % identifier)
@@ -116,21 +143,17 @@ class CommonFacebook(Facebook, Logging):
                 self.error(msg='failed to verify document: %s' % identifier)
                 # assert False, 'document not valid: %s' % identifier
                 return False
+        doc_type = document.type
+        if doc_type is None:
+            doc_type = '*'
+        # check old documents with type
+        documents = self.documents(identifier=identifier)
+        old = DocumentHelper.last_document(documents, doc_type)
+        if old is not None and DocumentHelper.is_expired(document, old):
+            self.warning(msg='drop expired document: %s' % identifier)
+            return False
         db = self.database
-        ok = db.save_document(document=document)
-        if ok and isinstance(document, Bulletin):
-            # check administrators
-            array = document.get_property(key='administrators')
-            if array is not None:
-                group = document.identifier
-                assert group.is_group, 'group ID error: %s' % group
-                admins = ID.convert(array=array)
-                ok = self._save_administrators(administrators=admins, group=group)
-        return ok
-
-    def _save_administrators(self, administrators: List[ID], group: ID) -> bool:
-        db = self.database
-        return db.save_administrators(administrators=administrators, group=group)
+        return db.save_document(document=document)
 
     #
     #   EntityDataSource
@@ -145,12 +168,12 @@ class CommonFacebook(Facebook, Logging):
         return db.meta(identifier=identifier)
 
     # Override
-    def document(self, identifier: ID, doc_type: str = '*') -> Optional[Document]:
+    def documents(self, identifier: ID) -> List[Document]:
         # if identifier.is_broadcast:
-        #     # broadcast ID has no document
+        #     # broadcast ID has no documents
         #     return None
         db = self.database
-        return db.document(identifier=identifier, doc_type=doc_type)
+        return db.documents(identifier=identifier)
 
     #
     #   UserDataSource

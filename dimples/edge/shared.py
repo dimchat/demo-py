@@ -31,12 +31,11 @@ from typing import Optional, Tuple
 from dimsdk import ID, Station
 
 from ..utils import Singleton, Config
-from ..common import CommonFacebook
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..common import ProviderInfo
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
 from ..database import Storage
-from ..client import ClientSession
+from ..client import ClientSession, ClientFacebook
 
 
 @Singleton
@@ -48,7 +47,7 @@ class GlobalVariable:
         self.adb: Optional[AccountDBI] = None
         self.mdb: Optional[MessageDBI] = None
         self.sdb: Optional[SessionDBI] = None
-        self.facebook: Optional[CommonFacebook] = None
+        self.facebook: Optional[ClientFacebook] = None
 
 
 def show_help(cmd: str, app_name: str, default_config: str):
@@ -121,9 +120,9 @@ def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, SessionDBI]
     return adb, mdb, sdb
 
 
-def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
+def create_facebook(database: AccountDBI, current_user: ID) -> ClientFacebook:
     """ Step 3: create facebook """
-    facebook = CommonFacebook(database=database)
+    facebook = ClientFacebook(database=database)
     # make sure private keys exists
     sign_key = facebook.private_key_for_visa_signature(identifier=current_user)
     msg_keys = facebook.private_keys_for_decryption(identifier=current_user)
@@ -143,7 +142,7 @@ def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
     return facebook
 
 
-def create_session(facebook: CommonFacebook, database: SessionDBI, host: str, port: int) -> ClientSession:
+def create_session(facebook: ClientFacebook, database: SessionDBI, host: str, port: int) -> ClientSession:
     # 1. create station with remote host & port
     station = Station(host=host, port=port)
     station.data_source = facebook

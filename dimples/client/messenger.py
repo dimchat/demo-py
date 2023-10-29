@@ -183,8 +183,8 @@ class ClientMessenger(CommonMessenger):
     def query_members(self, identifier: ID) -> bool:
         assert identifier.is_group, 'group ID error: %s' % identifier
         # 0. check group document
-        bulletin = self.facebook.document(identifier=identifier, doc_type='*')
-        if bulletin is None:
+        doc = self.facebook.bulletin(identifier=identifier)
+        if doc is None:
             self.warning(msg='group document not exists: %s' % identifier)
             self.query_document(identifier=identifier)
             return False

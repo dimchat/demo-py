@@ -39,9 +39,8 @@ from dimsdk.cpu import BaseContentProcessor, BaseContentProcessorCreator
 from ...common import HandshakeCommand, LoginCommand
 from ...common import CommonFacebook, CommonMessenger
 
-from .text import TextContentProcessor
 from .handshake import HandshakeCommandProcessor
-from .login import LoginCommandProcessor
+from .commands import LoginCommandProcessor
 from .group import HistoryCommandProcessor, GroupCommandProcessor
 from .grp_invite import InviteCommandProcessor
 from .grp_expel import ExpelCommandProcessor
@@ -68,9 +67,6 @@ class ClientContentProcessorCreator(BaseContentProcessorCreator):
 
     # Override
     def create_content_processor(self, msg_type: Union[int, ContentType]) -> Optional[ContentProcessor]:
-        # text
-        if msg_type == ContentType.TEXT.value:
-            return TextContentProcessor(facebook=self.facebook, messenger=self.messenger)
         # history
         if msg_type == ContentType.HISTORY.value:
             return HistoryCommandProcessor(facebook=self.facebook, messenger=self.messenger)

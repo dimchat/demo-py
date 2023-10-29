@@ -30,11 +30,6 @@
     Processors for contents
 """
 
-from .text import TextContentProcessor
-
-from .handshake import HandshakeCommandProcessor
-from .login import LoginCommandProcessor
-
 from .group import HistoryCommandProcessor, GroupCommandProcessor
 from .grp_invite import InviteCommandProcessor
 from .grp_expel import ExpelCommandProcessor
@@ -44,14 +39,12 @@ from .grp_reset import ResetCommandProcessor
 from .grp_query import QueryCommandProcessor
 from .grp_resign import ResignCommandProcessor
 
+from .handshake import HandshakeCommandProcessor
+from .commands import LoginCommandProcessor
+
 from .creator import ClientContentProcessorCreator
 
 __all__ = [
-
-    'TextContentProcessor',
-
-    'HandshakeCommandProcessor',
-    'LoginCommandProcessor',
 
     'HistoryCommandProcessor',
     'GroupCommandProcessor',
@@ -59,6 +52,9 @@ __all__ = [
     'JoinCommandProcessor', 'QuitCommandProcessor',
     'ResetCommandProcessor', 'QueryCommandProcessor',
     'ResignCommandProcessor',
+
+    'HandshakeCommandProcessor',
+    'LoginCommandProcessor',
 
     'ClientContentProcessorCreator',
 

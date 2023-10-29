@@ -29,7 +29,7 @@ from typing import Optional, Tuple, List
 from dimsdk import SignKey
 from dimsdk import EntityType, ID
 from dimsdk import MetaType, Meta
-from dimsdk import Document
+from dimsdk import Document, DocumentHelper
 
 from ..utils import Logging
 from ..common import AccountDBI
@@ -148,10 +148,11 @@ class BaseAccount(Logging, ABC):
         if meta is None:
             self.error(msg='failed to load meta: %s' % identifier)
             return None, None
-        doc = db.document(identifier=identifier)
-        if doc is None:
-            self.error(msg='failed to load document: %s' % identifier)
+        documents = db.documents(identifier=identifier)
+        if len(documents) == 0:
+            self.error(msg='failed to load documents: %s' % identifier)
             return meta, None
+        doc = DocumentHelper.last_document(documents=documents)
         self.__id = identifier
         self.__meta = meta
         self.__doc = doc

@@ -71,11 +71,10 @@ class ResetCommandProcessor(GroupCommandProcessor):
         administrators = self._administrators(group=group)
         is_owner = sender == owner
         is_admin = sender in administrators
-        can_reset = is_owner or is_admin
-        cannot_reset = not can_reset
 
         # 2. check permission
-        if cannot_reset:
+        can_reset = is_owner or is_admin
+        if not can_reset:
             text = 'Permission denied.'
             return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Not allowed to reset members of group: ${ID}',

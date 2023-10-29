@@ -43,12 +43,12 @@ from dimsdk import Station
 from ..utils import Log, Logging
 from ..utils import Runner
 from ..utils import get_msg_sig
-from ..common import CommonFacebook
 from ..common import ProviderInfo
 from ..common import MessageDBI, SessionDBI
 from ..common import HandshakeCommand
 
 from ..client import ClientSession
+from ..client import ClientFacebook
 from ..client import ClientMessenger
 from ..client import ClientMessagePacker
 from ..client import ClientMessageProcessor
@@ -203,7 +203,7 @@ class Octopus(Runner, Logging):
 class OctopusMessenger(ClientMessenger, ABC):
     """ Messenger for processing message from remote station """
 
-    def __init__(self, session: ClientSession, facebook: CommonFacebook, database: MessageDBI):
+    def __init__(self, session: ClientSession, facebook: ClientFacebook, database: MessageDBI):
         super().__init__(session=session, facebook=facebook, database=database)
         self.__terminal: Optional[weakref.ReferenceType] = None
         self.__octopus: Optional[weakref.ReferenceType] = None
@@ -313,7 +313,7 @@ class OuterMessenger(OctopusMessenger):
         octopus.add_index(identifier=station.identifier, terminal=self.terminal)
 
 
-def create_messenger(facebook: CommonFacebook, database: MessageDBI,
+def create_messenger(facebook: ClientFacebook, database: MessageDBI,
                      session: ClientSession, messenger_class) -> OctopusMessenger:
     assert issubclass(messenger_class, OctopusMessenger), 'messenger class error: %s' % messenger_class
     # 1. create messenger with session and MessageDB

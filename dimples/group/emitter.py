@@ -28,13 +28,11 @@
 # SOFTWARE.
 # ==============================================================================
 
-from abc import ABC, abstractmethod
-from typing import Optional, Tuple, List
+from typing import Optional, List
 
-from dimsdk import SymmetricKey
 from dimsdk import ID
-from dimsdk import Envelope, InstantMessage, ReliableMessage
-from dimsdk import Content, ForwardContent, FileContent
+from dimsdk import InstantMessage, ReliableMessage
+from dimsdk import ForwardContent, FileContent
 
 from ..utils import Logging
 from ..common import CommonFacebook, CommonMessenger
@@ -43,7 +41,7 @@ from .delegate import GroupDelegate
 from .packer import GroupPacker
 
 
-class GroupEmitter(Logging, ABC):
+class GroupEmitter(Logging):
 
     #   NOTICE: group assistants (bots) can help the members to redirect messages
     #
@@ -94,45 +92,17 @@ class GroupEmitter(Logging, ABC):
     def messenger(self) -> CommonMessenger:
         return self.delegate.messenger
 
-    def _get_encrypt_key(self, sender: ID, receiver: ID) -> SymmetricKey:
-        messenger = self.delegate.messenger
-        # from ..client import ClientMessenger
-        # assert isinstance(messenger, ClientMessenger), 'messenger error: %s' % messenger
-        key_cache = messenger.key_cache
-        return key_cache.cipher_key(sender=sender, receiver=receiver, generate=True)
-
-    def send_content(self, content: Content,
-                     priority: int = 0) -> Tuple[Optional[InstantMessage], Optional[ReliableMessage]]:
-        facebook = self.facebook
-        assert facebook is not None, 'facebook not ready'
-        # get 'sender' => 'group'
-        user = facebook.current_user
-        group = content.group
-        if user is None or group is None:
-            self.error(msg='params error: %s => %s' % (user, group))
-            return None, None
-        sender = user.identifier
-        # pack and send
-        envelope = Envelope.create(sender=sender, receiver=group)
-        i_msg = InstantMessage.create(head=envelope, body=content)
-        r_msg = self.send_message(msg=i_msg, priority=priority)
-        return i_msg, r_msg
-
     def send_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
         content = msg.content
         group = content.group
         if group is None:
             self.error(msg='not a group message')
             return None
-        #
-        #   0. check file message
-        #
-        if isinstance(content, FileContent):
-            sender = msg.sender
-            # call emitter to encrypt & upload file data before send out
-            password = self._get_encrypt_key(sender=sender, receiver=group)
-            ok = self._upload_file_data(content=content, password=password, sender=sender)
-            assert ok, 'failed to upload file data: %s' % content
+        assert msg.receiver == group, 'group message error: %s' % msg
+        # TODO: if it's a file message
+        #       please upload the file data first
+        #       before calling this
+        assert not isinstance(content, FileContent) or 'data' not in content, 'content error: %s' % content
         #
         #   1. check group bots
         #
@@ -162,18 +132,6 @@ class GroupEmitter(Logging, ABC):
             # then split and send to all members one by one
             return self.__disperse_message(msg=msg, members=members, group=group, priority=priority)
 
-    @abstractmethod
-    def _upload_file_data(self, content: FileContent, password: SymmetricKey, sender: ID) -> bool:
-        """
-        Send file data encrypted with password
-        (store download URL & decrypt key into file content after uploaded)
-
-        :param content:  file content
-        :param password: symmetric key to encrypt/decrypt file data
-        :param sender:   from where
-        """
-        raise NotImplemented
-
     def __forward_message(self, msg: InstantMessage, bot: ID, group: ID,
                           priority: int = 0) -> Optional[ReliableMessage]:
         """ Encrypt & sign message, then forward to the bot """
@@ -191,14 +149,6 @@ class GroupEmitter(Logging, ABC):
         # all members will received a message split by the group bot,
         # but the group bots cannot decrypt it.
         msg.set_string(key='group', value=group)
-        #
-        # the group bot can only get the message 'signature',
-        # but cannot know the 'sn' because it cannot decrypt the content,
-        # this is usually not a problem;
-        # but sometimes we want to respond a receipt with original sn,
-        # so I suggest to expose 'sn' too.
-        sn = msg.content.sn
-        msg['sn'] = sn
         #
         #   1. pack message
         #
@@ -258,12 +208,14 @@ class GroupEmitter(Logging, ABC):
         assert group.is_group, 'group ID error: %s' % group
         assert 'group' not in msg, 'should not happen'
         messenger = self.messenger
+        #
         # NOTICE: this is a tiny group
         #         I suggest NOT to expose the group ID to maximize its privacy,
         #         the cost is we cannot use a user-to-group password here;
         #         So the other members can only treat it as a personal message
         #         and use the user-to-user symmetric key to decrypt content,
         #         they can get the group ID after decrypted.
+        #
         sender = msg.sender
         success = 0
         #

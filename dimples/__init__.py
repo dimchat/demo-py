@@ -132,7 +132,7 @@ __all__ = [
     #
 
     'BaseMeta', 'MetaHelper',
-    'BaseDocument', 'BaseVisa', 'BaseBulletin',
+    'BaseDocument', 'BaseVisa', 'BaseBulletin', 'DocumentHelper',
 
     'EntityDelegate',
     'Entity', 'EntityDataSource', 'BaseEntity',
@@ -307,6 +307,9 @@ __all__ = [
     'LoginCommand',
     'ReportCommand',
     'AnsCommand',
+
+    'BlockCommand',
+    'MuteCommand',
 
     #
     #   Database Interface

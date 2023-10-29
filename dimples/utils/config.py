@@ -119,6 +119,19 @@ class Config(Dictionary):
             val = sub.get(option)
             return str_to_bool(value=val)
 
+    def get_list(self, section: str, option: str, separator: str = ',') -> List[str]:
+        """ get str and separate to a list """
+        text = self.get_string(section=section, option=option)
+        if text is None:
+            return []
+        result = []
+        array = text.split(separator)
+        for item in array:
+            string = item.strip()
+            if len(string) > 0:
+                result.append(string)
+        return result
+
     #
     #   database
     #

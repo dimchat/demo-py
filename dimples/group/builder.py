@@ -125,7 +125,7 @@ class GroupHistoryBuilder(Logging):
     def build_document_command(self, group: ID) -> Tuple[Optional[Document], Optional[ReliableMessage]]:
         """ create broadcast 'document' command """
         user = self.facebook.current_user
-        doc = self.delegate.document(identifier=group)
+        doc = self.delegate.bulletin(group)
         if user is None or doc is None:
             assert user is not None, 'failed to get current user'
             self.error(msg='document not found for group: %s' % group)

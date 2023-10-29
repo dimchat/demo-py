@@ -24,26 +24,37 @@
 # ==============================================================================
 
 """
-    Text Command Processor
-    ~~~~~~~~~~~~~~~~~~~~~~
+    Facebook for client
+    ~~~~~~~~~~~~~~~~~~~
 
+    Barrack for cache entities
 """
 
 from typing import List
 
-from dimsdk import ReliableMessage
-from dimsdk import Content, TextContent
+from dimsdk import ID, Document, Bulletin
 
-from dimsdk.cpu import BaseContentProcessor
-
-from ...utils import Log
+from ..common import CommonFacebook
 
 
-class TextContentProcessor(BaseContentProcessor):
+class ClientFacebook(CommonFacebook):
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
-        assert isinstance(content, TextContent), 'text content error: %s' % content
-        Log.warning(msg='received text content: %s, %s => %s'
-                        % (content.get_str(key='text', default=None), r_msg.sender, r_msg.receiver))
-        return []
+    def save_document(self, document: Document) -> bool:
+        ok = super().save_document(document=document)
+        if ok and isinstance(document, Bulletin):
+            # check administrators
+            array = document.get_property(key='administrators')
+            if array is not None:
+                group = document.identifier
+                assert group.is_group, 'group ID error: %s' % group
+                admins = ID.convert(array=array)
+                ok = self._save_administrators(administrators=admins, group=group)
+        return ok
+
+    def _save_administrators(self, administrators: List[ID], group: ID) -> bool:
+        db = self.database
+        return db.save_administrators(administrators=administrators, group=group)
+
+
+# TODO: ANS?

@@ -33,6 +33,9 @@ from .login import LoginCommand
 from .report import ReportCommand
 from .ans import AnsCommand
 
+from .mute import MuteCommand
+from .block import BlockCommand
+
 
 def register_all_factories():
     # Register core factories
@@ -47,6 +50,11 @@ def register_all_factories():
     # ANS
     Command.register(cmd=AnsCommand.ANS, factory=CommandFactoryBuilder(command_class=AnsCommand))
 
+    # Mute
+    Command.register(cmd=MuteCommand.MUTE, factory=CommandFactoryBuilder(command_class=MuteCommand))
+    # Block
+    Command.register(cmd=BlockCommand.BLOCK, factory=CommandFactoryBuilder(command_class=BlockCommand))
+
 
 __all__ = [
 
@@ -54,6 +62,9 @@ __all__ = [
     'LoginCommand',
     'ReportCommand',
     'AnsCommand',
+
+    'BlockCommand',
+    'MuteCommand',
 
     'register_all_factories',
     'register_plugins',
