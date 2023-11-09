@@ -35,8 +35,8 @@ from typing import Optional, List
 from dimsdk import ID, ANYONE
 from dimsdk import Station
 from dimsdk import Envelope, Command, MetaCommand, DocumentCommand
-from dimsdk import InstantMessage
-from dimsdk import SecureMessage, ReliableMessage
+from dimsdk import InstantMessage, SecureMessage, ReliableMessage
+from dimsdk import MessageHelper
 
 from ..utils import QueryFrequencyChecker
 from ..common import HandshakeCommand
@@ -189,8 +189,8 @@ class ServerMessenger(CommonMessenger):
             for res in responses:
                 if res.sender == sid:
                     # let the first responding message to carry the station's meta & visa
-                    res.meta = current.meta
-                    res.visa = current.visa
+                    MessageHelper.set_meta(meta=current.meta, msg=res)
+                    MessageHelper.set_visa(visa=current.visa, msg=res)
                     break
         else:
             session = self.session

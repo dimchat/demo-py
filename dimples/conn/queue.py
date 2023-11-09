@@ -115,13 +115,31 @@ class MessageQueue:
                 signature = msg.get('signature')
                 for wrapper in fleet:
                     item = wrapper.msg
-                    if item is not None and item.get('signature') == signature:
+                    if self.__is_duplicated(item, msg):
                         print('[QUEUE] duplicated message: %s' % signature)
                         return False
             # 2. append with wrapper
             wrapper = MessageWrapper(msg=msg, ship=ship)
             fleet.append(wrapper)
             return True
+
+    # noinspection PyMethodMayBeStatic
+    def __is_duplicated(self, msg1: ReliableMessage, msg2: ReliableMessage) -> bool:
+        if msg1 is None or msg2 is None:
+            return False
+        sig1 = msg1.get('signature')
+        sig2 = msg2.get('signature')
+        if sig1 is None or sig2 is None:
+            # assert False, 'signature should not empty here: %s, %s' % (msg1, msg2)
+            return False
+        elif sig1 != sig2:
+            return False
+        # maybe it's a group message split for every members,
+        # so we still need to check receiver here.
+        to1 = msg1.receiver
+        to2 = msg2.receiver
+        assert to1 is not None and to2 is not None, 'receiver should not empty here: %s, %s' % (msg1, msg2)
+        return to1 == to2
 
     def __insert(self, priority: int):
         index = 0
