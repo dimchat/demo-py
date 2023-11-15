@@ -176,6 +176,7 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         try:
             return super().encrypt_key(data=data, receiver=receiver, msg=msg)
         except Exception as error:
+            # FIXME:
             self.error(msg='failed to encrypt key: %s' % error)
 
     # Override

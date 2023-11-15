@@ -160,12 +160,7 @@ class GroupDelegate(TwinsHelper, GroupDataSource, Logging):
         if doc is None:
             # group not ready
             return []
-        admins = self.database.administrators(group=group)
-        if len(admins) > 0:
-            # got from database
-            return admins
-        array = doc.get_property(key='administrators')
-        return [] if array is None else ID.convert(array=array)
+        return self.database.administrators(group=group)
 
     def save_administrators(self, administrators: List[ID], group: ID) -> bool:
         return self.database.save_administrators(administrators=administrators, group=group)
