@@ -172,6 +172,13 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
             return messages
 
     # Override
+    def encrypt_key(self, data: bytes, receiver: ID, msg: InstantMessage) -> Optional[bytes]:
+        try:
+            return super().encrypt_key(data=data, receiver=receiver, msg=msg)
+        except Exception as error:
+            self.error(msg='failed to encrypt key: %s' % error)
+
+    # Override
     def serialize_key(self, key: Union[dict, SymmetricKey], msg: InstantMessage) -> Optional[bytes]:
         # TODO: reuse message key
         #

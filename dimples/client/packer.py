@@ -78,7 +78,12 @@ class ClientMessagePacker(CommonMessagePacker):
             'members': ID.revert(array=waiting),
         }
         self.messenger.suspend_instant_message(msg=msg, error=error)
-        return False
+        # perhaps some members have already disappeared,
+        # although the packer will query document when the member's visa key is not found,
+        # but the station will never respond with the right document,
+        # so we must return true here to let the messaging continue;
+        # when the member's visa is responded, we should send the suspended message again.
+        return len(waiting) < len(members)
 
     # # Override
     # def serialize_message(self, msg: ReliableMessage) -> bytes:
