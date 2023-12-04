@@ -71,8 +71,10 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         current = self.facebook.current_user
         station = content.station
         roaming = ID.parse(identifier=station.get('ID'))
-        assert isinstance(roaming, ID), 'login command error: %s' % content
-        if roaming != current.identifier:
+        # assert isinstance(roaming, ID), 'login command error: %s' % content
+        if not isinstance(roaming, ID):
+            self.warning(msg='station ID not found: %s' % station)
+        elif roaming != current.identifier:
             # user roaming to other station
             self.info(msg='user roaming: %s -> %s' % (sender, roaming))
             # let dispatcher to handle cached messages for roaming user

@@ -122,7 +122,7 @@ class CommonFacebook(Facebook, Logging):
         # check old meta
         old = self.meta(identifier=identifier)
         if old is not None:
-            assert meta == old, 'meta should not changed'
+            # assert meta == old, 'meta should not changed'
             return True
         # meta not exists yet, save it
         db = self.database

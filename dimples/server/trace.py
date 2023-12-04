@@ -200,7 +200,7 @@ class TracePool:
     def __init__(self):
         super().__init__()
         self._next_time = 0
-        self.__caches: Dict[str, TraceList] = {}  # str(msg.signature) => TraceList
+        self.__caches: Dict[str, TraceList] = {}  # signature:receiver => TraceList
 
     def purge(self, now: DateTime):
         """ remove expired traces """
@@ -213,20 +213,22 @@ class TracePool:
             self._next_time = now + 3600
         expired = now - self.EXPIRES
         keys = set(self.__caches.keys())
-        for sig in keys:
-            cached = self.__caches.get(sig)
+        for tag in keys:
+            cached = self.__caches.get(tag)
             if cached is None or cached.time < expired:
-                self.__caches.pop(sig, None)
+                self.__caches.pop(tag, None)
         return True
 
     def get_traces(self, msg: ReliableMessage) -> TraceList:
-        sig = msg['signature']
-        cached = self.__caches.get(sig)
+        sig = msg.get('signature')
+        assert sig is not None, 'message error: %s' % msg
+        tag = '%s:%s' % (sig, msg.receiver)
+        cached = self.__caches.get(tag)
         if cached is None:
             # cache not found, create a new one with message time
             when = msg.time
             cached = TraceList(msg_time=when, traces=[])
-            self.__caches[sig] = cached
+            self.__caches[tag] = cached
         return cached
 
     def set_traces(self, msg: ReliableMessage) -> TraceList:

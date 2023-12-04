@@ -121,18 +121,25 @@ class LoginCommand(BaseCommand):
         return self.get('station')
 
     @station.setter
-    def station(self, value: Union[Dict, Station]):
-        if value is None:
-            self.pop('station', None)
-        elif isinstance(value, Dict):
-            self['station'] = value
+    def station(self, info: Union[Dict, Station]):
+        if isinstance(info, Station):
+            sid = info.identifier
+            if sid.is_broadcast:
+                self['station'] = {
+                    'host': info.host,
+                    'port': info.port,
+                }
+            else:
+                self['station'] = {
+                    'ID': str(sid),
+                    'host': info.host,
+                    'port': info.port,
+                }
+        elif isinstance(info, Dict):
+            self['station'] = info
         else:
-            assert isinstance(value, Station), 'station error: %s' % value
-            self['station'] = {
-                'ID': str(value.identifier),
-                'host': value.host,
-                'port': value.port,
-            }
+            assert info is None, 'station info error: %s' % info
+            self.pop('station', None)
 
     @property
     def provider(self) -> Optional[Dict]:
