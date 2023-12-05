@@ -94,7 +94,7 @@ class GroupManager(Logging):
 
     @property  # protected
     def database(self) -> AccountDBI:
-        return self.__delegate.facebook.database
+        return self.__delegate.facebook.archivist.database
 
     def create_group(self, members: List[ID]) -> Optional[ID]:
         """

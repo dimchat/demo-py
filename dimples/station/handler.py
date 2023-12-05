@@ -34,28 +34,12 @@ import traceback
 from socketserver import StreamRequestHandler
 
 from ..utils import Logging, Runner
-from ..common import MessageDBI
-from ..common import CommonFacebook
 
 from ..server import ServerSession, SessionCenter
 from ..server import ServerMessenger
-from ..server import ServerMessagePacker
-from ..server import ServerMessageProcessor
 
 from .shared import GlobalVariable
-
-
-def create_messenger(facebook: CommonFacebook, database: MessageDBI,
-                     session: ServerSession) -> ServerMessenger:
-    # 1. create messenger with session and MessageDB
-    messenger = ServerMessenger(session=session, facebook=facebook, database=database)
-    # 2. create packer, processor, filter for messenger
-    #    they have weak references to session, facebook & messenger
-    messenger.packer = ServerMessagePacker(facebook=facebook, messenger=messenger)
-    messenger.processor = ServerMessageProcessor(facebook=facebook, messenger=messenger)
-    # 3. set weak reference messenger in session
-    session.messenger = messenger
-    return messenger
+from .shared import create_messenger
 
 
 class RequestHandler(StreamRequestHandler, Logging):

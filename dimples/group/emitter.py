@@ -33,6 +33,7 @@ from typing import Optional, List
 from dimsdk import ID
 from dimsdk import InstantMessage, ReliableMessage
 from dimsdk import ForwardContent, FileContent
+from dimsdk import GroupCommand
 
 from ..utils import Logging
 from ..common import CommonFacebook, CommonMessenger
@@ -92,6 +93,29 @@ class GroupEmitter(Logging):
     def messenger(self) -> CommonMessenger:
         return self.delegate.messenger
 
+    def __attach_group_times(self, group: ID, msg: InstantMessage):
+        if isinstance(msg.content, GroupCommand):
+            # no need to attach times for group command
+            return
+        facebook = self.facebook
+        doc = facebook.bulletin(identifier=group)
+        if doc is None:
+            self.error(msg='failed to get bulletin document for group: %s' % group)
+            return
+        # attach group document time
+        last_doc_time = doc.time
+        if last_doc_time is None:
+            self.error(msg='document error: %s' % doc)
+        else:
+            msg.set_datetime(key='GDT', value=last_doc_time)
+        # attach group history time
+        archivist = facebook.archivist
+        last_his_time = archivist.get_last_group_history_time(group=group)
+        if last_his_time is None:
+            self.error(msg='failed to get history time: %s' % group)
+        else:
+            msg.set_datetime(key='GHT', value=last_his_time)
+
     def send_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
         content = msg.content
         group = content.group
@@ -99,6 +123,9 @@ class GroupEmitter(Logging):
             self.error(msg='not a group message')
             return None
         assert msg.receiver == group, 'group message error: %s' % msg
+        # attach group document & history times
+        # for the receiver to check whether group info synchronized
+        self.__attach_group_times(group=group, msg=msg)
         # TODO: if it's a file message
         #       please upload the file data first
         #       before calling this

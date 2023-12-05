@@ -36,6 +36,7 @@ from .anonymous import Anonymous
 from .register import Register
 from .ans import AddressNameServer, ANSFactory
 
+from .archivist import CommonArchivist
 from .facebook import CommonFacebook
 from .messenger import CommonMessenger
 from .packer import CommonMessagePacker
@@ -82,6 +83,7 @@ __all__ = [
     'Anonymous', 'Register',
     'AddressNameServer', 'ANSFactory',
 
+    'CommonArchivist',
     'CommonFacebook',
     'CommonMessenger',
     'CommonMessagePacker',

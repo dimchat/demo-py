@@ -40,7 +40,7 @@ class SigPool:
     def __init__(self):
         super().__init__()
         self._next_time = 0
-        self.__caches: Dict[str, float] = {}  # signature:receiver => TraceList
+        self.__caches: Dict[str, float] = {}  # signature:receiver => timestamp
 
     def purge(self, now: DateTime):
         """ remove expired traces """
@@ -62,7 +62,10 @@ class SigPool:
         """ check whether duplicated """
         sig = msg.get('signature')
         assert sig is not None, 'message error: %s' % msg
-        tag = '%s:%s' % (msg.receiver, sig)
+        if len(sig) > 16:
+            sig = sig[-16:]
+        add = msg.receiver.address
+        tag = '%s:%s' % (sig, add)
         cached = self.__caches.get(tag)
         if cached is None:
             # cache not found, create a new one with message time

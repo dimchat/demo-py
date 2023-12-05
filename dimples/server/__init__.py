@@ -48,6 +48,7 @@ from .packer import BlockFilter, MuteFilter, FilterManager
 from .packer import ServerMessagePacker
 from .processor import ServerMessageProcessor, ServerContentProcessorCreator
 from .messenger import ServerMessenger
+from .archivist import ServerArchivist
 
 
 __all__ = [
@@ -75,4 +76,5 @@ __all__ = [
     'ServerMessagePacker',
     'ServerMessageProcessor', 'ServerContentProcessorCreator',
     'ServerMessenger',
+    'ServerArchivist',
 ]

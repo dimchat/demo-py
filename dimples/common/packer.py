@@ -23,14 +23,16 @@
 # SOFTWARE.
 # ==============================================================================
 
+import threading
 from abc import ABC
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from dimsdk import EncryptKey
 from dimsdk import ID
 from dimsdk import ReceiptCommand, DocumentCommand
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import MessagePacker, MessageHelper
+from dimsdk import Facebook, Messenger
 
 from ..utils import Logging
 
@@ -38,52 +40,73 @@ from .compat import fix_meta_attachment
 from .compat import fix_receipt_command
 from .compat import fix_document_command
 
-from .facebook import CommonFacebook
-from .messenger import CommonMessenger
-
 
 class CommonMessagePacker(MessagePacker, Logging, ABC):
 
-    @property
-    def facebook(self) -> CommonFacebook:
-        barrack = super().facebook
-        assert isinstance(barrack, CommonFacebook), 'barrack error: %s' % barrack
-        return barrack
+    def __init__(self, facebook: Facebook, messenger: Messenger):
+        super().__init__(facebook=facebook, messenger=messenger)
+        # suspended messages
+        self.__suspend_lock = threading.Lock()
+        self.__incoming_messages: List[ReliableMessage] = []
+        self.__outgoing_messages: List[InstantMessage] = []
 
-    @property
-    def messenger(self) -> CommonMessenger:
-        transceiver = super().messenger
-        assert isinstance(transceiver, CommonMessenger), 'transceiver error: %s' % transceiver
-        return transceiver
+    #
+    #   Suspending
+    #
+
+    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
+        """
+        Add income message in a queue for waiting sender's visa
+
+        :param msg:   incoming message
+        :param error: error info
+        """
+        self.warning(msg='suspend message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
+        msg['error'] = error
+        with self.__suspend_lock:
+            if len(self.__incoming_messages) > 32:
+                self.__incoming_messages.pop(0)
+            self.__incoming_messages.append(msg)
+
+    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
+        """
+        Add outgo message in a queue for waiting receiver's visa
+
+        :param msg:   outgo message
+        :param error: error info
+        """
+        self.warning(msg='suspend message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
+        msg['error'] = error
+        with self.__suspend_lock:
+            if len(self.__outgoing_messages) > 32:
+                self.__outgoing_messages.pop(0)
+            self.__outgoing_messages.append(msg)
+
+    def resume_reliable_messages(self) -> List[ReliableMessage]:
+        with self.__suspend_lock:
+            messages = self.__incoming_messages
+            self.__incoming_messages = []
+            return messages
+
+    def resume_instant_messages(self) -> List[InstantMessage]:
+        with self.__suspend_lock:
+            messages = self.__outgoing_messages
+            self.__outgoing_messages = []
+            return messages
+
+    #
+    #   Checking
+    #
 
     # protected
     def _visa_key(self, user: ID) -> Optional[EncryptKey]:
         """ for checking whether user's ready """
-        key = self.facebook.public_key_for_encryption(identifier=user)
-        if key is not None:
-            # user is ready
-            return key
-        # user not ready, try to query document for it
-        if self.messenger.query_document(identifier=user):
-            self.info(msg='querying document for user: %s' % user)
+        return self.facebook.public_key_for_encryption(identifier=user)
 
     # protected
     def _members(self, group: ID) -> List[ID]:
         """ for checking whether group's ready """
-        # check document
-        doc = self.facebook.bulletin(identifier=group)
-        if doc is None:
-            # group not ready, try to query document for it
-            if self.messenger.query_document(identifier=group):
-                self.info(msg='querying document for group: %s' % group)
-            return []
-        # check members
-        members = self.facebook.members(identifier=group)
-        if len(members) < 2:
-            # group not ready, try to query members for it
-            if self.messenger.query_members(identifier=group):
-                self.info(msg='querying members for group: %s' % group)
-        return members
+        return self.facebook.members(identifier=group)
 
     # protected
     def _check_reliable_message_sender(self, msg: ReliableMessage) -> bool:
@@ -105,7 +128,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
             'message': 'verify key not found',
             'user': str(sender),
         }
-        self.messenger.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
+        self.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
         return False
 
     # protected
@@ -137,7 +160,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
             'message': 'group not ready',
             'group': str(receiver),
         }
-        self.messenger.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
+        self.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
         return False
 
     # protected
@@ -162,8 +185,12 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
             'message': 'encrypt key not found',
             'user': str(receiver),
         }
-        self.messenger.suspend_instant_message(msg=msg, error=error)  # msg['error'] = error
+        self.suspend_instant_message(msg=msg, error=error)  # msg['error'] = error
         return False
+
+    #
+    #   Packing
+    #
 
     # Override
     def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:

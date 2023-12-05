@@ -31,6 +31,7 @@
 import time
 from typing import List
 
+from dimsdk import DateTime
 from dimsdk import EntityType
 from dimsdk import ReliableMessage
 from dimsdk import Content, TextContent
@@ -44,6 +45,8 @@ from ..common import CommonMessenger
 
 from .cpu import ClientContentProcessorCreator
 
+from .archivist import ClientArchivist
+
 
 class ClientMessageProcessor(MessageProcessor, Logging):
 
@@ -53,21 +56,42 @@ class ClientMessageProcessor(MessageProcessor, Logging):
         assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
         return transceiver
 
-    # # Override
-    # def process_secure_message(self, msg: SecureMessage, r_msg: ReliableMessage) -> List[SecureMessage]:
-    #     try:
-    #         return super().process_secure_message(msg=msg, r_msg=r_msg)
-    #     except LookupError as error:
-    #         if str(error).startswith('receiver error'):
-    #             # not mine? ignore it
-    #             self.error(msg='wrong message: %s => %s' % (r_msg.sender, r_msg.receiver))
-    #             return []
-    #         else:
-    #             raise error
+    def __check_group_times(self, content: Content, r_msg: ReliableMessage):
+        group = content.group
+        if group is None:
+            return
+        facebook = self.facebook
+        archivist = facebook.archivist
+        assert isinstance(archivist, ClientArchivist), 'client archivist error: %s' % archivist
+        now = DateTime.now()
+        doc_updated = False
+        mem_updated = False
+        # check group document time
+        last_doc_time = r_msg.get_datetime(key='GDT', default=None)
+        if last_doc_time is not None:
+            if last_doc_time.after(now):
+                last_doc_time = now
+            doc_updated = archivist.set_last_document_time(identifier=group, last_time=last_doc_time)
+        # check group history time
+        last_his_time = r_msg.get_datetime(key='GHT', default=None)
+        if last_his_time is not None:
+            if last_his_time.after(now):
+                last_his_time = now
+            mem_updated = archivist.set_last_group_history_time(group=group, last_time=last_his_time)
+        # check whether needs update
+        if doc_updated:
+            facebook.documents(identifier=group)
+        if mem_updated:
+            archivist.set_last_active_member(member=r_msg.sender, group=group)
+            facebook.members(identifier=group)
 
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         responses = super().process_content(content=content, r_msg=r_msg)
+        # check group document & history times from the message
+        # to make sure the group info synchronized
+        self.__check_group_times(content=content, r_msg=r_msg)
+        # check responses
         if len(responses) == 0:
             # respond nothing
             return responses

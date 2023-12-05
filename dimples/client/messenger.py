@@ -30,19 +30,18 @@
     Transform and send message
 """
 
-from typing import Optional, List, Dict
+from typing import Optional, List
 
 from dimples import EntityType, ID, EVERYONE
 from dimples import Station
 from dimples import Envelope, InstantMessage, ReliableMessage
-from dimples import ContentType, ReceiptCommand
-from dimples import MetaCommand, DocumentCommand, GroupCommand, QueryCommand
+from dimples import ContentType, ReceiptCommand, DocumentCommand
 
-from ..utils import QueryFrequencyChecker
 from ..common import HandshakeCommand, ReportCommand, LoginCommand
 from ..common import CommonMessenger
 
 from .network import ClientSession
+from .archivist import ClientArchivist
 
 
 class ClientMessenger(CommonMessenger):
@@ -82,15 +81,38 @@ class ClientMessenger(CommonMessenger):
         # broadcast current documents after handshake success
         self.broadcast_document()
 
-    # Override
-    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
-        self.warning(msg='suspend message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
-        msg['error'] = error
-
-    # Override
-    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
-        self.warning(msg='suspend message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
-        msg['error'] = error
+    def broadcast_document(self, updated: bool = False):
+        """ broadcast meta & visa document to all stations """
+        facebook = self.facebook
+        user = facebook.current_user
+        assert user is not None, 'current user not found'
+        me = user.identifier
+        meta = user.meta
+        visa = user.visa
+        assert visa is not None, 'visa not found: %s' % user
+        command = DocumentCommand.response(identifier=me, meta=meta, document=visa)
+        archivist = facebook.archivist
+        assert isinstance(archivist, ClientArchivist), 'client archivist error: %s' % archivist
+        #
+        #  send to all contacts
+        #
+        contacts = facebook.contacts(identifier=me)
+        for item in contacts:
+            if archivist.is_documents_respond_expired(identifier=item, force=updated):
+                self.info(msg='sending visa to: %s' % item)
+                self.send_content(sender=me, receiver=item, content=command, priority=1)
+            else:
+                # response not expired yet
+                self.debug(msg='document response not expired yet: %s => %s' % (me, item))
+        #
+        #  broadcast to everyone@everywhere
+        #
+        if archivist.is_documents_respond_expired(identifier=EVERYONE, force=updated):
+            self.info(msg='sending visa to: %s' % EVERYONE)
+            self.send_content(sender=me, receiver=EVERYONE, content=command, priority=1)
+        else:
+            # response not expired yet
+            self.debug(msg='document response not expired yet: %s => %s' % (me, EVERYONE))
 
     def broadcast_login(self, sender: ID, user_agent: str):
         """ send login command to keep roaming """
@@ -113,157 +135,6 @@ class ClientMessenger(CommonMessenger):
         """ Send report command to let user offline """
         command = ReportCommand(title=ReportCommand.OFFLINE)
         self.send_content(sender=sender, receiver=Station.ANY, content=command, priority=1)
-
-    def broadcast_document(self, updated: bool = False):
-        """ broadcast meta & visa document to all stations """
-        facebook = self.facebook
-        user = facebook.current_user
-        assert user is not None, 'current user not found'
-        me = user.identifier
-        meta = user.meta
-        visa = user.visa
-        assert visa is not None, 'visa not found: %s' % user
-        command = DocumentCommand.response(identifier=me, meta=meta, document=visa)
-        checker = QueryFrequencyChecker()
-        #
-        #  send to all contacts
-        #
-        contacts = facebook.contacts(identifier=me)
-        for item in contacts:
-            if checker.document_response_expired(identifier=item, force=updated):
-                self.info(msg='sending visa to: %s' % item)
-                self.send_content(sender=me, receiver=item, content=command, priority=1)
-            else:
-                # response not expired yet
-                self.debug(msg='document response not expired yet: %s => %s' % (me, item))
-        #
-        #  broadcast to everyone@everywhere
-        #
-        if checker.document_response_expired(identifier=EVERYONE, force=updated):
-            self.info(msg='sending visa to: %s' % EVERYONE)
-            self.send_content(sender=me, receiver=EVERYONE, content=command, priority=1)
-        else:
-            # response not expired yet
-            self.debug(msg='document response not expired yet: %s => %s' % (me, EVERYONE))
-
-    # def send_visa(self, sender: Optional[ID], receiver: ID, content: DocumentCommand, force: bool = False):
-    #     checker = QueryFrequencyChecker()
-    #     if checker.document_response_expired(identifier=receiver, force=force):
-    #         self.info(msg='push visa to: %s' % receiver)
-    #         self.send_content(sender=sender, receiver=receiver, content=content, priority=1)
-    #     else:
-    #         # response not expired yet
-    #         self.debug(msg='document response not expired yet: %s' % receiver)
-
-    # Override
-    def query_meta(self, identifier: ID) -> bool:
-        checker = QueryFrequencyChecker()
-        if not checker.meta_query_expired(identifier=identifier):
-            # query not expired yet
-            self.debug(msg='meta query not expired yet: %s' % identifier)
-            return False
-        self.info(msg='querying meta: %s from any station' % identifier)
-        command = MetaCommand.query(identifier=identifier)
-        self.send_content(sender=None, receiver=Station.ANY, content=command, priority=1)
-        return True
-
-    # Override
-    def query_document(self, identifier: ID) -> bool:
-        checker = QueryFrequencyChecker()
-        if not checker.document_query_expired(identifier=identifier):
-            # query not expired yet
-            self.debug(msg='document query not expired yet: %s' % identifier)
-            return False
-        self.info(msg='querying document: %s from any station' % identifier)
-        command = DocumentCommand.query(identifier=identifier)
-        self.send_content(sender=None, receiver=Station.ANY, content=command, priority=1)
-        return True
-
-    # Override
-    def query_members(self, identifier: ID) -> bool:
-        assert identifier.is_group, 'group ID error: %s' % identifier
-        # 0. check group document
-        doc = self.facebook.bulletin(identifier=identifier)
-        if doc is None:
-            self.warning(msg='group document not exists: %s' % identifier)
-            self.query_document(identifier=identifier)
-            return False
-        user = self.facebook.current_user
-        assert user is not None, 'failed to get current user'
-        me = user.identifier
-        checker = QueryFrequencyChecker()
-        if not checker.members_query_expired(identifier=identifier):
-            # query not expired yet
-            self.debug(msg='members query not expired yet: %s' % identifier)
-            return False
-        # build query command for group members
-        command = GroupCommand.query(group=identifier)
-        # 1. check group bots
-        ok = self._query_from_assistants(command=command, sender=me, group=identifier)
-        if ok:
-            return True
-        # 2. check administrators
-        ok = self._query_from_administrators(command=command, sender=me, group=identifier)
-        if ok:
-            return True
-        # 3. check group owner
-        ok = self._query_from_owner(command=command, sender=me, group=identifier)
-        if ok:
-            return True
-        # failed
-        self.error(msg='group not ready: %s' % identifier)
-        return False
-
-    def _query_from_assistants(self, command: QueryCommand, sender: ID, group: ID) -> bool:
-        assert command.group == group, 'group command not match: %s, %s' % (group, command)
-        bots = self.facebook.assistants(identifier=group)
-        if len(bots) == 0:
-            self.warning(msg='assistants not designated for group: %s' % group)
-            return False
-        success = 0
-        # querying members from bots
-        for receiver in bots:
-            if sender == receiver:
-                self.warning(msg='ignore cycled querying: %s, group: %s' % (sender, group))
-                continue
-            _, r_msg = self.send_content(sender=sender, receiver=receiver, content=command, priority=1)
-            if r_msg is not None:
-                success += 1
-        self.info(msg='querying members from bots: %s, group: %s' % (bots, group))
-        return success > 0
-
-    def _query_from_administrators(self, command: QueryCommand, sender: ID, group: ID) -> bool:
-        assert command.group == group, 'group command not match: %s, %s' % (group, command)
-        db = self.facebook.database
-        admins = db.administrators(group=group)
-        if len(admins) == 0:
-            self.warning(msg='administrators not found for group: %s' % group)
-            return False
-        success = 0
-        # querying members from admins
-        for receiver in admins:
-            if sender == receiver:
-                self.warning(msg='ignore cycled querying: %s, group: %s' % (sender, group))
-                continue
-            _, r_msg = self.send_content(sender=sender, receiver=receiver, content=command, priority=1)
-            if r_msg is not None:
-                success += 1
-        self.info(msg='querying members from admins: %s, group: %s' % (admins, group))
-        return success > 0
-
-    def _query_from_owner(self, command: QueryCommand, sender: ID, group: ID) -> bool:
-        assert command.group == group, 'group command not match: %s, %s' % (group, command)
-        owner = self.facebook.owner(identifier=group)
-        if owner is None:
-            self.warning(msg='owner not found for group: %s' % group)
-            return False
-        elif owner == sender:
-            self.error(msg='you are the owner of group: %s' % group)
-            return False
-        # querying members from owner
-        _, r_msg = self.send_content(sender=sender, receiver=owner, content=command, priority=1)
-        self.info(msg='querying members from owner: %s, group: %s' % (owner, group))
-        return r_msg is not None
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:

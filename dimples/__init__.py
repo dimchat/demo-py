@@ -221,6 +221,7 @@ __all__ = [
     #
 
     'AddressNameService', 'CipherKeyDelegate',
+    'Archivist',
     'Facebook', 'Messenger',
     'MessageProcessor', 'MessagePacker',
 
@@ -330,6 +331,7 @@ __all__ = [
     #
     'Anonymous', 'Register',
     'AddressNameServer', 'ANSFactory',
+    'CommonArchivist',
     'CommonFacebook', 'CommonMessenger',
     'CommonMessagePacker', 'Transmitter',
     'Session',

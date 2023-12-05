@@ -31,14 +31,19 @@
 from typing import Optional, List
 
 from dimsdk import EntityType
-from dimsdk import ID, Meta, Bulletin
-from dimsdk import Document, DocumentHelper
+from dimsdk import ID, Meta, Document, Bulletin
 from dimsdk import GroupDataSource
 from dimsdk import TwinsHelper
 
 from ..utils import Logging
 from ..common import CommonFacebook, CommonMessenger
-from ..common import AccountDBI
+
+
+def get_facebook(helper: TwinsHelper):
+    facebook = helper.facebook
+    from ..client import ClientFacebook
+    assert isinstance(facebook, ClientFacebook), 'client facebook error: %s' % facebook
+    return facebook
 
 
 class GroupDelegate(TwinsHelper, GroupDataSource, Logging):
@@ -54,10 +59,6 @@ class GroupDelegate(TwinsHelper, GroupDataSource, Logging):
         transceiver = super().messenger
         assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
         return transceiver
-
-    @property
-    def database(self) -> AccountDBI:
-        return self.facebook.database
 
     def build_group_name(self, members: List[ID]) -> str:
         count = len(members)
@@ -82,23 +83,15 @@ class GroupDelegate(TwinsHelper, GroupDataSource, Logging):
 
     # Override
     def meta(self, identifier: ID) -> Optional[Meta]:
-        info = self.facebook.meta(identifier=identifier)
-        if info is None:
-            # if not found, query it from any station
-            self.messenger.query_meta(identifier=identifier)
-        return info
+        return self.facebook.meta(identifier=identifier)
 
     # Override
     def documents(self, identifier: ID) -> List[Document]:
-        docs = self.facebook.documents(identifier=identifier)
-        if len(docs) == 0:
-            # if not found, query it from any station
-            self.messenger.query_document(identifier=identifier)
-        return docs
+        return self.facebook.documents(identifier=identifier)
 
-    def bulletin(self, group: ID) -> Optional[Bulletin]:
-        docs = self.documents(identifier=group)
-        return DocumentHelper.last_bulletin(documents=docs)
+    def bulletin(self, identifier: ID) -> Optional[Bulletin]:
+        assert identifier.is_group, 'group ID error: %s' % identifier
+        return self.facebook.bulletin(identifier=identifier)
 
     def save_document(self, document: Document) -> bool:
         return self.facebook.save_document(document=document)
@@ -109,61 +102,42 @@ class GroupDelegate(TwinsHelper, GroupDataSource, Logging):
 
     # Override
     def founder(self, identifier: ID) -> Optional[ID]:
-        assert identifier.is_group, 'ID error: %s' % identifier
-        doc = self.bulletin(identifier)
-        if doc is None:
-            # the owner(founder) should be set in the bulletin document of group
-            return None
+        assert identifier.is_group, 'group ID error: %s' % identifier
         return self.facebook.founder(identifier=identifier)
 
     # Override
     def owner(self, identifier: ID) -> Optional[ID]:
-        assert identifier.is_group, 'ID error: %s' % identifier
-        doc = self.bulletin(identifier)
-        if doc is None:
-            # the owner(founder) should be set in the bulletin document of group
-            return None
+        assert identifier.is_group, 'group ID error: %s' % identifier
         return self.facebook.owner(identifier=identifier)
 
     # Override
     def assistants(self, identifier: ID) -> List[ID]:
-        assert identifier.is_group, 'ID error: %s' % identifier
-        doc = self.bulletin(identifier)
-        if doc is None:
-            # the group assistants should be set in the bulletin document
-            return []
+        assert identifier.is_group, 'group ID error: %s' % identifier
         return self.facebook.assistants(identifier=identifier)
 
     # Override
     def members(self, identifier: ID) -> List[ID]:
-        assert identifier.is_group, 'ID error: %s' % identifier
-        doc = self.bulletin(identifier)
-        if doc is None:
-            # group not ready
-            return []
-        members = self.facebook.members(identifier=identifier)
-        if len(members) < 2:
-            # members not found, query the owner (or group bots)
-            self.messenger.query_members(identifier=identifier)
-        return members
+        assert identifier.is_group, 'group ID error: %s' % identifier
+        return self.facebook.members(identifier=identifier)
 
     def save_members(self, members: List[ID], group: ID) -> bool:
-        return self.database.save_members(members=members, group=group)
+        assert group.is_group, 'group ID error: %s' % group
+        facebook = get_facebook(helper=self)
+        return facebook.save_members(members=members, group=group)
 
     #
     #   Administrators
     #
 
     def administrators(self, group: ID) -> List[ID]:
-        assert group.is_group, 'ID error: %s' % group
-        doc = self.bulletin(group)
-        if doc is None:
-            # group not ready
-            return []
-        return self.database.administrators(group=group)
+        assert group.is_group, 'group ID error: %s' % group
+        facebook = get_facebook(helper=self)
+        return facebook.administrators(group=group)
 
     def save_administrators(self, administrators: List[ID], group: ID) -> bool:
-        return self.database.save_administrators(administrators=administrators, group=group)
+        assert group.is_group, 'group ID error: %s' % group
+        facebook = get_facebook(helper=self)
+        return facebook.save_administrators(administrators, group=group)
 
     #
     #   Membership

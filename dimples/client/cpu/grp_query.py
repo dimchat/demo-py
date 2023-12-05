@@ -78,6 +78,25 @@ class QueryCommandProcessor(GroupCommandProcessor):
                 }
             })
 
+        # check last group time
+        query_time = content.last_time
+        if query_time is not None:
+            # check last group history time
+            archivist = self.facebook.archivist
+            last_time = archivist.get_last_group_history_time(group=group)
+            if last_time is None:
+                self.error(msg='group history error: %s' % group)
+            elif not last_time.after(query_time):
+                # group history not updated
+                text = 'Group history not updated.'
+                return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
+                    'template': 'Group history not updated: ${ID}, last time: ${time}',
+                    'replacements': {
+                        'ID': str(group),
+                        'time': last_time.timestamp,
+                    }
+                })
+
         # 3. send newest group history commands
         ok = self.send_group_histories(group=group, receiver=sender)
         assert ok, 'failed to send history for group: %s => %s' % (group, sender)

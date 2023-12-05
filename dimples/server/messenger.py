@@ -30,17 +30,15 @@
     Transform and send message
 """
 
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from dimsdk import ID, ANYONE
 from dimsdk import Station
-from dimsdk import Envelope, Command, MetaCommand, DocumentCommand
-from dimsdk import InstantMessage, SecureMessage, ReliableMessage
+from dimsdk import SecureMessage, ReliableMessage
 from dimsdk import MessageHelper
 
-from ..utils import QueryFrequencyChecker
 from ..common import HandshakeCommand
-from ..common import CommonMessenger
+from ..common import CommonMessenger, CommonMessagePacker
 
 from .packer import FilterManager
 from .dispatcher import Dispatcher
@@ -56,7 +54,12 @@ class ServerMessenger(CommonMessenger):
         remote_address = session.remote_address
         self.warning(msg='user login: %s, socket: %s' % (identifier, remote_address))
         # process suspended messages
-        messages = self._resume_reliable_messages()
+        self._resume_reliable_messages()
+
+    def _resume_reliable_messages(self):
+        packer = self.packer
+        assert isinstance(packer, CommonMessagePacker), 'message packer error: %s' % packer
+        messages = packer.resume_reliable_messages()
         for msg in messages:
             self.info(msg='processing suspended message: %s -> %s' % (msg.sender, msg.receiver))
             try:
@@ -66,43 +69,10 @@ class ServerMessenger(CommonMessenger):
             except Exception as error:
                 self.error(msg='failed to process incoming message: %s' % error)
 
-    def _broadcast_command(self, content: Command, receiver: ID):
-        sid = self.facebook.current_user.identifier
-        env = Envelope.create(sender=sid, receiver=receiver)
-        i_msg = InstantMessage.create(head=env, body=content)
-        # pack & deliver message
-        s_msg = self.encrypt_message(msg=i_msg)
-        r_msg = self.sign_message(msg=s_msg)
-        broadcast_reliable_message(msg=r_msg, station=sid)
-
-    # Override
-    def query_meta(self, identifier: ID) -> bool:
-        checker = QueryFrequencyChecker()
-        if not checker.meta_query_expired(identifier=identifier):
-            # query not expired yet
-            self.debug(msg='meta query not expired yet: %s' % identifier)
-            return False
-        self.info(msg='querying meta of %s from neighbor stations' % identifier)
-        command = MetaCommand.query(identifier=identifier)
-        self._broadcast_command(content=command, receiver=Station.EVERY)
-        return True
-
-    # Override
-    def query_document(self, identifier: ID) -> bool:
-        checker = QueryFrequencyChecker()
-        if not checker.document_query_expired(identifier=identifier):
-            # query not expired yet
-            self.debug(msg='document query not expired yet: %s' % identifier)
-            return False
-        self.info(msg='querying document of %s from neighbor stations' % identifier)
-        command = DocumentCommand.query(identifier=identifier)
-        self._broadcast_command(content=command, receiver=Station.EVERY)
-        return True
-
-    # Override
-    def query_members(self, identifier: ID) -> bool:
-        # station will never process group info
-        return True
+    def _suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
+        packer = self.packer
+        assert isinstance(packer, CommonMessagePacker), 'message packer error: %s' % packer
+        packer.suspend_reliable_message(msg=msg, error=error)
 
     # protected
     # noinspection PyMethodMayBeStatic
@@ -130,7 +100,7 @@ class ServerMessenger(CommonMessenger):
                 error = {
                     'message': 'user not login',
                 }
-                self.suspend_reliable_message(msg=msg, error=error)
+                self._suspend_reliable_message(msg=msg, error=error)
                 # 1.2. ask client to handshake again (with session key)
                 # this message won't be delivered before handshake accepted
                 cmd = HandshakeCommand.ask(session=session.key)

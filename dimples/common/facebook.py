@@ -39,33 +39,29 @@ from typing import Optional, List
 
 from dimsdk import SignKey, DecryptKey
 from dimsdk import ID, User
-from dimsdk import Meta
 from dimsdk import Document, DocumentHelper
 from dimsdk import Facebook
 
 from ..utils import Logging
 
-from .dbi import AccountDBI
-
+from .archivist import CommonArchivist
 from .anonymous import Anonymous
 
 
 class CommonFacebook(Facebook, Logging):
 
-    def __init__(self, database: AccountDBI):
+    def __init__(self):
         super().__init__()
-        self.__database = database
         self.__current: Optional[User] = None
+        self.__archivist = None
 
     @property
-    def database(self) -> AccountDBI:
-        """
-            Database
-            ~~~~~~~~
-            PrivateKeys, Metas, Documents,
-            Users, Contacts, Groups, Members
-        """
-        return self.__database
+    def archivist(self) -> CommonArchivist:
+        return self.__archivist
+
+    @archivist.setter
+    def archivist(self, db: CommonArchivist):
+        self.__archivist = db
 
     #
     #   Super
@@ -111,69 +107,69 @@ class CommonFacebook(Facebook, Logging):
         # get name from ID
         return Anonymous.get_name(identifier=identifier)
 
-    # Override
-    def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        # check valid
-        if meta.valid and meta.match_identifier(identifier=identifier):
-            pass
-        else:
-            # assert False, 'meta not valid: %s' % identifier
-            return False
-        # check old meta
-        old = self.meta(identifier=identifier)
-        if old is not None:
-            # assert meta == old, 'meta should not changed'
-            return True
-        # meta not exists yet, save it
-        db = self.database
-        return db.save_meta(meta=meta, identifier=identifier)
-
-    # Override
-    def save_document(self, document: Document) -> bool:
-        identifier = document.identifier
-        if not document.valid:
-            # try to verify
-            meta = self.meta(identifier=identifier)
-            if meta is None:
-                self.error(msg='meta not found: %s' % identifier)
-                return False
-            elif document.verify(public_key=meta.public_key):
-                self.debug(msg='document verified: %s' % identifier)
-            else:
-                self.error(msg='failed to verify document: %s' % identifier)
-                # assert False, 'document not valid: %s' % identifier
-                return False
-        doc_type = document.type
-        if doc_type is None:
-            doc_type = '*'
-        # check old documents with type
-        documents = self.documents(identifier=identifier)
-        old = DocumentHelper.last_document(documents, doc_type)
-        if old is not None and DocumentHelper.is_expired(document, old):
-            self.warning(msg='drop expired document: %s' % identifier)
-            return False
-        db = self.database
-        return db.save_document(document=document)
-
+    # # Override
+    # def save_meta(self, meta: Meta, identifier: ID) -> bool:
+    #     # check valid
+    #     if meta.valid and meta.match_identifier(identifier=identifier):
+    #         pass
+    #     else:
+    #         # assert False, 'meta not valid: %s' % identifier
+    #         return False
+    #     # check old meta
+    #     old = self.meta(identifier=identifier)
+    #     if old is not None:
+    #         # assert meta == old, 'meta should not changed'
+    #         return True
+    #     # meta not exists yet, save it
+    #     db = self.database
+    #     return db.save_meta(meta=meta, identifier=identifier)
     #
-    #   EntityDataSource
+    # # Override
+    # def save_document(self, document: Document) -> bool:
+    #     identifier = document.identifier
+    #     if not document.valid:
+    #         # try to verify
+    #         meta = self.meta(identifier=identifier)
+    #         if meta is None:
+    #             self.error(msg='meta not found: %s' % identifier)
+    #             return False
+    #         elif document.verify(public_key=meta.public_key):
+    #             self.debug(msg='document verified: %s' % identifier)
+    #         else:
+    #             self.error(msg='failed to verify document: %s' % identifier)
+    #             # assert False, 'document not valid: %s' % identifier
+    #             return False
+    #     doc_type = document.type
+    #     if doc_type is None:
+    #         doc_type = '*'
+    #     # check old documents with type
+    #     documents = self.documents(identifier=identifier)
+    #     old = DocumentHelper.last_document(documents, doc_type)
+    #     if old is not None and DocumentHelper.is_expired(document, old):
+    #         self.warning(msg='drop expired document: %s' % identifier)
+    #         return False
+    #     db = self.database
+    #     return db.save_document(document=document)
     #
-
-    # Override
-    def meta(self, identifier: ID) -> Optional[Meta]:
-        # if identifier.is_broadcast:
-        #     # broadcast ID has no meta
-        #     return None
-        db = self.database
-        return db.meta(identifier=identifier)
-
-    # Override
-    def documents(self, identifier: ID) -> List[Document]:
-        # if identifier.is_broadcast:
-        #     # broadcast ID has no documents
-        #     return None
-        db = self.database
-        return db.documents(identifier=identifier)
+    # #
+    # #   EntityDataSource
+    # #
+    #
+    # # Override
+    # def meta(self, identifier: ID) -> Optional[Meta]:
+    #     # if identifier.is_broadcast:
+    #     #     # broadcast ID has no meta
+    #     #     return None
+    #     db = self.database
+    #     return db.meta(identifier=identifier)
+    #
+    # # Override
+    # def documents(self, identifier: ID) -> List[Document]:
+    #     # if identifier.is_broadcast:
+    #     #     # broadcast ID has no documents
+    #     #     return None
+    #     db = self.database
+    #     return db.documents(identifier=identifier)
 
     #
     #   UserDataSource
@@ -181,63 +177,63 @@ class CommonFacebook(Facebook, Logging):
 
     # Override
     def contacts(self, identifier: ID) -> List[ID]:
-        db = self.database
-        return db.contacts(user=identifier)
+        db = self.archivist
+        return db.contacts(identifier)
 
     # Override
     def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
-        db = self.database
-        return db.private_keys_for_decryption(user=identifier)
+        db = self.archivist
+        return db.private_keys_for_decryption(identifier)
 
     # Override
     def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
-        db = self.database
-        return db.private_key_for_signature(user=identifier)
+        db = self.archivist
+        return db.private_key_for_signature(identifier)
 
     # Override
     def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
-        db = self.database
-        return db.private_key_for_visa_signature(user=identifier)
+        db = self.archivist
+        return db.private_key_for_visa_signature(identifier)
 
+    # #
+    # #    GroupDataSource
+    # #
     #
-    #    GroupDataSource
+    # # Override
+    # def founder(self, identifier: ID) -> Optional[ID]:
+    #     db = self.database
+    #     user = db.founder(group=identifier)
+    #     if user is None:
+    #         user = super().founder(identifier=identifier)
+    #     return user
     #
-
-    # Override
-    def founder(self, identifier: ID) -> Optional[ID]:
-        db = self.database
-        user = db.founder(group=identifier)
-        if user is None:
-            user = super().founder(identifier=identifier)
-        return user
-
-    # Override
-    def owner(self, identifier: ID) -> Optional[ID]:
-        db = self.database
-        user = db.owner(group=identifier)
-        if user is None:
-            user = super().owner(identifier=identifier)
-        return user
-
-    # Override
-    def members(self, identifier: ID) -> List[ID]:
-        owner = self.owner(identifier=identifier)
-        if owner is None:
-            # assert False, 'group owner not found: %s' % identifier
-            return []
-        db = self.database
-        users = db.members(group=identifier)
-        if len(users) == 0:
-            users = super().members(identifier=identifier)
-            if len(users) == 0:
-                users = [owner]
-        assert owner == users[0], 'group owner must be the first member: %s, group: %s' % (owner, identifier)
-        return users
-
-    # Override
-    def assistants(self, identifier: ID) -> List[ID]:
-        db = self.database
-        bots = db.assistants(group=identifier)
-        if len(bots) == 0:
-            bots = super().assistants(identifier=identifier)
-        return bots
+    # # Override
+    # def owner(self, identifier: ID) -> Optional[ID]:
+    #     db = self.database
+    #     user = db.owner(group=identifier)
+    #     if user is None:
+    #         user = super().owner(identifier=identifier)
+    #     return user
+    #
+    # # Override
+    # def members(self, identifier: ID) -> List[ID]:
+    #     owner = self.owner(identifier=identifier)
+    #     if owner is None:
+    #         # assert False, 'group owner not found: %s' % identifier
+    #         return []
+    #     db = self.database
+    #     users = db.members(group=identifier)
+    #     if len(users) == 0:
+    #         users = super().members(identifier=identifier)
+    #         if len(users) == 0:
+    #             users = [owner]
+    #     assert owner == users[0], 'group owner must be the first member: %s, group: %s' % (owner, identifier)
+    #     return users
+    #
+    # # Override
+    # def assistants(self, identifier: ID) -> List[ID]:
+    #     db = self.database
+    #     bots = db.assistants(group=identifier)
+    #     if len(bots) == 0:
+    #         bots = super().assistants(identifier=identifier)
+    #     return bots

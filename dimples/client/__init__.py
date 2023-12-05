@@ -32,6 +32,7 @@
 from .network import ClientSession
 from .network import SessionState
 
+from .archivist import ClientArchivist
 from .facebook import ClientFacebook
 from .messenger import ClientMessenger
 from .packer import ClientMessagePacker
@@ -47,6 +48,7 @@ __all__ = [
     #
     'ClientSession', 'SessionState',
 
+    'ClientArchivist',
     'ClientFacebook', 'ClientMessenger',
     'ClientMessagePacker',
     'ClientMessageProcessor', 'ClientContentProcessorCreator',

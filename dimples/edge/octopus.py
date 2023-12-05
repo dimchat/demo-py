@@ -93,6 +93,9 @@ class Octopus(Runner, Logging):
         messenger = create_messenger(facebook=shared.facebook, database=shared.mdb,
                                      session=session, messenger_class=InnerMessenger)
         messenger.octopus = self
+        # set for archivist
+        archivist = self.shared.facebook.archivist
+        archivist.messenger = messenger
         return create_terminal(messenger=messenger)
 
     def create_outer_terminal(self, host: str, port: int) -> Terminal:
@@ -308,7 +311,7 @@ class OuterMessenger(OctopusMessenger):
     def handshake_success(self):
         super().handshake_success()
         station = self.session.station
-        update_station(station=station)
+        update_station(station=station, database=self.octopus.database)
         octopus = self.octopus
         octopus.add_index(identifier=station.identifier, terminal=self.terminal)
 
@@ -334,10 +337,8 @@ def create_terminal(messenger: OctopusMessenger) -> Terminal:
     return terminal
 
 
-def update_station(station: Station):
+def update_station(station: Station, database: SessionDBI):
     Log.info(msg='update station: %s' % station)
-    shared = GlobalVariable()
-    db = shared.sdb
     # SP ID
     provider = station.provider
     if provider is None:
@@ -348,4 +349,4 @@ def update_station(station: Station):
     port = station.port
     assert not sid.is_broadcast, 'station ID error: %s' % sid
     assert host is not None and port > 0, 'station error: %s, %d' % (host, port)
-    db.update_station(identifier=sid, host=host, port=port, provider=provider, chosen=0)
+    database.update_station(identifier=sid, host=host, port=port, provider=provider, chosen=0)

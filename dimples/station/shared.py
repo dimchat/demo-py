@@ -31,11 +31,17 @@ from typing import Optional, Tuple
 from dimsdk import ID
 
 from ..utils import Singleton, Config
-from ..common import AddressNameServer, ANSFactory, CommonFacebook
+from ..common import AddressNameServer, ANSFactory
+from ..common import CommonFacebook, CommonMessenger
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..common import ProviderInfo
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
 from ..database import Storage
+from ..server import ServerArchivist
+from ..server import ServerSession
+from ..server import ServerMessenger
+from ..server import ServerMessagePacker
+from ..server import ServerMessageProcessor
 from ..server import BroadcastRecipientManager
 from ..server import Dispatcher
 
@@ -50,6 +56,7 @@ class GlobalVariable:
         self.mdb: Optional[MessageDBI] = None
         self.sdb: Optional[SessionDBI] = None
         self.facebook: Optional[CommonFacebook] = None
+        self.messenger: Optional[CommonMessenger] = None  # only for archivist
 
 
 def show_help(cmd: str, app_name: str, default_config: str):
@@ -123,7 +130,14 @@ def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, SessionDBI]
 
 def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
     """ Step 3: create facebook """
-    facebook = CommonFacebook(database=database)
+    facebook = CommonFacebook()
+    # create archivist for facebook
+    shared = GlobalVariable()
+    shared.messenger = create_messenger(facebook=facebook, database=shared.mdb, session=None)
+    archivist = ServerArchivist(database=database)
+    archivist.messenger = shared.messenger
+    archivist.facebook = facebook
+    facebook.archivist = archivist
     # make sure private keys exists
     sign_key = facebook.private_key_for_visa_signature(identifier=current_user)
     msg_keys = facebook.private_keys_for_decryption(identifier=current_user)
@@ -141,6 +155,20 @@ def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
         facebook.save_document(document=visa)
     facebook.current_user = user
     return facebook
+
+
+def create_messenger(facebook: CommonFacebook, database: MessageDBI,
+                     session: Optional[ServerSession]) -> ServerMessenger:
+    # 1. create messenger with session and MessageDB
+    messenger = ServerMessenger(session=session, facebook=facebook, database=database)
+    # 2. create packer, processor, filter for messenger
+    #    they have weak references to session, facebook & messenger
+    messenger.packer = ServerMessagePacker(facebook=facebook, messenger=messenger)
+    messenger.processor = ServerMessageProcessor(facebook=facebook, messenger=messenger)
+    # 3. set weak reference messenger in session
+    if session is not None:
+        session.messenger = messenger
+    return messenger
 
 
 def create_dispatcher(shared: GlobalVariable) -> Dispatcher:

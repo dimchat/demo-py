@@ -222,7 +222,10 @@ class TracePool:
     def get_traces(self, msg: ReliableMessage) -> TraceList:
         sig = msg.get('signature')
         assert sig is not None, 'message error: %s' % msg
-        tag = '%s:%s' % (sig, msg.receiver)
+        if len(sig) > 16:
+            sig = sig[-16:]
+        add = msg.receiver.address
+        tag = '%s:%s' % (sig, add)
         cached = self.__caches.get(tag)
         if cached is None:
             # cache not found, create a new one with message time

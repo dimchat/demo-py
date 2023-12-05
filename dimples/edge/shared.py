@@ -35,7 +35,7 @@ from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..common import ProviderInfo
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
 from ..database import Storage
-from ..client import ClientSession, ClientFacebook
+from ..client import ClientSession, ClientFacebook, ClientArchivist
 
 
 @Singleton
@@ -122,7 +122,11 @@ def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, SessionDBI]
 
 def create_facebook(database: AccountDBI, current_user: ID) -> ClientFacebook:
     """ Step 3: create facebook """
-    facebook = ClientFacebook(database=database)
+    facebook = ClientFacebook()
+    # create archivist for facebook
+    archivist = ClientArchivist(database=database)
+    archivist.facebook = facebook
+    facebook.archivist = archivist
     # make sure private keys exists
     sign_key = facebook.private_key_for_visa_signature(identifier=current_user)
     msg_keys = facebook.private_keys_for_decryption(identifier=current_user)

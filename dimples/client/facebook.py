@@ -30,9 +30,11 @@
     Barrack for cache entities
 """
 
-from typing import List
+from typing import Optional, List
 
+from dimsdk import EntityType
 from dimsdk import ID, Document, Bulletin
+from dimsdk import BroadcastHelper
 
 from ..common import CommonFacebook
 
@@ -49,12 +51,122 @@ class ClientFacebook(CommonFacebook):
                 group = document.identifier
                 assert group.is_group, 'group ID error: %s' % group
                 admins = ID.convert(array=array)
-                ok = self._save_administrators(administrators=admins, group=group)
+                ok = self.save_administrators(administrators=admins, group=group)
         return ok
 
-    def _save_administrators(self, administrators: List[ID], group: ID) -> bool:
-        db = self.database
-        return db.save_administrators(administrators=administrators, group=group)
+    #
+    #   GroupDataSource
+    #
+
+    # Override
+    def founder(self, identifier: ID) -> Optional[ID]:
+        # check broadcast group
+        if identifier.is_broadcast:
+            # founder of broadcast group
+            return BroadcastHelper.broadcast_founder(group=identifier)
+        # check bulletin document
+        doc = self.bulletin(identifier=identifier)
+        if doc is None:
+            # the owner(founder) should be set in the bulletin document of group
+            return None
+        db = self.archivist
+        # check local storage
+        user = db.founder(identifier=identifier)
+        if user is not None:
+            # got from local storage
+            return user
+        # get from bulletin document
+        user = doc.founder
+        if user is None:
+            self.error(msg='founder not designated for group: %s' % identifier)
+        return user
+
+    # Override
+    def owner(self, identifier: ID) -> Optional[ID]:
+        # check broadcast group
+        if identifier.is_broadcast:
+            # owner of broadcast group
+            return BroadcastHelper.broadcast_owner(group=identifier)
+        # check bulletin document
+        doc = self.bulletin(identifier=identifier)
+        if doc is None:
+            # the owner(founder) should be set in the bulletin document of group
+            return None
+        db = self.archivist
+        # check local storage
+        user = db.owner(identifier=identifier)
+        if user is not None:
+            # got from local storage
+            return user
+        # check group type
+        if identifier.type == EntityType.GROUP:
+            # Polylogue's owner is its founder
+            user = db.founder(identifier=identifier)
+            if user is None:
+                user = doc.founder
+        if user is None:
+            self.error(msg='owner not found for group: %s' % identifier)
+        return user
+
+    # Override
+    def members(self, identifier: ID) -> List[ID]:
+        owner = self.owner(identifier=identifier)
+        if owner is None:
+            self.error(msg='group empty: %s' % identifier)
+            return []
+        db = self.archivist
+        # check local storage
+        users = db.members(identifier=identifier)
+        db.check_members(group=identifier, members=users)
+        if len(users) == 0:
+            users = [owner]
+        else:
+            assert users[0] == owner, 'group owner must be the first member: %s' % identifier
+        return users
+
+    # Override
+    def assistants(self, identifier: ID) -> List[ID]:
+        # check bulletin document
+        doc = self.bulletin(identifier=identifier)
+        if doc is None:
+            # the assistants should be set in the bulletin document of group
+            return []
+        db = self.archivist
+        # check local storage
+        bots = db.assistants(identifier=identifier)
+        if len(bots) > 0:
+            # got from local storage
+            return bots
+        # get from bulletin document
+        bots = doc.assistants
+        return [] if bots is None else bots
+
+    #
+    #   Organizational Structure
+    #
+
+    def administrators(self, group: ID) -> List[ID]:
+        # check bulletin document
+        doc = self.bulletin(identifier=group)
+        if doc is None:
+            # the administrators should be set in the bulletin document
+            return []
+        db = self.archivist
+        # the 'administrators' should be saved into local storage
+        # when the newest bulletin document received,
+        # so we must get them from the local storage only,
+        # not from the bulletin document.
+        return db.administrators(group=group)
+
+    # protected
+    def save_administrators(self, administrators: List[ID], group: ID) -> bool:
+        db = self.archivist
+        return db.save_administrators(administrators, group=group)
+
+    # protected
+    def save_members(self, members: List[ID], group: ID) -> bool:
+        db = self.archivist
+        return db.save_members(members, group=group)
 
 
 # TODO: ANS?

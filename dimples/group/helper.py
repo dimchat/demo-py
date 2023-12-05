@@ -30,10 +30,10 @@
 
 from typing import Optional, Tuple, List
 
+from dimsdk import DateTime
 from dimsdk import ID
 from dimsdk import ReliableMessage
 from dimsdk import GroupCommand, ResetCommand, ResignCommand
-from dimsdk import DocumentHelper
 
 from ..utils import Logging
 from ..utils import is_before
@@ -54,7 +54,7 @@ class GroupCommandHelper(Logging):
 
     @property  # protected
     def database(self) -> AccountDBI:
-        return self.delegate.facebook.database
+        return self.delegate.facebook.archivist.database
 
     #
     #   Group History Command
@@ -64,6 +64,18 @@ class GroupCommandHelper(Logging):
         if self.is_expired(content=content):
             self.warning(msg='drop expired command: %s, %s => %s' % (content.cmd, message.sender, group))
             return False
+        # check command time
+        cmd_time = content.time
+        if cmd_time is None:
+            self.error(msg='group command error: %s' % content)
+        else:
+            # calibrate the clock
+            # make sure the command time is not in the far future
+            current = DateTime.now() + 65.0
+            if cmd_time > current:
+                self.error(msg='group command time error: %s, %s' % (cmd_time, content))
+                return False
+        # update group history
         db = self.database
         if isinstance(content, ResetCommand):
             self.warning(msg='cleaning group history for "reset" command: %s => %s' % (message.sender, group))

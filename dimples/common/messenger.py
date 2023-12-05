@@ -35,9 +35,8 @@
     Transform and send message
 """
 
-import threading
 from abc import ABC, abstractmethod
-from typing import Optional, Union, Tuple, List, Dict
+from typing import Optional, Union, Tuple
 
 from dimsdk import SymmetricKey
 from dimsdk import ID
@@ -66,10 +65,6 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         self.__database = database
         self.__packer: Optional[Packer] = None
         self.__processor: Optional[Processor] = None
-        # suspended messages
-        self.__suspend_lock = threading.Lock()
-        self.__incoming_messages: List[ReliableMessage] = []
-        self.__outgoing_messages: List[InstantMessage] = []
 
     @property  # Override
     def packer(self) -> Packer:
@@ -111,65 +106,6 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     def handshake_success(self):
         """ callback for handshake success """
         raise NotImplemented
-
-    @abstractmethod  # protected
-    def query_meta(self, identifier: ID) -> bool:
-        """ request for meta with entity ID """
-        raise NotImplemented
-
-    @abstractmethod  # protected
-    def query_document(self, identifier: ID) -> bool:
-        """ request for meta & visa document with entity ID """
-        raise NotImplemented
-
-    @abstractmethod  # protected
-    def query_members(self, identifier: ID) -> bool:
-        """ request for group members with group ID """
-        raise NotImplemented
-
-    #
-    #   Suspend messages
-    #
-
-    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
-        """
-        Add income message in a queue for waiting sender's visa
-
-        :param msg:   incoming message
-        :param error: error info
-        """
-        self.warning(msg='suspend message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
-        msg['error'] = error
-        with self.__suspend_lock:
-            if len(self.__incoming_messages) > 32:
-                self.__incoming_messages.pop(0)
-            self.__incoming_messages.append(msg)
-
-    def _resume_reliable_messages(self) -> List[ReliableMessage]:
-        with self.__suspend_lock:
-            messages = self.__incoming_messages
-            self.__incoming_messages = []
-            return messages
-
-    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
-        """
-        Add outgo message in a queue for waiting receiver's visa
-
-        :param msg:   outgo message
-        :param error: error info
-        """
-        self.warning(msg='suspend message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
-        msg['error'] = error
-        with self.__suspend_lock:
-            if len(self.__outgoing_messages) > 32:
-                self.__outgoing_messages.pop(0)
-            self.__outgoing_messages.append(msg)
-
-    def _resume_instant_messages(self) -> List[InstantMessage]:
-        with self.__suspend_lock:
-            messages = self.__outgoing_messages
-            self.__outgoing_messages = []
-            return messages
 
     # Override
     def encrypt_key(self, data: bytes, receiver: ID, msg: InstantMessage) -> Optional[bytes]:

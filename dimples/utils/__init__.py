@@ -41,6 +41,8 @@ from dimsdk import hex_encode, hex_decode
 from dimsdk import utf8_encode, utf8_decode
 from dimsdk import json_encode, json_decode
 
+from dimsdk import FrequencyChecker, RecentTimeChecker
+
 from dimsdk import Converter
 from dimsdk import DateTime
 from dimsdk import ReliableMessage
@@ -57,7 +59,6 @@ from .singleton import Singleton
 from .log import Log, Logging
 from .dos import Path, File, TextFile, JSONFile
 from .cache import CachePool, CacheHolder, CacheManager
-from .checker import FrequencyChecker, QueryFrequencyChecker
 
 from .config import Config
 
@@ -103,7 +104,8 @@ __all__ = [
     'Log', 'Logging',
     'Path', 'File', 'TextFile', 'JSONFile',
     'CachePool', 'CacheHolder', 'CacheManager',
-    'FrequencyChecker', 'QueryFrequencyChecker',
+
+    'FrequencyChecker', 'RecentTimeChecker',
 
     'Config',
 
