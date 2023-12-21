@@ -60,7 +60,7 @@ class LoginTable(LoginDBI):
         old, _ = self.login_command_message(user=user)
         if old is not None and is_before(old_time=old.time, new_time=new_time):
             # command expired
-            return False
+            return True
 
     #
     #   Login DBI

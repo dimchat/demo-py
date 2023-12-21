@@ -67,11 +67,15 @@ class HandshakeCommandProcessor(BaseCommandProcessor):
         # set/update session in session server with new session key
         messenger = self.messenger
         session = messenger.session
+        sess_id = session.identifier
+        sender = r_msg.sender
+        if sess_id is not None:
+            assert sess_id == sender, 'sender error: %s, %s' % (sender, sess_id)
         if session.key == content.session:
             # session key match
-            Log.info(msg='handshake accepted: %s, session: %s' % (r_msg.sender, session.key))
+            Log.info(msg='handshake accepted: %s, session: %s' % (sender, session.key))
             # verified success
-            handshake_accepted(identifier=r_msg.sender, session=session, messenger=messenger)
+            handshake_accepted(identifier=sender, session=session, messenger=messenger)
             res = HandshakeCommand.success(session=session.key)
         else:
             # session key not match

@@ -88,6 +88,7 @@ class ServerMessagePacker(CommonMessagePacker):
                 return None
             elif receiver.is_broadcast:
                 # ignore cycled broadcast message
+                self.warning(msg='cycled broadcast message: %s -> %s' % (sender, receiver))
                 return None
             self.warning(msg='cycled message: %s -> %s' % (sender, receiver))
         if not self.__check_reliable_message_receiver(msg=msg):

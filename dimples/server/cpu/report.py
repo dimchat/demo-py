@@ -59,6 +59,7 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
         if session.identifier is None:
             self.error(msg='session not login, drop report command: %s => %s' % (sender, content))
             return []
+        # FIXME: send via bridge?
         assert sender == session.identifier, 'report sender error: %s not %s' % (sender, session.identifier)
         # check report title
         title = content.title

@@ -155,6 +155,7 @@ class GroupEmitter(Logging):
             success = self.__split_send_message(msg=msg, members=members, group=group, priority=priority)
             self.info(msg='split %d message(s) for group: %s' % (success, group))
         else:
+            self.info(msg='splitting message for %d members of group: %s' % (len(members), group))
             # encrypt and sign this message first,
             # then split and send to all members one by one
             return self.__disperse_message(msg=msg, members=members, group=group, priority=priority)
