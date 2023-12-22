@@ -108,9 +108,11 @@ class ServerMessagePacker(CommonMessagePacker):
         # skip for "super().verify_message(msg=msg)"
         return True
 
+    # noinspection PyMethodMayBeStatic,PyUnusedLocal
     def __check_reliable_message_receiver(self, msg: ReliableMessage) -> bool:
+        return True
         # check for group
-        return super()._check_reliable_message_receiver(msg=msg)
+        # return super()._check_reliable_message_receiver(msg=msg)
 
 
 def get_facebook(packer: CommonMessagePacker) -> CommonFacebook:

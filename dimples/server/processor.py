@@ -160,7 +160,7 @@ class ServerMessageProcessor(MessageProcessor, Logging):
         # TODO: override to deliver to the receiver when catch exception "receiver error ..."
 
     def _force_handshake(self, msg: ReliableMessage) -> List[ReliableMessage]:
-        if not self.messenger.verify_message(msg=msg):
+        if self.messenger.verify_message(msg=msg) is None:
             assert False, 'failed to verify message: %s' % msg
             # return []
         session = self.messenger.session

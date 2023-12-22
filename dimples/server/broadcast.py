@@ -173,6 +173,9 @@ def broadcast_reliable_message(msg: ReliableMessage, station: ID):
         #       delivering via station bridge, should we mark 'sent_neighbors' in
         #       only one message to the bridge, let the bridge to separate for other
         #       neighbors which not connect to this station directly?
+    # set trace nodes
+    tm = TraceManager()
+    tm.set_nodes(msg=msg, nodes=recipients)
     # OK
     Log.info(msg='Broadcast message delivered: %s => %s' % (sender, recipients))
     return len(recipients)
@@ -186,13 +189,19 @@ def deliver_message(msg: ReliableMessage, receiver: ID, recipients: Set[ID], sta
         Log.warning(msg='skip sender: %s, %s' % (receiver, recipients))
         return None
     assert isinstance(recipients, set), 'recipients error: %s' % recipients
+    tm = TraceManager()
+    traces = tm.get_traces(msg=msg)
+    if traces.search(node=receiver) >= 0:
+        Log.warning(msg='skip cycled message: %s, %s' % (msg.sender, receiver))
+        return None
     # clone
     msg = ReliableMessage.parse(msg=msg.dictionary)
-    recipients = recipients.copy()
-    recipients.discard(receiver)  # exclude receiver
-    recipients.add(station)       # include current station
-    # set trace nodes
-    tm = TraceManager()
-    tm.set_nodes(msg=msg, nodes=recipients)
+    # TODO: add these recipients into traces, exclude current receiver
+    # recipients = recipients.copy()
+    # recipients.discard(receiver)  # exclude receiver
+    # recipients.add(station)       # include current station
+    # # set trace nodes
+    # tm = TraceManager()
+    # tm.set_nodes(msg=msg, nodes=recipients)
     # deliver message with traces
     return dispatcher.deliver_message(msg=msg, receiver=receiver)
