@@ -85,6 +85,7 @@ class ServerMessagePacker(CommonMessagePacker):
             # cycled message
             if sender.type == EntityType.STATION or receiver.type == EntityType.STATION:
                 # ignore cycled station message
+                self.warning(msg='cycled station message: %s -> %s' % (sender, receiver))
                 return None
             elif receiver.is_broadcast:
                 # ignore cycled broadcast message

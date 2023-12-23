@@ -30,6 +30,7 @@
 
 import socket
 import time
+import traceback
 from typing import Optional, Tuple
 
 from dimsdk import ReliableMessage
@@ -44,12 +45,13 @@ from tcp import StreamChannel
 from tcp import ServerHub, ClientHub
 
 from ..utils import get_remote_address, get_local_address
+from ..utils import get_msg_info
 from ..utils import Runner, Logging
 
 from .protocol import DeparturePacker
 
 from .gate import CommonGate, TCPServerGate, TCPClientGate
-from .queue import MessageQueue
+from .queue import MessageQueue, MessageWrapper
 
 
 class StreamServerHub(ServerHub):
@@ -209,6 +211,7 @@ class GateKeeper(Runner, DockerDelegate, Logging):
                 return True
         except Exception as e:
             self.error(msg='process error: %s' % e)
+            traceback.print_exc()
             return False
         if not self.active:
             # inactive, wait a while to check again
@@ -264,3 +267,7 @@ class GateKeeper(Runner, DockerDelegate, Logging):
     # Override
     def docker_error(self, error: IOError, ship: Departure, docker: Docker):
         self.error(msg='docker error while sending ship: %s, %s' % (ship, docker))
+        if isinstance(ship, MessageWrapper):
+            msg = ship.msg
+            if msg is not None:
+                self.error(msg='error message: %s' % get_msg_info(msg=msg))

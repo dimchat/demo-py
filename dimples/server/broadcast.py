@@ -196,6 +196,10 @@ def deliver_message(msg: ReliableMessage, receiver: ID, recipients: Set[ID], sta
         return None
     # clone
     msg = ReliableMessage.parse(msg=msg.dictionary)
+    traces = msg.get('traces')
+    if traces is not None:
+        assert isinstance(traces, List), 'traces error: %s' % traces
+        msg['traces'] = traces.copy()
     # TODO: add these recipients into traces, exclude current receiver
     # recipients = recipients.copy()
     # recipients.discard(receiver)  # exclude receiver

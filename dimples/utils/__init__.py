@@ -33,7 +33,7 @@
                                              -- Albert Moky @ Jan. 23, 2019
 """
 
-from typing import Optional
+from typing import Optional, List, Dict
 
 from dimsdk import md5, sha1, sha256, keccak256, ripemd160
 from dimsdk import base64_encode, base64_decode, base58_encode, base58_decode
@@ -76,6 +76,34 @@ def get_msg_sig(msg: ReliableMessage) -> str:
     return sig[-8:]  # last 6 bytes (signature in base64)
 
 
+def get_msg_traces(msg: ReliableMessage) -> List:
+    traces = msg.get('traces')
+    if traces is None:
+        return []
+    assert isinstance(traces, List), 'traces error: %s' % traces
+    stations = []
+    for item in traces:
+        if isinstance(item, Dict):
+            sid = item.get('ID')
+        elif isinstance(item, str):
+            sid = item
+        else:
+            Log.error(msg='trace item error: %s' % item)
+            continue
+        stations.append(sid)
+    return stations
+
+
+def get_msg_info(msg: ReliableMessage) -> str:
+    sig = get_msg_sig(msg=msg)
+    traces = get_msg_traces(msg=msg)
+    group = msg.group
+    if group is None:
+        return '%s => %s [%s] %s, traces: %s' % (msg.sender, msg.receiver, msg.time, sig, traces)
+    else:
+        return '%s => %s, %s [%s] %s, traces: %s' % (msg.sender, msg.receiver, group, msg.time, sig, traces)
+
+
 def template_replace(template: str, key: str, value: str) -> str:
     """ replace '{key}' with value """
     tag = '{%s}' % key
@@ -110,7 +138,7 @@ __all__ = [
     'Config',
 
     'is_before',
-    'get_msg_sig',
+    'get_msg_sig', 'get_msg_info',
     'template_replace',
 
 ]

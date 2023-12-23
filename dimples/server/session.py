@@ -48,7 +48,7 @@ from startrek import Arrival, Departure
 
 from ..utils import Log
 from ..utils import hex_encode, random_bytes
-from ..utils import get_msg_sig
+from ..utils import get_msg_sig, get_msg_info
 from ..common import SessionDBI, MessageDBI, ReliableMessageDBI
 from ..conn import MessageWrapper
 from ..conn import BaseSession
@@ -246,15 +246,14 @@ def remove_reliable_message(msg: ReliableMessage, receiver: ID, database: Messag
     #    a message to station won't be stored.
     # 2. if the msg.receiver is a different user ID, means it's
     #    a roaming message, remove it for actual receiver.
-    # 3. if the original receiver is a group, it must had been
+    # 3. if the original receiver is a group, it must have been
     #    replaced to the group assistant ID by GroupDeliver.
     if receiver is None or receiver.type == EntityType.STATION:
         # if msg.receiver == receiver:
         #     # station message won't be stored
         #     return False
         receiver = msg.receiver
-    sig = get_msg_sig(msg=msg)
-    print('[QUEUE] message (%s) sent, remove from db: %s => %s (%s)'
-          % (sig, msg.sender, msg.receiver, receiver))
+    info = get_msg_info(msg=msg)
+    print('[QUEUE] message sent for %s, remove from db: %s' % (receiver, info))
     # remove sent message from database
     return database.remove_reliable_message(msg=msg, receiver=receiver)

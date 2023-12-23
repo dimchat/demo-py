@@ -42,6 +42,7 @@ from dimsdk import MessageProcessor
 
 from dimsdk.cpu import BaseContentProcessor, BaseContentProcessorCreator
 
+from ..utils import get_msg_info
 from ..utils import Logging
 from ..common import HandshakeCommand, LoginCommand
 from ..common import ReportCommand, AnsCommand
@@ -161,7 +162,7 @@ class ServerMessageProcessor(MessageProcessor, Logging):
 
     def _force_handshake(self, msg: ReliableMessage) -> List[ReliableMessage]:
         if self.messenger.verify_message(msg=msg) is None:
-            assert False, 'failed to verify message: %s' % msg
+            assert False, 'failed to verify message: %s' % get_msg_info(msg=msg)
             # return []
         session = self.messenger.session
         sess_id = session.identifier

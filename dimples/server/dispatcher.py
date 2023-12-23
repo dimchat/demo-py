@@ -185,6 +185,9 @@ class Dispatcher(MessageDeliver):
         if receiver.type == EntityType.STATION or msg.sender.type == EntityType.STATION:
             # no need to save station message
             return False
+        elif msg.receiver.is_broadcast:
+            # no need to save broadcast message
+            return False
         db = self.__mdb
         return db.cache_reliable_message(msg=msg, receiver=receiver)
 
