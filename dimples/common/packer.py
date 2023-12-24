@@ -109,7 +109,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
         return self.facebook.members(identifier=group)
 
     # protected
-    def _check_reliable_message_sender(self, msg: ReliableMessage) -> bool:
+    def _check_sender(self, msg: ReliableMessage) -> bool:
         """ Check sender before verifying received message """
         sender = msg.sender
         assert sender.is_user, 'sender error: %s' % sender
@@ -132,39 +132,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
         return False
 
     # protected
-    def _check_reliable_message_receiver(self, msg: ReliableMessage) -> bool:
-        receiver = msg.receiver
-        # check group
-        group = ID.parse(identifier=msg.get('group'))
-        if group is None and receiver.is_group:
-            # Transform:
-            #     (B) => (J)
-            #     (D) => (G)
-            group = receiver
-        if group is None or group.is_broadcast:
-            # A, C - personal message (or hidden group message)
-            #     the packer will call the facebook to select a user from local
-            #     for this receiver, if no user matched (private key not found),
-            #     this message will be ignored;
-            # E, F, G - broadcast group message
-            #     broadcast message is not encrypted, so it can be read by anyone.
-            return True
-        # H, J, K - group message
-        #     check for received group message
-        members = self._members(group=group)
-        if len(members) > 0:
-            # group is ready
-            return True
-        # group not ready, suspend message for waiting members
-        error = {
-            'message': 'group not ready',
-            'group': str(receiver),
-        }
-        self.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
-        return False
-
-    # protected
-    def _check_instant_message_receiver(self, msg: InstantMessage) -> bool:
+    def _check_receiver(self, msg: InstantMessage) -> bool:
         """ Check receiver before encrypting message """
         receiver = msg.receiver
         if receiver.is_broadcast:
@@ -196,7 +164,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
     def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
         # 1. check contact info
         # 2. check group members info
-        if not self._check_instant_message_receiver(msg=msg):
+        if not self._check_receiver(msg=msg):
             # receiver not ready
             self.warning(msg='receiver not ready: %s' % msg.receiver)
             return None
@@ -221,15 +189,11 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
 
     # Override
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
-        # 1. check sender's meta
-        if not self._check_reliable_message_sender(msg=msg):
+        # 1. check receiver/group with local user
+        # 2. check sender's meta
+        if not self._check_sender(msg=msg):
             # sender not ready
             self.warning(msg='sender not ready: %s' % msg.sender)
-            return None
-        # 2. check receiver/group with local user
-        if not self._check_reliable_message_receiver(msg=msg):
-            # receiver (group) not ready
-            self.warning(msg='receiver not ready: %s' % msg.receiver)
             return None
         return super().verify_message(msg=msg)
 

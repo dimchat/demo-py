@@ -30,7 +30,7 @@
 from typing import Optional
 
 from dimsdk import ID
-from dimsdk import InstantMessage, ReliableMessage
+from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 
 from ..utils import get_msg_sig
 from ..common import CommonMessagePacker
@@ -40,14 +40,14 @@ from .checkpoint import Checkpoint
 class ClientMessagePacker(CommonMessagePacker):
 
     # Override
-    def _check_instant_message_receiver(self, msg: InstantMessage) -> bool:
+    def _check_receiver(self, msg: InstantMessage) -> bool:
         receiver = msg.receiver
         if receiver.is_broadcast:
             # broadcast message
             return True
         elif receiver.is_user:
             # check user's meta & document
-            return super()._check_instant_message_receiver(msg=msg)
+            return super()._check_receiver(msg=msg)
         #
         #   check group's meta & members
         #
@@ -84,6 +84,47 @@ class ClientMessagePacker(CommonMessagePacker):
         # so we must return true here to let the messaging continue;
         # when the member's visa is responded, we should send the suspended message again.
         return len(waiting) < len(members)
+
+    # protected
+    def _check_group(self, msg: ReliableMessage) -> bool:
+        receiver = msg.receiver
+        # check group
+        group = ID.parse(identifier=msg.get('group'))
+        if group is None and receiver.is_group:
+            # Transform:
+            #     (B) => (J)
+            #     (D) => (G)
+            group = receiver
+        if group is None or group.is_broadcast:
+            # A, C - personal message (or hidden group message)
+            #     the packer will call the facebook to select a user from local
+            #     for this receiver, if no user matched (private key not found),
+            #     this message will be ignored;
+            # E, F, G - broadcast group message
+            #     broadcast message is not encrypted, so it can be read by anyone.
+            return True
+        # H, J, K - group message
+        #     check for received group message
+        members = self._members(group=group)
+        if len(members) > 0:
+            # group is ready
+            return True
+        # group not ready, suspend message for waiting members
+        error = {
+            'message': 'group not ready',
+            'group': str(receiver),
+        }
+        self.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
+        return False
+
+    # Override
+    def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
+        # check receiver/group with local user
+        if not self._check_group(msg=msg):
+            # receiver (group) not ready
+            self.warning(msg='receiver not ready: %s' % msg.receiver)
+            return None
+        return super().verify_message(msg=msg)
 
     # # Override
     # def serialize_message(self, msg: ReliableMessage) -> bytes:

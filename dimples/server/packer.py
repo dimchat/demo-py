@@ -92,10 +92,6 @@ class ServerMessagePacker(CommonMessagePacker):
                 self.warning(msg='cycled broadcast message: %s -> %s' % (sender, receiver))
                 return None
             self.warning(msg='cycled message: %s -> %s' % (sender, receiver))
-        if not self.__check_reliable_message_receiver(msg=msg):
-            # receiver (group) not ready
-            self.warning(msg='receiver not ready: %s' % msg.receiver)
-            return None
         # check session
         if self.__is_trusted(sender=msg.sender):
             # no need to verify message from this sender
@@ -103,17 +99,6 @@ class ServerMessagePacker(CommonMessagePacker):
             return msg
         # verify after sender is OK
         return super().verify_message(msg=msg)
-
-    # Override
-    def _check_reliable_message_receiver(self, msg: ReliableMessage) -> bool:
-        # skip for "super().verify_message(msg=msg)"
-        return True
-
-    # noinspection PyMethodMayBeStatic,PyUnusedLocal
-    def __check_reliable_message_receiver(self, msg: ReliableMessage) -> bool:
-        return True
-        # check for group
-        # return super()._check_reliable_message_receiver(msg=msg)
 
 
 def get_facebook(packer: CommonMessagePacker) -> CommonFacebook:

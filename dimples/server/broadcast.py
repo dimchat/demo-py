@@ -43,7 +43,7 @@ from ..utils import Singleton, Log, Logging
 from ..common import StationInfo
 
 from .cpu import AnsCommandProcessor
-from .trace import TraceManager
+from .trace import TraceNode, TraceList, TraceManager
 from .dispatcher import Dispatcher
 from .session_center import SessionCenter
 
@@ -196,16 +196,24 @@ def deliver_message(msg: ReliableMessage, receiver: ID, recipients: Set[ID], sta
         return None
     # clone
     msg = ReliableMessage.parse(msg=msg.dictionary)
-    traces = msg.get('traces')
-    if traces is not None:
-        assert isinstance(traces, List), 'traces error: %s' % traces
-        msg['traces'] = traces.copy()
-    # TODO: add these recipients into traces, exclude current receiver
-    # recipients = recipients.copy()
-    # recipients.discard(receiver)  # exclude receiver
-    # recipients.add(station)       # include current station
-    # # set trace nodes
-    # tm = TraceManager()
-    # tm.set_nodes(msg=msg, nodes=recipients)
+    traces = copy_traces(traces=traces)
+    # add these recipients into traces, exclude current receiver
+    recipients = recipients.copy()
+    recipients.discard(receiver)  # exclude receiver
+    recipients.add(station)       # include current station
+    for mta in recipients:
+        node = TraceNode.create(identifier=mta)
+        traces.insert(node=node)
+    msg['traces'] = TraceNode.revert(nodes=traces.nodes)
     # deliver message with traces
     return dispatcher.deliver_message(msg=msg, receiver=receiver)
+
+
+def copy_traces(traces: TraceList) -> TraceList:
+    when = traces.time
+    if when is None:
+        when = DateTime.now()
+    else:
+        when = DateTime.parse(value=when)
+    nodes = traces.nodes
+    return TraceList(msg_time=when, traces=nodes.copy())
