@@ -236,7 +236,7 @@ class GateKeeper(Runner, DockerDelegate, Logging):
         return ok
 
     def _docker_pack(self, payload: bytes, priority: int = 0) -> Departure:
-        docker = self.gate.get_docker(remote=self.remote_address, local=None, advance_party=[])
+        docker = self.gate.fetch_docker(remote=self.remote_address, local=None, advance_party=[])
         assert isinstance(docker, DeparturePacker), 'departure packer error: %s' % docker
         return docker.pack(payload=payload, priority=priority)
 

@@ -79,7 +79,7 @@ class StateMachine(AutoMachine, Context):
     def status(self) -> DockerStatus:
         session = self.session
         gate = session.gate
-        docker = gate.get_docker(remote=session.remote_address, local=None, advance_party=[])
+        docker = gate.fetch_docker(remote=session.remote_address, local=None, advance_party=[])
         if docker is None:
             return DockerStatus.ERROR
         else:

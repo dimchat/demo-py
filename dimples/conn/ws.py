@@ -114,24 +114,25 @@ class WSDocker(PlainDocker, DeparturePacker):
         self.__chunks_lock = threading.RLock()
         self.__package_received = False
 
-    def _parse_package(self, data: bytes) -> Tuple[Optional[bytes], Optional[bytes]]:
+    def _parse_package(self, data: bytes) -> Tuple[Optional[bytes], Optional[bytes], int]:
         with self.__chunks_lock:
             # join the data to the memory cache
             data = self.__chunks + data
             self.__chunks = b''
             # try to fetch a package
             payload, remaining = WebSocket.parse(stream=data)
-            tail_len = len(remaining)
-            if tail_len > 0:
+            self.__package_received = payload is not None
+            remain_len = len(remaining)
+            if remain_len > 0:
                 # put the remaining data back to memory cache
                 self.__chunks = remaining + self.__chunks
             pack = None
             if payload is not None:
                 data_len = len(data)
-                pack_len = data_len - tail_len
+                pack_len = data_len - len(remaining)
                 if pack_len > 0:
                     pack = data[:pack_len]
-            return pack, payload
+            return pack, payload, remain_len
 
     # Override
     def process_received(self, data: bytes):
@@ -144,7 +145,7 @@ class WSDocker(PlainDocker, DeparturePacker):
             data = b''
 
     # Override
-    def _get_arrival(self, data: bytes) -> Optional[Arrival]:
+    def _get_arrivals(self, data: bytes) -> List[Arrival]:
         # check for first request
         if self.__handshaking:
             # join the data to the memory cache
@@ -159,11 +160,22 @@ class WSDocker(PlainDocker, DeparturePacker):
             elif len(data) < self.MAX_PACK_LENGTH:
                 # waiting for more data
                 self.__chunks = data + self.__chunks
-        else:
-            # normal state
-            pack, payload = self._parse_package(data=data)
-            if pack is not None:
-                return WSArrival(package=pack, payload=payload)
+            return []
+        # normal state
+        ships = []
+        while True:
+            pack, payload, remain_len = self._parse_package(data=data)
+            if pack is None:
+                # waiting for more data
+                break
+            ships.append(WSArrival(package=pack, payload=payload))
+            if remain_len > 0:
+                # continue to check the tail
+                data = b''
+            else:
+                # all data processed
+                break
+        return ships
 
     # Override
     def _check_arrival(self, ship: Arrival) -> Optional[Arrival]:

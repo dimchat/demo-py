@@ -121,6 +121,7 @@ class MTPStreamDocker(PackageDocker, DeparturePacker):
             # try to fetch a package
             pack, offset = MTPHelper.seek_package(data=data)
             self.__package_received = pack is not None
+            remain_len = len(data)
             if offset >= 0:
                 # 'error part' + 'MTP package' + 'remaining data
                 if pack is not None:
@@ -130,6 +131,7 @@ class MTPStreamDocker(PackageDocker, DeparturePacker):
                 elif offset < data.size:
                     data = data.slice(start=offset)
                     self.__chunks = data.concat(self.__chunks)
+                remain_len -= offset
             return pack
 
     # Override

@@ -34,11 +34,11 @@
 
 """
 
-import hashlib
 import struct
 from typing import Optional, Tuple
 
-from ...utils import base64_encode, utf8_encode
+from ...utils import sha1, base64_encode, utf8_encode, utf8_decode
+from ...utils import Log
 
 
 class WebSocket:
@@ -57,22 +57,35 @@ class WebSocket:
 
     @classmethod
     def handshake(cls, stream: bytes) -> Optional[bytes]:
-        pos1 = stream.find(b'Sec-WebSocket-Key:')
-        if pos1 < 0:
+        key = cls.__fetch_key(stream=stream)
+        if key is None:
             return None
-        pos1 += len('Sec-WebSocket-Key:')
-        pos2 = stream.find(b'\r\n', pos1)
-        if pos2 < 0:
-            return None
-        key = stream[pos1:pos2].strip()
-        sec = hashlib.sha1(key + cls.ws_magic).digest()
+        # build response with sec-key
+        sec = sha1(key + cls.ws_magic)
         sec = base64_encode(data=sec)
         sec = utf8_encode(string=sec)
         return cls.ws_prefix + sec + cls.ws_suffix
 
     @classmethod
     def is_handshake(cls, stream: bytes) -> bool:
-        return stream.find(b'Sec-WebSocket-Key') > 0
+        return cls.__fetch_key(stream=stream) is not None
+
+    @classmethod
+    def __fetch_key(cls, stream: bytes) -> Optional[bytes]:
+        if cls.__check_http(stream=stream):
+            text = utf8_decode(data=stream).lower()
+            pos1 = text.find('sec-websocket-key:')
+            if pos1 > 0:
+                pos1 += len('sec-WebSocket-key:')
+                pos2 = text.find('\r\n', pos1)
+                if pos2 > 0:
+                    return stream[pos1:pos2].strip()
+
+    @classmethod
+    def __check_http(cls, stream: bytes) -> bool:
+        if stream.startswith(b'GET /'):
+            pos = stream.find(b'HTTP/')
+            return 5 < pos < 512
 
     """
         RFC: https://tools.ietf.org/html/rfc6455#section-5.2
@@ -105,13 +118,14 @@ class WebSocket:
         :return: (payload, remaining_data)
         """
         stream_len = len(stream)
+        print('parsing stream: %d bytes' % stream_len)
         if stream_len < 2:
             return None, stream
         data = b''
         pos = 0
         while True:
             if stream_len < pos + 2:
-                # self.info(msg='incomplete ws package for op code: %d' % stream_len)
+                Log.info(msg='incomplete ws package for op code: %d' % stream_len)
                 return None, stream
             # 1. check whether a continuation frame
             ch0 = stream[pos+0]
@@ -125,7 +139,7 @@ class WebSocket:
             msg_len = ch1 & 0x7F
             if msg_len == 126:
                 if stream_len < pos + 4:
-                    # self.info(msg='incomplete ws package for msg len: %d' % stream_len)
+                    Log.info(msg='incomplete ws package for msg len: %d' % stream_len)
                     return None, stream
                 b2 = stream[pos+2]
                 b3 = stream[pos+3]
@@ -133,7 +147,7 @@ class WebSocket:
                 pos += 4
             elif msg_len == 127:
                 if stream_len < pos + 10:
-                    # self.info(msg='incomplete ws package for msg len: %d' % stream_len)
+                    Log.info(msg='incomplete ws package for msg len: %d' % stream_len)
                     return None, stream
                 b2 = stream[pos+2]
                 b3 = stream[pos+3]
@@ -150,7 +164,7 @@ class WebSocket:
             # 3. get masking-key
             if mask == 1:
                 if stream_len < pos + 4:
-                    # self.info(msg='incomplete ws package for mask: %d' % stream_len)
+                    Log.info(msg='incomplete ws package for mask: %d' % stream_len)
                     return None, stream
                 mask = stream[pos:pos+4]
                 pos += 4
@@ -158,7 +172,7 @@ class WebSocket:
                 mask = None
             # 4. get payload
             if stream_len < pos + msg_len:
-                # self.info(msg='incomplete ws package for payload: %d' % stream_len)
+                Log.info(msg='incomplete ws package for payload: %d' % stream_len)
                 return None, stream
             payload = stream[pos:pos+msg_len]
             pos += msg_len
@@ -179,22 +193,25 @@ class WebSocket:
                 data += content
             elif op == 8:
                 # TODO: CLOSE
+                Log.warning(msg='CLOSE')
                 pass
             elif op == 9:
                 # TODO: PING
+                Log.warning(msg='PING')
                 pass
             elif op == 10:
                 # TODO: PONG
+                Log.warning(msg='PONG')
                 pass
             else:
-                # self.error(msg='ws op error: %d => %s' % (op, stream))
+                Log.error(msg='ws op error: %d => %s' % (op, stream))
                 return None, b''
             # 6. check final fragment
             if fin == 1 or op == 0:
                 # cut the received package(s) and return the remaining
                 stream = stream[pos:]
                 break
-        # self.info(msg='received ws payload len: %d' % len(data))
+        Log.info(msg='received ws payload len: %d, left: %d' % (len(data), len(stream)))
         return data, stream
 
     @classmethod

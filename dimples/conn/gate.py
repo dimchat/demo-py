@@ -30,8 +30,9 @@
 
 import socket
 from abc import ABC
-from typing import Generic, TypeVar, Optional, Union, List, Tuple
+from typing import Generic, TypeVar, Optional, Union, List
 
+from startrek.types import SocketAddress
 from startrek import Hub, Channel
 from startrek import Connection, ConnectionState, ActiveConnection
 from startrek import Docker, DockerDelegate
@@ -65,30 +66,17 @@ class BaseGate(StarGate, Generic[H], ABC):
     #
     #   Docker
     #
-    def get_docker(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]],
-                   advance_party: List[bytes]) -> Docker:
-        docker = self._get_docker(remote=remote, local=local)
-        if docker is None:
-            hub = self.hub
-            # from startrek import Hub
-            # assert isinstance(hub, Hub)
-            conn = hub.connect(remote=remote, local=local)
-            if conn is not None:
-                docker = self._create_docker(connection=conn, advance_party=advance_party)
-                assert docker is not None, 'failed to create docker: %s, %s' % (remote, local)
-                self._set_docker(remote=remote, local=local, docker=docker)
-        return docker
 
     # Override
-    def _get_docker(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]]) -> Optional[Docker]:
+    def _get_docker(self, remote: SocketAddress, local: Optional[SocketAddress]) -> Optional[Docker]:
         return super()._get_docker(remote=remote, local=None)
 
     # Override
-    def _set_docker(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]], docker: Docker):
+    def _set_docker(self, remote: SocketAddress, local: Optional[SocketAddress], docker: Docker):
         super()._set_docker(remote=remote, local=None, docker=docker)
 
     # Override
-    def _remove_docker(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]], docker: Optional[Docker]):
+    def _remove_docker(self, remote: SocketAddress, local: Optional[SocketAddress], docker: Optional[Docker]):
         super()._remove_docker(remote=remote, local=None, docker=docker)
 
     # Override
@@ -171,14 +159,14 @@ class CommonGate(BaseGate, Logging, Generic[H], ABC):
         if error is not None and str(error).startswith('failed to send: '):
             self.warning(msg='ignore socket error: %s, remote=%s' % (error, connection.remote_address))
 
-    def get_channel(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]]) -> Optional[Channel]:
+    def get_channel(self, remote: Optional[SocketAddress], local: Optional[SocketAddress]) -> Optional[Channel]:
         hub = self.hub
         assert isinstance(hub, Hub), 'hub error: %s' % hub
         return hub.open(remote=remote, local=local)
 
     def send_response(self, payload: bytes, ship: Arrival,
-                      remote: Tuple[str, int], local: Optional[Tuple[str, int]]) -> bool:
-        worker = self.get_docker(remote=remote, local=local, advance_party=[])
+                      remote: SocketAddress, local: Optional[SocketAddress]) -> bool:
+        worker = self._get_docker(remote=remote, local=local)
         if isinstance(worker, MTPStreamDocker):
             # sn = TransactionID.from_data(data=ship.sn)
             sn = TransactionID.generate()
@@ -194,6 +182,20 @@ class CommonGate(BaseGate, Logging, Generic[H], ABC):
             return worker.send_ship(ship=ship)
         else:
             raise LookupError('docker error (%s, %s): %s' % (remote, local, worker))
+
+    def fetch_docker(self, remote: SocketAddress, local: Optional[SocketAddress], advance_party: List[bytes]) -> Docker:
+        docker = self._get_docker(remote=remote, local=local)
+        if docker is None:  # and advance_party is not None:
+            hub = self.hub
+            assert isinstance(hub, Hub), 'gate hub error: %s' % hub
+            conn = hub.connect(remote=remote, local=local)
+            if conn is not None:
+                docker = self._create_docker(connection=conn, advance_party=advance_party)
+                if docker is None:
+                    assert False, 'failed to create docker: %s, %s' % (remote, local)
+                else:
+                    self._set_docker(remote=remote, local=local, docker=docker)
+        return docker
 
 
 #

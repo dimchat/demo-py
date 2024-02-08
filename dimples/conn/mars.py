@@ -189,7 +189,7 @@ class MarsStreamDocker(PlainDocker, DeparturePacker):
         self.__chunks_lock = threading.RLock()
         self.__package_received = False
 
-    def _parse_package(self, data: bytes) -> Optional[NetMsg]:
+    def _parse_package(self, data: bytes) -> Tuple[Optional[NetMsg], int]:
         with self.__chunks_lock:
             # join the data to the memory cache
             data = self.__chunks + data
@@ -197,16 +197,18 @@ class MarsStreamDocker(PlainDocker, DeparturePacker):
             # try to fetch a package
             pack, offset = MarsHelper.seek_package(data=data)
             self.__package_received = pack is not None
+            remain_len = len(data)
             if offset >= 0:
                 # 'error part' + 'mars package' + 'remaining data
                 if pack is not None:
                     offset += pack.length
                 if offset == 0:
                     self.__chunks = data + self.__chunks
-                elif offset < len(data):
+                elif offset < remain_len:
                     data = data[offset:]
                     self.__chunks = data + self.__chunks
-            return pack
+                remain_len -= offset
+            return pack, remain_len
 
     # Override
     def process_received(self, data: bytes):
@@ -219,13 +221,23 @@ class MarsStreamDocker(PlainDocker, DeparturePacker):
             data = b''
 
     # Override
-    def _get_arrival(self, data: bytes) -> Optional[Arrival]:
-        pack = self._parse_package(data=data)
-        if pack is None:
-            return None
-        # if pack.body is None:
-        #     return None
-        return MarsStreamArrival(mars=pack)
+    def _get_arrivals(self, data: bytes) -> List[Arrival]:
+        ships = []
+        while True:
+            pack, remain_len = self._parse_package(data=data)
+            if pack is None:
+                # waiting for more data
+                break
+            # if pack.body is None:
+            #     continue
+            ships.append(MarsStreamArrival(mars=pack))
+            if remain_len > 0:
+                # continue to check the tail
+                data = b''
+            else:
+                # all data processed
+                break
+        return ships
 
     # Override
     def _check_arrival(self, ship: Arrival) -> Optional[Arrival]:
