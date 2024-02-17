@@ -76,7 +76,7 @@ class WebSocket:
             text = utf8_decode(data=stream).lower()
             pos1 = text.find('sec-websocket-key:')
             if pos1 > 0:
-                pos1 += len('sec-WebSocket-key:')
+                pos1 += len('sec-websocket-key:')
                 pos2 = text.find('\r\n', pos1)
                 if pos2 > 0:
                     return stream[pos1:pos2].strip()

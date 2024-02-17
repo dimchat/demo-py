@@ -42,7 +42,6 @@ from ..server import ServerSession
 from ..server import ServerMessenger
 from ..server import ServerMessagePacker
 from ..server import ServerMessageProcessor
-from ..server import BroadcastRecipientManager
 from ..server import Dispatcher
 
 
@@ -189,12 +188,4 @@ def create_ans(config: Config) -> AddressNameServer:
     ans_records = config.ans_records
     if ans_records is not None:
         ans.fix(records=ans_records)
-    # set bots to receive message for 'everyone@everywhere'
-    bots = set()
-    se = ans.identifier(name='archivist')  # Search Engine
-    if se is not None:
-        bots.add(se)
-    if len(bots) > 0:
-        manager = BroadcastRecipientManager()
-        manager.station_bots = bots
     return ans

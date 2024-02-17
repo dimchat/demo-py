@@ -28,11 +28,13 @@
 # SOFTWARE.
 # ==============================================================================
 
+import threading
 from abc import ABC
-from typing import Dict, List
+from typing import Dict, List, Set
 
+from dimsdk import DateTime
 from dimsdk import FrequencyChecker
-from dimsdk import ID, Document
+from dimsdk import EntityType, ID, Document
 from dimsdk import Envelope, InstantMessage
 from dimsdk import Command, MetaCommand, DocumentCommand
 from dimsdk import Station
@@ -40,8 +42,10 @@ from dimsdk import Station
 from ..common import AccountDBI
 from ..common import CommonArchivist
 from ..common import CommonFacebook, CommonMessenger
+from ..common import StationInfo
 
-from .broadcast import broadcast_reliable_message
+from .dispatcher import Dispatcher
+from .session_center import SessionCenter
 
 
 def get_facebook(archivist: CommonArchivist):
@@ -67,21 +71,79 @@ class ServerArchivist(CommonArchivist, ABC):
         super().__init__(database=database)
         self.__document_responses = FrequencyChecker(expires=self.RESPOND_EXPIRES)
         self.__last_active_members: Dict[ID, ID] = {}  # group => member
+        # neighbor stations
+        self.__neighbors = set()
+        self.__lock = threading.Lock()
+        self.__expires = 0
 
-    def _broadcast_command(self, content: Command, receiver: ID) -> bool:
+    @property
+    def active_stations(self) -> Set[ID]:
+        """ get neighbor stations connected to current station """
+        now = DateTime.now()
+        with self.__lock:
+            if self.__expires < now.timestamp:
+                neighbors = set()
+                center = SessionCenter()
+                all_users = center.all_users()
+                for item in all_users:
+                    if item.type == EntityType.STATION:
+                        neighbors.add(item)
+                self.__neighbors = neighbors
+                self.__expires = now.timestamp + 128
+            return self.__neighbors
+
+    @property
+    def all_stations(self) -> List[StationInfo]:
+        """ get stations from database """
+        dispatcher = Dispatcher()
+        db = dispatcher.sdb
+        # TODO: get chosen provider
+        providers = db.all_providers()
+        assert len(providers) > 0, 'service provider not found'
+        gsp = providers[0].identifier
+        return db.all_stations(provider=gsp)
+
+    @property
+    def all_neighbors(self) -> Set[ID]:
+        """ get all stations """
+        neighbors = set()
+        # get stations from chosen provider
+        chosen_stations = self.all_stations
+        for item in chosen_stations:
+            sid = item.identifier
+            if sid is None or sid.is_broadcast:
+                continue
+            neighbors.add(sid)
+        # get neighbor station from session server
+        proactive_neighbors = self.active_stations
+        for sid in proactive_neighbors:
+            if sid is None or sid.is_broadcast:
+                self.error(msg='neighbor station ID error: %s' % sid)
+                continue
+            neighbors.add(sid)
+        return neighbors
+
+    def _broadcast_command(self, command: Command) -> bool:
         facebook = get_facebook(archivist=self)
         messenger = get_messenger(archivist=self)
         if facebook is None or messenger is None:
             self.error(msg='twins not ready yet: %s, %s' % (facebook, messenger))
             return False
         sid = facebook.current_user.identifier
-        env = Envelope.create(sender=sid, receiver=receiver)
-        i_msg = InstantMessage.create(head=env, body=content)
+        env = Envelope.create(sender=sid, receiver=Station.EVERY)
+        i_msg = InstantMessage.create(head=env, body=command)
         # pack & deliver message
         s_msg = messenger.encrypt_message(msg=i_msg)
         r_msg = messenger.sign_message(msg=s_msg)
-        cnt = broadcast_reliable_message(msg=r_msg, station=sid)
-        return cnt > 0
+        # dispatch
+        dispatcher = Dispatcher()
+        neighbors = self.all_neighbors
+        for receiver in neighbors:
+            if receiver == sid:
+                self.debug(msg='skip cycled message: %s -> %s' % (sid, receiver))
+                continue
+            dispatcher.deliver_message(msg=r_msg, receiver=receiver)
+        return len(neighbors) > 0
 
     # protected
     def is_documents_respond_expired(self, identifier: ID, force: bool) -> bool:
@@ -98,7 +160,7 @@ class ServerArchivist(CommonArchivist, ABC):
             return False
         self.info(msg='querying meta for: %s' % identifier)
         command = MetaCommand.query(identifier=identifier)
-        return self._broadcast_command(content=command, receiver=Station.EVERY)
+        return self._broadcast_command(command=command)
 
     # Override
     def query_documents(self, identifier: ID, documents: List[Document]) -> bool:
@@ -109,7 +171,7 @@ class ServerArchivist(CommonArchivist, ABC):
         last_time = self.get_last_document_time(identifier=identifier, documents=documents)
         self.info(msg='querying document for: %s, last time: %s' % (identifier, last_time))
         command = DocumentCommand.query(identifier=identifier, last_time=last_time)
-        return self._broadcast_command(content=command, receiver=Station.EVERY)
+        return self._broadcast_command(command=command)
 
     # Override
     def query_members(self, group: ID, members: List[ID]) -> bool:

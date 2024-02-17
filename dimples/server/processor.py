@@ -31,7 +31,7 @@
 import time
 from typing import Optional, Union, List, Dict
 
-from dimsdk import EntityType, ID, ANYONE
+from dimsdk import EntityType, ID, ANYONE, EVERYONE
 from dimsdk import Station
 from dimsdk import InstantMessage, ReliableMessage
 from dimsdk import Envelope
@@ -58,7 +58,7 @@ from .cpu import DocumentCommandProcessor
 
 from .packer import FilterManager
 from .dispatcher import Dispatcher
-from .broadcast import broadcast_reliable_message
+from .archivist import ServerArchivist
 
 
 class ServerMessageProcessor(MessageProcessor, Logging):
@@ -95,8 +95,7 @@ class ServerMessageProcessor(MessageProcessor, Logging):
         messenger = self.messenger
         session = messenger.session
         current = self.facebook.current_user
-        sid = current.identifier
-        sender = msg.sender
+        station = current.identifier
         receiver = msg.receiver
         # 0. verify message
         s_msg = messenger.verify_message(msg=msg)
@@ -104,7 +103,7 @@ class ServerMessageProcessor(MessageProcessor, Logging):
             # TODO: suspend and waiting for sender's meta if not exists
             return []
         # 1. check receiver
-        if receiver == sid:
+        if receiver == station:
             # message to this station
             # maybe a meta command, document command, etc ...
             pass
@@ -131,16 +130,22 @@ class ServerMessageProcessor(MessageProcessor, Logging):
             #   we can trust this message an no need to verify it;
             # else if sender is a neighbor station,
             #   we can trust it too;
-            if receiver.is_broadcast:
-                # broadcast message (to neighbor stations, or station bots)
-                # e.g.: 'stations@everywhere',
-                #       'archivist@anywhere', 'announcer@anywhere', 'monitor@anywhere'
-                broadcast_reliable_message(msg=msg, station=sid)
-                # if receiver.is_group:
-                #     broadcast message to multiple destinations,
+            if receiver == Station.EVERY or receiver == EVERYONE:
+                # broadcast message (to neighbor stations)
+                # e.g.: 'stations@everywhere'
+                self._broadcast_message(msg=msg, station=station)
+                # if receiver == 'everyone@everywhere':
+                #     broadcast message to all destinations,
                 #     current station is it's receiver too.
+            elif receiver.is_broadcast:
+                # broadcast message (to station bots)
+                # e.g.: 'archivist@anywhere', 'announcer@anywhere', 'monitor@anywhere'
+                self._broadcast_message(msg=msg, station=station)
+                return []
             elif receiver.is_group:
-                self.error(msg='group message should not send to station: %s -> %s' % (sender, receiver))
+                # encrypted group messages should be sent to the group assistant,
+                # the station will never process these messages.
+                self._split_group_message(msg=msg, station=station)
                 return []
             else:
                 # this message is not for current station,
@@ -179,6 +184,32 @@ class ServerMessageProcessor(MessageProcessor, Logging):
             assert False, 'failed to send "handshake" command to: %s' % sender
         else:
             return [r_msg]
+
+    def _broadcast_message(self, msg: ReliableMessage, station: ID):
+        """ broadcast message to neighbor stations """
+        archivist = self.facebook.archivist
+        assert isinstance(archivist, ServerArchivist)
+        neighbors = archivist.all_neighbors
+        sender = msg.sender
+        self.info(msg='broadcast message %s -> %s (%s): from station %s to %s'
+                      % (sender, msg.receiver, msg.group, station, neighbors))
+        # dispatch
+        dispatcher = Dispatcher()
+        for receiver in neighbors:
+            if receiver == sender:
+                self.debug(msg='skip cycled message: %s -> %s' % (sender, receiver))
+                continue
+            elif receiver == station:
+                self.debug(msg='skip current station: %s -> %s' % (sender, receiver))
+                continue
+            dispatcher.deliver_message(msg=msg, receiver=receiver)
+        return len(neighbors) > 0
+
+    def _split_group_message(self, msg: ReliableMessage, station: ID):
+        """ redirect group message to assistant """
+        sender = msg.sender
+        receiver = msg.receiver
+        self.error(msg='group message should not send to station: %s, %s -> %s' % (station, sender, receiver))
 
     def _deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         messenger = self.messenger

@@ -149,6 +149,11 @@ class Terminal(Runner, StateDelegate, Logging):
             # broadcast current meta & visa document to all stations
             messenger = self.messenger
             messenger.handshake_success()
+            session = messenger.session
+            usr_id = session.identifier
+            if usr_id is not None and usr_id.type != EntityType.STATION:
+                # send login command to everyone to provide more information.
+                messenger.broadcast_login(sender=usr_id, user_agent=self.user_agent)
             # update last online time
             self.__last_time = time.time()
 

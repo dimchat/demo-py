@@ -32,8 +32,6 @@
 from .session import ServerSession
 from .session_center import SessionCenter  # SessionPool
 
-from .broadcast import BroadcastRecipientManager
-
 from .push import BadgeKeeper, PushService
 from .push import PushCenter
 
@@ -55,8 +53,6 @@ __all__ = [
 
     # Session
     'ServerSession', 'SessionCenter',  # 'SessionPool',
-
-    'BroadcastRecipientManager',
 
     # Push Notification
     'BadgeKeeper', 'PushService',
