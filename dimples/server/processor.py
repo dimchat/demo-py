@@ -132,14 +132,14 @@ class ServerMessageProcessor(MessageProcessor, Logging):
             #   we can trust it too;
             if receiver == Station.EVERY or receiver == EVERYONE:
                 # broadcast message (to neighbor stations)
-                # e.g.: 'stations@everywhere'
+                # e.g.: 'stations@everywhere', 'everyone@everywhere'
                 self._broadcast_message(msg=msg, station=station)
                 # if receiver == 'everyone@everywhere':
                 #     broadcast message to all destinations,
                 #     current station is it's receiver too.
             elif receiver.is_broadcast:
                 # broadcast message (to station bots)
-                # e.g.: 'archivist@anywhere', 'announcer@anywhere', 'monitor@anywhere'
+                # e.g.: 'archivist@anywhere', 'announcer@anywhere', 'monitor@anywhere', ...
                 self._broadcast_message(msg=msg, station=station)
                 return []
             elif receiver.is_group:
@@ -186,24 +186,63 @@ class ServerMessageProcessor(MessageProcessor, Logging):
             return [r_msg]
 
     def _broadcast_message(self, msg: ReliableMessage, station: ID):
-        """ broadcast message to neighbor stations """
-        archivist = self.facebook.archivist
-        assert isinstance(archivist, ServerArchivist)
-        neighbors = archivist.all_neighbors
+        """ broadcast message to actual recipients """
         sender = msg.sender
-        self.info(msg='broadcast message %s -> %s (%s): from station %s to %s'
-                      % (sender, msg.receiver, msg.group, station, neighbors))
+        receiver = msg.receiver
+        assert receiver.is_broadcast, 'broadcast message error: %s -> %s' % (sender, receiver)
+        self.info(msg='broadcast message %s -> %s (%s)' % (sender, receiver, msg.group))
+        if receiver.is_user:
+            # broadcast message to station bots
+            # e.g.: 'archivist@anywhere', 'announcer@anywhere', 'monitor@anywhere', ...
+            name = receiver.name
+            assert name is not None and name != 'station' and name != 'anyone', 'receiver error: %s' % receiver
+            bot = AnsCommandProcessor.ans_id(name=name)
+            if bot is None:
+                self.warning(msg='failed to get receiver: %s' % receiver)
+                return False
+            candidates = set()
+            candidates.add(bot)
+            self.info(msg='forward to station bot: %s -> %s' % (name, bot))
+        elif receiver == Station.EVERY or receiver == EVERYONE:
+            # broadcast message to neighbor stations
+            # e.g.: 'stations@everywhere', 'everyone@everywhere'
+            archivist = self.facebook.archivist
+            assert isinstance(archivist, ServerArchivist)
+            candidates = archivist.all_neighbors
+            if len(candidates) == 0:
+                self.warning(msg='failed to get neighbors: %s' % receiver)
+                return False
+            self.info(msg='forward to neighbor stations: %s -> %s' % (receiver, candidates))
+        else:
+            self.warning(msg='unknown receiver: %s' % receiver)
+            return False
+        # check recipients
+        new_recipients = candidates.copy()
+        old_recipients = msg.get('recipients')
+        if old_recipients is None:
+            all_recipients = []
+        else:
+            all_recipients = ID.convert(old_recipients)
+            # check duplicated
+            self.info(msg='discard recipients: %s, new recipients: %s' % (old_recipients, new_recipients))
+            for item in all_recipients:
+                new_recipients.discard(item)
+            if len(new_recipients) == 0:
+                self.info(msg='new recipients empty: %s => %s' % (receiver, candidates))
+                return False
+        self.info(msg='append new recipients: %s, %s => %s' % (receiver, new_recipients, all_recipients))
+        for item in new_recipients:
+            all_recipients.append(item)
+        # avoid the new recipients redirect it to same targets
+        msg['recipients'] = ID.revert(all_recipients)
         # dispatch
         dispatcher = Dispatcher()
-        for receiver in neighbors:
-            if receiver == sender:
-                self.debug(msg='skip cycled message: %s -> %s' % (sender, receiver))
-                continue
-            elif receiver == station:
-                self.debug(msg='skip current station: %s -> %s' % (sender, receiver))
-                continue
-            dispatcher.deliver_message(msg=msg, receiver=receiver)
-        return len(neighbors) > 0
+        for target in new_recipients:
+            if target == sender or target == station:
+                self.info(msg='skip cycled message: %s -> %s, %s' % (sender, receiver, target))
+            else:
+                dispatcher.deliver_message(msg=msg, receiver=target)
+        return True
 
     def _split_group_message(self, msg: ReliableMessage, station: ID):
         """ redirect group message to assistant """

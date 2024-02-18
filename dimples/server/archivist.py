@@ -138,6 +138,8 @@ class ServerArchivist(CommonArchivist, ABC):
         # dispatch
         dispatcher = Dispatcher()
         neighbors = self.all_neighbors
+        # avoid the new recipients redirect it to same targets
+        r_msg['recipients'] = ID.revert(neighbors)
         for receiver in neighbors:
             if receiver == sid:
                 self.debug(msg='skip cycled message: %s -> %s' % (sid, receiver))

@@ -58,6 +58,7 @@ class ServerMessenger(CommonMessenger):
         assert isinstance(packer, CommonMessagePacker), 'message packer error: %s' % packer
         messages = packer.resume_reliable_messages()
         for msg in messages:
+            msg.pop('error', None)
             self.info(msg='processing suspended message: %s -> %s' % (msg.sender, msg.receiver))
             try:
                 responses = self.process_reliable_message(msg=msg)
