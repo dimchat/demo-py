@@ -35,7 +35,8 @@ from typing import Optional, Tuple
 
 from dimsdk import ReliableMessage
 
-from startrek import Hub
+from startrek.types import SocketAddress
+from startrek import Channel, Hub
 from startrek import BaseChannel
 from startrek import Connection, ConnectionDelegate, BaseConnection
 from startrek import Arrival, Departure
@@ -60,17 +61,32 @@ class StreamServerHub(ServerHub):
         self._set_channel(remote=channel.remote_address, local=channel.local_address, channel=channel)
 
     # Override
-    def _get_connection(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]]) -> Optional[Connection]:
+    def _get_channel(self, remote: Optional[SocketAddress], local: Optional[SocketAddress]) -> Optional[Channel]:
+        return super()._get_channel(remote=remote, local=None)
+
+    # Override
+    def _set_channel(self, channel: Channel,
+                     remote: Optional[SocketAddress], local: Optional[SocketAddress]):
+        super()._set_channel(channel=channel, remote=remote, local=None)
+
+    # Override
+    def _remove_channel(self, channel: Optional[Channel],
+                        remote: Optional[SocketAddress], local: Optional[SocketAddress]) -> Optional[Channel]:
+        return super()._remove_channel(channel=channel, remote=remote, local=None)
+
+    # Override
+    def _get_connection(self, remote: SocketAddress, local: Optional[SocketAddress]) -> Optional[Connection]:
         return super()._get_connection(remote=remote, local=None)
 
     # Override
-    def _set_connection(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]], connection: Connection):
-        super()._set_connection(remote=remote, local=None, connection=connection)
+    def _set_connection(self, connection: Connection,
+                        remote: SocketAddress, local: Optional[SocketAddress]):
+        super()._set_connection(connection=connection, remote=remote, local=None)
 
     # Override
-    def _remove_connection(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]],
-                           connection: Optional[Connection]):
-        super()._remove_connection(remote=remote, local=None, connection=connection)
+    def _remove_connection(self, connection: Optional[Connection],
+                           remote: SocketAddress, local: Optional[SocketAddress]) -> Optional[Connection]:
+        return super()._remove_connection(connection=connection, remote=remote, local=None)
 
 
 class StreamClientHub(ClientHub):
@@ -79,17 +95,32 @@ class StreamClientHub(ClientHub):
         self._set_channel(remote=channel.remote_address, local=channel.local_address, channel=channel)
 
     # Override
-    def _get_connection(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]]) -> Optional[Connection]:
+    def _get_channel(self, remote: Optional[SocketAddress], local: Optional[SocketAddress]) -> Optional[Channel]:
+        return super()._get_channel(remote=remote, local=None)
+
+    # Override
+    def _set_channel(self, channel: Channel,
+                     remote: Optional[SocketAddress], local: Optional[SocketAddress]):
+        super()._set_channel(channel=channel, remote=remote, local=None)
+
+    # Override
+    def _remove_channel(self, channel: Optional[Channel],
+                        remote: Optional[SocketAddress], local: Optional[SocketAddress]) -> Optional[Channel]:
+        return super()._remove_channel(channel=channel, remote=remote, local=None)
+
+    # Override
+    def _get_connection(self, remote: SocketAddress, local: Optional[SocketAddress]) -> Optional[Connection]:
         return super()._get_connection(remote=remote, local=None)
 
     # Override
-    def _set_connection(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]], connection: Connection):
-        super()._set_connection(remote=remote, local=None, connection=connection)
+    def _set_connection(self, connection: Connection,
+                        remote: SocketAddress, local: Optional[SocketAddress]):
+        super()._set_connection(connection=connection, remote=remote, local=None)
 
     # Override
-    def _remove_connection(self, remote: Tuple[str, int], local: Optional[Tuple[str, int]],
-                           connection: Optional[Connection]):
-        super()._remove_connection(remote=remote, local=None, connection=connection)
+    def _remove_connection(self, connection: Optional[Connection],
+                           remote: SocketAddress, local: Optional[SocketAddress]) -> Optional[Connection]:
+        return super()._remove_connection(connection=connection, remote=remote, local=None)
 
 
 def reset_send_buffer_size(conn: Connection) -> bool:
