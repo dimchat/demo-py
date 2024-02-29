@@ -58,7 +58,7 @@ from .queue import MessageQueue, MessageWrapper
 class StreamServerHub(ServerHub):
 
     def put_channel(self, channel: StreamChannel):
-        self._set_channel(remote=channel.remote_address, local=channel.local_address, channel=channel)
+        self._set_channel(channel=channel, remote=channel.remote_address, local=None)
 
     # Override
     def _get_channel(self, remote: Optional[SocketAddress], local: Optional[SocketAddress]) -> Optional[Channel]:
@@ -92,7 +92,7 @@ class StreamServerHub(ServerHub):
 class StreamClientHub(ClientHub):
 
     def put_channel(self, channel: StreamChannel):
-        self._set_channel(remote=channel.remote_address, local=channel.local_address, channel=channel)
+        self._set_channel(channel=channel, remote=channel.remote_address, local=None)
 
     # Override
     def _get_channel(self, remote: Optional[SocketAddress], local: Optional[SocketAddress]) -> Optional[Channel]:

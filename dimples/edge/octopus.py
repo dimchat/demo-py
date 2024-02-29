@@ -112,9 +112,21 @@ class Octopus(Runner, Logging):
             self.__outer_map[identifier] = terminal
 
     def connect(self, host: str, port: int = 9394):
-        terminal = self.create_outer_terminal(host=host, port=port)
+        # create a new terminal for remote host:port
         with self.__outer_lock:
+            # check exist terminals
+            outers = set(self.__outers)
+            for out in outers:
+                # check station
+                station = out.session.station
+                if port == station.port and host == station.host:
+                    self.warning(msg='connection already exists: (%s, %d)' % (host, port))
+                    # self.__outers.discard(out)
+                    return None
+            # create new terminal
+            terminal = self.create_outer_terminal(host=host, port=port)
             self.__outers.add(terminal)
+            return terminal
 
     def start(self):
         thread = threading.Thread(target=self.run)
@@ -139,24 +151,33 @@ class Octopus(Runner, Logging):
         assert len(providers) > 0, 'service provider not found'
         gsp = providers[0].identifier
         neighbors = db.all_stations(provider=gsp)
+        if neighbors is not None:
+            neighbors = neighbors.copy()
         # get all outer terminals
         with self.__outer_lock:
             outers = set(self.__outers)
+        self.debug(msg='checking %d client(s) with %d neighbor(s)' % (len(outers), len(neighbors)))
         for out in outers:
             # check station
             station = out.session.station
+            sid = station.identifier
             host = station.host
             port = station.port
+            # reduce neighbors
             for item in neighbors:
                 if item.port == port and item.host == host:
                     # got
                     neighbors.remove(item)
                     break
+            # check outer client
             if out.is_alive:
-                # outer terminal alive, ignore it
+                # skip running client
                 continue
+            else:
+                self.warning(msg='stop timeout client: %s (%s:%d)' % (sid, host, port))
+                out.stop()
             # remove dead terminal
-            sid = station.identifier
+            self.debug(msg='removing inactive client: %s (%s:%d)' % (sid, host, port))
             with self.__outer_lock:
                 self.__outers.discard(out)
                 if sid is not None:
@@ -165,7 +186,7 @@ class Octopus(Runner, Logging):
         for item in neighbors:
             host = item.host
             port = item.port
-            self.info(msg='connecting neighbor station (%s:%d)' % (host, port))
+            self.debug(msg='connecting neighbor station (%s:%d), client count: %d' % (host, port, len(self.__outers)))
             self.connect(host=host, port=port)
         return False
 

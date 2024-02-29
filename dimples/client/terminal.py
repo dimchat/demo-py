@@ -81,6 +81,11 @@ class Terminal(Runner, StateDelegate, Logging):
         now = time.time()
         return now < (self.__last_time + 600)
 
+    # @property  # Override
+    # def running(self) -> bool:
+    #     if super().running:
+    #         return self.is_alive
+
     def start(self):
         thread = threading.Thread(target=self.run, daemon=True)
         thread.start()
