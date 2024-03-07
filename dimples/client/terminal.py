@@ -40,25 +40,25 @@ from ..utils import StateDelegate
 
 from .network import ClientSession
 from .network import StateMachine, SessionState
+from .network.state import StateOrder
 
 from .messenger import ClientMessenger
 
 
-class Terminal(Runner, StateDelegate, Logging):
-
-    def __init__(self, messenger: ClientMessenger):
-        super().__init__(interval=60)
-        self.__messenger = messenger
-        # session state
-        fsm = StateMachine(session=messenger.session)
-        fsm.delegate = self
-        self.__fsm = fsm
-        # default online time
-        self.__last_time = time.time()
+class DeviceMixin:
 
     @property
     def user_agent(self) -> str:
         return 'DIMP/0.4 (Client; Linux; en-US) DIMCoreKit/0.9 (Terminal) DIM-by-GSP/1.0'
+
+
+class Terminal(Runner, DeviceMixin, Logging, StateDelegate):
+
+    def __init__(self, messenger: ClientMessenger):
+        super().__init__(interval=60)
+        self.__messenger = messenger
+        # default online time
+        self.__last_time = time.time()
 
     @property
     def messenger(self) -> ClientMessenger:
@@ -68,23 +68,10 @@ class Terminal(Runner, StateDelegate, Logging):
     def session(self) -> ClientSession:
         return self.messenger.session
 
-    @property
-    def state(self) -> SessionState:
-        ss = self.__fsm.current_state
-        assert ss is None or isinstance(ss, SessionState), 'session state error: %s' % ss
-        return ss
-
-    @property
-    def is_alive(self) -> bool:
-        # if more than 10 minutes no online command sent
-        # means this terminal is dead
-        now = time.time()
-        return now < (self.__last_time + 600)
-
-    # @property  # Override
-    # def running(self) -> bool:
-    #     if super().running:
-    #         return self.is_alive
+    @property  # Override
+    def running(self) -> bool:
+        if super().running:
+            return self.session.running
 
     def start(self):
         thread = threading.Thread(target=self.run, daemon=True)
@@ -93,12 +80,10 @@ class Terminal(Runner, StateDelegate, Logging):
     # Override
     def setup(self):
         super().setup()
-        self.session.start()
-        self.__fsm.start()
+        self.session.start(delegate=self)
 
     # Override
     def finish(self):
-        self.__fsm.stop()
         self.session.stop()
         super().finish()
 
@@ -112,7 +97,7 @@ class Terminal(Runner, StateDelegate, Logging):
         messenger = self.messenger
         session = messenger.session
         usr_id = session.identifier
-        if usr_id is None or self.state != SessionState.RUNNING:
+        if usr_id is None or session.state != StateOrder.RUNNING:
             # handshake not accepted
             return False
         # report every 5 minutes to keep user online
@@ -133,24 +118,26 @@ class Terminal(Runner, StateDelegate, Logging):
     #
 
     # Override
-    def enter_state(self, state: SessionState, ctx: StateMachine):
+    def enter_state(self, state: SessionState, ctx: StateMachine, now: float):
         # called before state changed
         session = self.session
         station = session.station
         self.info(msg='enter state: %s, %s => %s' % (state, session.identifier, station.identifier))
 
     # Override
-    def exit_state(self, state: SessionState, ctx: StateMachine):
+    def exit_state(self, state: SessionState, ctx: StateMachine, now: float):
         # called after state changed
         current = ctx.current_state
         self.info(msg='server state changed: %s -> %s' % (state, current))
-        if current is None:
-            return
-        elif current == SessionState.HANDSHAKING:
+        if isinstance(current, SessionState):
+            index = current.index
+        else:
+            index = -1
+        if index == StateOrder.HANDSHAKING:
             # start handshake
             messenger = self.messenger
             messenger.handshake(session_key=None)
-        elif current == SessionState.RUNNING:
+        elif index == StateOrder.RUNNING:
             # broadcast current meta & visa document to all stations
             messenger = self.messenger
             messenger.handshake_success()
@@ -163,10 +150,10 @@ class Terminal(Runner, StateDelegate, Logging):
             self.__last_time = time.time()
 
     # Override
-    def pause_state(self, state: SessionState, ctx: StateMachine):
+    def pause_state(self, state: SessionState, ctx: StateMachine, now: float):
         pass
 
     # Override
-    def resume_state(self, state: SessionState, ctx: StateMachine):
+    def resume_state(self, state: SessionState, ctx: StateMachine, now: float):
         # TODO: clear session key for re-login?
         pass

@@ -31,7 +31,7 @@
 import threading
 from typing import Optional, List, Tuple
 
-from startrek import Connection
+from startrek.types import SocketAddress
 from startrek import Arrival, ArrivalShip
 from startrek import Departure, DepartureShip, DeparturePriority
 
@@ -183,8 +183,8 @@ class MarsStreamDeparture(DepartureShip):
 class MarsStreamDocker(PlainDocker, DeparturePacker):
     """ Docker for Mars packages """
 
-    def __init__(self, connection: Connection):
-        super().__init__(connection=connection)
+    def __init__(self, remote: SocketAddress, local: Optional[SocketAddress]):
+        super().__init__(remote=remote, local=local)
         self.__chunks = b''
         self.__chunks_lock = threading.RLock()
         self.__package_received = False

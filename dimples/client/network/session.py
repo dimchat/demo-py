@@ -36,17 +36,20 @@
 """
 
 import traceback
-from threading import Thread
 from typing import Optional, List
 
 from dimsdk import Station
 
+from startrek.fsm import Daemon
+from startrek.fsm import Delegate as StateDelegate
 from startrek import Docker, DockerStatus
 from startrek import Arrival
 
 from ...common import SessionDBI
 from ...conn import BaseSession
 from ...conn import MTPStreamArrival
+
+from .state import StateMachine, SessionState
 
 
 class ClientSession(BaseSession):
@@ -76,8 +79,12 @@ class ClientSession(BaseSession):
     def __init__(self, station: Station, database: SessionDBI):
         super().__init__(remote=(station.host, station.port), sock=None, database=database)
         self.__station = station
+        # session key
         self.__key: Optional[str] = None
-        self.__thread: Optional[Thread] = None
+        # state machine
+        self.__fsm = StateMachine(session=self)
+        # background thread to drive gate & hub processing
+        self.__daemon = Daemon(target=self.run)
 
     @property
     def station(self) -> Station:
@@ -91,23 +98,29 @@ class ClientSession(BaseSession):
     def key(self, session_key: str):
         self.__key = session_key
 
-    def start(self):
-        self.__force_stop()
-        t = Thread(target=self.run, daemon=True)
-        self.__thread = t
-        t.start()
+    @property
+    def state(self) -> SessionState:
+        ss = self.__fsm.current_state
+        assert ss is None or isinstance(ss, SessionState), 'session state error: %s' % ss
+        return ss
 
-    def __force_stop(self):
-        t: Thread = self.__thread
-        if t is not None:
-            # waiting 2 seconds for stopping the thread
-            self.__thread = None
-            t.join(timeout=2.0)
+    def start(self, delegate: StateDelegate):
+        if self.running:
+            self.stop()
+        # start a background thread
+        self.__daemon.start()
+        # start state machine
+        fsm = self.__fsm
+        fsm.delegate = delegate
+        fsm.start()
 
     # Override
     def stop(self):
         super().stop()
-        self.__force_stop()
+        # stop state machine
+        self.__fsm.stop()
+        # wait for thread stop
+        self.__daemon.stop()
 
     # Override
     def setup(self):

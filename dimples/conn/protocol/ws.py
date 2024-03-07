@@ -118,7 +118,7 @@ class WebSocket:
         :return: (payload, remaining_data)
         """
         stream_len = len(stream)
-        print('parsing stream: %d bytes' % stream_len)
+        # Log.info(msg='parsing stream: %d bytes' % stream_len)
         if stream_len < 2:
             return None, stream
         data = b''
@@ -194,6 +194,7 @@ class WebSocket:
             elif op == 8:
                 # TODO: CLOSE
                 Log.warning(msg='CLOSE')
+                # sock.close()
                 pass
             elif op == 9:
                 # TODO: PING

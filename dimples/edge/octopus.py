@@ -115,7 +115,7 @@ class Octopus(Runner, Logging):
         # create a new terminal for remote host:port
         with self.__outer_lock:
             # check exist terminals
-            outers = set(self.__outers)
+            outers = self.__outers.copy()
             for out in outers:
                 # check station
                 station = out.session.station
@@ -170,14 +170,12 @@ class Octopus(Runner, Logging):
                     neighbors.remove(item)
                     break
             # check outer client
-            if out.is_alive:
+            if out.running:
                 # skip running client
                 continue
             else:
-                self.warning(msg='stop timeout client: %s (%s:%d)' % (sid, host, port))
-                out.stop()
-            # remove dead terminal
-            self.debug(msg='removing inactive client: %s (%s:%d)' % (sid, host, port))
+                # remove dead client
+                self.warning(msg='client stopped, remove it: %s (%s:%d)' % (sid, host, port))
             with self.__outer_lock:
                 self.__outers.discard(out)
                 if sid is not None:

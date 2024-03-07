@@ -123,18 +123,19 @@ class StreamClientHub(ClientHub):
         return super()._remove_connection(connection=connection, remote=remote, local=None)
 
 
-def reset_send_buffer_size(conn: Connection) -> bool:
-    if not isinstance(conn, BaseConnection):
-        print('[SOCKET] connection error: %s' % conn)
-        return False
-    channel = conn.channel
-    if not isinstance(channel, BaseChannel):
-        print('[SOCKET] channel error: %s, %s' % (channel, conn))
-        return False
-    sock = channel.sock
+def reset_send_buffer_size(conn: Connection = None, sock: socket.socket = None) -> bool:
     if sock is None:
-        print('[SOCKET] socket error: %s, %s' % (sock, conn))
-        return False
+        if not isinstance(conn, BaseConnection):
+            print('[SOCKET] connection error: %s' % conn)
+            return False
+        channel = conn.channel
+        if not isinstance(channel, BaseChannel):
+            print('[SOCKET] channel error: %s, %s' % (channel, conn))
+            return False
+        sock = channel.sock
+        if sock is None:
+            print('[SOCKET] socket error: %s, %s' % (sock, conn))
+            return False
     size = sock.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF)
     max_size = GateKeeper.SEND_BUFFER_SIZE
     if size < max_size:
@@ -153,10 +154,10 @@ class GateKeeper(Runner, DockerDelegate, Logging):
     def __init__(self, remote: Tuple[str, int], sock: Optional[socket.socket]):
         super().__init__(interval=Runner.INTERVAL_SLOW)
         self.__remote = remote
-        self.__gate = self._create_gate(remote=remote, sock=sock)
         self.__queue = MessageQueue()
         self.__active = False
         self.__last_active = 0  # last update time
+        self.__gate = self._create_gate(remote=remote, sock=sock)
 
     def _create_gate(self, remote: Tuple[str, int], sock: Optional[socket.socket]) -> CommonGate:
         if sock is None:
@@ -177,11 +178,13 @@ class GateKeeper(Runner, DockerDelegate, Logging):
             # TODO: reset send buffer size
         else:
             # server
+            reset_send_buffer_size(sock=sock)
             sock.setblocking(False)
             # sock.settimeout(0.5)
             if address is None:
                 address = get_remote_address(sock=sock)
-            channel = StreamChannel(sock=sock, remote=address, local=get_local_address(sock=sock))
+            channel = StreamChannel(remote=address, local=get_local_address(sock=sock))
+            channel.assign_socket(sock=sock)
             hub = StreamServerHub(delegate=delegate)
             hub.put_channel(channel=channel)
         return hub
@@ -208,25 +211,25 @@ class GateKeeper(Runner, DockerDelegate, Logging):
             self.__last_active = when
             return True
 
-    @property  # Override
-    def running(self) -> bool:
-        if super().running:
-            return self.gate.running
-
-    # Override
-    def stop(self):
-        super().stop()
-        self.gate.stop()
-
-    # Override
-    def setup(self):
-        super().setup()
-        self.gate.start()
-
-    # Override
-    def finish(self):
-        self.gate.stop()
-        super().finish()
+    # @property  # Override
+    # def running(self) -> bool:
+    #     if super().running:
+    #         return self.gate.running
+    #
+    # # Override
+    # def stop(self):
+    #     super().stop()
+    #     self.gate.stop()
+    #
+    # # Override
+    # def setup(self):
+    #     super().setup()
+    #     self.gate.start()
+    #
+    # # Override
+    # def finish(self):
+    #     self.gate.stop()
+    #     super().finish()
 
     # Override
     def process(self) -> bool:
@@ -267,7 +270,7 @@ class GateKeeper(Runner, DockerDelegate, Logging):
         return ok
 
     def _docker_pack(self, payload: bytes, priority: int = 0) -> Departure:
-        docker = self.gate.fetch_docker(remote=self.remote_address, local=None, advance_party=[])
+        docker = self.gate.fetch_docker([], remote=self.remote_address, local=None)
         assert isinstance(docker, DeparturePacker), 'departure packer error: %s' % docker
         return docker.pack(payload=payload, priority=priority)
 
@@ -293,11 +296,11 @@ class GateKeeper(Runner, DockerDelegate, Logging):
 
     # Override
     def docker_failed(self, error: IOError, ship: Departure, docker: Docker):
-        self.error(msg='docker failed to send ship: %s, %s' % (ship, docker))
+        self.error(msg='docker failed to send ship: %s, %s' % (error, docker))
 
     # Override
     def docker_error(self, error: IOError, ship: Departure, docker: Docker):
-        self.error(msg='docker error while sending ship: %s, %s' % (ship, docker))
+        self.error(msg='docker error while sending ship: %s, %s' % (error, docker))
         if isinstance(ship, MessageWrapper):
             msg = ship.msg
             if msg is not None:

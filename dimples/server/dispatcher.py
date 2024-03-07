@@ -34,6 +34,8 @@ import threading
 from abc import ABC, abstractmethod
 from typing import Optional, List
 
+from startrek.fsm import Daemon
+
 from dimsdk import EntityType, ID
 from dimsdk import Content, ReceiptCommand
 from dimsdk import ReliableMessage
@@ -209,6 +211,7 @@ class Roamer(Runner, Logging):
         # roaming (user id => station id)
         self.__queue: List[RoamingInfo] = []
         self.__lock = threading.Lock()
+        self.__daemon = Daemon(target=self.run)
 
     @property
     def database(self) -> Optional[MessageDBI]:
@@ -235,6 +238,9 @@ class Roamer(Runner, Logging):
         self.__append(info=info)
         return True
 
+    def start(self):
+        self.__daemon.start()
+
     # Override
     def process(self) -> bool:
         info = self.__next()
@@ -258,10 +264,6 @@ class Roamer(Runner, Logging):
             self.error(msg='process roaming user (%s => %s) error: %s' % (receiver, roaming, e))
         # return True to process next immediately
         return True
-
-    def start(self):
-        thread = threading.Thread(target=self.run, daemon=True)
-        thread.start()
 
 
 class DeliverWorker(Logging):

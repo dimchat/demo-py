@@ -32,7 +32,7 @@ import threading
 from typing import Optional, Union, List, Tuple
 
 from startrek import Arrival, Departure
-from startrek import Connection
+from startrek.types import SocketAddress
 
 from udp.ba import ByteArray, Data
 from udp.mtp import DataType, TransactionID, Header, Package
@@ -106,8 +106,8 @@ class MTPStreamDeparture(PackageDeparture):
 class MTPStreamDocker(PackageDocker, DeparturePacker):
     """ Docker for MTP packages """
 
-    def __init__(self, connection: Connection):
-        super().__init__(connection=connection)
+    def __init__(self, remote: SocketAddress, local: Optional[SocketAddress]):
+        super().__init__(remote=remote, local=local)
         self.__chunks = Data.ZERO
         self.__chunks_lock = threading.RLock()
         self.__package_received = False

@@ -26,64 +26,64 @@
 from startrek import DockerStatus
 
 from .state import StateMachine, StateTransition
-from .state import SessionState
+from .state import StateOrder
 
 
 class TransitionBuilder:
 
     # noinspection PyMethodMayBeStatic
     def get_default_connecting_transition(self):
-        return DefaultConnectingTransition(target=SessionState.CONNECTING)
+        return DefaultConnectingTransition(target=StateOrder.CONNECTING)
 
     # Connecting
 
     # noinspection PyMethodMayBeStatic
     def get_connecting_connected_transition(self):
-        return ConnectingConnectedTransition(target=SessionState.CONNECTED)
+        return ConnectingConnectedTransition(target=StateOrder.CONNECTED)
 
     # noinspection PyMethodMayBeStatic
     def get_connecting_error_transition(self):
-        return ConnectingErrorTransition(target=SessionState.ERROR)
+        return ConnectingErrorTransition(target=StateOrder.ERROR)
 
     # Connected
 
     # noinspection PyMethodMayBeStatic
     def get_connected_handshaking_transition(self):
-        return ConnectedHandshakingTransition(target=SessionState.HANDSHAKING)
+        return ConnectedHandshakingTransition(target=StateOrder.HANDSHAKING)
 
     # noinspection PyMethodMayBeStatic
     def get_connected_error_transition(self):
-        return ConnectedErrorTransition(target=SessionState.ERROR)
+        return ConnectedErrorTransition(target=StateOrder.ERROR)
 
     # Handshaking
 
     # noinspection PyMethodMayBeStatic
     def get_handshaking_running_transition(self):
-        return HandshakingRunningTransition(target=SessionState.RUNNING)
+        return HandshakingRunningTransition(target=StateOrder.RUNNING)
 
     # noinspection PyMethodMayBeStatic
     def get_handshaking_connected_transition(self):
-        return HandshakingConnectedTransition(target=SessionState.CONNECTED)
+        return HandshakingConnectedTransition(target=StateOrder.CONNECTED)
 
     # noinspection PyMethodMayBeStatic
     def get_handshaking_error_transition(self):
-        return HandshakingErrorTransition(target=SessionState.ERROR)
+        return HandshakingErrorTransition(target=StateOrder.ERROR)
 
     # Running
 
     # noinspection PyMethodMayBeStatic
     def get_running_default_transition(self):
-        return RunningDefaultTransition(target=SessionState.DEFAULT)
+        return RunningDefaultTransition(target=StateOrder.INIT)
 
     # noinspection PyMethodMayBeStatic
     def get_running_error_transition(self):
-        return RunningErrorTransition(target=SessionState.ERROR)
+        return RunningErrorTransition(target=StateOrder.ERROR)
 
     # Error
 
     # noinspection PyMethodMayBeStatic
     def get_error_default_transition(self):
-        return ErrorDefaultTransition(target=SessionState.DEFAULT)
+        return ErrorDefaultTransition(target=StateOrder.INIT)
 
 
 #

@@ -25,41 +25,39 @@
 
 import weakref
 from abc import ABC
-from typing import Optional
+from enum import IntEnum
+from typing import Optional, Union
 
 from dimsdk import ID
 
 from startrek.fsm import Context, BaseTransition, BaseState, AutoMachine
 from startrek import DockerStatus
 
-from .session import ClientSession
+# from .session import ClientSession
 
 
 class StateMachine(AutoMachine, Context):
 
-    def __init__(self, session: ClientSession):
-        super().__init__(default=SessionState.DEFAULT)
+    def __init__(self, session):
+        super().__init__()
         self.__session = weakref.ref(session)
         # init states
         builder = self._create_state_builder()
-        self.__set_state(state=builder.get_default_state())
-        self.__set_state(state=builder.get_connecting_state())
-        self.__set_state(state=builder.get_connected_state())
-        self.__set_state(state=builder.get_handshaking_state())
-        self.__set_state(state=builder.get_running_state())
-        self.__set_state(state=builder.get_error_state())
+        self.add_state(state=builder.get_default_state())
+        self.add_state(state=builder.get_connecting_state())
+        self.add_state(state=builder.get_connected_state())
+        self.add_state(state=builder.get_handshaking_state())
+        self.add_state(state=builder.get_running_state())
+        self.add_state(state=builder.get_error_state())
 
     @property
-    def session(self) -> ClientSession:
+    def session(self):  # -> ClientSession:
         return self.__session()
 
     # noinspection PyMethodMayBeStatic
     def _create_state_builder(self):
         from .transition import TransitionBuilder
         return StateBuilder(transition_builder=TransitionBuilder())
-
-    def __set_state(self, state):
-        self.set_state(name=state.name, state=state)
 
     @property  # Override
     def context(self) -> Context:
@@ -79,15 +77,30 @@ class StateMachine(AutoMachine, Context):
     def status(self) -> DockerStatus:
         session = self.session
         gate = session.gate
-        docker = gate.fetch_docker(remote=session.remote_address, local=None, advance_party=[])
+        docker = gate.fetch_docker([], remote=session.remote_address, local=None)
         if docker is None:
             return DockerStatus.ERROR
         else:
             return docker.status
 
 
+class StateOrder(IntEnum):
+    """ Connection State Order """
+    INIT = 0  # default
+    CONNECTING = 1
+    CONNECTED = 2
+    HANDSHAKING = 3
+    RUNNING = 4
+    ERROR = 5
+
+
 # noinspection PyAbstractClass
 class StateTransition(BaseTransition[StateMachine], ABC):
+
+    def __init__(self, target: Union[int, StateOrder]):
+        if isinstance(target, StateOrder):
+            target = target.value
+        super().__init__(target=target)
 
     # noinspection PyMethodMayBeStatic
     def is_expired(self, state, now: float) -> bool:
@@ -110,16 +123,9 @@ class SessionState(BaseState[StateMachine, StateTransition]):
             ERROR       - network error
     """
 
-    DEFAULT = 'default'
-    CONNECTING = 'connecting'
-    CONNECTED = 'connected'
-    HANDSHAKING = 'handshaking'
-    RUNNING = 'running'
-    ERROR = 'error'
-
-    def __init__(self, name: str):
-        super().__init__()
-        self.__name = name
+    def __init__(self, order: StateOrder):
+        super().__init__(index=order.value)
+        self.__name = str(order)
         self.__time: float = 0  # enter time
 
     @property
@@ -137,20 +143,28 @@ class SessionState(BaseState[StateMachine, StateTransition]):
         return self.__name
 
     def __eq__(self, other) -> bool:
-        if self is other:
-            return True
-        elif isinstance(other, SessionState):
-            return self.__name == other.name
+        if isinstance(other, SessionState):
+            if self is other:
+                return True
+            return self.index == other.index
+        elif isinstance(other, StateOrder):
+            return self.index == other.value
+        elif isinstance(other, int):
+            return self.index == other
         elif isinstance(other, str):
             return self.__name == other
         else:
             return False
 
     def __ne__(self, other) -> bool:
-        if self is other:
-            return False
-        elif isinstance(other, SessionState):
-            return self.__name != other.name
+        if isinstance(other, SessionState):
+            if self is other:
+                return False
+            return self.index != other.index
+        elif isinstance(other, StateOrder):
+            return self.index != other.value
+        elif isinstance(other, int):
+            return self.index != other
         elif isinstance(other, str):
             return self.__name != other
         else:
@@ -165,11 +179,11 @@ class SessionState(BaseState[StateMachine, StateTransition]):
         self.__time = 0
 
     # Override
-    def on_pause(self, ctx: StateMachine):
+    def on_pause(self, ctx: StateMachine, now: float):
         pass
 
     # Override
-    def on_resume(self, ctx: StateMachine):
+    def on_resume(self, ctx: StateMachine, now: float):
         pass
 
 
@@ -183,14 +197,10 @@ class StateBuilder:
         super().__init__()
         self.__builder = transition_builder
 
-    # noinspection PyMethodMayBeStatic
-    def get_named_state(self, name: str) -> SessionState:
-        return SessionState(name=name)
-
     def get_default_state(self) -> SessionState:
         builder = self.__builder
         # assert isinstance(builder, TransitionBuilder)
-        state = self.get_named_state(name=SessionState.DEFAULT)
+        state = SessionState(order=StateOrder.INIT)
         # Default -> Connecting
         state.add_transition(transition=builder.get_default_connecting_transition())
         return state
@@ -198,7 +208,7 @@ class StateBuilder:
     def get_connecting_state(self) -> SessionState:
         builder = self.__builder
         # assert isinstance(builder, TransitionBuilder)
-        state = self.get_named_state(name=SessionState.CONNECTING)
+        state = SessionState(order=StateOrder.CONNECTING)
         # Connecting -> Connected
         state.add_transition(transition=builder.get_connecting_connected_transition())
         # Connecting -> Error
@@ -208,7 +218,7 @@ class StateBuilder:
     def get_connected_state(self) -> SessionState:
         builder = self.__builder
         # assert isinstance(builder, TransitionBuilder)
-        state = self.get_named_state(name=SessionState.CONNECTED)
+        state = SessionState(order=StateOrder.CONNECTED)
         # Connected -> Handshaking
         state.add_transition(transition=builder.get_connected_handshaking_transition())
         # Connected -> Error
@@ -218,7 +228,7 @@ class StateBuilder:
     def get_handshaking_state(self) -> SessionState:
         builder = self.__builder
         # assert isinstance(builder, TransitionBuilder)
-        state = self.get_named_state(name=SessionState.HANDSHAKING)
+        state = SessionState(order=StateOrder.HANDSHAKING)
         # Handshaking -> Running
         state.add_transition(transition=builder.get_handshaking_running_transition())
         # Handshaking -> Connected
@@ -230,7 +240,7 @@ class StateBuilder:
     def get_running_state(self) -> SessionState:
         builder = self.__builder
         # assert isinstance(builder, TransitionBuilder)
-        state = self.get_named_state(name=SessionState.RUNNING)
+        state = SessionState(order=StateOrder.RUNNING)
         # Running -> Default
         state.add_transition(transition=builder.get_running_default_transition())
         # Running -> Error
@@ -240,7 +250,7 @@ class StateBuilder:
     def get_error_state(self) -> SessionState:
         builder = self.__builder
         # assert isinstance(builder, TransitionBuilder)
-        state = self.get_named_state(name=SessionState.ERROR)
+        state = SessionState(order=StateOrder.ERROR)
         # Error -> Default
         state.add_transition(transition=builder.get_error_default_transition())
         return state

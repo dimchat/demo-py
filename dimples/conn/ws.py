@@ -28,12 +28,14 @@
 # SOFTWARE.
 # ==============================================================================
 
+import socket
 import threading
 from typing import Optional, List, Tuple
 
+from startrek.types import SocketAddress
 from startrek import Arrival, Departure
 from startrek import ArrivalShip, DepartureShip, DeparturePriority
-from startrek import Connection
+from startrek import BaseConnection, BaseChannel
 
 from tcp import PlainDocker
 
@@ -107,14 +109,20 @@ class WSDocker(PlainDocker, DeparturePacker):
 
     MAX_PACK_LENGTH = 65536  # 64 KB
 
-    def __init__(self, connection: Connection):
-        super().__init__(connection=connection)
+    def __init__(self, remote: SocketAddress, local: Optional[SocketAddress]):
+        super().__init__(remote=remote, local=local)
         self.__handshaking = True
         self.__chunks = b''
         self.__chunks_lock = threading.RLock()
         self.__package_received = False
 
     def _parse_package(self, data: bytes) -> Tuple[Optional[bytes], Optional[bytes], int]:
+        conn = self.connection
+        assert isinstance(conn, BaseConnection), 'connection error: %s' % conn
+        channel = conn.channel
+        assert isinstance(channel, BaseChannel), 'channel error: %s' % channel
+        sock = channel.sock
+        assert isinstance(sock, socket.socket), 'socket error: %s' % sock
         with self.__chunks_lock:
             # join the data to the memory cache
             data = self.__chunks + data
