@@ -254,6 +254,6 @@ def remove_reliable_message(msg: ReliableMessage, receiver: ID, database: Messag
         #     return False
         receiver = msg.receiver
     info = get_msg_info(msg=msg)
-    print('[QUEUE] message sent for %s, remove from db: %s' % (receiver, info))
+    Log.info(msg='message sent for %s, remove from db: %s' % (receiver, info))
     # remove sent message from database
     return database.remove_reliable_message(msg=msg, receiver=receiver)

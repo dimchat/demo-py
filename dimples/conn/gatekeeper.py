@@ -139,8 +139,8 @@ def reset_send_buffer_size(conn: Connection = None, sock: socket.socket = None) 
     size = sock.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF)
     max_size = GateKeeper.SEND_BUFFER_SIZE
     if size < max_size:
-        print('[SOCKET] change send buffer size: %d -> %d, %s' % (size, max_size, conn))
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, max_size)
+        print('[SOCKET] send buffer size changed: %d -> %d, %s' % (size, max_size, conn))
         return True
     else:
         print('[SOCKET] send buffer size: %d, %s' % (size, conn))
@@ -178,13 +178,12 @@ class GateKeeper(Runner, DockerDelegate, Logging):
             # TODO: reset send buffer size
         else:
             # server
-            reset_send_buffer_size(sock=sock)
             sock.setblocking(False)
             # sock.settimeout(0.5)
             if address is None:
                 address = get_remote_address(sock=sock)
             channel = StreamChannel(remote=address, local=get_local_address(sock=sock))
-            channel.assign_socket(sock=sock)
+            channel.set_socket(sock=sock)
             hub = StreamServerHub(delegate=delegate)
             hub.put_channel(channel=channel)
         return hub

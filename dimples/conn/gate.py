@@ -38,7 +38,7 @@ from startrek.net.state import StateOrder
 from startrek import Hub, Channel
 from startrek import Connection, ConnectionState, ActiveConnection
 from startrek import Docker, DockerDelegate
-from startrek import Arrival, StarGate
+from startrek import Arrival, StarDocker, StarGate
 
 from ..utils import Logging
 
@@ -103,7 +103,9 @@ class CommonGate(StarGate, Logging, Generic[H], ABC):
                 self._remove_docker(worker, remote=remote, local=local)
                 worker = None
             else:
-                worker.assign_connection(conn)
+                assert isinstance(worker, StarDocker), 'docker error: %s, %s' % (remote, worker)
+                # set connection for this docker
+                worker.set_connection(conn)
         return worker
 
     def send_response(self, payload: bytes, ship: Arrival,
