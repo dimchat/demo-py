@@ -85,7 +85,7 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
             self.info(msg='user login: %s -> %s, forwarded by %s' % (sender, roaming, session.identifier))
             return []
         # 3. update session flag
-        session.set_active(active=True)
+        session.set_active(active=True, when=content.time)
         # only respond the user login to this station
         self.info(msg='user login: %s -> %s' % (sender, roaming))
         text = 'Login received.'

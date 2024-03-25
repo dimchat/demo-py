@@ -30,8 +30,9 @@
     Handshake Protocol
 """
 
-from typing import List
+from typing import Optional, List
 
+from dimsdk import DateTime
 from dimsdk import ID, Content, ReliableMessage
 
 from dimsdk.cpu import BaseCommandProcessor
@@ -75,7 +76,7 @@ class HandshakeCommandProcessor(BaseCommandProcessor):
             # session key match
             Log.info(msg='handshake accepted: %s, session: %s' % (sender, session.key))
             # verified success
-            handshake_accepted(identifier=sender, session=session, messenger=messenger)
+            handshake_accepted(identifier=sender, when=content.time, session=session, messenger=messenger)
             res = HandshakeCommand.success(session=session.key)
         else:
             # session key not match
@@ -85,12 +86,12 @@ class HandshakeCommandProcessor(BaseCommandProcessor):
         return [res]
 
 
-def handshake_accepted(identifier: ID, session: Session, messenger: CommonMessenger):
+def handshake_accepted(identifier: ID, when: Optional[DateTime], session: Session, messenger: CommonMessenger):
     from ..session_center import SessionCenter
     center = SessionCenter()
     # 1. update session ID
     center.update_session(session=session, identifier=identifier)
     # 2. update session flag
-    session.set_active(active=True)
+    session.set_active(active=True, when=when)
     # 3. callback
     messenger.handshake_success()

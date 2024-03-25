@@ -62,14 +62,27 @@ class ClientMessenger(CommonMessenger):
             facebook = self.facebook
             user = facebook.current_user
             assert user is not None, 'current user not found'
+            meta = user.meta
+            visa = user.visa
+            if visa is None:
+                self.warning(msg='user visa not found: %s' % user)
+            else:
+                device = {
+                    'os': 'Linux',
+                }
+                visa.set_property(key='sys', value=device)
+                # sign to update
+                pri_key = facebook.private_key_for_visa_signature(identifier=user.identifier)
+                assert pri_key is not None, 'failed to get private key for visa: %s' % visa
+                visa.sign(private_key=pri_key)
             env = Envelope.create(sender=user.identifier, receiver=srv_id)
             cmd = HandshakeCommand.start()
             # send first handshake command as broadcast message
             cmd.group = Station.EVERY
             # create instant message with meta & visa
             i_msg = InstantMessage.create(head=env, body=cmd)
-            i_msg.set_map(key='meta', value=user.meta)
-            i_msg.set_map(key='visa', value=user.visa)
+            i_msg.set_map(key='meta', value=meta)
+            i_msg.set_map(key='visa', value=visa)
             self.send_instant_message(msg=i_msg, priority=-1)
         else:
             # handshake again
