@@ -93,19 +93,21 @@ class GroupEmitter(Logging):
     def messenger(self) -> CommonMessenger:
         return self.delegate.messenger
 
-    def __attach_group_times(self, group: ID, msg: InstantMessage):
+    # private
+    def _attach_group_times(self, group: ID, msg: InstantMessage) -> bool:
         if isinstance(msg.content, GroupCommand):
             # no need to attach times for group command
-            return
+            return False
         facebook = self.facebook
         doc = facebook.bulletin(identifier=group)
         if doc is None:
             self.error(msg='failed to get bulletin document for group: %s' % group)
-            return
+            return False
         # attach group document time
         last_doc_time = doc.time
         if last_doc_time is None:
             self.error(msg='document error: %s' % doc)
+            return False
         else:
             msg.set_datetime(key='GDT', value=last_doc_time)
         # attach group history time
@@ -113,8 +115,10 @@ class GroupEmitter(Logging):
         last_his_time = archivist.get_last_group_history_time(group=group)
         if last_his_time is None:
             self.error(msg='failed to get history time: %s' % group)
+            return False
         else:
             msg.set_datetime(key='GHT', value=last_his_time)
+        return True
 
     def send_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
         content = msg.content
@@ -125,7 +129,8 @@ class GroupEmitter(Logging):
         assert msg.receiver == group, 'group message error: %s' % msg
         # attach group document & history times
         # for the receiver to check whether group info synchronized
-        self.__attach_group_times(group=group, msg=msg)
+        ok = self._attach_group_times(group=group, msg=msg)
+        assert ok or isinstance(msg.content, GroupCommand), 'failed to attach group times: %s => %s' % (group, content)
         # TODO: if it's a file message
         #       please upload the file data first
         #       before calling this

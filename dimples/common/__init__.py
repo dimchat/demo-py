@@ -40,6 +40,7 @@ from .archivist import CommonArchivist
 from .facebook import CommonFacebook
 from .messenger import CommonMessenger
 from .packer import CommonMessagePacker
+from .processer import CommonMessageProcessor
 from .session import Transmitter, Session
 
 from .compat import register_compatible_factories
@@ -87,6 +88,7 @@ __all__ = [
     'CommonFacebook',
     'CommonMessenger',
     'CommonMessagePacker',
+    'CommonMessageProcessor',
     'Transmitter',
     'Session',
 

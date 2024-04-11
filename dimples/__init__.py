@@ -333,7 +333,8 @@ __all__ = [
     'AddressNameServer', 'ANSFactory',
     'CommonArchivist',
     'CommonFacebook', 'CommonMessenger',
-    'CommonMessagePacker', 'Transmitter',
+    'CommonMessagePacker', 'CommonMessageProcessor',
+    'Transmitter',
     'Session',
 
     ####################################

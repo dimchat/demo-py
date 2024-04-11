@@ -38,16 +38,15 @@ from dimsdk import Envelope
 from dimsdk import Content, ContentType, Command
 from dimsdk import TextContent, ReceiptCommand
 from dimsdk import ContentProcessor, ContentProcessorCreator
-from dimsdk import MessageProcessor
 
 from dimsdk.cpu import BaseContentProcessor, BaseContentProcessorCreator
 
 from ..utils import get_msg_info
-from ..utils import Logging
 from ..common import HandshakeCommand, LoginCommand
 from ..common import ReportCommand, AnsCommand
 from ..common import CommonFacebook, CommonMessenger
 from ..common import CommonMessagePacker
+from ..common import CommonMessageProcessor
 
 from .cpu import HandshakeCommandProcessor
 from .cpu import LoginCommandProcessor
@@ -61,7 +60,7 @@ from .dispatcher import Dispatcher
 from .archivist import ServerArchivist
 
 
-class ServerMessageProcessor(MessageProcessor, Logging):
+class ServerMessageProcessor(CommonMessageProcessor):
 
     @property
     def messenger(self) -> CommonMessenger:

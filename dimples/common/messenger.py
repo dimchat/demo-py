@@ -168,26 +168,57 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         r_msg = self.send_instant_message(msg=i_msg, priority=priority)
         return i_msg, r_msg
 
+    # private
+    def _attach_visa_time(self, sender: ID, msg: InstantMessage) -> bool:
+        if isinstance(msg.content, Command):
+            # no need to attach times for command
+            return False
+        doc = self.facebook.visa(identifier=sender)
+        if doc is None:
+            self.error(msg='failed to get visa document for sender: %s' % sender)
+            return False
+        # attach sender document time
+        last_doc_time = doc.time
+        if last_doc_time is None:
+            self.error(msg='document error: %s' % doc)
+            return False
+        else:
+            msg.set_datetime(key='SDT', value=last_doc_time)
+        return True
+
     # Override
     def send_instant_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
         """ send instant message with priority """
+        sender = msg.sender
         # 0. check cycled message
-        if msg.sender == msg.receiver:
-            self.warning(msg='drop cycled message: %s => %s, %s' % (msg.sender, msg.receiver, msg.group))
+        if sender == msg.receiver:
+            self.warning(msg='drop cycled message: %s => %s, %s' % (sender, msg.receiver, msg.group))
+            # return None
         else:
             self.debug(msg='send instant message message (type=%d): %s => %s, %s'
-                           % (msg.content.type, msg.sender, msg.receiver, msg.group))
-        # 1. encrypt message
+                           % (msg.content.type, sender, msg.receiver, msg.group))
+            # attach sender's document times
+            # for the receiver to check whether user info synchronized
+            ok = self._attach_visa_time(sender=sender, msg=msg)
+            assert ok or isinstance(msg.content, Command), \
+                'failed to attach document time: %s => %s' % (sender, msg.content)
+        #
+        #  1. encrypt message
+        #
         s_msg = self.encrypt_message(msg=msg)
         if s_msg is None:
             # public key not found?
             return None
-        # 2. sign message
+        #
+        #  2. sign message
+        #
         r_msg = self.sign_message(msg=s_msg)
         if r_msg is None:
             # TODO: set msg.state = error
             raise AssertionError('failed to sign message: %s' % s_msg)
-        # 3. send message
+        #
+        #  3. send message
+        #
         if self.send_reliable_message(msg=r_msg, priority=priority):
             return r_msg
         # failed
