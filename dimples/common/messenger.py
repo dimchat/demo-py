@@ -41,7 +41,7 @@ from typing import Optional, Union, Tuple
 from dimsdk import SymmetricKey
 from dimsdk import ID
 from dimsdk import Content, Envelope
-from dimsdk import Command
+from dimsdk import Command, DocumentCommand
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import EntityDelegate, CipherKeyDelegate
 from dimsdk import Messenger, Packer, Processor
@@ -170,9 +170,9 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
 
     # private
     def _attach_visa_time(self, sender: ID, msg: InstantMessage) -> bool:
-        if isinstance(msg.content, Command):
+        if isinstance(msg.content, DocumentCommand):
             # no need to attach times for command
-            return False
+            return True
         doc = self.facebook.visa(identifier=sender)
         if doc is None:
             self.error(msg='failed to get visa document for sender: %s' % sender)
@@ -200,8 +200,8 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
             # attach sender's document times
             # for the receiver to check whether user info synchronized
             ok = self._attach_visa_time(sender=sender, msg=msg)
-            assert ok or isinstance(msg.content, Command), \
-                'failed to attach document time: %s => %s' % (sender, msg.content)
+            if not ok:
+                self.warning(msg='failed to attach document time: %s => %s' % (sender, msg.content))
         #
         #  1. encrypt message
         #

@@ -77,22 +77,28 @@ class ServerMessagePacker(CommonMessagePacker):
             return True
 
     # Override
+    def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
+        msg = super().deserialize_message(data=data)
+        if msg is not None:
+            sender = msg.sender
+            receiver = msg.receiver
+            # check duplicated
+            if self.__is_traced(msg=msg):
+                # cycled message
+                if sender.type == EntityType.STATION or receiver.type == EntityType.STATION:
+                    # ignore cycled station message
+                    self.warning(msg='drop cycled station message: %s -> %s' % (sender, receiver))
+                    return None
+                elif receiver.is_broadcast:
+                    # ignore cycled broadcast message
+                    self.warning(msg='drop cycled broadcast message: %s -> %s' % (sender, receiver))
+                    return None
+                self.warning(msg='cycled message: %s -> %s' % (sender, receiver))
+        return msg
+
+    # Override
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
-        sender = msg.sender
-        receiver = msg.receiver
-        # check duplicated
-        if self.__is_traced(msg=msg):
-            # cycled message
-            if sender.type == EntityType.STATION or receiver.type == EntityType.STATION:
-                # ignore cycled station message
-                self.warning(msg='cycled station message: %s -> %s' % (sender, receiver))
-                return None
-            elif receiver.is_broadcast:
-                # ignore cycled broadcast message
-                self.warning(msg='cycled broadcast message: %s -> %s' % (sender, receiver))
-                return None
-            self.warning(msg='cycled message: %s -> %s' % (sender, receiver))
-        # check session
+        # check session ready
         if self.__is_trusted(sender=msg.sender):
             # no need to verify message from this sender
             self.debug(msg='trusted sender: %s' % msg.sender)

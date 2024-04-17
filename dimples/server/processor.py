@@ -41,7 +41,6 @@ from dimsdk import ContentProcessor, ContentProcessorCreator
 
 from dimsdk.cpu import BaseContentProcessor, BaseContentProcessorCreator
 
-from ..utils import get_msg_info
 from ..common import HandshakeCommand, LoginCommand
 from ..common import ReportCommand, AnsCommand
 from ..common import CommonFacebook, CommonMessenger
@@ -165,9 +164,6 @@ class ServerMessageProcessor(CommonMessageProcessor):
         # TODO: override to deliver to the receiver when catch exception "receiver error ..."
 
     def _force_handshake(self, msg: ReliableMessage) -> List[ReliableMessage]:
-        if self.messenger.verify_message(msg=msg) is None:
-            assert False, 'failed to verify message: %s' % get_msg_info(msg=msg)
-            # return []
         session = self.messenger.session
         sess_id = session.identifier
         current = self.facebook.current_user

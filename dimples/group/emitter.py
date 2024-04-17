@@ -97,7 +97,7 @@ class GroupEmitter(Logging):
     def _attach_group_times(self, group: ID, msg: InstantMessage) -> bool:
         if isinstance(msg.content, GroupCommand):
             # no need to attach times for group command
-            return False
+            return True
         facebook = self.facebook
         doc = facebook.bulletin(identifier=group)
         if doc is None:
@@ -130,7 +130,8 @@ class GroupEmitter(Logging):
         # attach group document & history times
         # for the receiver to check whether group info synchronized
         ok = self._attach_group_times(group=group, msg=msg)
-        assert ok or isinstance(msg.content, GroupCommand), 'failed to attach group times: %s => %s' % (group, content)
+        if not ok:
+            self.warning(msg='failed to attach group times: %s => %s' % (group, content))
         # TODO: if it's a file message
         #       please upload the file data first
         #       before calling this
