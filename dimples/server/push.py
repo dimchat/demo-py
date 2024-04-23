@@ -36,10 +36,10 @@ import time
 from abc import ABC, abstractmethod
 from typing import Optional, List, Dict
 
-from startrek.fsm import Daemon
 from dimsdk import ID, ReliableMessage
 
-from ..utils import Singleton, Logging, Runner
+from ..utils import Runner, Daemon
+from ..utils import Singleton, Logging
 
 
 class MessageQueue(Logging):
@@ -125,9 +125,8 @@ class PushCenter(Runner, Logging):
         self.__keeper = BadgeKeeper()
         self.__service: Optional[PushService] = None
         # background thread
-        daemon = Daemon(target=self.run)
-        daemon.start()
-        self.__daemon = daemon
+        self.__daemon = Daemon(target=self)
+        self.__daemon.start()
 
     @property
     def service(self) -> Optional[PushService]:

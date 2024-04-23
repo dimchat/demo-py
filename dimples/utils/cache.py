@@ -32,7 +32,7 @@
 import time
 from typing import TypeVar, Generic, Optional, Dict, Set, Tuple
 
-from startrek.fsm import Daemon
+from startrek.fsm import Daemon, Runnable
 from dimsdk import DateTime
 
 from .singleton import Singleton
@@ -135,12 +135,12 @@ class CachePool(Generic[K, V]):
 
 
 @Singleton
-class CacheManager:
+class CacheManager(Runnable):
 
     def __init__(self):
         self.__pools: Dict[str, CachePool] = {}  # name -> pool
         # thread for cleaning caches
-        self.__daemon = Daemon(target=self.run)
+        self.__daemon = Daemon(target=self)
         self.__running = False
 
     @property
@@ -154,6 +154,7 @@ class CacheManager:
     def stop(self):
         self.__daemon.stop()
 
+    # Override
     def run(self):
         next_time = 0
         while self.running:

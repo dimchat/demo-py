@@ -34,13 +34,11 @@ import threading
 from abc import ABC, abstractmethod
 from typing import Optional, List
 
-from startrek.fsm import Daemon
-
 from dimsdk import EntityType, ID
 from dimsdk import Content, ReceiptCommand
 from dimsdk import ReliableMessage
 
-from ..utils import Singleton, Logging, Runner
+from ..utils import Singleton, Logging, Runner, Daemon
 from ..common import CommonFacebook
 from ..common import MessageDBI, SessionDBI
 from ..common import ReliableMessageDBI
@@ -211,7 +209,7 @@ class Roamer(Runner, Logging):
         # roaming (user id => station id)
         self.__queue: List[RoamingInfo] = []
         self.__lock = threading.Lock()
-        self.__daemon = Daemon(target=self.run)
+        self.__daemon = Daemon(target=self)
 
     @property
     def database(self) -> Optional[MessageDBI]:

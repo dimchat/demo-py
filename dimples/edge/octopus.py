@@ -41,7 +41,7 @@ from dimsdk import ReliableMessage
 from dimsdk import Station
 
 from ..utils import Log, Logging
-from ..utils import Runner
+from ..utils import Runner, Daemon
 from ..utils import get_msg_sig
 from ..common import ProviderInfo
 from ..common import MessageDBI, SessionDBI
@@ -67,6 +67,7 @@ class Octopus(Runner, Logging):
         self.__outers: Set[Terminal] = set()
         self.__outer_map = weakref.WeakValueDictionary()
         self.__outer_lock = threading.Lock()
+        self.__daemon = Daemon(target=self, daemonic=False)
 
     @property
     def shared(self) -> GlobalVariable:
@@ -129,8 +130,7 @@ class Octopus(Runner, Logging):
             return terminal
 
     def start(self):
-        thread = threading.Thread(target=self.run)
-        thread.start()
+        self.__daemon.start()
 
     # Override
     def stop(self):

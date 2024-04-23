@@ -30,12 +30,11 @@
     Client
 """
 
-import threading
 import time
 
 from dimples import EntityType
 
-from ..utils import Runner, Logging
+from ..utils import Runner, Daemon, Logging
 from ..utils import StateDelegate
 
 from .network import ClientSession
@@ -59,6 +58,7 @@ class Terminal(Runner, DeviceMixin, Logging, StateDelegate):
         self.__messenger = messenger
         # default online time
         self.__last_time = time.time()
+        self.__daemon = Daemon(target=self)
 
     @property
     def messenger(self) -> ClientMessenger:
@@ -74,8 +74,12 @@ class Terminal(Runner, DeviceMixin, Logging, StateDelegate):
             return self.session.running
 
     def start(self):
-        thread = threading.Thread(target=self.run, daemon=True)
-        thread.start()
+        self.__daemon.start()
+
+    # Override
+    def stop(self):
+        self.__daemon.stop()
+        super().stop()
 
     # Override
     def setup(self):

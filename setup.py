@@ -14,7 +14,7 @@ import io
 
 from setuptools import setup, find_packages
 
-__version__ = '0.5.3'
+__version__ = '0.5.5'
 __author__ = 'Albert Moky'
 __contact__ = 'albert.moky@gmail.com'
 
@@ -58,8 +58,8 @@ setup(
         'dkd>=1.0.2',
         'mkm>=1.0.2',
 
-        'startrek>=1.1.2',
-        'tcp>=1.1.2',
-        'udp>=1.1.2',
+        'startrek>=1.2.0',
+        'tcp>=1.2.0',
+        'udp>=1.2.0',
     ]
 )

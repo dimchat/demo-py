@@ -40,11 +40,11 @@ from typing import Optional, List
 
 from dimsdk import Station
 
-from startrek.fsm import Daemon
 from startrek.fsm import Delegate as StateDelegate
 from startrek import Docker, DockerStatus
 from startrek import Arrival
 
+from ...utils import Daemon
 from ...common import SessionDBI
 from ...conn import BaseSession
 from ...conn import MTPStreamArrival
@@ -84,7 +84,7 @@ class ClientSession(BaseSession):
         # state machine
         self.__fsm = StateMachine(session=self)
         # background thread to drive gate & hub processing
-        self.__daemon = Daemon(target=self.run)
+        self.__daemon = Daemon(target=self)
 
     @property
     def station(self) -> Station:
