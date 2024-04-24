@@ -209,23 +209,19 @@ class Dispatcher(MessageDeliver, Logging):
         #
         #  0. check recipients
         #
-        new_recipients = neighbors.copy()
+        new_recipients = set()
         old_recipients = msg.get('recipients')
-        if old_recipients is None:
-            all_recipients = []
-        else:
-            all_recipients = ID.convert(old_recipients)
-            # check duplicated
-            self.info(msg='discard recipients: %s, new recipients: %s' % (old_recipients, new_recipients))
-            for item in all_recipients:
-                new_recipients.discard(item)
-            if len(new_recipients) == 0:
-                self.info(msg='new recipients empty: %s => %s' % (receiver, neighbors))
-                return []
+        old_recipients = [] if old_recipients is None else ID.convert(old_recipients)
+        for item in neighbors:
+            if item not in old_recipients:
+                new_recipients.add(item)
+        all_recipients = []
+        for item in old_recipients:
+            all_recipients.append(item)
+        # avoid the new recipients redirect it to same targets
         self.info(msg='append new recipients: %s, %s => %s' % (receiver, new_recipients, all_recipients))
         for item in new_recipients:
             all_recipients.append(item)
-        # avoid the new recipients redirect it to same targets
         msg['recipients'] = ID.revert(all_recipients)
         #
         #  1. push to neighbor stations directly
@@ -384,7 +380,7 @@ class DeliverWorker(Logging):
         :return: responses
         """
         """ Redirect message to neighbor station """
-        assert neighbor.type == EntityType.STATION, 'neighbor station ID error: %s' % neighbor
+        assert neighbor is None or neighbor.type == EntityType.STATION, 'neighbor station ID error: %s' % neighbor
         self.info(msg='redirect message %s => %s to neighbor station: %s' % (msg.sender, msg.receiver, neighbor))
         # 0. check current station
         current = self.facebook.current_user.identifier

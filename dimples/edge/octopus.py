@@ -190,35 +190,64 @@ class Octopus(Runner, Logging):
 
     def income_message(self, msg: ReliableMessage, priority: int = 0) -> List[ReliableMessage]:
         """ redirect message from remote station """
+        sender = msg.sender
+        receiver = msg.receiver
         sig = get_msg_sig(msg=msg)
         messenger = self.inner_messenger
         if messenger.send_reliable_message(msg=msg, priority=priority):
-            self.info(msg='redirected msg (%s) for receiver (%s)' % (sig, msg.receiver))
+            self.info(msg='redirected msg (%s): %s -> %s' % (sig, sender, receiver))
         else:
-            self.error(msg='failed to redirect msg (%s) for receiver (%s)' % (sig, msg.receiver))
+            self.error(msg='failed to redirect msg (%s): %s -> %s' % (sig, sender, receiver))
         # no need to respond receipt for station
         return []
 
     def outgo_message(self, msg: ReliableMessage, priority: int = 0) -> List[ReliableMessage]:
         """ redirect message to remote station """
-        target = ID.parse(identifier=msg.get('neighbor'))
-        if target is None:
-            # target station not found
-            self.info(msg='cannot get target station for receiver (%s)' % msg.receiver)
-            return []
-        messenger = self.get_outer_messenger(identifier=target)
-        if messenger is None:
-            # target station not my neighbor
-            self.info(msg='receiver (%s) is targeted to (%s), but not my neighbor' % (msg.receiver, target))
-            return []
-        msg.pop('neighbor', None)
-        if messenger.send_reliable_message(msg=msg, priority=priority):
-            sig = get_msg_sig(msg=msg)
-            self.info(msg='redirected msg (%s) to target (%s) for receiver (%s)' % (sig, target, msg.receiver))
-            # no need to respond receipt for station
-            return []
+        receiver = msg.receiver
+        # get neighbor stations
+        neighbor = ID.parse(identifier=msg.get('neighbor'))
+        if neighbor is not None:
+            neighbors = set()
+            neighbors.add(neighbor)
+            msg.pop('neighbor', None)
+        else:
+            with self.__outer_lock:
+                neighbors = set(self.__outer_map.keys())
+        #
+        #  0. check recipients
+        #
+        new_recipients = set()
+        old_recipients = msg.get('recipients')
+        old_recipients = [] if old_recipients is None else ID.convert(old_recipients)
+        for item in neighbors:
+            if item not in old_recipients:
+                new_recipients.add(item)
+        all_recipients = []
+        for item in old_recipients:
+            all_recipients.append(item)
+        # avoid the new recipients redirect it to same targets
+        self.info(msg='append new recipients: %s, %s => %s' % (receiver, new_recipients, all_recipients))
+        for item in new_recipients:
+            all_recipients.append(item)
+        msg['recipients'] = ID.revert(all_recipients)
+        #
+        #  1. send to the new recipients (neighbor stations)
+        #
         sig = get_msg_sig(msg=msg)
-        self.error(msg='failed to redirect msg (%s) to target (%s) for receiver (%s)' % (sig, target, msg.receiver))
+        failed_neighbors = []
+        for target in new_recipients:
+            messenger = self.get_outer_messenger(identifier=target)
+            if messenger is None:
+                # target station not my neighbor
+                self.warning(msg='not my neighbor: %s (%s)' % (target, receiver))
+                failed_neighbors.append(target)
+            elif messenger.send_reliable_message(msg=msg, priority=priority):
+                self.info(msg='redirected msg (%s) to neighbor: %s (%s)' % (sig, target, receiver))
+            else:
+                self.error(msg='failed to send to neighbor: %s (%s)' % (target, receiver))
+                failed_neighbors.append(target)
+        if len(failed_neighbors) > 0:
+            self.error(msg='failed to redirect msg (%s) for receiver (%s): %s' % (sig, receiver, failed_neighbors))
         return []
 
 
