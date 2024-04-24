@@ -56,7 +56,6 @@ from .cpu import DocumentCommandProcessor
 
 from .packer import FilterManager
 from .dispatcher import Dispatcher
-from .archivist import ServerArchivist
 
 
 class ServerMessageProcessor(CommonMessageProcessor):
@@ -195,49 +194,18 @@ class ServerMessageProcessor(CommonMessageProcessor):
             if bot is None:
                 self.warning(msg='failed to get receiver: %s' % receiver)
                 return False
-            candidates = set()
-            candidates.add(bot)
-            self.info(msg='forward to station bot: %s -> %s' % (name, bot))
-        elif receiver == Station.EVERY or receiver == EVERYONE:
-            # broadcast message to neighbor stations
-            # e.g.: 'stations@everywhere', 'everyone@everywhere'
-            archivist = self.facebook.archivist
-            assert isinstance(archivist, ServerArchivist)
-            candidates = archivist.all_neighbors
-            if len(candidates) == 0:
-                self.warning(msg='failed to get neighbors: %s' % receiver)
+            elif bot == sender:
+                self.warning(msg='skip cycled message: %s -> %s' % (sender, receiver))
                 return False
-            self.info(msg='forward to neighbor stations: %s -> %s' % (receiver, candidates))
-        else:
-            self.warning(msg='unknown receiver: %s' % receiver)
-            return False
-        # check recipients
-        new_recipients = candidates.copy()
-        old_recipients = msg.get('recipients')
-        if old_recipients is None:
-            all_recipients = []
-        else:
-            all_recipients = ID.convert(old_recipients)
-            # check duplicated
-            self.info(msg='discard recipients: %s, new recipients: %s' % (old_recipients, new_recipients))
-            for item in all_recipients:
-                new_recipients.discard(item)
-            if len(new_recipients) == 0:
-                self.info(msg='new recipients empty: %s => %s' % (receiver, candidates))
+            elif bot == station:
+                self.warning(msg='skip current station: %s -> %s' % (sender, receiver))
                 return False
-        self.info(msg='append new recipients: %s, %s => %s' % (receiver, new_recipients, all_recipients))
-        for item in new_recipients:
-            all_recipients.append(item)
-        # avoid the new recipients redirect it to same targets
-        msg['recipients'] = ID.revert(all_recipients)
-        # dispatch
-        dispatcher = Dispatcher()
-        for target in new_recipients:
-            if target == sender or target == station:
-                self.info(msg='skip cycled message: %s -> %s, %s' % (sender, receiver, target))
             else:
-                dispatcher.deliver_message(msg=msg, receiver=target)
-        return True
+                self.info(msg='forward to bot: %s -> %s' % (name, bot))
+                receiver = bot
+        # deliver by dispatcher
+        dispatcher = Dispatcher()
+        dispatcher.deliver_message(msg=msg, receiver=receiver)
 
     def _split_group_message(self, msg: ReliableMessage, station: ID):
         """ redirect group message to assistant """

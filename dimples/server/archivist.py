@@ -44,7 +44,6 @@ from ..common import CommonArchivist
 from ..common import CommonFacebook, CommonMessenger
 from ..common import StationInfo
 
-from .dispatcher import Dispatcher
 from .session_center import SessionCenter
 
 
@@ -60,6 +59,11 @@ def get_messenger(archivist: CommonArchivist):
     if messenger is not None:
         assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
     return messenger
+
+
+def get_dispatcher():
+    from .dispatcher import Dispatcher
+    return Dispatcher()
 
 
 class ServerArchivist(CommonArchivist, ABC):
@@ -95,7 +99,7 @@ class ServerArchivist(CommonArchivist, ABC):
     @property
     def all_stations(self) -> List[StationInfo]:
         """ get stations from database """
-        dispatcher = Dispatcher()
+        dispatcher = get_dispatcher()
         db = dispatcher.sdb
         # TODO: get chosen provider
         providers = db.all_providers()
@@ -136,7 +140,7 @@ class ServerArchivist(CommonArchivist, ABC):
         s_msg = messenger.encrypt_message(msg=i_msg)
         r_msg = messenger.sign_message(msg=s_msg)
         # dispatch
-        dispatcher = Dispatcher()
+        dispatcher = get_dispatcher()
         neighbors = self.all_neighbors
         # avoid the new recipients redirect it to same targets
         r_msg['recipients'] = ID.revert(neighbors)

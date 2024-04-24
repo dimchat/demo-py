@@ -50,6 +50,16 @@ class BaseSession(GateKeeper, Session, ABC):
         self.__identifier: Optional[ID] = None
         self.__messenger: Optional[weakref.ReferenceType] = None
 
+    # Override
+    def __str__(self) -> str:
+        cname = self.__class__.__name__
+        return '<%s id="%s" remote="%s" key="%s" />' % (cname, self.identifier, self.remote_address, self.key)
+
+    # Override
+    def __repr__(self):
+        cname = self.__class__.__name__
+        return '<%s id="%s" remote="%s" key="%s" />' % (cname, self.identifier, self.remote_address, self.key)
+
     @property  # Override
     def database(self) -> SessionDBI:
         return self.__database

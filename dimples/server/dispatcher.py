@@ -32,13 +32,14 @@
 
 import threading
 from abc import ABC, abstractmethod
-from typing import Optional, List
+from typing import Optional, Set, List
 
-from dimsdk import EntityType, ID
+from dimsdk import EntityType, ID, EVERYONE
+from dimsdk import Station
 from dimsdk import Content, ReceiptCommand
 from dimsdk import ReliableMessage
 
-from ..utils import Singleton, Logging, Runner, Daemon
+from ..utils import Singleton, Log, Logging, Runner, Daemon
 from ..common import CommonFacebook
 from ..common import MessageDBI, SessionDBI
 from ..common import ReliableMessageDBI
@@ -46,6 +47,7 @@ from ..common import LoginCommand
 
 from .session_center import SessionCenter
 from .push import PushCenter
+from .archivist import ServerArchivist
 
 
 class MessageDeliver(ABC):
@@ -64,7 +66,7 @@ class MessageDeliver(ABC):
 
 
 @Singleton
-class Dispatcher(MessageDeliver):
+class Dispatcher(MessageDeliver, Logging):
 
     def __init__(self):
         super().__init__()
@@ -147,7 +149,11 @@ class Dispatcher(MessageDeliver):
     def deliver_message(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
         """ Deliver message to destination """
         worker = self.deliver_worker
-        if receiver.type == EntityType.STATION:
+        if receiver.is_group:
+            # broadcast message to neighbor stations
+            # e.g.: 'stations@everywhere', 'everyone@everywhere'
+            return self.__deliver_group_message(msg=msg, receiver=receiver)
+        elif receiver.type == EntityType.STATION:
             # message to other stations
             # station won't roam to other station, so just push for it directly
             responses = worker.redirect_message(msg=msg, neighbor=receiver)
@@ -180,6 +186,70 @@ class Dispatcher(MessageDeliver):
         else:
             # message delivered
             return responses
+
+    def __deliver_group_message(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
+        if receiver == Station.EVERY or receiver == EVERYONE:
+            # broadcast message to neighbor stations
+            # e.g.: 'stations@everywhere', 'everyone@everywhere'
+            archivist = self.facebook.archivist
+            assert isinstance(archivist, ServerArchivist)
+            candidates = archivist.all_neighbors
+            if len(candidates) == 0:
+                self.warning(msg='failed to get neighbors: %s' % receiver)
+                return []
+            self.info(msg='forward to neighbor stations: %s -> %s' % (receiver, candidates))
+            return self.__broadcast_message(msg=msg, receiver=receiver, neighbors=candidates)
+        else:
+            self.warning(msg='unknown group: %s' % receiver)
+            text = 'Group message not allow for this station'
+            res = ReceiptCommand.create(text=text, envelope=msg.envelope)
+            return [res]
+
+    def __broadcast_message(self, msg: ReliableMessage, receiver: ID, neighbors: Set[ID]) -> List[Content]:
+        #
+        #  0. check recipients
+        #
+        new_recipients = neighbors.copy()
+        old_recipients = msg.get('recipients')
+        if old_recipients is None:
+            all_recipients = []
+        else:
+            all_recipients = ID.convert(old_recipients)
+            # check duplicated
+            self.info(msg='discard recipients: %s, new recipients: %s' % (old_recipients, new_recipients))
+            for item in all_recipients:
+                new_recipients.discard(item)
+            if len(new_recipients) == 0:
+                self.info(msg='new recipients empty: %s => %s' % (receiver, neighbors))
+                return []
+        self.info(msg='append new recipients: %s, %s => %s' % (receiver, new_recipients, all_recipients))
+        for item in new_recipients:
+            all_recipients.append(item)
+        # avoid the new recipients redirect it to same targets
+        msg['recipients'] = ID.revert(all_recipients)
+        #
+        #  1. push to neighbor stations directly
+        #
+        indirect_neighbors = set()
+        for target in new_recipients:
+            if session_push(msg=msg, receiver=target) == 0:
+                indirect_neighbors.add(target)
+        if len(indirect_neighbors) > 0:
+            for item in indirect_neighbors:
+                all_recipients.remove(item)
+            msg['recipients'] = ID.revert(all_recipients)
+        #
+        #  2. push to other neighbor stations via station bridge
+        #
+        worker = self.deliver_worker
+        worker.redirect_message(msg=msg, neighbor=None)
+        #
+        #  OK
+        #
+        text = 'Message forwarded.'
+        cmd = ReceiptCommand.create(text=text, envelope=msg.envelope)
+        cmd['recipients'] = ID.revert(new_recipients)
+        return [cmd]
 
     def __save_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         if receiver.type == EntityType.STATION or msg.sender.type == EntityType.STATION:
@@ -305,7 +375,7 @@ class DeliverWorker(Logging):
         # 3. redirect message to roaming station
         return self.redirect_message(msg=msg, neighbor=roaming)
 
-    def redirect_message(self, msg: ReliableMessage, neighbor: ID) -> Optional[List[Content]]:
+    def redirect_message(self, msg: ReliableMessage, neighbor: Optional[ID]) -> Optional[List[Content]]:
         """
         Redirect message to neighbor station
 
@@ -325,7 +395,7 @@ class DeliverWorker(Logging):
             # return None to tell the push center to push notification for it.
             return None
         # 1. try to push message to neighbor station directly
-        if session_push(msg=msg, receiver=neighbor) > 0:
+        if neighbor is not None and session_push(msg=msg, receiver=neighbor) > 0:
             text = 'Message redirected.'
             cmd = ReceiptCommand.create(text=text, envelope=msg.envelope)
             cmd['neighbor'] = str(neighbor)
@@ -334,9 +404,10 @@ class DeliverWorker(Logging):
         return bridge_message(msg=msg, neighbor=neighbor, bridge=current)
 
 
-def bridge_message(msg: ReliableMessage, neighbor: ID, bridge: ID) -> Optional[List[Content]]:
+def bridge_message(msg: ReliableMessage, neighbor: Optional[ID], bridge: ID) -> List[Content]:
     """
     Redirect message to neighbor station via the station bridge
+    if neighbor is None, try to broadcast
 
     :param msg:      network message
     :param neighbor: roaming station
@@ -348,16 +419,25 @@ def bridge_message(msg: ReliableMessage, neighbor: ID, bridge: ID) -> Optional[L
     #       be changed to another value before pushing to the bridge.
     # clone = msg.copy_dictionary()
     # msg = ReliableMessage.parse(msg=clone)
-    msg['neighbor'] = str(neighbor)
-    if session_push(msg=msg, receiver=bridge) > 0:
-        text = 'Message redirected.'
-        cmd = ReceiptCommand.create(text=text, envelope=msg.envelope)
-        cmd['neighbor'] = str(neighbor)
-        return [cmd]
-    else:
-        # station bridge not found
-        # return an empty array to avoid calling push center
+    if neighbor is None:
+        # broadcast to all neighbor stations
+        # except that ones already in msg['recipients']
+        session_push(msg=msg, receiver=bridge)
+        # no need to respond receipt for this broadcast message
         return []
+    else:
+        assert neighbor != bridge, 'cannot bridge cycled message: %s' % neighbor
+        msg['neighbor'] = str(neighbor)
+    # push to the bridge
+    if session_push(msg=msg, receiver=bridge) == 0:
+        # station bridge not found
+        Log.warning(msg='failed to push message to bridge: %s, drop message: %s -> %s'
+                        % (bridge, msg.sender, msg.receiver))
+        return []
+    text = 'Message redirected via station bridge.'
+    cmd = ReceiptCommand.create(text=text, envelope=msg.envelope)
+    cmd['neighbor'] = str(neighbor)
+    return [cmd]
 
 
 def session_push(msg: ReliableMessage, receiver: ID) -> int:
