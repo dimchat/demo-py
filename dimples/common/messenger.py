@@ -208,6 +208,7 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         s_msg = self.encrypt_message(msg=msg)
         if s_msg is None:
             # public key not found?
+            self.warning(msg='failed to encrypt message: %s => %s, %s' % (sender, msg.receiver, msg.group))
             return None
         #
         #  2. sign message
@@ -222,6 +223,7 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         if self.send_reliable_message(msg=r_msg, priority=priority):
             return r_msg
         # failed
+        self.error(msg='failed to send message: %s => %s, %s' % (sender, msg.receiver, msg.group))
 
     # Override
     def send_reliable_message(self, msg: ReliableMessage, priority: int = 0) -> bool:

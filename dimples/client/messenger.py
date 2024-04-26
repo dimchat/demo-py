@@ -33,6 +33,7 @@
 from typing import Optional, List
 
 from dimples import EntityType, ID, EVERYONE
+from dimples import Document
 from dimples import Station
 from dimples import Envelope, InstantMessage, ReliableMessage
 from dimples import ContentType, ReceiptCommand, DocumentCommand
@@ -67,14 +68,23 @@ class ClientMessenger(CommonMessenger):
             if visa is None:
                 self.warning(msg='user visa not found: %s' % user)
             else:
-                device = {
-                    'os': 'Linux',
-                }
-                visa.set_property(key='sys', value=device)
-                # sign to update
+                # clone visa to update
+                doc = Document.parse(document=visa.copy_dictionary())
                 pri_key = facebook.private_key_for_visa_signature(identifier=user.identifier)
-                assert pri_key is not None, 'failed to get private key for visa: %s' % visa
-                visa.sign(private_key=pri_key)
+                if doc is None or pri_key is None:
+                    self.error(msg='should not happen, visa: %s, private key: %s' % (doc, pri_key))
+                else:
+                    # update visa
+                    doc.set_property(key='sys', value={
+                        'os': 'Linux',
+                    })
+                    if doc.sign(private_key=pri_key) is None:
+                        self.error(msg='failed to sign visa: %s, private key: %s' % (doc, pri_key))
+                    elif facebook.save_document(document=doc):
+                        self.info(msg='visa updated: %s' % doc)
+                        visa = doc
+                    else:
+                        self.error(msg='failed to save visa: %s' % doc)
             env = Envelope.create(sender=user.identifier, receiver=srv_id)
             cmd = HandshakeCommand.start()
             # send first handshake command as broadcast message

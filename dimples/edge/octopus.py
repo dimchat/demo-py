@@ -267,13 +267,14 @@ class OctopusMessenger(ClientMessenger, ABC):
         self.__terminal = weakref.ref(client)
 
     @property
-    def octopus(self):
-        bot = self.__octopus()
+    def octopus(self) -> Optional[Octopus]:
+        ref = self.__octopus
+        bot = None if ref is None else ref()
         assert isinstance(bot, Octopus), 'octopus error: %s' % bot
         return bot
 
     @octopus.setter
-    def octopus(self, bot):
+    def octopus(self, bot: Octopus):
         self.__octopus = weakref.ref(bot)
 
     @property
@@ -350,7 +351,7 @@ class OuterMessenger(OctopusMessenger):
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         if msg.sender == self.local_station:
-            self.debug(msg='cycled message from this station: %s => %s' % (msg.sender, msg.receiver))
+            self.error(msg='cycled message from this station: %s => %s' % (msg.sender, msg.receiver))
             return []
         return super().process_reliable_message(msg=msg)
 
