@@ -58,13 +58,13 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         return transceiver
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, LoginCommand), 'command error: %s' % content
         sender = content.identifier
         # 1. store login command
         session = self.messenger.session
         db = session.database
-        if not db.save_login_command_message(user=sender, content=content, msg=r_msg):
+        if not await db.save_login_command_message(user=sender, content=content, msg=r_msg):
             self.error(msg='login command error/expired: %s' % content)
             return []
         # 2. check roaming station

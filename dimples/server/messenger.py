@@ -45,15 +45,15 @@ from .dispatcher import Dispatcher
 class ServerMessenger(CommonMessenger):
 
     # Override
-    def handshake_success(self):
+    async def handshake_success(self):
         session = self.session
         identifier = session.identifier
         remote_address = session.remote_address
         self.warning(msg='user login: %s, socket: %s' % (identifier, remote_address))
         # process suspended messages
-        self._resume_reliable_messages()
+        await self._resume_reliable_messages()
 
-    def _resume_reliable_messages(self):
+    async def _resume_reliable_messages(self):
         packer = self.packer
         assert isinstance(packer, CommonMessagePacker), 'message packer error: %s' % packer
         messages = packer.resume_reliable_messages()
@@ -61,38 +61,40 @@ class ServerMessenger(CommonMessenger):
             msg.pop('error', None)
             self.info(msg='processing suspended message: %s -> %s' % (msg.sender, msg.receiver))
             try:
-                responses = self.process_reliable_message(msg=msg)
+                responses = await self.process_reliable_message(msg=msg)
                 for res in responses:
-                    self.send_reliable_message(msg=res, priority=1)
+                    await self.send_reliable_message(msg=res, priority=1)
             except Exception as error:
                 self.error(msg='failed to process incoming message: %s' % error)
 
     # Override
-    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+    async def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         session = self.session
         current = self.facebook.current_user
         sid = current.identifier
         receiver = msg.receiver
         # call super
-        responses = super().process_reliable_message(msg=msg)
+        responses = await super().process_reliable_message(msg=msg)
         # check for first handshake
         if receiver == Station.ANY or msg.group == Station.EVERY:
             # if this message sent to 'station@anywhere', or with group ID 'stations@everywhere',
             # it means the client doesn't have the station's meta (e.g.: first handshaking)
             # or visa maybe expired, here attach them to the first response.
+            meta = await current.meta
+            visa = await current.visa
             for res in responses:
                 if res.sender == sid:
                     # let the first responding message to carry the station's meta & visa
-                    MessageHelper.set_meta(meta=current.meta, msg=res)
-                    MessageHelper.set_visa(visa=current.visa, msg=res)
+                    MessageHelper.set_meta(meta=meta, msg=res)
+                    MessageHelper.set_visa(visa=visa, msg=res)
                     break
         elif session.identifier == sid:
             # station bridge
-            responses = pick_out(messages=responses, bridge=sid)
+            responses = await pick_out(messages=responses, bridge=sid)
         return responses
 
 
-def pick_out(messages: List[ReliableMessage], bridge: ID) -> List[ReliableMessage]:
+async def pick_out(messages: List[ReliableMessage], bridge: ID) -> List[ReliableMessage]:
     responses = []
     dispatcher = Dispatcher()
     for msg in messages:
@@ -103,5 +105,5 @@ def pick_out(messages: List[ReliableMessage], bridge: ID) -> List[ReliableMessag
         else:
             # this message is not respond to the bridge, the receiver may be
             # roaming to other station, so deliver it via dispatcher here.
-            dispatcher.deliver_message(msg=msg, receiver=receiver)
+            await dispatcher.deliver_message(msg=msg, receiver=receiver)
     return responses

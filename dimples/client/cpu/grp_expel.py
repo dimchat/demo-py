@@ -49,7 +49,7 @@ from .group import GroupCommandProcessor
 class ExpelCommandProcessor(GroupCommandProcessor, Logging):
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ExpelCommand), 'expel command error: %s' % content
 
         self.warning(msg='"expel" group command is deprecated, use "reset" instead.')

@@ -36,7 +36,7 @@ from typing import Generic, TypeVar, Optional, Union, List
 from startrek.types import SocketAddress
 from startrek.net.state import StateOrder
 from startrek import Hub, Channel
-from startrek import Connection, ConnectionState, ActiveConnection
+from startrek import Connection, ConnectionState, BaseConnection, ActiveConnection
 from startrek import Docker, DockerDelegate
 from startrek import Arrival, StarDocker, StarGate
 
@@ -84,7 +84,8 @@ class CommonGate(StarGate, Logging, Generic[H], ABC):
                        remote: SocketAddress, local: Optional[SocketAddress]) -> Optional[Docker]:
         return super()._remove_docker(docker=docker, remote=remote, local=None)
 
-    def fetch_docker(self, advance_party: List[bytes], remote: SocketAddress, local: Optional[SocketAddress]) -> Docker:
+    async def fetch_docker(self, advance_party: List[bytes],
+                           remote: SocketAddress, local: Optional[SocketAddress]) -> Docker:
         # try to get docker
         with self.__lock:
             old = self._get_docker(remote=remote, local=local)
@@ -97,7 +98,7 @@ class CommonGate(StarGate, Logging, Generic[H], ABC):
         if old is None:
             hub = self.hub
             assert isinstance(hub, Hub), 'gate hub error: %s' % hub
-            conn = hub.connect(remote=remote, local=local)
+            conn = await hub.connect(remote=remote, local=local)
             if conn is None:
                 # assert False, 'failed to get connection: %s -> %s' % (local, remote)
                 self._remove_docker(worker, remote=remote, local=local)
@@ -105,33 +106,33 @@ class CommonGate(StarGate, Logging, Generic[H], ABC):
             else:
                 assert isinstance(worker, StarDocker), 'docker error: %s, %s' % (remote, worker)
                 # set connection for this docker
-                worker.set_connection(conn)
+                await worker.set_connection(conn)
         return worker
 
-    def send_response(self, payload: bytes, ship: Arrival,
-                      remote: SocketAddress, local: Optional[SocketAddress]) -> bool:
+    async def send_response(self, payload: bytes, ship: Arrival,
+                            remote: SocketAddress, local: Optional[SocketAddress]) -> bool:
         worker = self._get_docker(remote=remote, local=local)
         if isinstance(worker, MTPStreamDocker):
             # sn = TransactionID.from_data(data=ship.sn)
             sn = TransactionID.generate()
             pack = MTPHelper.create_message(body=payload, sn=sn)
-            return worker.send_package(pack=pack)
+            return await worker.send_package(pack=pack)
         elif isinstance(worker, MarsStreamDocker):
             assert isinstance(ship, MarsStreamArrival), 'responding ship error: %s' % ship
             mars = MarsHelper.create_respond(head=ship.package.head, payload=payload)
             ship = MarsStreamDocker.create_departure(mars=mars)
-            return worker.send_ship(ship=ship)
+            return await worker.send_ship(ship=ship)
         elif isinstance(worker, WSDocker):
             ship = worker.pack(payload=payload)
-            return worker.send_ship(ship=ship)
+            return await worker.send_ship(ship=ship)
         else:
             raise LookupError('docker error (%s, %s): %s' % (remote, local, worker))
 
     # Override
-    def _heartbeat(self, connection: Connection):
+    async def _heartbeat(self, connection: Connection):
         # let the client to do the job
         if isinstance(connection, ActiveConnection):
-            super()._heartbeat(connection=connection)
+            await super()._heartbeat(connection=connection)
 
     # Override
     def _cache_advance_party(self, data: bytes, connection: Connection) -> List[bytes]:
@@ -151,43 +152,45 @@ class CommonGate(StarGate, Logging, Generic[H], ABC):
     #
 
     # Override
-    def connection_state_changed(self, previous: Optional[ConnectionState], current: Optional[ConnectionState],
-                                 connection: Connection):
+    async def connection_state_changed(self, previous: Optional[ConnectionState], current: Optional[ConnectionState],
+                                       connection: Connection):
         index = -1 if current is None else current.index
         if index == StateOrder.ERROR:
             self.error(msg='connection lost: %s -> %s, %s' % (previous, current, connection.remote_address))
         elif index != StateOrder.EXPIRED and index != StateOrder.MAINTAINING:
             self.debug(msg='connection state changed: %s -> %s, %s' % (previous, current, connection.remote_address))
         try:
-            super().connection_state_changed(previous=previous, current=current, connection=connection)
+            await super().connection_state_changed(previous=previous, current=current, connection=connection)
         except AssertionError as error:
             self.error(msg='connection callback failed: %s' % error)
 
     # Override
-    def connection_received(self, data: bytes, connection: Connection):
+    async def connection_received(self, data: bytes, connection: Connection):
         self.debug(msg='received %d byte(s): %s' % (len(data), connection.remote_address))
-        super().connection_received(data=data, connection=connection)
+        await super().connection_received(data=data, connection=connection)
 
     # Override
-    def connection_sent(self, sent: int, data: bytes, connection: Connection):
-        super().connection_sent(sent=sent, data=data, connection=connection)
+    async def connection_sent(self, sent: int, data: bytes, connection: Connection):
+        await super().connection_sent(sent=sent, data=data, connection=connection)
         self.debug(msg='sent %d byte(s): %s' % (len(data), connection.remote_address))
 
     # Override
-    def connection_failed(self, error: Union[IOError, socket.error], data: bytes, connection: Connection):
-        super().connection_failed(error=error, data=data, connection=connection)
+    async def connection_failed(self, error: Union[IOError, socket.error], data: bytes, connection: Connection):
+        await super().connection_failed(error=error, data=data, connection=connection)
         self.error(msg='failed to send %d byte(s): %s, remote=%s' % (len(data), error, connection.remote_address))
 
     # Override
-    def connection_error(self, error: Union[IOError, socket.error], connection: Connection):
-        super().connection_error(error=error, connection=connection)
+    async def connection_error(self, error: Union[IOError, socket.error], connection: Connection):
+        await super().connection_error(error=error, connection=connection)
         if error is not None and str(error).startswith('failed to send: '):
             self.warning(msg='ignore socket error: %s, remote=%s' % (error, connection.remote_address))
 
     def get_channel(self, remote: Optional[SocketAddress], local: Optional[SocketAddress]) -> Optional[Channel]:
-        hub = self.hub
-        assert isinstance(hub, Hub), 'hub error: %s' % hub
-        return hub.open(remote=remote, local=local)
+        docker = self._get_docker(remote=remote, local=local)
+        if isinstance(docker, StarDocker):
+            conn = docker.connection
+            if isinstance(conn, BaseConnection):
+                return conn.channel
 
 
 #

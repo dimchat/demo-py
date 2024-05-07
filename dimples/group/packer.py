@@ -54,22 +54,22 @@ class GroupPacker(Logging):
     def messenger(self) -> Messenger:
         return self.delegate.messenger
 
-    def pack_message(self, content: Content, sender: ID) -> Optional[ReliableMessage]:
+    async def pack_message(self, content: Content, sender: ID) -> Optional[ReliableMessage]:
         """ Pack as broadcast message """
         envelope = Envelope.create(sender=sender, receiver=ANYONE)
         msg = InstantMessage.create(head=envelope, body=content)
         msg.set_string(key='group', value=content.group)  # expose group ID
-        return self.encrypt_sign_message(msg=msg)
+        return await self.encrypt_sign_message(msg=msg)
 
-    def encrypt_sign_message(self, msg: InstantMessage) -> Optional[ReliableMessage]:
+    async def encrypt_sign_message(self, msg: InstantMessage) -> Optional[ReliableMessage]:
         messenger = self.messenger
         # encrypt for receiver
-        s_msg = messenger.encrypt_message(msg=msg)
+        s_msg = await messenger.encrypt_message(msg=msg)
         if s_msg is None:
             self.error(msg='failed to encrypt message: %s => %s, %s' % (msg.sender, msg.receiver, msg.get('group')))
             return None
         # sign for sender
-        r_msg = messenger.sign_message(msg=s_msg)
+        r_msg = await messenger.sign_message(msg=s_msg)
         if r_msg is None:
             self.error(msg='failed to sign message: %s => %s, %s' % (msg.sender, msg.receiver, msg.get('group')))
             return None

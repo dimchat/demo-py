@@ -28,7 +28,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-
+import asyncio
 import os
 import sys
 
@@ -38,7 +38,7 @@ path = os.path.dirname(path)
 path = os.path.dirname(path)
 sys.path.insert(0, path)
 
-from dimples.utils import Log
+from dimples.utils import Log, Runner
 
 from dimples.edge.shared import create_config, create_database, create_facebook
 from dimples.edge.shared import GlobalVariable
@@ -54,21 +54,21 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/edge.ini'
 
 
-def main():
+async def main():
     # create global variable
     shared = GlobalVariable()
     # Step 1: load config
     config = create_config(app_name='DIM Network Edge', default_config=DEFAULT_CONFIG)
     shared.config = config
     # Step 2: create database
-    adb, mdb, sdb = create_database(config=config)
+    adb, mdb, sdb = await create_database(config=config)
     shared.adb = adb
     shared.mdb = mdb
     shared.sdb = sdb
     # Step 3: create facebook
     sid = config.station_id
     assert sid is not None, 'current station ID not set: %s' % config
-    facebook = create_facebook(database=adb, current_user=sid)
+    facebook = await create_facebook(database=adb, current_user=sid)
     shared.facebook = facebook
     # create & start octopus
     host = config.station_host
@@ -76,7 +76,9 @@ def main():
     assert host is not None and port > 0, 'station config error: %s' % config
     octopus = Octopus(shared=shared, local_host=host, local_port=port)
     octopus.start()
+    while True:
+        await Runner.sleep(seconds=1.0)
 
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())

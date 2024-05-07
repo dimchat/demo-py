@@ -67,7 +67,7 @@ class Octopus(Runner, Logging):
         self.__outers: Set[Terminal] = set()
         self.__outer_map = weakref.WeakValueDictionary()
         self.__outer_lock = threading.Lock()
-        self.__daemon = Daemon(target=self, daemonic=False)
+        self.__daemon = Daemon(target=self)
 
     @property
     def shared(self) -> GlobalVariable:
@@ -133,24 +133,24 @@ class Octopus(Runner, Logging):
         self.__daemon.start()
 
     # Override
-    def stop(self):
-        super().stop()
+    async def stop(self):
+        await super().stop()
         inner = self.__inner
         if inner is not None:
-            inner.stop()
+            await inner.stop()
         with self.__outer_lock:
             outers = set(self.__outers)
         for out in outers:
-            out.stop()
+            await out.stop()
 
     # Override
-    def process(self) -> bool:
+    async def process(self) -> bool:
         # get all neighbor stations
         db = self.database
-        providers = db.all_providers()
+        providers = await db.all_providers()
         assert len(providers) > 0, 'service provider not found'
         gsp = providers[0].identifier
-        neighbors = db.all_stations(provider=gsp)
+        neighbors = await db.all_stations(provider=gsp)
         if neighbors is not None:
             neighbors = neighbors.copy()
         # get all outer terminals
@@ -188,20 +188,20 @@ class Octopus(Runner, Logging):
             self.connect(host=host, port=port)
         return False
 
-    def income_message(self, msg: ReliableMessage, priority: int = 0) -> List[ReliableMessage]:
+    async def income_message(self, msg: ReliableMessage, priority: int = 0) -> List[ReliableMessage]:
         """ redirect message from remote station """
         sender = msg.sender
         receiver = msg.receiver
         sig = get_msg_sig(msg=msg)
         messenger = self.inner_messenger
-        if messenger.send_reliable_message(msg=msg, priority=priority):
+        if await messenger.send_reliable_message(msg=msg, priority=priority):
             self.info(msg='redirected msg (%s): %s -> %s' % (sig, sender, receiver))
         else:
             self.error(msg='failed to redirect msg (%s): %s -> %s' % (sig, sender, receiver))
         # no need to respond receipt for station
         return []
 
-    def outgo_message(self, msg: ReliableMessage, priority: int = 0) -> List[ReliableMessage]:
+    async def outgo_message(self, msg: ReliableMessage, priority: int = 0) -> List[ReliableMessage]:
         """ redirect message to remote station """
         receiver = msg.receiver
         # get neighbor stations
@@ -240,7 +240,7 @@ class Octopus(Runner, Logging):
                 # target station not my neighbor
                 self.warning(msg='not my neighbor: %s (%s)' % (target, receiver))
                 failed_neighbors.append(target)
-            elif messenger.send_reliable_message(msg=msg, priority=priority):
+            elif await messenger.send_reliable_message(msg=msg, priority=priority):
                 self.info(msg='redirected msg (%s) to neighbor: %s (%s)' % (sig, target, receiver))
             else:
                 self.error(msg='failed to send to neighbor: %s (%s)' % (target, receiver))
@@ -283,7 +283,7 @@ class OctopusMessenger(ClientMessenger, ABC):
         current = facebook.current_user
         return current.identifier
 
-    def __is_handshaking(self, msg: ReliableMessage) -> bool:
+    async def __is_handshaking(self, msg: ReliableMessage) -> bool:
         """ check HandshakeCommand sent to this station """
         receiver = msg.receiver
         if receiver.type != EntityType.STATION or receiver != self.local_station:
@@ -292,16 +292,16 @@ class OctopusMessenger(ClientMessenger, ABC):
         if msg.type != ContentType.COMMAND:
             # not a command
             return False
-        i_msg = self.decrypt_message(msg=msg)
+        i_msg = await self.decrypt_message(msg=msg)
         if i_msg is not None:
             return isinstance(i_msg.content, HandshakeCommand)
 
     # Override
-    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+    async def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         # check for HandshakeCommand
-        if self.__is_handshaking(msg=msg):
+        if await self.__is_handshaking(msg=msg):
             self.info(msg='receive handshaking: %s' % msg.sender)
-            return super().process_reliable_message(msg=msg)
+            return await super().process_reliable_message(msg=msg)
         # check for cycled message
         if msg.receiver == msg.sender:
             self.error(msg='drop cycled msg(type=%d): %s -> %s | from %s, traces: %s'
@@ -311,10 +311,10 @@ class OctopusMessenger(ClientMessenger, ABC):
         sig = get_msg_sig(msg=msg)
         self.info(msg='redirect msg(type=%d, sig=%s): %s -> %s | from %s, traces: %s'
                   % (msg.type, sig, msg.sender, msg.receiver, get_remote_station(messenger=self), msg.get('traces')))
-        return self._deliver_message(msg=msg)
+        return await self._deliver_message(msg=msg)
 
     @abstractmethod
-    def _deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+    async def _deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         """ call octopus to redirect message """
         return []
 
@@ -329,37 +329,37 @@ class InnerMessenger(OctopusMessenger):
     """ Messenger for local station """
 
     # Override
-    def _deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+    async def _deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         priority = 0  # NORMAL
         if msg.receiver.is_broadcast:
             priority = 1  # SLOWER
         octopus = self.octopus
-        return octopus.outgo_message(msg=msg, priority=priority)
+        return await octopus.outgo_message(msg=msg, priority=priority)
 
 
 class OuterMessenger(OctopusMessenger):
     """ Messenger for remote station """
 
     # Override
-    def _deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+    async def _deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         priority = 0  # NORMAL
         if msg.receiver.is_broadcast:
             priority = 1  # SLOWER
         octopus = self.octopus
-        return octopus.income_message(msg=msg, priority=priority)
+        return await octopus.income_message(msg=msg, priority=priority)
 
     # Override
-    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+    async def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         if msg.sender == self.local_station:
             self.error(msg='cycled message from this station: %s => %s' % (msg.sender, msg.receiver))
             return []
-        return super().process_reliable_message(msg=msg)
+        return await super().process_reliable_message(msg=msg)
 
     # Override
-    def handshake_success(self):
-        super().handshake_success()
+    async def handshake_success(self):
+        await super().handshake_success()
         station = self.session.station
-        update_station(station=station, database=self.octopus.database)
+        await update_station(station=station, database=self.octopus.database)
         octopus = self.octopus
         octopus.add_index(identifier=station.identifier, terminal=self.terminal)
 
@@ -385,7 +385,7 @@ def create_terminal(messenger: OctopusMessenger) -> Terminal:
     return terminal
 
 
-def update_station(station: Station, database: SessionDBI):
+async def update_station(station: Station, database: SessionDBI):
     Log.info(msg='update station: %s' % station)
     # SP ID
     provider = station.provider
@@ -397,4 +397,4 @@ def update_station(station: Station, database: SessionDBI):
     port = station.port
     assert not sid.is_broadcast, 'station ID error: %s' % sid
     assert host is not None and port > 0, 'station error: %s, %d' % (host, port)
-    database.update_station(identifier=sid, host=host, port=port, provider=provider, chosen=0)
+    await database.update_station(identifier=sid, host=host, port=port, provider=provider, chosen=0)

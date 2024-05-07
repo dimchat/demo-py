@@ -74,9 +74,9 @@ class ServerMessageProcessor(CommonMessageProcessor):
 
     # protected
     # noinspection PyMethodMayBeStatic
-    def is_blocked(self, msg: ReliableMessage) -> bool:
+    async def is_blocked(self, msg: ReliableMessage) -> bool:
         block_filter = FilterManager().block_filter
-        return block_filter.is_blocked(msg=msg)
+        return await block_filter.is_blocked(msg=msg)
 
     def _suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
         packer = self.messenger.packer
@@ -84,9 +84,9 @@ class ServerMessageProcessor(CommonMessageProcessor):
         packer.suspend_reliable_message(msg=msg, error=error)
 
     # Override
-    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+    async def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         # check block list
-        if self.is_blocked(msg=msg):
+        if await self.is_blocked(msg=msg):
             self.warning(msg='user is blocked: %s -> %s (group: %s)' % (msg.sender, msg.receiver, msg.group))
             return []
         messenger = self.messenger
@@ -95,7 +95,7 @@ class ServerMessageProcessor(CommonMessageProcessor):
         station = current.identifier
         receiver = msg.receiver
         # 0. verify message
-        s_msg = messenger.verify_message(msg=msg)
+        s_msg = await messenger.verify_message(msg=msg)
         if s_msg is None:
             # TODO: suspend and waiting for sender's meta if not exists
             return []
@@ -121,7 +121,7 @@ class ServerMessageProcessor(CommonMessageProcessor):
                 self._suspend_reliable_message(msg=msg, error=error)
                 # 1.2. ask client to handshake again (with session key)
                 # this message won't be delivered before handshake accepted
-                return self._force_handshake(msg=msg)
+                return await self._force_handshake(msg=msg)
             # session is active and user login success
             # if sender == session.ID,
             #   we can trust this message an no need to verify it;
@@ -130,39 +130,39 @@ class ServerMessageProcessor(CommonMessageProcessor):
             if receiver == Station.EVERY or receiver == EVERYONE:
                 # broadcast message (to neighbor stations)
                 # e.g.: 'stations@everywhere', 'everyone@everywhere'
-                self._broadcast_message(msg=msg, station=station)
+                await self._broadcast_message(msg=msg, station=station)
                 # if receiver == 'everyone@everywhere':
                 #     broadcast message to all destinations,
                 #     current station is it's receiver too.
             elif receiver.is_broadcast:
                 # broadcast message (to station bots)
                 # e.g.: 'archivist@anywhere', 'announcer@anywhere', 'monitor@anywhere', ...
-                self._broadcast_message(msg=msg, station=station)
+                await self._broadcast_message(msg=msg, station=station)
                 return []
             elif receiver.is_group:
                 # encrypted group messages should be sent to the group assistant,
                 # the station will never process these messages.
-                self._split_group_message(msg=msg, station=station)
+                await self._split_group_message(msg=msg, station=station)
                 return []
             else:
                 # this message is not for current station,
                 # deliver to the real receiver and respond to sender
-                return self._deliver_message(msg=msg)
+                return await self._deliver_message(msg=msg)
         # 2. process message
-        responses = messenger.process_secure_message(msg=s_msg, r_msg=msg)
+        responses = await messenger.process_secure_message(msg=s_msg, r_msg=msg)
         if len(responses) == 0:
             # nothing to respond
             return []
         # 3. sign message
         messages = []
         for res in responses:
-            signed = messenger.sign_message(msg=res)
+            signed = await messenger.sign_message(msg=res)
             if signed is not None:
                 messages.append(signed)
         return messages
         # TODO: override to deliver to the receiver when catch exception "receiver error ..."
 
-    def _force_handshake(self, msg: ReliableMessage) -> List[ReliableMessage]:
+    async def _force_handshake(self, msg: ReliableMessage) -> List[ReliableMessage]:
         session = self.messenger.session
         sess_id = session.identifier
         current = self.facebook.current_user
@@ -173,13 +173,13 @@ class ServerMessageProcessor(CommonMessageProcessor):
         # build 'handshake' command message
         command = HandshakeCommand.ask(session=session.key)
         command['force'] = True
-        r_msg = pack_message(content=command, sender=sid, receiver=sender, messenger=self.messenger)
+        r_msg = await pack_message(content=command, sender=sid, receiver=sender, messenger=self.messenger)
         if r_msg is None:
             assert False, 'failed to send "handshake" command to: %s' % sender
         else:
             return [r_msg]
 
-    def _broadcast_message(self, msg: ReliableMessage, station: ID):
+    async def _broadcast_message(self, msg: ReliableMessage, station: ID):
         """ broadcast message to actual recipients """
         sender = msg.sender
         receiver = msg.receiver
@@ -205,15 +205,15 @@ class ServerMessageProcessor(CommonMessageProcessor):
                 receiver = bot
         # deliver by dispatcher
         dispatcher = Dispatcher()
-        dispatcher.deliver_message(msg=msg, receiver=receiver)
+        await dispatcher.deliver_message(msg=msg, receiver=receiver)
 
-    def _split_group_message(self, msg: ReliableMessage, station: ID):
+    async def _split_group_message(self, msg: ReliableMessage, station: ID):
         """ redirect group message to assistant """
         sender = msg.sender
         receiver = msg.receiver
         self.error(msg='group message should not send to station: %s, %s -> %s' % (station, sender, receiver))
 
-    def _deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+    async def _deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         messenger = self.messenger
         current = self.facebook.current_user
         sid = current.identifier
@@ -221,11 +221,11 @@ class ServerMessageProcessor(CommonMessageProcessor):
         receiver = msg.receiver
         # deliver
         dispatcher = Dispatcher()
-        responses = dispatcher.deliver_message(msg=msg, receiver=receiver)
+        responses = await dispatcher.deliver_message(msg=msg, receiver=receiver)
         assert len(responses) > 0, 'should not happen'
         messages = []
         for res in responses:
-            r_msg = pack_message(content=res, sender=sid, receiver=sender, messenger=messenger)
+            r_msg = await pack_message(content=res, sender=sid, receiver=sender, messenger=messenger)
             if r_msg is None:
                 assert False, 'failed to send respond to: %s' % sender
             else:
@@ -233,9 +233,9 @@ class ServerMessageProcessor(CommonMessageProcessor):
         return messages
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         # 0. process first
-        responses = super().process_content(content=content, r_msg=r_msg)
+        responses = await super().process_content(content=content, r_msg=r_msg)
         messenger = self.messenger
         sender = r_msg.sender
         # 1. check login
@@ -272,12 +272,13 @@ class ServerMessageProcessor(CommonMessageProcessor):
         return ServerContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
 
 
-def pack_message(content: Content, sender: ID, receiver: ID, messenger: CommonMessenger) -> Optional[ReliableMessage]:
+async def pack_message(content: Content, sender: ID, receiver: ID,
+                       messenger: CommonMessenger) -> Optional[ReliableMessage]:
     envelope = Envelope.create(sender=sender, receiver=receiver)
     i_msg = InstantMessage.create(head=envelope, body=content)
-    s_msg = messenger.encrypt_message(msg=i_msg)
+    s_msg = await messenger.encrypt_message(msg=i_msg)
     if s_msg is not None:
-        return messenger.sign_message(msg=s_msg)
+        return await messenger.sign_message(msg=s_msg)
 
 
 class ServerContentProcessorCreator(BaseContentProcessorCreator):

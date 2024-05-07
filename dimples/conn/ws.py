@@ -33,6 +33,7 @@ import threading
 from typing import Optional, List, Tuple
 
 from startrek.types import SocketAddress
+from startrek.fsm import Runner
 from startrek import Arrival, Departure
 from startrek import ArrivalShip, DepartureShip, DeparturePriority
 from startrek import BaseConnection, BaseChannel
@@ -143,13 +144,13 @@ class WSDocker(PlainDocker, DeparturePacker):
             return pack, payload, remain_len
 
     # Override
-    def process_received(self, data: bytes):
+    async def process_received(self, data: bytes):
         # the cached data maybe contain sticky packages,
         # so we need to process them circularly here
         self.__package_received = True
         while self.__package_received:
             self.__package_received = False
-            super().process_received(data=data)
+            await super().process_received(data=data)
             data = b''
 
     # Override
@@ -163,7 +164,7 @@ class WSDocker(PlainDocker, DeparturePacker):
             res = WebSocket.handshake(stream=data)
             if res is not None:
                 ship = WSDeparture(package=res, payload=b'')
-                self.send_ship(ship=ship)
+                Runner.async_run(coro=self.send_ship(ship=ship))
                 self.__handshaking = False
             elif len(data) < self.MAX_PACK_LENGTH:
                 # waiting for more data
@@ -186,7 +187,7 @@ class WSDocker(PlainDocker, DeparturePacker):
         return ships
 
     # Override
-    def _check_arrival(self, ship: Arrival) -> Optional[Arrival]:
+    async def _check_arrival(self, ship: Arrival) -> Optional[Arrival]:
         assert isinstance(ship, WSArrival), 'arrival ship error: %s' % ship
         body = ship.payload
         body_len = len(body)
@@ -198,7 +199,7 @@ class WSDocker(PlainDocker, DeparturePacker):
             if body == PING:
                 # 'PING' -> 'PONG'
                 ship = self.pack(payload=PONG, priority=DeparturePriority.SLOWER)
-                self.send_ship(ship=ship)
+                await self.send_ship(ship=ship)
                 return None
             elif body == PONG or body == NOOP:
                 # ignore
@@ -211,7 +212,7 @@ class WSDocker(PlainDocker, DeparturePacker):
         return ship
 
     # Override
-    def heartbeat(self):
+    async def heartbeat(self):
         # heartbeat by client
         pass
 

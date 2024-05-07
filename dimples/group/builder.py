@@ -71,7 +71,7 @@ class GroupHistoryBuilder(Logging):
     def messenger(self) -> CommonMessenger:
         return self.delegate.messenger
 
-    def build_group_histories(self, group: ID) -> List[ReliableMessage]:
+    async def build_group_histories(self, group: ID) -> List[ReliableMessage]:
         """ build command list for group history:
                 0. document command
                 1. reset group command
@@ -81,7 +81,7 @@ class GroupHistoryBuilder(Logging):
         #
         #  0. build 'document' command
         #
-        doc, msg = self.build_document_command(group=group)
+        doc, msg = await self.build_document_command(group=group)
         if doc is None or msg is None:
             self.warning(msg='failed to build "document" command for group: %s' % group)
             return messages
@@ -90,7 +90,7 @@ class GroupHistoryBuilder(Logging):
         #
         #  1. append 'reset' command
         #
-        reset, msg = self.helper.reset_command_message(group=group)
+        reset, msg = await self.helper.get_reset_command_message(group=group)
         if reset is None or msg is None:
             self.warning(msg='failed to get "reset" command for group: %s' % group)
             return messages
@@ -99,7 +99,7 @@ class GroupHistoryBuilder(Logging):
         #
         #  2. append other group commands
         #
-        history = self.helper.group_histories(group=group)
+        history = await self.helper.get_group_histories(group=group)
         for pair in history:
             cmd = pair[0]
             msg = pair[1]
@@ -122,46 +122,46 @@ class GroupHistoryBuilder(Logging):
         # OK
         return messages
 
-    def build_document_command(self, group: ID) -> Tuple[Optional[Document], Optional[ReliableMessage]]:
+    async def build_document_command(self, group: ID) -> Tuple[Optional[Document], Optional[ReliableMessage]]:
         """ create broadcast 'document' command """
         user = self.facebook.current_user
-        doc = self.delegate.bulletin(group)
+        doc = await self.delegate.get_bulletin(group)
         if user is None or doc is None:
             assert user is not None, 'failed to get current user'
             self.error(msg='document not found for group: %s' % group)
             return None, None
         me = user.identifier
-        meta = self.delegate.meta(identifier=group)
+        meta = await self.delegate.get_meta(identifier=group)
         cmd = DocumentCommand.response(identifier=group, meta=meta, document=doc)
-        msg = self.__pack_broadcast_message(sender=me, content=cmd)
+        msg = await self.__pack_broadcast_message(sender=me, content=cmd)
         return doc, msg
 
-    def builder_reset_command(self, group: ID,
-                              members: Optional[List[ID]]) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
+    async def builder_reset_command(self, group: ID, members: Optional[List[ID]]) \
+            -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
         """ create broadcast 'reset' group command with newest member list """
         user = self.facebook.current_user
-        owner = self.delegate.owner(identifier=group)
+        owner = await self.delegate.get_owner(identifier=group)
         if user is None or owner is None:
             assert user is not None, 'failed to get current user'
             self.error(msg='owner not found for group: %s' % group)
             return None, None
         me = user.identifier
         if owner != me:
-            admins = self.delegate.administrators(group=group)
+            admins = await self.delegate.get_administrators(group=group)
             if me not in admins:
                 self.warning(msg='not permit to build "reset" command for group: %s, %s' % (group, me))
                 return None, None
         if members is None:
-            self.delegate.members(identifier=group)
+            await self.delegate.get_members(identifier=group)
         cmd = GroupCommand.reset(group=group, members=members)
-        msg = self.__pack_broadcast_message(sender=me, content=cmd)
+        msg = await self.__pack_broadcast_message(sender=me, content=cmd)
         return cmd, msg
 
-    def __pack_broadcast_message(self, sender: ID, content: Content):
+    async def __pack_broadcast_message(self, sender: ID, content: Content):
         envelope = Envelope.create(sender=sender, receiver=ANYONE)
         i_msg = InstantMessage.create(head=envelope, body=content)
-        s_msg = self.messenger.encrypt_message(msg=i_msg)
+        s_msg = await self.messenger.encrypt_message(msg=i_msg)
         assert s_msg is not None, 'failed to encrypt message: %s' % envelope
-        r_msg = self.messenger.sign_message(msg=s_msg)
+        r_msg = await self.messenger.sign_message(msg=s_msg)
         assert r_msg is not None, 'failed to sign message: %s' % envelope
         return r_msg

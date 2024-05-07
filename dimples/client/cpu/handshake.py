@@ -44,7 +44,7 @@ from ...common import HandshakeCommand
 class HandshakeCommandProcessor(BaseCommandProcessor, Logging):
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, HandshakeCommand), 'handshake command error: %s' % content
         messenger = get_client_messenger(cpu=self)
         client_session = get_client_session(messenger=messenger)
@@ -68,12 +68,12 @@ class HandshakeCommandProcessor(BaseCommandProcessor, Logging):
             # clear client session key while handshake again
             if old_sess_key is None:
                 # first handshake response with new session key,
-                messenger.handshake(session_key=new_sess_key)
+                await messenger.handshake(session_key=new_sess_key)
             elif old_sess_key == new_sess_key:
                 # duplicated handshake response?
                 # or session expired and the station ask to handshake again?
                 self.warning(msg='session key already set: %s => %s' % (old_sess_key, new_sess_key))
-                messenger.handshake(session_key=new_sess_key)
+                await messenger.handshake(session_key=new_sess_key)
             else:
                 # connection changed?
                 self.error(msg='session key from %s not match: %s => %s' % (sender, old_sess_key, new_sess_key))

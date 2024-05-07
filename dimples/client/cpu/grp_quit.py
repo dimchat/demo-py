@@ -48,22 +48,22 @@ from .group import GroupCommandProcessor
 class QuitCommandProcessor(GroupCommandProcessor):
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, QuitCommand), 'quit command error: %s' % content
 
         # 0. check command
-        group, errors = self._check_expired(content=content, r_msg=r_msg)
+        group, errors = await self._check_expired(content=content, r_msg=r_msg)
         if group is None:
             # ignore expired command
             return errors
 
         # 1. check group
-        owner, members, errors = self._check_group_members(content=content, r_msg=r_msg)
+        owner, members, errors = await self._check_group_members(content=content, r_msg=r_msg)
         if owner is None or len(members) == 0:
             return errors
 
         sender = r_msg.sender
-        admins = self._administrators(group=group)
+        admins = await self._administrators(group=group)
         is_owner = sender == owner
         is_admin = sender in admins
         is_member = sender in members
@@ -95,11 +95,11 @@ class QuitCommandProcessor(GroupCommandProcessor):
             # the sender is not a member now,
             # shall we notify the sender that the member list was updated?
             self.warning(msg='not a member now: %s, %s' % (sender, group))
-        elif not self._save_group_history(group=group, content=content, r_msg=r_msg):
+        elif not await self._save_group_history(group=group, content=content, r_msg=r_msg):
             # here try to append the 'quit' command to local storage as group history
             # it should not failed unless the command is expired
             self.error(msg='failed to save "quit" command for group: %s' % group)
-        elif self._save_members(members=members, group=group):
+        elif await self._save_members(members=members, group=group):
             # here try to remove the sender from member list
             content['removed'] = [str(sender)]
         else:

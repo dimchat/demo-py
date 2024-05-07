@@ -77,22 +77,22 @@ class Terminal(Runner, DeviceMixin, Logging, StateDelegate):
         self.__daemon.start()
 
     # Override
-    def stop(self):
+    async def stop(self):
         self.__daemon.stop()
-        super().stop()
+        await super().stop()
 
     # Override
-    def setup(self):
-        super().setup()
-        self.session.start(delegate=self)
+    async def setup(self):
+        await super().setup()
+        await self.session.start(delegate=self)
 
     # Override
-    def finish(self):
-        self.session.stop()
-        super().finish()
+    async def finish(self):
+        await self.session.stop()
+        await super().finish()
 
     # Override
-    def process(self) -> bool:
+    async def process(self) -> bool:
         now = time.time()
         if now < (self.__last_time + 300):
             # last sent within 5 minutes
@@ -109,11 +109,11 @@ class Terminal(Runner, DeviceMixin, Logging, StateDelegate):
             # a station won't login to another station, if here is a station,
             # it must be a station bridge for roaming messages, we just send
             # report command to the target station to keep session online.
-            messenger.report_online(sender=usr_id)
+            await messenger.report_online(sender=usr_id)
         else:
             # send login command to everyone to provide more information.
             # this command can keep the user online too.
-            messenger.broadcast_login(sender=usr_id, user_agent=self.user_agent)
+            await messenger.broadcast_login(sender=usr_id, user_agent=self.user_agent)
         # update last online time
         self.__last_time = now
 
@@ -122,14 +122,14 @@ class Terminal(Runner, DeviceMixin, Logging, StateDelegate):
     #
 
     # Override
-    def enter_state(self, state: SessionState, ctx: StateMachine, now: float):
+    async def enter_state(self, state: SessionState, ctx: StateMachine, now: float):
         # called before state changed
         session = self.session
         station = session.station
         self.info(msg='enter state: %s, %s => %s' % (state, session.identifier, station.identifier))
 
     # Override
-    def exit_state(self, state: SessionState, ctx: StateMachine, now: float):
+    async def exit_state(self, state: SessionState, ctx: StateMachine, now: float):
         # called after state changed
         current = ctx.current_state
         self.info(msg='server state changed: %s -> %s' % (state, current))
@@ -140,24 +140,24 @@ class Terminal(Runner, DeviceMixin, Logging, StateDelegate):
         if index == StateOrder.HANDSHAKING:
             # start handshake
             messenger = self.messenger
-            messenger.handshake(session_key=None)
+            await messenger.handshake(session_key=None)
         elif index == StateOrder.RUNNING:
             # broadcast current meta & visa document to all stations
             messenger = self.messenger
-            messenger.handshake_success()
+            await messenger.handshake_success()
             session = messenger.session
             usr_id = session.identifier
             if usr_id is not None and usr_id.type != EntityType.STATION:
                 # send login command to everyone to provide more information.
-                messenger.broadcast_login(sender=usr_id, user_agent=self.user_agent)
+                await messenger.broadcast_login(sender=usr_id, user_agent=self.user_agent)
             # update last online time
             self.__last_time = time.time()
 
     # Override
-    def pause_state(self, state: SessionState, ctx: StateMachine, now: float):
+    async def pause_state(self, state: SessionState, ctx: StateMachine, now: float):
         pass
 
     # Override
-    def resume_state(self, state: SessionState, ctx: StateMachine, now: float):
+    async def resume_state(self, state: SessionState, ctx: StateMachine, now: float):
         # TODO: clear session key for re-login?
         pass

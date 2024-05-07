@@ -50,21 +50,21 @@ from .group import GroupCommandProcessor
 class InviteCommandProcessor(GroupCommandProcessor):
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, InviteCommand), 'invite command error: %s' % content
 
         # 0. check command
-        group, errors = self._check_expired(content=content, r_msg=r_msg)
+        group, errors = await self._check_expired(content=content, r_msg=r_msg)
         if group is None:
             # ignore expired command
             return errors
-        invite_list, errors = self._check_command_members(content=content, r_msg=r_msg)
+        invite_list, errors = await self._check_command_members(content=content, r_msg=r_msg)
         if len(invite_list) == 0:
             # command error
             return errors
 
         # 1. check group
-        trip = self._check_group_members(content=content, r_msg=r_msg)
+        trip = await self._check_group_members(content=content, r_msg=r_msg)
         owner = trip[0]
         members = trip[1]
         errors = trip[2]
@@ -72,7 +72,7 @@ class InviteCommandProcessor(GroupCommandProcessor):
             return errors
 
         sender = r_msg.sender
-        admins = self._administrators(group=group)
+        admins = await self._administrators(group=group)
         is_owner = sender == owner
         is_admin = sender in admins
         is_member = sender in members
@@ -100,9 +100,9 @@ class InviteCommandProcessor(GroupCommandProcessor):
                 # the sender cannot reset the group, means it's an ordinary member now,
                 # and if I am the owner, then send the group history commands
                 # to update the sender's memory.
-                ok = self.send_group_histories(group=group, receiver=sender)
+                ok = await self.send_group_histories(group=group, receiver=sender)
                 assert ok, 'failed to send history for group: %s => %s' % (group, sender)
-        elif not self._save_group_history(group=group, content=content, r_msg=r_msg):
+        elif not await self._save_group_history(group=group, content=content, r_msg=r_msg):
             # here try to append the 'invite' command to local storage as group history
             # it should not failed unless the command is expired
             self.error(msg='failed to save "invite" command for group: %s' % group)
@@ -110,7 +110,7 @@ class InviteCommandProcessor(GroupCommandProcessor):
             # the sender cannot reset the group, means it's invited by ordinary member,
             # and the 'invite' command was saved, now waiting for review.
             self.info(msg='"invite" command saved, waiting review now')
-        elif self._save_members(members=new_members, group=group):
+        elif await self._save_members(members=new_members, group=group):
             # FIXME: this sender has permission to reset the group,
             #        means it must be the owner or an administrator,
             #        usually it should send a 'reset' command instead;

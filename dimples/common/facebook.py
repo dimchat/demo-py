@@ -68,7 +68,7 @@ class CommonFacebook(Facebook, Logging):
     #
 
     @property  # Override
-    def local_users(self) -> List[User]:
+    async def local_users(self) -> List[User]:
         current = self.__current
         return [] if current is None else [current]
 
@@ -83,15 +83,15 @@ class CommonFacebook(Facebook, Logging):
             user.data_source = self
         self.__current = user
 
-    def document(self, identifier: ID, doc_type: str = '*') -> Optional[Document]:
-        all_documents = self.documents(identifier=identifier)
+    async def get_document(self, identifier: ID, doc_type: str = '*') -> Optional[Document]:
+        all_documents = await self.get_documents(identifier=identifier)
         doc = DocumentHelper.last_document(all_documents, doc_type)
         # compatible for document type
         if doc is None and doc_type == Document.VISA:
             doc = DocumentHelper.last_document(all_documents, 'profile')
         return doc
 
-    def get_name(self, identifier: ID) -> str:
+    async def get_name(self, identifier: ID) -> str:
         if identifier.is_user:
             doc_type = Document.VISA
         elif identifier.is_group:
@@ -99,7 +99,7 @@ class CommonFacebook(Facebook, Logging):
         else:
             doc_type = '*'
         # get name from document
-        doc = self.document(identifier=identifier, doc_type=doc_type)
+        doc = await self.get_document(identifier=identifier, doc_type=doc_type)
         if doc is not None:
             name = doc.name
             if name is not None and len(name) > 0:
@@ -108,7 +108,7 @@ class CommonFacebook(Facebook, Logging):
         return Anonymous.get_name(identifier=identifier)
 
     # # Override
-    # def save_meta(self, meta: Meta, identifier: ID) -> bool:
+    # async def save_meta(self, meta: Meta, identifier: ID) -> bool:
     #     # check valid
     #     if meta.valid and meta.match_identifier(identifier=identifier):
     #         pass
@@ -116,20 +116,20 @@ class CommonFacebook(Facebook, Logging):
     #         # assert False, 'meta not valid: %s' % identifier
     #         return False
     #     # check old meta
-    #     old = self.meta(identifier=identifier)
+    #     old = await self.get_meta(identifier=identifier)
     #     if old is not None:
     #         # assert meta == old, 'meta should not changed'
     #         return True
     #     # meta not exists yet, save it
     #     db = self.database
-    #     return db.save_meta(meta=meta, identifier=identifier)
+    #     return await db.save_meta(meta=meta, identifier=identifier)
     #
     # # Override
-    # def save_document(self, document: Document) -> bool:
+    # async def save_document(self, document: Document) -> bool:
     #     identifier = document.identifier
     #     if not document.valid:
     #         # try to verify
-    #         meta = self.meta(identifier=identifier)
+    #         meta = await self.get_meta(identifier=identifier)
     #         if meta is None:
     #             self.error(msg='meta not found: %s' % identifier)
     #             return False
@@ -143,97 +143,97 @@ class CommonFacebook(Facebook, Logging):
     #     if doc_type is None:
     #         doc_type = '*'
     #     # check old documents with type
-    #     documents = self.documents(identifier=identifier)
+    #     documents = await self.get_documents(identifier=identifier)
     #     old = DocumentHelper.last_document(documents, doc_type)
     #     if old is not None and DocumentHelper.is_expired(document, old):
     #         self.warning(msg='drop expired document: %s' % identifier)
     #         return False
     #     db = self.database
-    #     return db.save_document(document=document)
+    #     return await db.save_document(document=document)
     #
     # #
     # #   EntityDataSource
     # #
     #
     # # Override
-    # def meta(self, identifier: ID) -> Optional[Meta]:
+    # async def get_meta(self, identifier: ID) -> Optional[Meta]:
     #     # if identifier.is_broadcast:
     #     #     # broadcast ID has no meta
     #     #     return None
     #     db = self.database
-    #     return db.meta(identifier=identifier)
+    #     return await db.get_meta(identifier=identifier)
     #
     # # Override
-    # def documents(self, identifier: ID) -> List[Document]:
+    # async def get_documents(self, identifier: ID) -> List[Document]:
     #     # if identifier.is_broadcast:
     #     #     # broadcast ID has no documents
     #     #     return None
     #     db = self.database
-    #     return db.documents(identifier=identifier)
+    #     return await db.get_documents(identifier=identifier)
 
     #
     #   UserDataSource
     #
 
     # Override
-    def contacts(self, identifier: ID) -> List[ID]:
+    async def get_contacts(self, identifier: ID) -> List[ID]:
         db = self.archivist
-        return db.contacts(identifier)
+        return await db.get_contacts(identifier)
 
     # Override
-    def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
+    async def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
         db = self.archivist
-        return db.private_keys_for_decryption(identifier)
+        return await db.private_keys_for_decryption(identifier)
 
     # Override
-    def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
+    async def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
         db = self.archivist
-        return db.private_key_for_signature(identifier)
+        return await db.private_key_for_signature(identifier)
 
     # Override
-    def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
+    async def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
         db = self.archivist
-        return db.private_key_for_visa_signature(identifier)
+        return await db.private_key_for_visa_signature(identifier)
 
     # #
     # #    GroupDataSource
     # #
     #
     # # Override
-    # def founder(self, identifier: ID) -> Optional[ID]:
+    # async def get_founder(self, identifier: ID) -> Optional[ID]:
     #     db = self.database
-    #     user = db.founder(group=identifier)
+    #     user = db.get_founder(group=identifier)
     #     if user is None:
-    #         user = super().founder(identifier=identifier)
+    #         user = await super().get_founder(identifier=identifier)
     #     return user
     #
     # # Override
-    # def owner(self, identifier: ID) -> Optional[ID]:
+    # async def get_owner(self, identifier: ID) -> Optional[ID]:
     #     db = self.database
-    #     user = db.owner(group=identifier)
+    #     user = db.get_owner(group=identifier)
     #     if user is None:
-    #         user = super().owner(identifier=identifier)
+    #         user = await super().get_owner(identifier=identifier)
     #     return user
     #
     # # Override
-    # def members(self, identifier: ID) -> List[ID]:
-    #     owner = self.owner(identifier=identifier)
+    # async def get_members(self, identifier: ID) -> List[ID]:
+    #     owner = await self.get_owner(identifier=identifier)
     #     if owner is None:
     #         # assert False, 'group owner not found: %s' % identifier
     #         return []
     #     db = self.database
-    #     users = db.members(group=identifier)
+    #     users = db.get_members(group=identifier)
     #     if len(users) == 0:
-    #         users = super().members(identifier=identifier)
+    #         users = await super().get_members(identifier=identifier)
     #         if len(users) == 0:
     #             users = [owner]
     #     assert owner == users[0], 'group owner must be the first member: %s, group: %s' % (owner, identifier)
     #     return users
     #
     # # Override
-    # def assistants(self, identifier: ID) -> List[ID]:
+    # async def get_assistants(self, identifier: ID) -> List[ID]:
     #     db = self.database
-    #     bots = db.assistants(group=identifier)
+    #     bots = db.get_assistants(group=identifier)
     #     if len(bots) == 0:
-    #         bots = super().assistants(identifier=identifier)
+    #         bots = await super().assistants(identifier=identifier)
     #     return bots

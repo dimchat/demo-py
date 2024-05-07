@@ -56,7 +56,7 @@ class LoginStorage(Storage, LoginDBI):
     #
 
     # Override
-    def login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
+    async def get_login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
         """ load login command from file """
         path = self.__login_path(identifier=user)
         self.info(msg='Loading login command from: %s' % path)
@@ -71,7 +71,7 @@ class LoginStorage(Storage, LoginDBI):
         return cmd, ReliableMessage.parse(msg=msg)
 
     # Override
-    def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
+    async def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
         """ save login command into file """
         info = {
             'cmd': content.dictionary,

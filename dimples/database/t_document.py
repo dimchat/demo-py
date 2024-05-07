@@ -54,12 +54,12 @@ class DocumentTable(DocumentDBI):
     #
 
     # Override
-    def save_document(self, document: Document) -> bool:
+    async def save_document(self, document: Document) -> bool:
         assert document.valid, 'document invalid: %s' % document
         identifier = document.identifier
         doc_type = document.type
         # 0. check old documents
-        all_documents = self.documents(identifier=identifier)
+        all_documents = await self.get_documents(identifier=identifier)
         old = DocumentHelper.last_document(all_documents, doc_type)
         if old is None and doc_type == Document.VISA:
             old = DocumentHelper.last_document(all_documents, 'profile')
@@ -72,10 +72,10 @@ class DocumentTable(DocumentDBI):
         # 1. store into memory cache
         self.__docs_cache.update(key=identifier, value=all_documents, life_span=self.CACHE_EXPIRES)
         # 2. store into local storage
-        return self.__dos.save_documents(documents=all_documents, identifier=identifier)
+        return await self.__dos.save_documents(documents=all_documents, identifier=identifier)
 
     # Override
-    def documents(self, identifier: ID) -> List[Document]:
+    async def get_documents(self, identifier: ID) -> List[Document]:
         """ get document for ID """
         now = DateTime.now()
         # 1. check memory cache
@@ -92,7 +92,7 @@ class DocumentTable(DocumentDBI):
                 # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            value = self.__dos.documents(identifier=identifier)
+            value = await self.__dos.get_documents(identifier=identifier)
             # 3. update memory cache
             self.__docs_cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value

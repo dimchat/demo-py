@@ -53,7 +53,7 @@ class CipherKeyTable(CipherKeyDBI):
     #
 
     # Override
-    def cipher_key(self, sender: ID, receiver: ID, generate: bool = False) -> Optional[SymmetricKey]:
+    async def get_cipher_key(self, sender: ID, receiver: ID, generate: bool = False) -> Optional[SymmetricKey]:
         if receiver.is_broadcast:
             return PlainKey()
         now = DateTime.now()
@@ -67,7 +67,7 @@ class CipherKeyTable(CipherKeyDBI):
         return key
 
     # Override
-    def cache_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
+    async def cache_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
         if receiver.is_broadcast:
             # no need to store cipher key for broadcast message
             return False

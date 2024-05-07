@@ -35,7 +35,7 @@ class ReliableMessageDBI(ABC):
     CACHE_LIMIT = 20480  # only cache last messages
 
     @abstractmethod
-    def reliable_messages(self, receiver: ID, limit: int = 1024) -> List[ReliableMessage]:
+    async def get_reliable_messages(self, receiver: ID, limit: int = 1024) -> List[ReliableMessage]:
         """
         Get network messages
 
@@ -46,11 +46,11 @@ class ReliableMessageDBI(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
+    async def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         raise NotImplemented
 
     @abstractmethod
-    def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
+    async def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         raise NotImplemented
 
 
@@ -64,11 +64,11 @@ class GroupKeysDBI(ABC):
     """ Group Keys Table """
 
     @abstractmethod
-    def group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
+    async def get_group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
         raise NotImplemented
 
     @abstractmethod
-    def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
+    async def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
         raise NotImplemented
 
 

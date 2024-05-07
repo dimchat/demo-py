@@ -48,22 +48,22 @@ from .group import GroupCommandProcessor
 class QueryCommandProcessor(GroupCommandProcessor):
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, QueryCommand), 'query command error: %s' % content
 
         # 0. check command
-        group, errors = self._check_expired(content=content, r_msg=r_msg)
+        group, errors = await self._check_expired(content=content, r_msg=r_msg)
         if group is None:
             # ignore expired command
             return errors
 
         # 1. check group
-        owner, members, errors = self._check_group_members(content=content, r_msg=r_msg)
+        owner, members, errors = await self._check_group_members(content=content, r_msg=r_msg)
         if owner is None or len(members) == 0:
             return errors
 
         sender = r_msg.sender
-        bots = self._assistants(group=group)
+        bots = await self._assistants(group=group)
         is_member = sender in members
         is_bot = sender in bots
         can_query = is_member or is_bot
@@ -83,7 +83,7 @@ class QueryCommandProcessor(GroupCommandProcessor):
         if query_time is not None:
             # check last group history time
             archivist = self.facebook.archivist
-            last_time = archivist.get_last_group_history_time(group=group)
+            last_time = await archivist.get_last_group_history_time(group=group)
             if last_time is None:
                 self.error(msg='group history error: %s' % group)
             elif not last_time.after(query_time):
@@ -98,7 +98,7 @@ class QueryCommandProcessor(GroupCommandProcessor):
                 })
 
         # 3. send newest group history commands
-        ok = self.send_group_histories(group=group, receiver=sender)
+        ok = await self.send_group_histories(group=group, receiver=sender)
         assert ok, 'failed to send history for group: %s => %s' % (group, sender)
 
         # no need to response this group command

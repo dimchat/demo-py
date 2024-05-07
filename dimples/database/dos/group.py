@@ -72,15 +72,15 @@ class GroupStorage(Storage, GroupDBI):
     #
 
     # Override
-    def founder(self, group: ID) -> Optional[ID]:
+    async def get_founder(self, group: ID) -> Optional[ID]:
         pass
 
     # Override
-    def owner(self, group: ID) -> Optional[ID]:
+    async def get_owner(self, group: ID) -> Optional[ID]:
         pass
 
     # Override
-    def members(self, group: ID) -> List[ID]:
+    async def get_members(self, group: ID) -> List[ID]:
         """ load members from file """
         path = self.__members_path(identifier=group)
         self.info(msg='Loading members from: %s' % path)
@@ -91,14 +91,14 @@ class GroupStorage(Storage, GroupDBI):
         return ID.convert(array=users)
 
     # Override
-    def save_members(self, members: List[ID], group: ID) -> bool:
+    async def save_members(self, members: List[ID], group: ID) -> bool:
         """ save members into file """
         path = self.__members_path(identifier=group)
         self.info(msg='Saving members into: %s' % path)
         return self.write_json(container=ID.revert(array=members), path=path)
 
     # Override
-    def assistants(self, group: ID) -> List[ID]:
+    async def get_assistants(self, group: ID) -> List[ID]:
         """ load assistants from file """
         path = self.__assistants_path(identifier=group)
         self.info(msg='Loading assistants from: %s' % path)
@@ -109,14 +109,14 @@ class GroupStorage(Storage, GroupDBI):
         return ID.convert(array=bots)
 
     # Override
-    def save_assistants(self, assistants: List[ID], group: ID) -> bool:
+    async def save_assistants(self, assistants: List[ID], group: ID) -> bool:
         """ save assistants into file """
         path = self.__assistants_path(identifier=group)
         self.info(msg='Saving assistants into: %s' % path)
         return self.write_json(container=ID.revert(array=assistants), path=path)
 
     # Override
-    def administrators(self, group: ID) -> List[ID]:
+    async def get_administrators(self, group: ID) -> List[ID]:
         """ load administrators from file """
         path = self.__administrators_path(identifier=group)
         self.info(msg='Loading administrators from: %s' % path)
@@ -127,7 +127,7 @@ class GroupStorage(Storage, GroupDBI):
         return ID.convert(array=users)
 
     # Override
-    def save_administrators(self, administrators: List[ID], group: ID) -> bool:
+    async def save_administrators(self, administrators: List[ID], group: ID) -> bool:
         """ save administrators into file """
         path = self.__administrators_path(identifier=group)
         self.info(msg='Saving administrators into: %s' % path)

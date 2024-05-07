@@ -51,13 +51,13 @@ class LoginTable(LoginDBI):
     def show_info(self):
         self.__dos.show_info()
 
-    def _is_expired(self, user: ID, content: LoginCommand) -> bool:
+    async def _is_expired(self, user: ID, content: LoginCommand) -> bool:
         """ check old record with command time """
         new_time = content.time
         if new_time is None or new_time <= 0:
             return False
         # check old record
-        old, _ = self.login_command_message(user=user)
+        old, _ = await self.get_login_command_message(user=user)
         if old is not None and is_before(old_time=old.time, new_time=new_time):
             # command expired
             return True
@@ -67,18 +67,18 @@ class LoginTable(LoginDBI):
     #
 
     # Override
-    def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
+    async def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
         # 0. check command time
-        if self._is_expired(user=user, content=content):
+        if await self._is_expired(user=user, content=content):
             # command expired, drop it
             return False
         # 1. store into memory cache
         self.__login_cache.update(key=user, value=(content, msg), life_span=self.CACHE_EXPIRES)
         # 2. store into local storage
-        return self.__dos.save_login_command_message(user=user, content=content, msg=msg)
+        return await self.__dos.save_login_command_message(user=user, content=content, msg=msg)
 
     # Override
-    def login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
+    async def get_login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
         """ get login command message for user """
         now = DateTime.now()
         # 1. check memory cache
@@ -95,7 +95,7 @@ class LoginTable(LoginDBI):
                 # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            cmd, msg = self.__dos.login_command_message(user=user)
+            cmd, msg = await self.__dos.get_login_command_message(user=user)
             value = (cmd, msg)
             # 3. update memory cache
             self.__login_cache.update(key=user, value=value, life_span=self.CACHE_EXPIRES, now=now)

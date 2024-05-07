@@ -29,7 +29,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-
+import asyncio
 import os
 import sys
 from socketserver import ThreadingTCPServer
@@ -58,21 +58,21 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/station.ini'
 
 
-def main():
+async def main():
     # create global variable
     shared = GlobalVariable()
     # Step 1: load config
     config = create_config(app_name='DIM Network Station', default_config=DEFAULT_CONFIG)
     shared.config = config
     # Step 2: create database
-    adb, mdb, sdb = create_database(config=config)
+    adb, mdb, sdb = await create_database(config=config)
     shared.adb = adb
     shared.mdb = mdb
     shared.sdb = sdb
     # Step 3: create facebook
     sid = config.station_id
     assert sid is not None, 'current station ID not set: %s' % config
-    facebook = create_facebook(database=adb, current_user=sid)
+    facebook = await create_facebook(database=adb, current_user=sid)
     shared.facebook = facebook
     # Step 4: create dispatcher
     create_dispatcher(shared=shared)
@@ -103,4 +103,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())

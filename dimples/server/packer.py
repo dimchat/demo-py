@@ -77,8 +77,8 @@ class ServerMessagePacker(CommonMessagePacker):
             return True
 
     # Override
-    def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
-        msg = super().deserialize_message(data=data)
+    async def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
+        msg = await super().deserialize_message(data=data)
         if msg is not None:
             sender = msg.sender
             receiver = msg.receiver
@@ -97,14 +97,14 @@ class ServerMessagePacker(CommonMessagePacker):
         return msg
 
     # Override
-    def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
+    async def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
         # check session ready
         if self.__is_trusted(sender=msg.sender):
             # no need to verify message from this sender
             self.debug(msg='trusted sender: %s' % msg.sender)
             return msg
         # verify after sender is OK
-        return super().verify_message(msg=msg)
+        return await super().verify_message(msg=msg)
 
 
 def get_facebook(packer: CommonMessagePacker) -> CommonFacebook:
@@ -130,7 +130,7 @@ def get_messenger(packer: CommonMessagePacker):
 
 class BlockFilter(Logging):
 
-    def is_blocked(self, msg: ReliableMessage) -> bool:
+    async def is_blocked(self, msg: ReliableMessage) -> bool:
         sender = msg.sender
         receiver = msg.receiver
         group = msg.group
@@ -142,7 +142,7 @@ class BlockFilter(Logging):
 class MuteFilter(Logging):
     """ Filter for Push Notification service """
 
-    def is_muted(self, msg: ReliableMessage) -> bool:
+    async def is_muted(self, msg: ReliableMessage) -> bool:
         sender = msg.sender
         receiver = msg.receiver
         group = msg.group

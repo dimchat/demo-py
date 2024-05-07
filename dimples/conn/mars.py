@@ -211,13 +211,13 @@ class MarsStreamDocker(PlainDocker, DeparturePacker):
             return pack, remain_len
 
     # Override
-    def process_received(self, data: bytes):
+    async def process_received(self, data: bytes):
         # the cached data maybe contain sticky packages,
         # so we need to process them circularly here
         self.__package_received = True
         while self.__package_received:
             self.__package_received = False
-            super().process_received(data=data)
+            await super().process_received(data=data)
             data = b''
 
     # Override
@@ -240,7 +240,7 @@ class MarsStreamDocker(PlainDocker, DeparturePacker):
         return ships
 
     # Override
-    def _check_arrival(self, ship: Arrival) -> Optional[Arrival]:
+    async def _check_arrival(self, ship: Arrival) -> Optional[Arrival]:
         assert isinstance(ship, MarsStreamArrival), 'arrival ship error: %s' % ship
         payload = ship.payload
         if payload is None:
@@ -265,14 +265,14 @@ class MarsStreamDocker(PlainDocker, DeparturePacker):
             # handle NOOP request
             if body_len == 0 or payload == NOOP:
                 ship = self.create_departure(mars=mars, priority=DeparturePriority.SLOWER)
-                self.send_ship(ship=ship)
+                await self.send_ship(ship=ship)
                 return None
         # 2. check body
         if body_len == 4:
             if payload == PING:
                 mars = MarsHelper.create_respond(head=head, payload=PONG)
                 ship = self.create_departure(mars=mars, priority=DeparturePriority.SLOWER)
-                self.send_ship(ship=ship)
+                await self.send_ship(ship=ship)
                 return None
             elif payload == PONG:
                 # FIXME: client should not sent 'PONG' to server
@@ -281,13 +281,13 @@ class MarsStreamDocker(PlainDocker, DeparturePacker):
                 # FIXME: 'NOOP' can only sent by NOOP cmd
                 return None
         # 3. check for response
-        self._check_response(ship=ship)
+        await self._check_response(ship=ship)
         # NOTICE: the delegate must respond mars package with same cmd & seq,
         #         otherwise the connection will be closed by client
         return ship
 
     # Override
-    def heartbeat(self):
+    async def heartbeat(self):
         # heartbeat by client
         pass
 

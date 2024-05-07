@@ -54,7 +54,7 @@ class GroupHistoryStorage(Storage, GroupHistoryDBI):
         path = self.private_path(self.history_path)
         return template_replace(path, key='ADDRESS', value=str(group.address))
 
-    def load_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
+    async def load_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
         path = self.__history_path(group=group)
         self.info(msg='Loading group history from: %s' % path)
         array = self.read_json(path=path)
@@ -75,7 +75,7 @@ class GroupHistoryStorage(Storage, GroupHistoryDBI):
             histories.append(his)
         return histories
 
-    def save_group_histories(self, group: ID, histories: List[Tuple[GroupCommand, ReliableMessage]]) -> bool:
+    async def save_group_histories(self, group: ID, histories: List[Tuple[GroupCommand, ReliableMessage]]) -> bool:
         array = []
         for his in histories:
             # assert len(his) == 2, 'group history error: %s' % his
@@ -95,19 +95,19 @@ class GroupHistoryStorage(Storage, GroupHistoryDBI):
     #
 
     # Override
-    def save_group_history(self, group: ID, content: GroupCommand, message: ReliableMessage) -> bool:
-        histories = self.load_group_histories(group=group)
+    async def save_group_history(self, group: ID, content: GroupCommand, message: ReliableMessage) -> bool:
+        histories = await self.load_group_histories(group=group)
         item = (content, message)
         histories.append(item)
-        return self.save_group_histories(group=group, histories=histories)
+        return await self.save_group_histories(group=group, histories=histories)
 
     # Override
-    def group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
-        return self.load_group_histories(group=group)
+    async def get_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
+        return await self.load_group_histories(group=group)
 
     # Override
-    def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
-        histories = self.load_group_histories(group=group)
+    async def get_reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
+        histories = await self.load_group_histories(group=group)
         pos = len(histories)
         while pos > 0:
             pos -= 1
@@ -119,8 +119,8 @@ class GroupHistoryStorage(Storage, GroupHistoryDBI):
         return None, None
 
     # Override
-    def clear_group_member_histories(self, group: ID) -> bool:
-        histories = self.load_group_histories(group=group)
+    async def clear_group_member_histories(self, group: ID) -> bool:
+        histories = await self.load_group_histories(group=group)
         if len(histories) == 0:
             # history empty
             return True
@@ -135,11 +135,11 @@ class GroupHistoryStorage(Storage, GroupHistoryDBI):
                 removed += 1
         # if nothing changed, return True
         # else, save new histories
-        return removed == 0 or self.save_group_histories(group=group, histories=array)
+        return removed == 0 or await self.save_group_histories(group=group, histories=array)
 
     # Override
-    def clear_group_admin_histories(self, group: ID) -> bool:
-        histories = self.load_group_histories(group=group)
+    async def clear_group_admin_histories(self, group: ID) -> bool:
+        histories = await self.load_group_histories(group=group)
         if len(histories) == 0:
             # history empty
             return True
@@ -154,4 +154,4 @@ class GroupHistoryStorage(Storage, GroupHistoryDBI):
                 array.append(his)
         # if nothing changed, return True
         # else, save new histories
-        return removed == 0 or self.save_group_histories(group=group, histories=array)
+        return removed == 0 or await self.save_group_histories(group=group, histories=array)

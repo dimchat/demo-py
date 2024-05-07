@@ -42,8 +42,8 @@ from .dbi import SessionDBI
 class Transmitter(ABC):
 
     @abstractmethod
-    def send_content(self, content: Content, sender: Optional[ID], receiver: ID,
-                     priority: int = 0) -> Tuple[InstantMessage, Optional[ReliableMessage]]:
+    async def send_content(self, content: Content, sender: Optional[ID], receiver: ID,
+                           priority: int = 0) -> Tuple[InstantMessage, Optional[ReliableMessage]]:
         """
         Send content from sender to receiver with priority
 
@@ -56,7 +56,7 @@ class Transmitter(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def send_instant_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
+    async def send_instant_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
         """
         Send instant message with priority
 
@@ -67,7 +67,7 @@ class Transmitter(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def send_reliable_message(self, msg: ReliableMessage, priority: int = 0) -> bool:
+    async def send_reliable_message(self, msg: ReliableMessage, priority: int = 0) -> bool:
         """
         Send reliable message with priority
 
@@ -114,15 +114,17 @@ class Session(Transmitter, ABC):
         """ Update active flag and return True on changed """
         raise NotImplemented
 
+    # Override
     def __str__(self) -> str:
         clazz = self.__class__.__name__
         return '<%s:%s %s|%s active=%s />' % (clazz, self.key, self.remote_address, self.identifier, self.active)
 
+    # Override
     def __repr__(self) -> str:
         clazz = self.__class__.__name__
         return '<%s:%s %s|%s active=%s />' % (clazz, self.key, self.remote_address, self.identifier, self.active)
 
-    def queue_message_package(self, msg: ReliableMessage, data: bytes, priority: int = 0) -> bool:
+    async def queue_message_package(self, msg: ReliableMessage, data: bytes, priority: int = 0) -> bool:
         """
         Pack message into a waiting queue
 

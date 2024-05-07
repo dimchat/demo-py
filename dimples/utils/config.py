@@ -42,10 +42,12 @@ class Node(Dictionary):
         if port > 0:
             self['port'] = port
 
+    # Override
     def __str__(self) -> str:
         clazz = self.__class__.__name__
         return '<%s host="%s" port=%d name="%s" />' % (clazz, self.host, self.port, self.name)
 
+    # Override
     def __repr__(self) -> str:
         clazz = self.__class__.__name__
         return '<%s host="%s" port=%d name="%s" />' % (clazz, self.host, self.port, self.name)

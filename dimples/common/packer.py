@@ -99,17 +99,17 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
     #
 
     # protected
-    def _visa_key(self, user: ID) -> Optional[EncryptKey]:
+    async def _visa_key(self, user: ID) -> Optional[EncryptKey]:
         """ for checking whether user's ready """
-        return self.facebook.public_key_for_encryption(identifier=user)
+        return await self.facebook.public_key_for_encryption(identifier=user)
 
     # protected
-    def _members(self, group: ID) -> List[ID]:
+    async def _members(self, group: ID) -> List[ID]:
         """ for checking whether group's ready """
-        return self.facebook.members(identifier=group)
+        return await self.facebook.get_members(identifier=group)
 
     # protected
-    def _check_sender(self, msg: ReliableMessage) -> bool:
+    async def _check_sender(self, msg: ReliableMessage) -> bool:
         """ Check sender before verifying received message """
         sender = msg.sender
         assert sender.is_user, 'sender error: %s' % sender
@@ -120,7 +120,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
             assert visa.identifier == sender, 'visa ID not match: %s => %s' % (sender, visa)
             # assert Meta.match_id(meta=msg.meta, identifier=sender), 'meta error: %s' % msg
             return visa.identifier == sender
-        elif self._visa_key(user=sender) is not None:
+        elif await self._visa_key(user=sender) is not None:
             # sender is OK
             return True
         # sender not ready, suspend message for waiting document
@@ -132,7 +132,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
         return False
 
     # protected
-    def _check_receiver(self, msg: InstantMessage) -> bool:
+    async def _check_receiver(self, msg: InstantMessage) -> bool:
         """ Check receiver before encrypting message """
         receiver = msg.receiver
         if receiver.is_broadcast:
@@ -145,7 +145,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
             #         that should be sent to a group bot first,
             #         and the bot will separate it for all members.
             return False
-        elif self._visa_key(user=receiver) is not None:
+        elif await self._visa_key(user=receiver) is not None:
             # receiver is OK
             return True
         # receiver not ready, suspend message for waiting document
@@ -161,10 +161,10 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
     #
 
     # Override
-    def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
+    async def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
         # 1. check contact info
         # 2. check group members info
-        if not self._check_receiver(msg=msg):
+        if not await self._check_receiver(msg=msg):
             # receiver not ready
             self.warning(msg='receiver not ready: %s' % msg.receiver)
             return None
@@ -172,11 +172,11 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
         if isinstance(content, ReceiptCommand):
             # compatible with v1.0
             fix_receipt_command(content=content)
-        return super().encrypt_message(msg=msg)
+        return await super().encrypt_message(msg=msg)
 
     # Override
-    def decrypt_message(self, msg: SecureMessage) -> Optional[InstantMessage]:
-        i_msg = super().decrypt_message(msg=msg)
+    async def decrypt_message(self, msg: SecureMessage) -> Optional[InstantMessage]:
+        i_msg = await super().decrypt_message(msg=msg)
         if i_msg is not None:
             content = i_msg.content
             if isinstance(content, ReceiptCommand):
@@ -188,36 +188,36 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
         return i_msg
 
     # Override
-    def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
+    async def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
         # 1. check receiver/group with local user
         # 2. check sender's meta
-        if not self._check_sender(msg=msg):
+        if not await self._check_sender(msg=msg):
             # sender not ready
             self.warning(msg='sender not ready: %s' % msg.sender)
             return None
-        return super().verify_message(msg=msg)
+        return await super().verify_message(msg=msg)
 
     # Override
-    def sign_message(self, msg: SecureMessage) -> ReliableMessage:
+    async def sign_message(self, msg: SecureMessage) -> ReliableMessage:
         if isinstance(msg, ReliableMessage):
             # already signed
             return msg
-        return super().sign_message(msg=msg)
+        return await super().sign_message(msg=msg)
 
     # Override
-    def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
+    async def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
         if data is None or len(data) < 2:
             # message data error
             return None
         # elif not (data.startswith(b'{') and data.endswith(b'}')):
         #     # only support JsON format now
         #     return None
-        msg = super().deserialize_message(data=data)
+        msg = await super().deserialize_message(data=data)
         if msg is not None:
             fix_meta_attachment(msg=msg)
         return msg
 
     # Override
-    def serialize_message(self, msg: ReliableMessage) -> bytes:
+    async def serialize_message(self, msg: ReliableMessage) -> bytes:
         fix_meta_attachment(msg=msg)
-        return super().serialize_message(msg=msg)
+        return await super().serialize_message(msg=msg)

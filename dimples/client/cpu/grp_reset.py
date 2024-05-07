@@ -49,26 +49,26 @@ from .group import GroupCommandProcessor
 class ResetCommandProcessor(GroupCommandProcessor):
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ResetCommand), 'group cmd error: %s' % content
 
         # 0. check command
-        group, errors = self._check_expired(content=content, r_msg=r_msg)
+        group, errors = await self._check_expired(content=content, r_msg=r_msg)
         if group is None:
             # ignore expired command
             return errors
-        new_members, errors = self._check_command_members(content=content, r_msg=r_msg)
+        new_members, errors = await self._check_command_members(content=content, r_msg=r_msg)
         if len(new_members) == 0:
             # command error
             return errors
 
         # 1. check group
-        owner, members, errors = self._check_group_members(content=content, r_msg=r_msg)
+        owner, members, errors = await self._check_group_members(content=content, r_msg=r_msg)
         if owner is None or len(members) == 0:
             return errors
 
         sender = r_msg.sender
-        administrators = self._administrators(group=group)
+        administrators = await self._administrators(group=group)
         is_owner = sender == owner
         is_admin = sender in administrators
 
@@ -108,14 +108,14 @@ class ResetCommandProcessor(GroupCommandProcessor):
 
         # 3. do reset
         add_list, remove_list = calculate_reset(old_members=members, new_members=new_members)
-        if not self._save_group_history(group=group, content=content, r_msg=r_msg):
+        if not await self._save_group_history(group=group, content=content, r_msg=r_msg):
             # here try to save the 'reset' command to local storage as group history
             # it should not failed unless the command is expired
             self.error(msg='failed to save "reset" command for group: %s' % group)
         elif len(add_list) == 0 and len(remove_list) == 0:
             # nothing changed
             self.warning(msg='nothing changed for group members: %d, %s' % (len(members), group))
-        elif self._save_members(members=new_members, group=group):
+        elif await self._save_members(members=new_members, group=group):
             self.info(msg='new members saved in group: %s' % group)
             if len(add_list) > 0:
                 content['added'] = ID.revert(add_list)

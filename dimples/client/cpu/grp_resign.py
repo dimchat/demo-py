@@ -48,22 +48,22 @@ from .group import GroupCommandProcessor
 class ResignCommandProcessor(GroupCommandProcessor):
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ResignCommand), 'resign command error: %s' % content
 
         # 0. check command
-        group, errors = self._check_expired(content=content, r_msg=r_msg)
+        group, errors = await self._check_expired(content=content, r_msg=r_msg)
         if group is None:
             # ignore expired command
             return errors
 
         # 1. check group
-        owner, members, errors = self._check_group_members(content=content, r_msg=r_msg)
+        owner, members, errors = await self._check_group_members(content=content, r_msg=r_msg)
         if owner is None or len(members) == 0:
             return errors
 
         sender = r_msg.sender
-        admins = self._administrators(group=group)
+        admins = await self._administrators(group=group)
         is_owner = sender == owner
         is_admin = sender in admins
 
@@ -86,11 +86,11 @@ class ResignCommandProcessor(GroupCommandProcessor):
             # the sender is not an administrator now,
             # shall we notify the sender that the administrators list was updated?
             self.warning(msg='not an administrator now: %s, %s' % (sender, group))
-        elif not self._save_group_history(group=group, content=content, r_msg=r_msg):
+        elif not await self._save_group_history(group=group, content=content, r_msg=r_msg):
             # here try to append the 'resign' command to local storage as group history
             # it should not failed unless the command is expired
             self.error(msg='failed to save "resign" command for group: %s' % group)
-        elif self._save_administrators(administrators=admins, group=group):
+        elif await self._save_administrators(administrators=admins, group=group):
             # here try to remove the sender from admin list
             content['removed'] = [str(sender)]
         else:

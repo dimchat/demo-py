@@ -135,17 +135,17 @@ class MTPStreamDocker(PackageDocker, DeparturePacker):
             return pack
 
     # Override
-    def process_received(self, data: bytes):
+    async def process_received(self, data: bytes):
         # the cached data maybe contain sticky packages,
         # so we need to process them circularly here
         self.__package_received = True
         while self.__package_received:
             self.__package_received = False
-            super().process_received(data=data)
+            await super().process_received(data=data)
             data = b''
 
     # Override
-    def _check_arrival(self, ship: Arrival) -> Optional[Arrival]:
+    async def _check_arrival(self, ship: Arrival) -> Optional[Arrival]:
         assert isinstance(ship, MTPStreamArrival), 'arrival ship error: %s' % ship
         pack = ship.package
         if pack is None:
@@ -160,7 +160,7 @@ class MTPStreamDocker(PackageDocker, DeparturePacker):
             print('[MTP] package not completed: body_len=%d, %s' % (pack.body.size, pack))
             return ship
         # check for response
-        return super()._check_arrival(ship=ship)
+        return await super()._check_arrival(ship=ship)
 
     # Override
     def _create_arrival(self, pack: Package) -> Arrival:

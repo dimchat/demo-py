@@ -14,7 +14,7 @@ import io
 
 from setuptools import setup, find_packages
 
-__version__ = '0.5.9'
+__version__ = '0.6.0'
 __author__ = 'Albert Moky'
 __contact__ = 'albert.moky@gmail.com'
 
@@ -53,13 +53,13 @@ setup(
         # 'ecdsa',   # 0.16.1
         'dimplugins>=1.0.2',
 
-        'dimsdk>=1.0.3',
-        'dimp>=1.0.3',
-        'dkd>=1.0.2',
-        'mkm>=1.0.2',
+        'dimsdk>=1.2.0',
+        'dimp>=1.2.0',
+        'dkd>=1.2.0',
+        'mkm>=1.2.0',
 
-        'startrek>=1.2.0',
-        'tcp>=1.2.0',
-        'udp>=1.2.0',
+        'startrek>=1.5.0',
+        'tcp>=1.5.0',
+        'udp>=1.5.0',
     ]
 )

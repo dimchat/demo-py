@@ -52,7 +52,7 @@ class Register:
     def database(self) -> AccountDBI:
         return self.__db
 
-    def create_user(self, name: str, avatar: Optional[PortableNetworkFile]) -> ID:
+    async def create_user(self, name: str, avatar: Optional[PortableNetworkFile]) -> ID:
         """
         Generate user account
 
@@ -82,14 +82,14 @@ class Register:
         #   Step 5: save private key, meta & visa in local storage
         #
         db = self.database
-        db.save_private_key(key=id_key, user=identifier, key_type=PrivateKeyDBI.META)
-        db.save_private_key(key=msg_key, user=identifier, key_type=PrivateKeyDBI.VISA)
-        db.save_meta(meta=meta, identifier=identifier)
-        db.save_document(document=visa)
+        await db.save_private_key(key=id_key, user=identifier, key_type=PrivateKeyDBI.META)
+        await db.save_private_key(key=msg_key, user=identifier, key_type=PrivateKeyDBI.VISA)
+        await db.save_meta(meta=meta, identifier=identifier)
+        await db.save_document(document=visa)
         # OK
         return identifier
 
-    def create_group(self, founder: ID, name: str, seed: str = None) -> ID:
+    async def create_group(self, founder: ID, name: str, seed: str = None) -> ID:
         """
         Generate group account
 
@@ -105,7 +105,7 @@ class Register:
         #
         #   Step 1: get private key of founder
         #
-        private_key = db.private_key_for_visa_signature(user=founder)
+        private_key = await db.private_key_for_visa_signature(user=founder)
         #
         #   Step 2: generate meta with private key (and meta seed)
         #
@@ -121,13 +121,13 @@ class Register:
         #
         #   Step 5: save meta & bulletin in local storage
         #
-        db.save_meta(meta=meta, identifier=identifier)
-        db.save_document(document=doc)
+        await db.save_meta(meta=meta, identifier=identifier)
+        await db.save_document(document=doc)
         #
         #   Step 6: add founder as first member
         #
         members = [founder]
-        db.save_members(members=members, group=identifier)
+        await db.save_members(members=members, group=identifier)
         # OK
         return identifier
 

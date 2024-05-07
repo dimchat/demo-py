@@ -51,7 +51,7 @@ class HandshakeCommandProcessor(BaseCommandProcessor):
         return transceiver
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, HandshakeCommand), 'handshake command error: %s' % content
         title = content.title
         if title in ['DIM?', 'DIM!']:
@@ -76,7 +76,7 @@ class HandshakeCommandProcessor(BaseCommandProcessor):
             # session key match
             Log.info(msg='handshake accepted: %s, session: %s' % (sender, session.key))
             # verified success
-            handshake_accepted(identifier=sender, when=content.time, session=session, messenger=messenger)
+            await handshake_accepted(identifier=sender, when=content.time, session=session, messenger=messenger)
             res = HandshakeCommand.success(session=session.key)
         else:
             # session key not match
@@ -86,7 +86,7 @@ class HandshakeCommandProcessor(BaseCommandProcessor):
         return [res]
 
 
-def handshake_accepted(identifier: ID, when: Optional[DateTime], session: Session, messenger: CommonMessenger):
+async def handshake_accepted(identifier: ID, when: Optional[DateTime], session: Session, messenger: CommonMessenger):
     from ..session_center import SessionCenter
     center = SessionCenter()
     # 1. update session ID
@@ -94,4 +94,4 @@ def handshake_accepted(identifier: ID, when: Optional[DateTime], session: Sessio
     # 2. update session flag
     session.set_active(active=True, when=when)
     # 3. callback
-    messenger.handshake_success()
+    await messenger.handshake_success()

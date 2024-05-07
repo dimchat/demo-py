@@ -60,7 +60,7 @@ class GroupCommandHelper(Logging):
     #   Group History Command
     #
 
-    def save_group_history(self, group: ID, content: GroupCommand, message: ReliableMessage) -> bool:
+    async def save_group_history(self, group: ID, content: GroupCommand, message: ReliableMessage) -> bool:
         if self.is_expired(content=content):
             self.warning(msg='drop expired command: %s, %s => %s' % (content.cmd, message.sender, group))
             return False
@@ -79,26 +79,26 @@ class GroupCommandHelper(Logging):
         db = self.database
         if isinstance(content, ResetCommand):
             self.warning(msg='cleaning group history for "reset" command: %s => %s' % (message.sender, group))
-            db.clear_group_member_histories(group=group)
-        return db.save_group_history(group=group, content=content, message=message)
+            await db.clear_group_member_histories(group=group)
+        return await db.save_group_history(group=group, content=content, message=message)
 
-    def group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
+    async def get_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
         db = self.database
-        return db.group_histories(group=group)
+        return await db.get_group_histories(group=group)
 
-    def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
+    async def get_reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
         db = self.database
-        return db.reset_command_message(group=group)
+        return await db.get_reset_command_message(group=group)
 
-    def clear_group_member_histories(self, group: ID) -> bool:
+    async def clear_group_member_histories(self, group: ID) -> bool:
         db = self.database
-        return db.clear_group_member_histories(group=group)
+        return await db.clear_group_member_histories(group=group)
 
-    def clear_group_admin_histories(self, group: ID) -> bool:
+    async def clear_group_admin_histories(self, group: ID) -> bool:
         db = self.database
-        return db.clear_group_admin_histories(group=group)
+        return await db.clear_group_admin_histories(group=group)
 
-    def is_expired(self, content: GroupCommand) -> bool:
+    async def is_expired(self, content: GroupCommand) -> bool:
         """ check command time
             (all group commands received must after the cached 'reset' command)
         """
@@ -106,13 +106,13 @@ class GroupCommandHelper(Logging):
         assert group is not None, 'group content error: %s' % content
         if isinstance(content, ResignCommand):
             # administrator command, check with document time
-            doc = self.delegate.bulletin(group)
+            doc = await self.delegate.get_bulletin(group)
             if doc is None:
                 self.error(msg='group document not exists: %s' % group)
                 return True
             return is_before(old_time=doc.time, new_time=content.time)
         # membership command, check with reset command
-        cmd, _ = self.reset_command_message(group=group)
+        cmd, _ = await self.get_reset_command_message(group=group)
         if cmd is None:  # or msg is None:
             return False
         return is_before(old_time=cmd.time, new_time=content.time)

@@ -97,22 +97,22 @@ class ServerArchivist(CommonArchivist, ABC):
             return self.__neighbors
 
     @property
-    def all_stations(self) -> List[StationInfo]:
+    async def all_stations(self) -> List[StationInfo]:
         """ get stations from database """
         dispatcher = get_dispatcher()
         db = dispatcher.sdb
         # TODO: get chosen provider
-        providers = db.all_providers()
+        providers = await db.all_providers()
         assert len(providers) > 0, 'service provider not found'
         gsp = providers[0].identifier
-        return db.all_stations(provider=gsp)
+        return await db.all_stations(provider=gsp)
 
     @property
-    def all_neighbors(self) -> Set[ID]:
+    async def all_neighbors(self) -> Set[ID]:
         """ get all stations """
         neighbors = set()
         # get stations from chosen provider
-        chosen_stations = self.all_stations
+        chosen_stations = await self.all_stations
         for item in chosen_stations:
             sid = item.identifier
             if sid is None or sid.is_broadcast:
@@ -127,7 +127,7 @@ class ServerArchivist(CommonArchivist, ABC):
             neighbors.add(sid)
         return neighbors
 
-    def _broadcast_command(self, command: Command) -> bool:
+    async def _broadcast_command(self, command: Command) -> bool:
         facebook = get_facebook(archivist=self)
         messenger = get_messenger(archivist=self)
         if facebook is None or messenger is None:
@@ -137,18 +137,18 @@ class ServerArchivist(CommonArchivist, ABC):
         env = Envelope.create(sender=sid, receiver=Station.EVERY)
         i_msg = InstantMessage.create(head=env, body=command)
         # pack & deliver message
-        s_msg = messenger.encrypt_message(msg=i_msg)
-        r_msg = messenger.sign_message(msg=s_msg)
+        s_msg = await messenger.encrypt_message(msg=i_msg)
+        r_msg = await messenger.sign_message(msg=s_msg)
         # dispatch
         dispatcher = get_dispatcher()
-        neighbors = self.all_neighbors
+        neighbors = await self.all_neighbors
         # avoid the new recipients redirect it to same targets
         r_msg['recipients'] = ID.revert(neighbors)
         for receiver in neighbors:
             if receiver == sid:
                 self.debug(msg='skip cycled message: %s -> %s' % (sid, receiver))
                 continue
-            dispatcher.deliver_message(msg=r_msg, receiver=receiver)
+            await dispatcher.deliver_message(msg=r_msg, receiver=receiver)
         return len(neighbors) > 0
 
     # protected
@@ -159,28 +159,28 @@ class ServerArchivist(CommonArchivist, ABC):
         self.__last_active_members[group] = member
 
     # Override
-    def query_meta(self, identifier: ID) -> bool:
+    async def query_meta(self, identifier: ID) -> bool:
         if not self.is_meta_query_expired(identifier=identifier):
             # query not expired yet
             self.info(msg='meta query not expired yet: %s' % identifier)
             return False
         self.info(msg='querying meta for: %s' % identifier)
         command = MetaCommand.query(identifier=identifier)
-        return self._broadcast_command(command=command)
+        return await self._broadcast_command(command=command)
 
     # Override
-    def query_documents(self, identifier: ID, documents: List[Document]) -> bool:
+    async def query_documents(self, identifier: ID, documents: List[Document]) -> bool:
         if not self.is_documents_query_expired(identifier=identifier):
             # query not expired yet
             self.info(msg='document query not expired yet: %s' % identifier)
             return False
-        last_time = self.get_last_document_time(identifier=identifier, documents=documents)
+        last_time = await self.get_last_document_time(identifier=identifier, documents=documents)
         self.info(msg='querying document for: %s, last time: %s' % (identifier, last_time))
         command = DocumentCommand.query(identifier=identifier, last_time=last_time)
-        return self._broadcast_command(command=command)
+        return await self._broadcast_command(command=command)
 
     # Override
-    def query_members(self, group: ID, members: List[ID]) -> bool:
+    async def query_members(self, group: ID, members: List[ID]) -> bool:
         # station will never process group info
         self.error(msg='DON\'t call me!')
         return False

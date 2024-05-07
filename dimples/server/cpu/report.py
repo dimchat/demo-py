@@ -51,7 +51,7 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
         return messenger.session
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ReportCommand), 'report command error: %s' % content
         # check session sender
         session = self.session

@@ -139,16 +139,16 @@ class BaseAccount(Logging, ABC):
         print('!!! meta type: %d, document type: %s, name: "%s"' % (meta.type, doc.type, doc.name))
         print('!!!')
 
-    def load_info(self, identifier: ID) -> Tuple[Optional[Meta], Optional[Document]]:
+    async def load_info(self, identifier: ID) -> Tuple[Optional[Meta], Optional[Document]]:
         assert self.__id is None, 'ID exists: %s' % self.__id
         assert self.__meta is None, 'meta exists: %s' % self.__meta
         assert self.__doc is None, 'document exists: %s' % self.__doc
         db = self.__db
-        meta = db.meta(identifier=identifier)
+        meta = await db.get_meta(identifier=identifier)
         if meta is None:
             self.error(msg='failed to load meta: %s' % identifier)
             return None, None
-        documents = db.documents(identifier=identifier)
+        documents = await db.get_documents(identifier=identifier)
         if len(documents) == 0:
             self.error(msg='failed to load documents: %s' % identifier)
             return meta, None
@@ -158,24 +158,24 @@ class BaseAccount(Logging, ABC):
         self.__doc = doc
         return meta, doc
 
-    def save_meta(self) -> Optional[Tuple[ID, Meta]]:
+    async def save_meta(self) -> Optional[Tuple[ID, Meta]]:
         identifier = self.__id
         meta = self.__meta
         db = self.__db
-        if db.save_meta(meta=meta, identifier=identifier):
+        if await db.save_meta(meta=meta, identifier=identifier):
             return identifier, meta
         else:
             self.error(msg='failed to save meta: %s, %s' % (identifier, meta))
 
-    def save_document(self) -> Optional[Document]:
+    async def save_document(self) -> Optional[Document]:
         doc = self.__doc
         db = self.__db
-        if db.save_document(document=doc):
+        if await db.save_document(document=doc):
             return doc
         else:
             self.error(msg='failed to save document: %s, %s' % (doc.identifier, doc))
 
-    def update(self, exists: bool = False) -> Optional[Document]:
+    async def update(self, exists: bool = False) -> Optional[Document]:
         doc = self.edit()
         assert doc is not None, 'failed to edit document'
         # TODO: sign & save

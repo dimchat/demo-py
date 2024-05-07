@@ -94,12 +94,12 @@ class GroupEmitter(Logging):
         return self.delegate.messenger
 
     # private
-    def _attach_group_times(self, group: ID, msg: InstantMessage) -> bool:
+    async def _attach_group_times(self, group: ID, msg: InstantMessage) -> bool:
         if isinstance(msg.content, GroupCommand):
             # no need to attach times for group command
             return True
         facebook = self.facebook
-        doc = facebook.bulletin(identifier=group)
+        doc = await facebook.get_bulletin(identifier=group)
         if doc is None:
             self.error(msg='failed to get bulletin document for group: %s' % group)
             return False
@@ -112,7 +112,7 @@ class GroupEmitter(Logging):
             msg.set_datetime(key='GDT', value=last_doc_time)
         # attach group history time
         archivist = facebook.archivist
-        last_his_time = archivist.get_last_group_history_time(group=group)
+        last_his_time = await archivist.get_last_group_history_time(group=group)
         if last_his_time is None:
             self.error(msg='failed to get history time: %s' % group)
             return False
@@ -120,7 +120,7 @@ class GroupEmitter(Logging):
             msg.set_datetime(key='GHT', value=last_his_time)
         return True
 
-    def send_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
+    async def send_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
         content = msg.content
         group = content.group
         if group is None:
@@ -129,7 +129,7 @@ class GroupEmitter(Logging):
         assert msg.receiver == group, 'group message error: %s' % msg
         # attach group document & history times
         # for the receiver to check whether group info synchronized
-        ok = self._attach_group_times(group=group, msg=msg)
+        ok = await self._attach_group_times(group=group, msg=msg)
         if not ok:
             self.warning(msg='failed to attach group times: %s => %s' % (group, content))
         # TODO: if it's a file message
@@ -139,16 +139,16 @@ class GroupEmitter(Logging):
         #
         #   1. check group bots
         #
-        bots = self.delegate.assistants(identifier=group)
+        bots = await self.delegate.get_assistants(identifier=group)
         if len(bots) > 0:
             # group bots found, forward this message to any bot to let it split for me;
             # this can reduce my jobs.
             prime = bots[0]
-            return self.__forward_message(msg=msg, bot=prime, group=group, priority=priority)
+            return await self.__forward_message(msg=msg, bot=prime, group=group, priority=priority)
         #
         #   2. check group members
         #
-        members = self.delegate.members(identifier=group)
+        members = await self.delegate.get_members(identifier=group)
         count = len(members)
         if count == 0:
             self.error(msg='failed to get members for group: %s' % group)
@@ -158,16 +158,16 @@ class GroupEmitter(Logging):
         if count < self.SECRET_GROUP_LIMIT:
             # it is a tiny group, split this message before encrypting and signing,
             # then send this group message to all members one by one
-            success = self.__split_send_message(msg=msg, members=members, group=group, priority=priority)
+            success = await self.__split_send_message(msg=msg, members=members, group=group, priority=priority)
             self.info(msg='split %d message(s) for group: %s' % (success, group))
         else:
             self.info(msg='splitting message for %d members of group: %s' % (len(members), group))
             # encrypt and sign this message first,
             # then split and send to all members one by one
-            return self.__disperse_message(msg=msg, members=members, group=group, priority=priority)
+            return await self.__disperse_message(msg=msg, members=members, group=group, priority=priority)
 
-    def __forward_message(self, msg: InstantMessage, bot: ID, group: ID,
-                          priority: int = 0) -> Optional[ReliableMessage]:
+    async def __forward_message(self, msg: InstantMessage, bot: ID, group: ID,
+                                priority: int = 0) -> Optional[ReliableMessage]:
         """ Encrypt & sign message, then forward to the bot """
         assert bot.is_user and group.is_group, 'ID error: %s, %s' % (bot, group)
         # NOTICE: because group assistant (bot) cannot be a member of the group, so
@@ -186,7 +186,7 @@ class GroupEmitter(Logging):
         #
         #   1. pack message
         #
-        r_msg = self.packer.encrypt_sign_message(msg=msg)
+        r_msg = await self.packer.encrypt_sign_message(msg=msg)
         if r_msg is None:
             self.error(msg='failed to encrypt & sign message: %s => %s' % (msg.sender, group))
             return None
@@ -194,14 +194,14 @@ class GroupEmitter(Logging):
         #   2. forward the group message to any bot
         #
         content = ForwardContent.create(message=r_msg)
-        _, out = messenger.send_content(sender=None, receiver=bot, content=content, priority=priority)
+        _, out = await messenger.send_content(sender=None, receiver=bot, content=content, priority=priority)
         if out is None:
             self.error(msg='failed to forward message for group: %s, bot: %s' % (group, bot))
         # OK, return the forwarding message
         return r_msg
 
-    def __disperse_message(self, msg: InstantMessage, members: List[ID], group: ID,
-                           priority: int = 0) -> Optional[ReliableMessage]:
+    async def __disperse_message(self, msg: InstantMessage, members: List[ID], group: ID,
+                                 priority: int = 0) -> Optional[ReliableMessage]:
         """ Encrypt & sign message, then disperse to all members """
         assert group.is_group, 'group ID error: %s' % group
         # assert 'group' not in msg, 'should not happen'
@@ -219,7 +219,7 @@ class GroupEmitter(Logging):
         #
         #   1. pack message
         #
-        r_msg = self.packer.encrypt_sign_message(msg=msg)
+        r_msg = await self.packer.encrypt_sign_message(msg=msg)
         if r_msg is None:
             self.error(msg='failed to encrypt & sign message: %s => %s' % (sender, group))
             return None
@@ -232,14 +232,14 @@ class GroupEmitter(Logging):
             if sender == receiver:
                 self.error(msg='cycled message: %s => %s, %s' % (sender, receiver, group))
                 continue
-            ok = messenger.send_reliable_message(msg=item, priority=priority)
+            ok = await messenger.send_reliable_message(msg=item, priority=priority)
             if not ok:
                 # assert ok, 'failed to send message: %s => %s, %s' % (sender, receiver, group)
                 self.error(msg='failed to send message: %s => %s, %s' % (sender, receiver, group))
         # sent
         return r_msg
 
-    def __split_send_message(self, msg: InstantMessage, members: List[ID], group: ID, priority: int = 0) -> int:
+    async def __split_send_message(self, msg: InstantMessage, members: List[ID], group: ID, priority: int = 0) -> int:
         """ Split and send (encrypt + sign) group messages to all members one by one """
         assert group.is_group, 'group ID error: %s' % group
         assert 'group' not in msg, 'should not happen'
@@ -266,7 +266,7 @@ class GroupEmitter(Logging):
             #
             #   2. send message
             #
-            r_msg = messenger.send_instant_message(msg=item, priority=priority)
+            r_msg = await messenger.send_instant_message(msg=item, priority=priority)
             if r_msg is None:
                 self.error(msg='failed to send message: %s => %s, %s' % (sender, receiver, group))
                 continue

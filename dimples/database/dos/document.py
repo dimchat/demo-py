@@ -55,7 +55,7 @@ class DocumentStorage(Storage, DocumentDBI):
         path = self.public_path(self.all_path)
         return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
-    def save_documents(self, documents: List[Document], identifier: ID) -> bool:
+    async def save_documents(self, documents: List[Document], identifier: ID) -> bool:
         """ save documents into file """
         path = self.__all_path(identifier=identifier)
         self.info(msg='Saving %d document(s) into: %s' % (len(documents), path))
@@ -65,7 +65,7 @@ class DocumentStorage(Storage, DocumentDBI):
             array.append(doc.dictionary)
         return self.write_json(container=array, path=path)
 
-    def load_documents(self, identifier: ID) -> Optional[List[Document]]:
+    async def load_documents(self, identifier: ID) -> Optional[List[Document]]:
         """ load documents from file """
         path = self.__all_path(identifier=identifier)
         self.info(msg='Loading documents from: %s' % path)
@@ -82,7 +82,7 @@ class DocumentStorage(Storage, DocumentDBI):
         self.info(msg='Loaded %d documents from: %s' % (len(documents), path))
         return documents
 
-    def load_document(self, identifier: ID) -> Optional[Document]:
+    async def load_document(self, identifier: ID) -> Optional[Document]:
         """ load document from file """
         path = self.__doc_path(identifier=identifier)
         self.info(msg='Loading document from: %s' % path)
@@ -95,12 +95,12 @@ class DocumentStorage(Storage, DocumentDBI):
     #
 
     # Override
-    def save_document(self, document: Document) -> bool:
+    async def save_document(self, document: Document) -> bool:
         """ save document into file """
         identifier = document.identifier
         doc_type = document.type
         # check old documents
-        all_documents = self.documents(identifier=identifier)
+        all_documents = await self.get_documents(identifier=identifier)
         old = DocumentHelper.last_document(all_documents, doc_type)
         if old is None and doc_type == Document.VISA:
             old = DocumentHelper.last_document(all_documents, 'profile')
@@ -111,16 +111,16 @@ class DocumentStorage(Storage, DocumentDBI):
             all_documents.remove(old)
         # append it
         all_documents.append(document)
-        return self.save_documents(documents=all_documents, identifier=identifier)
+        return await self.save_documents(documents=all_documents, identifier=identifier)
 
     # Override
-    def documents(self, identifier: ID) -> List[Document]:
+    async def get_documents(self, identifier: ID) -> List[Document]:
         """ load documents from file """
-        all_documents = self.load_documents(identifier=identifier)
+        all_documents = await self.load_documents(identifier=identifier)
         if all_documents is not None:
             return all_documents
         # try old file
-        doc = self.load_document(identifier=identifier)
+        doc = await self.load_document(identifier=identifier)
         return [] if doc is None else [doc]
 
 

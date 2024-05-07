@@ -56,9 +56,9 @@ class DocumentCommandProcessor(SuperCommandProcessor):
         return messenger.session
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, DocumentCommand), 'document command error: %s' % content
-        responses = super().process_content(content=content, r_msg=r_msg)
+        responses = await super().process_content(content=content, r_msg=r_msg)
         if content.document is None:
             # this is a request, check DocumentCommand & LoginCommand
             if has_document(contents=responses):
@@ -68,7 +68,7 @@ class DocumentCommandProcessor(SuperCommandProcessor):
                 assert db is not None, 'session DB not found'
                 assert sid is not None, 'current station not found: %s' % current
                 # forward login message after document command
-                res = forward_login_msg(doc_id=content.identifier, sender=r_msg.sender, node=sid, database=db)
+                res = await forward_login_msg(doc_id=content.identifier, sender=r_msg.sender, node=sid, database=db)
                 if res is not None:
                     responses.append(res)
         return responses
@@ -80,14 +80,14 @@ def has_document(contents: List[Content]) -> bool:
             return True
 
 
-def forward_login_msg(doc_id: ID, sender: ID, node: ID, database: SessionDBI) -> Optional[ForwardContent]:
-    login_msg = get_login_msg(doc_id=doc_id, sender=sender, node=node, database=database)
+async def forward_login_msg(doc_id: ID, sender: ID, node: ID, database: SessionDBI) -> Optional[ForwardContent]:
+    login_msg = await get_login_msg(doc_id=doc_id, sender=sender, node=node, database=database)
     if login_msg is not None:
         # respond login command
         return ForwardContent.create(message=login_msg)
 
 
-def get_login_msg(doc_id: ID, sender: ID, node: ID, database: SessionDBI) -> Optional[ReliableMessage]:
+async def get_login_msg(doc_id: ID, sender: ID, node: ID, database: SessionDBI) -> Optional[ReliableMessage]:
     """
     Get login message for document command
 
@@ -104,7 +104,7 @@ def get_login_msg(doc_id: ID, sender: ID, node: ID, database: SessionDBI) -> Opt
         # no need to respond LoginCommand message to a bot,
         # just ignore it
         return None
-    cmd, msg = database.login_command_message(user=doc_id)
+    cmd, msg = await database.get_login_command_message(user=doc_id)
     if cmd is not None:
         if sender.type == EntityType.STATION:
             # this is a request from another station.

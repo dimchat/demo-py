@@ -39,19 +39,19 @@ class PrivateKeyDBI(ABC):
     VISA = 'V'  # MSG_KEY_TAG
 
     @abstractmethod
-    def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
+    async def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
         raise NotImplemented
 
     @abstractmethod
-    def private_keys_for_decryption(self, user: ID) -> List[DecryptKey]:
+    async def private_keys_for_decryption(self, user: ID) -> List[DecryptKey]:
         raise NotImplemented
 
     @abstractmethod
-    def private_key_for_signature(self, user: ID) -> Optional[SignKey]:
+    async def private_key_for_signature(self, user: ID) -> Optional[SignKey]:
         raise NotImplemented
 
     @abstractmethod
-    def private_key_for_visa_signature(self, user: ID) -> Optional[SignKey]:
+    async def private_key_for_visa_signature(self, user: ID) -> Optional[SignKey]:
         raise NotImplemented
 
     #
@@ -111,11 +111,11 @@ class MetaDBI(ABC):
     """ Meta Table """
 
     @abstractmethod
-    def save_meta(self, meta: Meta, identifier: ID) -> bool:
+    async def save_meta(self, meta: Meta, identifier: ID) -> bool:
         raise NotImplemented
 
     @abstractmethod
-    def meta(self, identifier: ID) -> Optional[Meta]:
+    async def get_meta(self, identifier: ID) -> Optional[Meta]:
         raise NotImplemented
 
 
@@ -123,11 +123,11 @@ class DocumentDBI(ABC):
     """ Document Table """
 
     @abstractmethod
-    def save_document(self, document: Document) -> bool:
+    async def save_document(self, document: Document) -> bool:
         raise NotImplemented
 
     @abstractmethod
-    def documents(self, identifier: ID) -> List[Document]:
+    async def get_documents(self, identifier: ID) -> List[Document]:
         raise NotImplemented
 
 
@@ -135,12 +135,12 @@ class UserDBI(ABC):
     """ User Table """
 
     @abstractmethod
-    def local_users(self) -> List[ID]:
+    async def get_local_users(self) -> List[ID]:
         """ local user ID list """
         raise NotImplemented
 
     @abstractmethod
-    def save_local_users(self, users: List[ID]) -> bool:
+    async def save_local_users(self, users: List[ID]) -> bool:
         raise NotImplemented
 
 
@@ -148,12 +148,12 @@ class ContactDBI(ABC):
     """ Contact Table """
 
     @abstractmethod
-    def contacts(self, user: ID) -> List[ID]:
+    async def get_contacts(self, user: ID) -> List[ID]:
         """ contacts for user """
         raise NotImplemented
 
     @abstractmethod
-    def save_contacts(self, contacts: List[ID], user: ID) -> bool:
+    async def save_contacts(self, contacts: List[ID], user: ID) -> bool:
         raise NotImplemented
 
 
@@ -161,38 +161,38 @@ class GroupDBI(ABC):
     """ Group/Member Table """
 
     @abstractmethod
-    def founder(self, group: ID) -> Optional[ID]:
+    async def get_founder(self, group: ID) -> Optional[ID]:
         raise NotImplemented
 
     @abstractmethod
-    def owner(self, group: ID) -> Optional[ID]:
+    async def get_owner(self, group: ID) -> Optional[ID]:
         raise NotImplemented
 
     @abstractmethod
-    def members(self, group: ID) -> List[ID]:
+    async def get_members(self, group: ID) -> List[ID]:
         """ group members """
         raise NotImplemented
 
     @abstractmethod
-    def save_members(self, members: List[ID], group: ID) -> bool:
+    async def save_members(self, members: List[ID], group: ID) -> bool:
         raise NotImplemented
 
     @abstractmethod
-    def assistants(self, group: ID) -> List[ID]:
+    async def get_assistants(self, group: ID) -> List[ID]:
         """ bots for group """
         raise NotImplemented
 
     @abstractmethod
-    def save_assistants(self, assistants: List[ID], group: ID) -> bool:
+    async def save_assistants(self, assistants: List[ID], group: ID) -> bool:
         raise NotImplemented
 
     @abstractmethod
-    def administrators(self, group: ID) -> List[ID]:
+    async def get_administrators(self, group: ID) -> List[ID]:
         """ group admins """
         raise NotImplemented
 
     @abstractmethod
-    def save_administrators(self, administrators: List[ID], group: ID) -> bool:
+    async def save_administrators(self, administrators: List[ID], group: ID) -> bool:
         raise NotImplemented
 
 
@@ -200,7 +200,7 @@ class GroupHistoryDBI(ABC):
     """ Group History Command Command Table """
 
     @abstractmethod
-    def save_group_history(self, group: ID, content: GroupCommand, message: ReliableMessage) -> bool:
+    async def save_group_history(self, group: ID, content: GroupCommand, message: ReliableMessage) -> bool:
         """ save group commands:
                 invite
                 expel (deprecated)
@@ -212,7 +212,7 @@ class GroupHistoryDBI(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
+    async def get_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
         """ load group commands:
                 invite
                 expel (deprecated)
@@ -224,12 +224,12 @@ class GroupHistoryDBI(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
+    async def get_reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
         """ load last 'reset' group command """
         raise NotImplemented
 
     @abstractmethod
-    def clear_group_member_histories(self, group: ID) -> bool:
+    async def clear_group_member_histories(self, group: ID) -> bool:
         """ clear group commands for members:
                 invite
                 expel (deprecated)
@@ -240,7 +240,7 @@ class GroupHistoryDBI(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def clear_group_admin_histories(self, group: ID) -> bool:
+    async def clear_group_admin_histories(self, group: ID) -> bool:
         """ clear group commands for administrators:
                 resign
         """

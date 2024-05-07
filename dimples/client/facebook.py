@@ -42,8 +42,8 @@ from ..common import CommonFacebook
 class ClientFacebook(CommonFacebook):
 
     # Override
-    def save_document(self, document: Document) -> bool:
-        ok = super().save_document(document=document)
+    async def save_document(self, document: Document) -> bool:
+        ok = await super().save_document(document=document)
         if ok and isinstance(document, Bulletin):
             # check administrators
             array = document.get_property(key='administrators')
@@ -51,7 +51,7 @@ class ClientFacebook(CommonFacebook):
                 group = document.identifier
                 assert group.is_group, 'group ID error: %s' % group
                 admins = ID.convert(array=array)
-                ok = self.save_administrators(administrators=admins, group=group)
+                ok = await self.save_administrators(administrators=admins, group=group)
         return ok
 
     #
@@ -59,19 +59,19 @@ class ClientFacebook(CommonFacebook):
     #
 
     # Override
-    def founder(self, identifier: ID) -> Optional[ID]:
+    async def get_founder(self, identifier: ID) -> Optional[ID]:
         # check broadcast group
         if identifier.is_broadcast:
             # founder of broadcast group
             return BroadcastHelper.broadcast_founder(group=identifier)
         # check bulletin document
-        doc = self.bulletin(identifier=identifier)
+        doc = await self.get_bulletin(identifier=identifier)
         if doc is None:
             # the owner(founder) should be set in the bulletin document of group
             return None
         db = self.archivist
         # check local storage
-        user = db.founder(identifier=identifier)
+        user = await db.get_founder(identifier=identifier)
         if user is not None:
             # got from local storage
             return user
@@ -82,26 +82,26 @@ class ClientFacebook(CommonFacebook):
         return user
 
     # Override
-    def owner(self, identifier: ID) -> Optional[ID]:
+    async def get_owner(self, identifier: ID) -> Optional[ID]:
         # check broadcast group
         if identifier.is_broadcast:
             # owner of broadcast group
             return BroadcastHelper.broadcast_owner(group=identifier)
         # check bulletin document
-        doc = self.bulletin(identifier=identifier)
+        doc = await self.get_bulletin(identifier=identifier)
         if doc is None:
             # the owner(founder) should be set in the bulletin document of group
             return None
         db = self.archivist
         # check local storage
-        user = db.owner(identifier=identifier)
+        user = await db.get_owner(identifier=identifier)
         if user is not None:
             # got from local storage
             return user
         # check group type
         if identifier.type == EntityType.GROUP:
             # Polylogue's owner is its founder
-            user = db.founder(identifier=identifier)
+            user = await db.get_founder(identifier=identifier)
             if user is None:
                 user = doc.founder
         if user is None:
@@ -109,15 +109,15 @@ class ClientFacebook(CommonFacebook):
         return user
 
     # Override
-    def members(self, identifier: ID) -> List[ID]:
-        owner = self.owner(identifier=identifier)
+    async def get_members(self, identifier: ID) -> List[ID]:
+        owner = await self.get_owner(identifier=identifier)
         if owner is None:
             self.error(msg='group empty: %s' % identifier)
             return []
         db = self.archivist
         # check local storage
-        users = db.members(identifier=identifier)
-        db.check_members(group=identifier, members=users)
+        users = await db.get_members(identifier=identifier)
+        await db.check_members(group=identifier, members=users)
         if len(users) == 0:
             users = [owner]
         else:
@@ -125,15 +125,15 @@ class ClientFacebook(CommonFacebook):
         return users
 
     # Override
-    def assistants(self, identifier: ID) -> List[ID]:
+    async def get_assistants(self, identifier: ID) -> List[ID]:
         # check bulletin document
-        doc = self.bulletin(identifier=identifier)
+        doc = await self.get_bulletin(identifier=identifier)
         if doc is None:
             # the assistants should be set in the bulletin document of group
             return []
         db = self.archivist
         # check local storage
-        bots = db.assistants(identifier=identifier)
+        bots = await db.get_assistants(identifier=identifier)
         if len(bots) > 0:
             # got from local storage
             return bots
@@ -145,9 +145,9 @@ class ClientFacebook(CommonFacebook):
     #   Organizational Structure
     #
 
-    def administrators(self, group: ID) -> List[ID]:
+    async def get_administrators(self, group: ID) -> List[ID]:
         # check bulletin document
-        doc = self.bulletin(identifier=group)
+        doc = await self.get_bulletin(identifier=group)
         if doc is None:
             # the administrators should be set in the bulletin document
             return []
@@ -156,17 +156,17 @@ class ClientFacebook(CommonFacebook):
         # when the newest bulletin document received,
         # so we must get them from the local storage only,
         # not from the bulletin document.
-        return db.administrators(group=group)
+        return await db.get_administrators(group=group)
 
     # protected
-    def save_administrators(self, administrators: List[ID], group: ID) -> bool:
+    async def save_administrators(self, administrators: List[ID], group: ID) -> bool:
         db = self.archivist
-        return db.save_administrators(administrators, group=group)
+        return await db.save_administrators(administrators, group=group)
 
     # protected
-    def save_members(self, members: List[ID], group: ID) -> bool:
+    async def save_members(self, members: List[ID], group: ID) -> bool:
         db = self.archivist
-        return db.save_members(members, group=group)
+        return await db.save_members(members, group=group)
 
 
 # TODO: ANS?

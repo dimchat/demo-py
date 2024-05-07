@@ -29,12 +29,12 @@ from dimsdk import DateTime
 from dimsdk import ID
 
 from ..utils import CacheManager
-from ..common import UserDBI
+from ..common import UserDBI, ContactDBI
 
 from .dos import UserStorage
 
 
-class UserTable(UserDBI):
+class UserTable(UserDBI, ContactDBI):
     """ Implementations of UserDBI """
 
     CACHE_EXPIRES = 300    # seconds
@@ -54,11 +54,11 @@ class UserTable(UserDBI):
     #
 
     # Override
-    def local_users(self) -> List[ID]:
+    async def get_local_users(self) -> List[ID]:
         return []
 
     # Override
-    def save_local_users(self, users: List[ID]) -> bool:
+    async def save_local_users(self, users: List[ID]) -> bool:
         pass
 
     #
@@ -66,7 +66,7 @@ class UserTable(UserDBI):
     #
 
     # Override
-    def contacts(self, user: ID) -> List[ID]:
+    async def get_contacts(self, user: ID) -> List[ID]:
         """ get contacts for user """
         now = DateTime.now()
         # 1. check memory cache
@@ -83,15 +83,15 @@ class UserTable(UserDBI):
                 # contacts expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            value = self.__dos.contacts(user=user)
+            value = await self.__dos.get_contacts(user=user)
             # 3. update memory cache
             self.__contacts_cache.update(key=user, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
     # Override
-    def save_contacts(self, contacts: List[ID], user: ID) -> bool:
+    async def save_contacts(self, contacts: List[ID], user: ID) -> bool:
         # 1. store into memory cache
         self.__contacts_cache.update(key=user, value=contacts, life_span=self.CACHE_EXPIRES)
         # 2. store into local storage
-        return self.__dos.save_contacts(contacts=contacts, user=user)
+        return await self.__dos.save_contacts(contacts=contacts, user=user)

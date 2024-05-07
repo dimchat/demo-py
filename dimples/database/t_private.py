@@ -51,8 +51,8 @@ class PrivateKeyTable(PrivateKeyDBI):
     def show_info(self):
         self.__dos.show_info()
 
-    def _add_decrypt_key(self, key: PrivateKey, user: ID) -> Optional[List[PrivateKey]]:
-        private_keys = self.private_keys_for_decryption(user=user)
+    async def _add_decrypt_key(self, key: PrivateKey, user: ID) -> Optional[List[PrivateKey]]:
+        private_keys = await self.private_keys_for_decryption(user=user)
         private_keys = PrivateKeyDBI.convert_private_keys(keys=private_keys)
         return PrivateKeyDBI.insert(item=key, array=private_keys)
 
@@ -61,7 +61,7 @@ class PrivateKeyTable(PrivateKeyDBI):
     #
 
     # Override
-    def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
+    async def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
         now = DateTime.now()
         # 1. update memory cache
         if key_type == PrivateKeyStorage.ID_KEY_TAG:
@@ -76,10 +76,10 @@ class PrivateKeyTable(PrivateKeyDBI):
             # update 'msg_keys'
             self.__msg_keys_cache.update(key=user, value=private_keys, life_span=36000, now=now)
         # 2. update local storage
-        return self.__dos.save_private_key(key=key, user=user, key_type=key_type)
+        return await self.__dos.save_private_key(key=key, user=user, key_type=key_type)
 
     # Override
-    def private_keys_for_decryption(self, user: ID) -> List[DecryptKey]:
+    async def private_keys_for_decryption(self, user: ID) -> List[DecryptKey]:
         """ get sign key for ID """
         now = DateTime.now()
         # 1. check memory cache
@@ -96,7 +96,7 @@ class PrivateKeyTable(PrivateKeyDBI):
                 # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            value = self.__dos.private_keys_for_decryption(user=user)
+            value = await self.__dos.private_keys_for_decryption(user=user)
             # 3. update memory cache
             if value is None:
                 self.__msg_keys_cache.update(key=user, value=value, life_span=300, now=now)
@@ -106,12 +106,12 @@ class PrivateKeyTable(PrivateKeyDBI):
         return value
 
     # Override
-    def private_key_for_signature(self, user: ID) -> Optional[SignKey]:
+    async def private_key_for_signature(self, user: ID) -> Optional[SignKey]:
         # TODO: support multi private keys
-        return self.private_key_for_visa_signature(user=user)
+        return await self.private_key_for_visa_signature(user=user)
 
     # Override
-    def private_key_for_visa_signature(self, user: ID) -> Optional[SignKey]:
+    async def private_key_for_visa_signature(self, user: ID) -> Optional[SignKey]:
         """ get sign key for ID """
         now = DateTime.now()
         # 1. check memory cache
@@ -128,7 +128,7 @@ class PrivateKeyTable(PrivateKeyDBI):
                 # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            value = self.__dos.private_key_for_visa_signature(user=user)
+            value = await self.__dos.private_key_for_visa_signature(user=user)
             # 3. update memory cache
             if value is None:
                 self.__id_key_cache.update(key=user, value=value, life_span=600, now=now)

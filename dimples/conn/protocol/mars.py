@@ -94,10 +94,12 @@ class NetMsgHead:
         self.__options = options
         self.__body_length = body_len
 
+    # Override
     def __str__(self) -> str:
         cname = self.__class__.__name__
         return '<%s: %d| cmd=%d, seq=%d, body_len=%d />' % (cname, self.version, self.cmd, self.seq, self.body_length)
 
+    # Override
     def __repr__(self) -> str:
         cname = self.__class__.__name__
         return '<%s: %d| cmd=%d, seq=%d, body_len=%d />' % (cname, self.version, self.cmd, self.seq, self.body_length)
@@ -198,11 +200,13 @@ class NetMsg:
         self.__head = head
         self.__body = body
 
+    # Override
     def __str__(self) -> str:
         mod = self.__module__
         cname = self.__class__.__name__
         return '<%s body_len=%d>%s</%s module="%s">' % (cname, self.body_length, self.head, cname, mod)
 
+    # Override
     def __repr__(self) -> str:
         mod = self.__module__
         cname = self.__class__.__name__

@@ -57,14 +57,14 @@ class GroupKeysStorage(Storage, GroupKeysDBI):
     #
 
     # Override
-    def group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
+    async def get_group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
         """ load group keys from file """
         path = self.__keys_path(group=group, sender=sender)
         self.info(msg='Loading group keys from: %s' % path)
         return self.read_json(path=path)
 
     # Override
-    def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
+    async def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
         """ save group keys into file """
         path = self.__keys_path(group=group, sender=sender)
         self.info(msg='Saving group keys into: %s' % path)

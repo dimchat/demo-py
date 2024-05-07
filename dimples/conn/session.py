@@ -85,8 +85,8 @@ class BaseSession(GateKeeper, Session, ABC):
         self.__messenger = None if transceiver is None else weakref.ref(transceiver)
 
     # Override
-    def queue_message_package(self, msg: ReliableMessage, data: bytes, priority: int = 0) -> bool:
-        ship = self._docker_pack(payload=data, priority=priority)
+    async def queue_message_package(self, msg: ReliableMessage, data: bytes, priority: int = 0) -> bool:
+        ship = await self._docker_pack(payload=data, priority=priority)
         return self._queue_append(msg=msg, ship=ship)
 
     #
@@ -94,17 +94,17 @@ class BaseSession(GateKeeper, Session, ABC):
     #
 
     # Override
-    def send_content(self, sender: Optional[ID], receiver: ID, content: Content,
-                     priority: int = 0) -> Tuple[InstantMessage, Optional[ReliableMessage]]:
+    async def send_content(self, sender: Optional[ID], receiver: ID, content: Content,
+                           priority: int = 0) -> Tuple[InstantMessage, Optional[ReliableMessage]]:
         messenger = self.messenger
-        return messenger.send_content(sender=sender, receiver=receiver, content=content, priority=priority)
+        return await messenger.send_content(sender=sender, receiver=receiver, content=content, priority=priority)
 
     # Override
-    def send_instant_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
+    async def send_instant_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
         messenger = self.messenger
-        return messenger.send_instant_message(msg=msg, priority=priority)
+        return await messenger.send_instant_message(msg=msg, priority=priority)
 
     # Override
-    def send_reliable_message(self, msg: ReliableMessage, priority: int = 0) -> bool:
+    async def send_reliable_message(self, msg: ReliableMessage, priority: int = 0) -> bool:
         messenger = self.messenger
-        return messenger.send_reliable_message(msg=msg, priority=priority)
+        return await messenger.send_reliable_message(msg=msg, priority=priority)

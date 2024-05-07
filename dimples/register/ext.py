@@ -61,11 +61,11 @@ class GroupAccount(BaseAccount):
             self.__founder = ID.parse(identifier=value)
         return self.__founder
 
-    def load_founder(self, founder: ID) -> Optional[SignKey]:
+    async def load_founder(self, founder: ID) -> Optional[SignKey]:
         assert self.__founder is None or self.__founder == founder, 'another founder exists: %s' % self.__founder
         assert self.__id_pri_key is None, 'private key exists: %s' % self.__id_pri_key
         db = self.database
-        id_key = db.private_key_for_visa_signature(user=founder)
+        id_key = await db.private_key_for_visa_signature(user=founder)
         if id_key is None:
             self.error(msg='failed to load id key: %s' % founder)
             return None
@@ -84,7 +84,7 @@ class GroupAccount(BaseAccount):
         return doc
 
     # Override
-    def update(self, exists: bool = False) -> Optional[Document]:
+    async def update(self, exists: bool = False) -> Optional[Document]:
         doc = self.edit()
         assert isinstance(doc, Bulletin), 'failed to edit bulletin: %s' % doc
         # check founder & sign
@@ -96,8 +96,8 @@ class GroupAccount(BaseAccount):
         if doc.sign(private_key=self.__id_pri_key) is None:
             return None
         if not exists:
-            self.save_meta()
-        return self.save_document()
+            await self.save_meta()
+        return await self.save_document()
 
     # protected
     def edit(self) -> Optional[Document]:
@@ -113,17 +113,17 @@ class UserAccount(BaseAccount):
         self.__msg_pri_keys: Optional[List[PrivateKey]] = None
 
     # Override
-    def load_info(self, identifier: ID) -> Tuple[Optional[Meta], Optional[Document]]:
+    async def load_info(self, identifier: ID) -> Tuple[Optional[Meta], Optional[Document]]:
         db = self.database
-        id_key = db.private_key_for_visa_signature(user=identifier)
+        id_key = await db.private_key_for_visa_signature(user=identifier)
         if id_key is None:
             self.error(msg='failed to load id key: %s' % identifier)
             return None, None
-        msg_keys = db.private_keys_for_decryption(user=identifier)
+        msg_keys = await db.private_keys_for_decryption(user=identifier)
         if len(msg_keys) == 0:
             self.error(msg='failed to load msg keys: %s' % identifier)
             return None, None
-        meta, doc = super().load_info(identifier=identifier)
+        meta, doc = await super().load_info(identifier=identifier)
         if doc is None:
             return meta, None
         self.__id_pri_key = id_key
@@ -141,16 +141,16 @@ class UserAccount(BaseAccount):
         print('!!! private key: %s, msg keys: %s' % (algor, array))
         print('!!!')
 
-    def save_private_keys(self) -> Tuple[PrivateKey, List[PrivateKey]]:
+    async def save_private_keys(self) -> Tuple[PrivateKey, List[PrivateKey]]:
         id_pri_key = self.__id_pri_key
         msg_pri_keys = self.__msg_pri_keys
         assert id_pri_key is not None and len(msg_pri_keys) > 0, 'private keys not found'
         identifier = self.identifier
         assert identifier is not None, 'ID not found'
         db = self.database
-        db.save_private_key(key=id_pri_key, user=identifier, key_type=PrivateKeyStorage.ID_KEY_TAG)
+        await db.save_private_key(key=id_pri_key, user=identifier, key_type=PrivateKeyStorage.ID_KEY_TAG)
         for s_key in msg_pri_keys:
-            db.save_private_key(key=s_key, user=identifier, key_type=PrivateKeyStorage.MSG_KEY_TAG)
+            await db.save_private_key(key=s_key, user=identifier, key_type=PrivateKeyStorage.MSG_KEY_TAG)
         return id_pri_key, msg_pri_keys
 
     # private
@@ -173,7 +173,7 @@ class UserAccount(BaseAccount):
         return doc
 
     # Override
-    def update(self, exists: bool = False) -> Optional[Document]:
+    async def update(self, exists: bool = False) -> Optional[Document]:
         doc = self.edit()
         assert isinstance(doc, Visa), 'failed to edit visa: %s' % doc
         # update visa.key and sign
@@ -181,9 +181,9 @@ class UserAccount(BaseAccount):
         if doc.sign(private_key=self.__id_pri_key) is None:
             return None
         if not exists:
-            self.save_private_keys()
-            self.save_meta()
-        return self.save_document()
+            await self.save_private_keys()
+            await self.save_meta()
+        return await self.save_document()
 
     # protected
     def edit(self) -> Optional[Document]:

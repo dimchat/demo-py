@@ -23,6 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
+import asyncio
 import weakref
 from abc import ABC
 from enum import IntEnum
@@ -30,8 +31,9 @@ from typing import Optional, Union
 
 from dimsdk import ID
 
+from startrek.fsm import Runner
 from startrek.fsm import Context, BaseTransition, BaseState, AutoMachine
-from startrek import DockerStatus
+from startrek import Docker, DockerStatus
 
 # from .session import ClientSession
 
@@ -41,6 +43,7 @@ class StateMachine(AutoMachine, Context):
     def __init__(self, session):
         super().__init__()
         self.__session = weakref.ref(session)
+        self.__docker_ref = None
         # init states
         builder = self._create_state_builder()
         self.add_state(state=builder.get_default_state())
@@ -53,6 +56,19 @@ class StateMachine(AutoMachine, Context):
     @property
     def session(self):  # -> ClientSession:
         return self.__session()
+
+    @property
+    def docker(self) -> Optional[Docker]:
+        ref = self.__docker_ref
+        if ref is not None:
+            return ref()
+
+    @docker.setter
+    def docker(self, worker: Docker):
+        if worker is None:
+            self.__docker_ref = None
+        else:
+            self.__docker_ref = weakref.ref(worker)
 
     # noinspection PyMethodMayBeStatic
     def _create_state_builder(self):
@@ -75,13 +91,19 @@ class StateMachine(AutoMachine, Context):
 
     @property
     def status(self) -> DockerStatus:
-        session = self.session
-        gate = session.gate
-        docker = gate.fetch_docker([], remote=session.remote_address, local=None)
-        if docker is None:
-            return DockerStatus.ERROR
-        else:
+        docker = self.docker
+        if docker is not None:
             return docker.status
+        else:
+            session = self.session
+            gate = session.gate
+            task = Runner.async_run(coro=gate.fetch_docker([], remote=session.remote_address, local=None))
+            task.add_done_callback(self._fetch_docker_callback)
+        # waiting for callback
+        return DockerStatus.ERROR
+
+    def _fetch_docker_callback(self, t: asyncio.Task):
+        self.docker = t.result()
 
 
 class StateOrder(IntEnum):
@@ -136,12 +158,15 @@ class SessionState(BaseState[StateMachine, StateTransition]):
     def enter_time(self) -> float:
         return self.__time
 
+    # Override
     def __str__(self) -> str:
         return self.__name
 
+    # Override
     def __repr__(self) -> str:
         return self.__name
 
+    # Override
     def __eq__(self, other) -> bool:
         if isinstance(other, SessionState):
             if self is other:
@@ -156,6 +181,7 @@ class SessionState(BaseState[StateMachine, StateTransition]):
         else:
             return False
 
+    # Override
     def __ne__(self, other) -> bool:
         if isinstance(other, SessionState):
             if self is other:
@@ -171,19 +197,19 @@ class SessionState(BaseState[StateMachine, StateTransition]):
             return True
 
     # Override
-    def on_enter(self, old, ctx: StateMachine, now: float):
+    async def on_enter(self, old, ctx: StateMachine, now: float):
         self.__time = now
 
     # Override
-    def on_exit(self, new, ctx: StateMachine, now: float):
+    async def on_exit(self, new, ctx: StateMachine, now: float):
         self.__time = 0
 
     # Override
-    def on_pause(self, ctx: StateMachine, now: float):
+    async def on_pause(self, ctx: StateMachine, now: float):
         pass
 
     # Override
-    def on_resume(self, ctx: StateMachine, now: float):
+    async def on_resume(self, ctx: StateMachine, now: float):
         pass
 
 

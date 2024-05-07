@@ -56,7 +56,7 @@ class ClientMessageProcessor(CommonMessageProcessor):
         return transceiver
 
     # private
-    def _check_group_times(self, content: Content, r_msg: ReliableMessage) -> bool:
+    async def _check_group_times(self, content: Content, r_msg: ReliableMessage) -> bool:
         group = content.group
         if group is None:
             return False
@@ -76,7 +76,7 @@ class ClientMessageProcessor(CommonMessageProcessor):
             # check whether needs update
             if doc_updated:
                 self.info(msg='checking for new bulletin: %s' % group)
-                facebook.documents(identifier=group)
+                await facebook.get_documents(identifier=group)
         # check group history time
         last_his_time = r_msg.get_datetime(key='GHT', default=None)
         if last_his_time is not None:
@@ -88,15 +88,15 @@ class ClientMessageProcessor(CommonMessageProcessor):
             if mem_updated:
                 archivist.set_last_active_member(member=r_msg.sender, group=group)
                 self.info(msg='checking for group members: %s' % group)
-                facebook.members(identifier=group)
+                await facebook.get_members(identifier=group)
         return doc_updated or mem_updated
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
-        responses = super().process_content(content=content, r_msg=r_msg)
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+        responses = await super().process_content(content=content, r_msg=r_msg)
         # check group document & history times from the message
         # to make sure the group info synchronized
-        self._check_group_times(content=content, r_msg=r_msg)
+        await self._check_group_times(content=content, r_msg=r_msg)
         # check responses
         if len(responses) == 0:
             # respond nothing
@@ -106,7 +106,7 @@ class ClientMessageProcessor(CommonMessageProcessor):
             return responses
         sender = r_msg.sender
         receiver = r_msg.receiver
-        user = self.facebook.select_user(receiver=receiver)
+        user = await self.facebook.select_user(receiver=receiver)
         if user is None:
             # assert False, 'receiver error: %s' % receiver
             return responses
@@ -130,7 +130,7 @@ class ClientMessageProcessor(CommonMessageProcessor):
                     self.info(msg='drop text responding to %s, origin time=[%s], text=%s' % (sender, when, res.text))
                     continue
             # normal response
-            messenger.send_content(sender=receiver, receiver=sender, content=res)
+            await messenger.send_content(sender=receiver, receiver=sender, content=res)
         # DON'T respond to station directly
         return []
 

@@ -96,7 +96,7 @@ class GroupManager(Logging):
     def database(self) -> AccountDBI:
         return self.__delegate.facebook.archivist.database
 
-    def create_group(self, members: List[ID]) -> Optional[ID]:
+    async def create_group(self, members: List[ID]) -> Optional[ID]:
         """
         Create new group with members
         (broadcast document & members to all members and neighbor station)
@@ -125,19 +125,19 @@ class GroupManager(Logging):
             members.pop(pos)
             members.insert(0, founder)
         # generate group name
-        title = self.delegate.build_group_name(members=members)
+        title = await self.delegate.build_group_name(members=members)
         #
         #   2. create group with name
         #
         register = Register(database=self.database)
-        group = register.create_group(founder=founder, name=title)
+        group = await register.create_group(founder=founder, name=title)
         self.info(msg='new group: %s (%s), founder: %s' % (group, title, founder))
         #
         #   3. upload meta+document to neighbor station(s)
         #   DISCUSS: should we let the neighbor stations know the group info?
         #
-        meta = self.delegate.meta(identifier=group)
-        doc = self.delegate.bulletin(group)
+        meta = await self.delegate.get_meta(identifier=group)
+        doc = await self.delegate.get_bulletin(group)
         if doc is not None:
             content = DocumentCommand.response(identifier=group, meta=meta, document=doc)
         elif meta is not None:
@@ -145,11 +145,11 @@ class GroupManager(Logging):
         else:
             self.error(msg='failed to get group info: %s' % group)
             return None
-        self.__send_command(content=content, receiver=Station.ANY)      # to neighbor(s)
+        await self.__send_command(content=content, receiver=Station.ANY)      # to neighbor(s)
         #
         #   4. create & broadcast 'reset' group command with new members
         #
-        if self.reset_members(members=members, group=group):
+        if await self.reset_members(members=members, group=group):
             self.info(msg='created group with %d members: %s' % (len(members), group))
         else:
             self.error(msg='failed to create group with %d members: %s' % (len(members), group))
@@ -170,7 +170,7 @@ class GroupManager(Logging):
                 immediately until someone online again.
     """
 
-    def reset_members(self, members: List[ID], group: ID) -> bool:
+    async def reset_members(self, members: List[ID], group: ID) -> bool:
         """
         Reset group members
         (broadcast new group history to all members)
@@ -190,12 +190,12 @@ class GroupManager(Logging):
         me = user.identifier
         # check member list
         first = members[0]
-        ok = self.delegate.is_owner(user=first, group=group)
+        ok = await self.delegate.is_owner(user=first, group=group)
         if not ok:
             self.error(msg='group owner must be the first member: %s' % group)
             return False
         # member list OK, check expelled members
-        old_members = self.delegate.members(identifier=group)
+        old_members = await self.delegate.get_members(identifier=group)
         expel_list = []
         for item in old_members:
             if item not in members:
@@ -204,8 +204,8 @@ class GroupManager(Logging):
         #   1. check permission
         #
         is_owner = me == first
-        is_admin = self.delegate.is_administrator(user=me, group=group)
-        is_bot = self.delegate.is_assistant(user=me, group=group)
+        is_admin = await self.delegate.is_administrator(user=me, group=group)
+        is_bot = await self.delegate.is_assistant(user=me, group=group)
         can_reset = is_owner or is_admin
         if not can_reset:
             self.error(msg='cannot reset members of group: %s' % group)
@@ -215,17 +215,17 @@ class GroupManager(Logging):
         #
         #   2. build 'reset' command
         #
-        reset, msg = self.builder.builder_reset_command(group=group, members=members)
+        reset, msg = await self.builder.builder_reset_command(group=group, members=members)
         if reset is None or msg is None:
             self.error(msg='failed to build "reset" command for group: %s' % group)
             return False
         #
         #   3. save 'reset' command, and update new members
         #
-        if not self.helper.save_group_history(group=group, content=reset, message=msg):
+        if not await self.helper.save_group_history(group=group, content=reset, message=msg):
             self.error(msg='failed to save "reset" command for group: %s' % group)
             return False
-        elif not self.delegate.save_members(members=members, group=group):
+        elif not await self.delegate.save_members(members=members, group=group):
             self.error(msg='failed to update members of group: %s' % group)
             return False
         else:
@@ -233,21 +233,21 @@ class GroupManager(Logging):
         #
         #   4. forward all group history
         #
-        messages = self.builder.build_group_histories(group=group)
+        messages = await self.builder.build_group_histories(group=group)
         forward = ForwardContent.create(messages=messages)
-        bots = self.delegate.assistants(identifier=group)
+        bots = await self.delegate.get_assistants(identifier=group)
         if len(bots) > 0:
             # let the group bots know the newest member ID list,
             # so they can split group message correctly for us.
-            return self.__send_command(content=forward, members=bots)   # to all assistants
+            return await self.__send_command(content=forward, members=bots)   # to all assistants
         else:
             # group bots not exist,
             # send the command to all members
-            self.__send_command(content=forward, members=members)       # to new members
-            self.__send_command(content=forward, members=expel_list)    # to removed members
+            await self.__send_command(content=forward, members=members)       # to new members
+            await self.__send_command(content=forward, members=expel_list)    # to removed members
         return True
 
-    def invite_members(self, members: List[ID], group: ID) -> bool:
+    async def invite_members(self, members: List[ID], group: ID) -> bool:
         """
         Invite new members to this group
 
@@ -266,10 +266,10 @@ class GroupManager(Logging):
             return False
         me = user.identifier
 
-        old_members = self.delegate.members(identifier=group)
-        is_owner = self.delegate.is_owner(user=me, group=group)
-        is_admin = self.delegate.is_administrator(user=me, group=group)
-        is_member = self.delegate.is_member(user=me, group=group)
+        old_members = await self.delegate.get_members(identifier=group)
+        is_owner = await self.delegate.is_owner(user=me, group=group)
+        is_admin = await self.delegate.is_administrator(user=me, group=group)
+        is_member = await self.delegate.is_member(user=me, group=group)
         #
         #   1. check permission
         #
@@ -279,7 +279,7 @@ class GroupManager(Logging):
             for item in members:
                 if item not in all_members:
                     all_members.append(item)
-            return self.reset_members(members=all_members, group=group)
+            return await self.reset_members(members=all_members, group=group)
         elif not is_member:
             self.error(msg='cannot invite member into group: %s' % group)
             return False
@@ -289,32 +289,32 @@ class GroupManager(Logging):
         #   2. build 'invite' command
         #
         invite = GroupCommand.invite(group=group, members=members)
-        r_msg = self.packer.pack_message(content=invite, sender=me)
+        r_msg = await self.packer.pack_message(content=invite, sender=me)
         if r_msg is None:
             self.error(msg='failed to build "invite" command for group: %s' % group)
             return False
-        elif not self.helper.save_group_history(group=group, content=invite, message=r_msg):
+        elif not await self.helper.save_group_history(group=group, content=invite, message=r_msg):
             self.error(msg='failed to save "invite" command for group: %s' % group)
             return False
         forward = ForwardContent.create(message=r_msg)
         #
         #   3. forward group command(s)
         #
-        bots = self.delegate.assistants(identifier=group)
+        bots = await self.delegate.get_assistants(identifier=group)
         if len(bots) > 0:
             # let the group bots know the newest member ID list,
             # so they can split group message correctly for us.
-            return self.__send_command(content=forward, members=bots)   # to all assistants
+            return await self.__send_command(content=forward, members=bots)   # to all assistants
         # forward 'invite' to old members
-        self.__send_command(content=forward, members=old_members)       # to old members
+        await self.__send_command(content=forward, members=old_members)       # to old members
         # forward all group history to new members
-        messages = self.builder.build_group_histories(group=group)
+        messages = await self.builder.build_group_histories(group=group)
         forward = ForwardContent.create(messages=messages)
         # TODO: remove that members already exist before sending?
-        self.__send_command(content=forward, members=members)           # to new members
+        await self.__send_command(content=forward, members=members)           # to new members
         return True
 
-    def quit_group(self, group: ID) -> bool:
+    async def quit_group(self, group: ID) -> bool:
         """
         Quit from this group
         (broadcast a 'quit' command to all members)
@@ -332,11 +332,11 @@ class GroupManager(Logging):
             return False
         me = user.identifier
 
-        members = self.delegate.members(identifier=group)
+        members = await self.delegate.get_members(identifier=group)
         assert len(members) > 0, 'failed to get members for group: %s' % group
-        is_owner = self.delegate.is_owner(user=me, group=group)
-        is_admin = self.delegate.is_administrator(user=me, group=group)
-        is_bot = self.delegate.is_assistant(user=me, group=group)
+        is_owner = await self.delegate.is_owner(user=me, group=group)
+        is_admin = await self.delegate.is_administrator(user=me, group=group)
+        is_bot = await self.delegate.is_assistant(user=me, group=group)
         is_member = me in members
         #
         #   1. check permission
@@ -355,7 +355,7 @@ class GroupManager(Logging):
             self.warning(msg='quitting group: %s, %s' % (group, me))
             new_members = members.copy()
             new_members.remove(me)
-            ok = self.delegate.save_members(members=new_members, group=group)
+            ok = await self.delegate.save_members(members=new_members, group=group)
             assert ok, 'failed to save members for group: %s' % group
             members = new_members
         else:
@@ -364,7 +364,7 @@ class GroupManager(Logging):
         #   3. build 'quit' command
         #
         content = GroupCommand.quit(group=group)
-        r_msg = self.packer.pack_message(content=content, sender=me)
+        r_msg = await self.packer.pack_message(content=content, sender=me)
         if r_msg is None:
             self.error(msg='failed to pack group message: %s' % group)
             return False
@@ -372,16 +372,16 @@ class GroupManager(Logging):
         #
         #   4. forward 'quit' command
         #
-        bots = self.delegate.assistants(identifier=group)
+        bots = await self.delegate.get_assistants(identifier=group)
         if len(bots) > 0:
             # let the group bots know the newest member ID list,
             # so they can split group message correctly for us.
-            return self.__send_command(content=forward, members=bots)   # to group bots
+            return await self.__send_command(content=forward, members=bots)   # to group bots
         # group bots not exist,
         # send the command to all members directly
-        return self.__send_command(content=forward, members=members)    # to all members
+        return await self.__send_command(content=forward, members=members)    # to all members
 
-    def __send_command(self, content: Content, receiver: ID = None, members: List[ID] = None) -> bool:
+    async def __send_command(self, content: Content, receiver: ID = None, members: List[ID] = None) -> bool:
         if receiver is not None:
             assert members is None, 'params error: %s, %s' % (receiver, members)
             members = [receiver]
@@ -400,7 +400,7 @@ class GroupManager(Logging):
             if me == receiver:
                 self.info(msg='skip cycled message: %s => %s' % (me, receiver))
                 continue
-            messenger.send_content(sender=me, receiver=receiver, content=content, priority=1)
+            await messenger.send_content(sender=me, receiver=receiver, content=content, priority=1)
         return True
 
 

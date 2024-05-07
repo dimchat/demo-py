@@ -36,7 +36,6 @@
 """
 
 import socket
-import threading
 import traceback
 from typing import Optional, List, Tuple
 
@@ -46,7 +45,7 @@ from dimsdk import ReliableMessage
 from startrek import Docker, DockerStatus
 from startrek import Arrival, Departure
 
-from ..utils import Log
+from ..utils import Log, Runner
 from ..utils import hex_encode, random_bytes
 from ..utils import get_msg_sig, get_msg_info
 from ..common import SessionDBI, MessageDBI, ReliableMessageDBI
@@ -94,8 +93,7 @@ class ServerSession(BaseSession):
         if self.identifier is None or not self.active:
             return False
         # load cached message asynchronously
-        threading.Thread(target=load_cached_messages, args=(self,)).start()
-        # load_cached_messages(session=self)
+        Runner.async_run(coro=load_cached_messages(session=self))
         return True
 
     # Override
@@ -114,30 +112,30 @@ class ServerSession(BaseSession):
                 self.__load_cached_messages()
             return True
 
-    @property  # Override
-    def running(self) -> bool:
-        if super().running:
-            gate = self.gate
-            conn = gate.get_channel(remote=self.remote_address, local=None)
-            return not (conn is None or conn.closed)
+    # @property  # Override
+    # def running(self) -> bool:
+    #     if super().running:
+    #         gate = self.gate
+    #         conn = gate.get_channel(remote=self.remote_address, local=None)
+    #         return not (conn is None or conn.closed)
 
     #
     #   Docker Delegate
     #
 
     # Override
-    def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
+    async def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
         # super().docker_status_changed(previous=previous, current=current, docker=docker)
         if current is None or current == DockerStatus.ERROR:
             # connection error or session finished
             self.set_active(active=False)
-            self.stop()
+            await self.stop()
         elif current == DockerStatus.READY:
             # connected/reconnected
             self.set_active(active=True)
 
     # Override
-    def docker_received(self, ship: Arrival, docker: Docker):
+    async def docker_received(self, ship: Arrival, docker: Docker):
         # super().docker_received(ship=ship, docker=docker)
         all_responses = []
         messenger = self.messenger
@@ -146,7 +144,7 @@ class ServerSession(BaseSession):
         for pack in packages:
             try:
                 # 2. process each data package
-                responses = messenger.process_package(data=pack)
+                responses = await messenger.process_package(data=pack)
                 for res in responses:
                     if len(res) == 0:
                         # should not happen
@@ -165,20 +163,20 @@ class ServerSession(BaseSession):
         if len(all_responses) > 0:
             # respond separately
             for res in all_responses:
-                gate.send_response(payload=res, ship=ship, remote=source, local=destination)
+                await gate.send_response(payload=res, ship=ship, remote=source, local=destination)
         elif isinstance(ship, MarsStreamArrival):
             # station MUST respond something to client request (Tencent Mars)
-            gate.send_response(payload=b'', ship=ship, remote=source, local=destination)
+            await gate.send_response(payload=b'', ship=ship, remote=source, local=destination)
 
     # Override
-    def docker_sent(self, ship: Departure, docker: Docker):
+    async def docker_sent(self, ship: Departure, docker: Docker):
         if isinstance(ship, MessageWrapper):
             msg = ship.msg
             if msg is not None:
                 # remove from database for actual receiver
                 receiver = self.identifier
                 db = self.messenger.database
-                remove_reliable_message(msg=msg, receiver=receiver, database=db)
+                await remove_reliable_message(msg=msg, receiver=receiver, database=db)
 
 
 def get_data_packages(ship: Arrival) -> List[bytes]:
@@ -222,23 +220,23 @@ def session_change_active(session: ServerSession, active: bool):
         return True
 
 
-def load_cached_messages(session: ServerSession):
+async def load_cached_messages(session: ServerSession):
     identifier = session.identifier
     assert identifier is not None and session.active, 'session error: %s' % identifier
     messenger = session.messenger
     db = messenger.database
     limit = ReliableMessageDBI.CACHE_LIMIT
-    messages = db.reliable_messages(receiver=identifier, limit=limit)
+    messages = await db.get_reliable_messages(receiver=identifier, limit=limit)
     cnt = len(messages)
     Log.info(msg='[DB] %d cached message(s) loaded for: %s' % (cnt, identifier))
     for msg in messages:
-        data = messenger.serialize_message(msg=msg)
-        ok = session.queue_message_package(msg=msg, data=data, priority=1)
+        data = await messenger.serialize_message(msg=msg)
+        ok = await session.queue_message_package(msg=msg, data=data, priority=1)
         sig = get_msg_sig(msg=msg)
         Log.info(msg='queue message for: %s, %s, %s' % (identifier, ok, sig))
 
 
-def remove_reliable_message(msg: ReliableMessage, receiver: ID, database: MessageDBI):
+async def remove_reliable_message(msg: ReliableMessage, receiver: ID, database: MessageDBI):
     # 0. if session ID is empty, means user not login;
     #    this message must be a handshake command, and
     #    its receiver must be the targeted user.
@@ -256,4 +254,4 @@ def remove_reliable_message(msg: ReliableMessage, receiver: ID, database: Messag
     info = get_msg_info(msg=msg)
     Log.info(msg='message sent for %s, remove from db: %s' % (receiver, info))
     # remove sent message from database
-    return database.remove_reliable_message(msg=msg, receiver=receiver)
+    return await database.remove_reliable_message(msg=msg, receiver=receiver)

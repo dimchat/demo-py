@@ -53,7 +53,7 @@ class ReliableMessageTable(ReliableMessageDBI):
     #
 
     # Override
-    def reliable_messages(self, receiver: ID, limit: int = 1024) -> List[ReliableMessage]:
+    async def get_reliable_messages(self, receiver: ID, limit: int = 1024) -> List[ReliableMessage]:
         now = DateTime.now()
         # get all messages
         messages, _ = self.__msg_cache.fetch(key=receiver, now=now)
@@ -65,7 +65,7 @@ class ReliableMessageTable(ReliableMessageDBI):
         return messages
 
     # Override
-    def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
+    async def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         now = DateTime.now()
         # assert receiver.is_user, 'message receiver error: %s' % receiver
         messages, holder = self.__msg_cache.fetch(key=receiver, now=now)
@@ -87,7 +87,7 @@ class ReliableMessageTable(ReliableMessageDBI):
             return False
 
     # Override
-    def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
+    async def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         now = DateTime.now()
         # assert receiver.is_user, 'message receiver error: %s' % receiver
         messages, holder = self.__msg_cache.fetch(key=receiver, now=now)

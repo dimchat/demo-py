@@ -24,7 +24,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-
+import asyncio
 import os
 import sys
 import getopt
@@ -74,7 +74,7 @@ def show_help():
     print('')
 
 
-def main():
+async def main():
     try:
         opts, args = getopt.getopt(args=sys.argv[1:],
                                    shortopts='hf:',
@@ -105,17 +105,17 @@ def main():
     print('[DB] init with config: %s => %s' % (ini_file, config))
     shared = GlobalVariable()
     shared.config = config
-    create_database(shared=shared)
+    await create_database(shared=shared)
     # check actions
     if len(args) == 1 and args[0] == 'generate':
-        generate(database=shared.adb)
+        await generate(database=shared.adb)
     elif len(args) == 2 and args[0] == 'modify':
         identifier = ID.parse(identifier=args[1])
         assert identifier is not None, 'ID error: %s' % args[1]
-        modify(identifier=identifier, database=shared.adb)
+        await modify(identifier=identifier, database=shared.adb)
     else:
         show_help()
 
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())

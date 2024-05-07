@@ -54,7 +54,7 @@ class MetaTable(MetaDBI):
     #
 
     # Override
-    def meta(self, identifier: ID) -> Optional[Meta]:
+    async def get_meta(self, identifier: ID) -> Optional[Meta]:
         """ get meta for ID """
         now = DateTime.now()
         # 1. check memory cache
@@ -71,7 +71,7 @@ class MetaTable(MetaDBI):
                 # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            value = self.__dos.meta(identifier=identifier)
+            value = await self.__dos.get_meta(identifier=identifier)
             # 3. update memory cache
             if value is None:
                 self.__meta_cache.update(key=identifier, value=value, life_span=300, now=now)
@@ -81,14 +81,14 @@ class MetaTable(MetaDBI):
         return value
 
     # Override
-    def save_meta(self, meta: Meta, identifier: ID) -> bool:
+    async def save_meta(self, meta: Meta, identifier: ID) -> bool:
         # assert Meta.match_id(meta=meta, identifier=identifier), 'meta invalid: %s, %s' % (identifier, meta)
         # 0. check old record
-        old = self.meta(identifier=identifier)
+        old = self.get_meta(identifier=identifier)
         if old is not None:
             # meta exists, no need to update it
             return True
         # 1. store into memory cache
         self.__meta_cache.update(key=identifier, value=meta, life_span=36000)
         # 2. store into local storage
-        return self.__dos.save_meta(meta=meta, identifier=identifier)
+        return await self.__dos.save_meta(meta=meta, identifier=identifier)

@@ -57,7 +57,7 @@ class StationTable(ProviderDBI, StationDBI):
     #
 
     # Override
-    def all_providers(self) -> List[ProviderInfo]:
+    async def all_providers(self) -> List[ProviderInfo]:
         """ get providers """
         now = DateTime.now()
         # 1. check memory cache
@@ -74,7 +74,7 @@ class StationTable(ProviderDBI, StationDBI):
                 # cache expired, wait for reloading
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            value = self.__dos.all_providers()
+            value = await self.__dos.all_providers()
             if len(value) == 0:
                 # default providers
                 value = [ProviderInfo(identifier=ProviderInfo.GSP, chosen=0)]
@@ -84,32 +84,32 @@ class StationTable(ProviderDBI, StationDBI):
         return value
 
     # Override
-    def add_provider(self, identifier: ID, chosen: int = 0) -> bool:
+    async def add_provider(self, identifier: ID, chosen: int = 0) -> bool:
         # 1. clear cache to reload
         self.__dim_cache.erase(key='providers')
         # 2. store into local storage
-        return self.__dos.add_provider(identifier=identifier, chosen=chosen)
+        return await self.__dos.add_provider(identifier=identifier, chosen=chosen)
 
     # Override
-    def update_provider(self, identifier: ID, chosen: int) -> bool:
+    async def update_provider(self, identifier: ID, chosen: int) -> bool:
         # 1. clear cache to reload
         self.__dim_cache.erase(key='providers')
         # 2. store into local storage
-        return self.__dos.update_provider(identifier=identifier, chosen=chosen)
+        return await self.__dos.update_provider(identifier=identifier, chosen=chosen)
 
     # Override
-    def remove_provider(self, identifier: ID) -> bool:
+    async def remove_provider(self, identifier: ID) -> bool:
         # 1. clear cache to reload
         self.__dim_cache.erase(key='providers')
         # 2. store into local storage
-        return self.__dos.remove_provider(identifier=identifier)
+        return await self.__dos.remove_provider(identifier=identifier)
 
     #
     #   Station DBI
     #
 
     # Override
-    def all_stations(self, provider: ID) -> List[StationInfo]:
+    async def all_stations(self, provider: ID) -> List[StationInfo]:
         """ get stations with SP ID """
         now = DateTime.now()
         # 1. check memory cache
@@ -126,36 +126,40 @@ class StationTable(ProviderDBI, StationDBI):
                 # cache expired, wait for reloading
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check local storage
-            value = self.__dos.all_stations(provider=provider)
+            value = await self.__dos.all_stations(provider=provider)
             # 3. update memory cache
             self.__stations_cache.update(key=provider, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
     # Override
-    def add_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = 0) -> bool:
+    async def add_station(self, identifier: Optional[ID], host: str, port: int,
+                          provider: ID, chosen: int = 0) -> bool:
         # 1. clear cache to reload
         self.__stations_cache.erase(key=provider)
         # 2. store into local storage
-        return self.__dos.add_station(identifier=identifier, host=host, port=port, provider=provider, chosen=chosen)
+        return await self.__dos.add_station(identifier=identifier, host=host, port=port,
+                                            provider=provider, chosen=chosen)
 
     # Override
-    def update_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = None) -> bool:
+    async def update_station(self, identifier: Optional[ID], host: str, port: int,
+                             provider: ID, chosen: int = None) -> bool:
         # 1. clear cache to reload
         self.__stations_cache.erase(key=provider)
         # 2. store into local storage
-        return self.__dos.update_station(identifier=identifier, host=host, port=port, provider=provider, chosen=chosen)
+        return await self.__dos.update_station(identifier=identifier, host=host, port=port,
+                                               provider=provider, chosen=chosen)
 
     # Override
-    def remove_station(self, host: str, port: int, provider: ID) -> bool:
+    async def remove_station(self, host: str, port: int, provider: ID) -> bool:
         # 1. clear cache to reload
         self.__stations_cache.erase(key=provider)
         # 2. store into local storage
-        return self.__dos.remove_station(host=host, port=port, provider=provider)
+        return await self.__dos.remove_station(host=host, port=port, provider=provider)
 
     # Override
-    def remove_stations(self, provider: ID) -> bool:
+    async def remove_stations(self, provider: ID) -> bool:
         # 1. clear cache to reload
         self.__stations_cache.erase(key=provider)
         # 2. store into local storage
-        return self.__dos.remove_stations(provider=provider)
+        return await self.__dos.remove_stations(provider=provider)

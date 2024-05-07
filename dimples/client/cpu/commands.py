@@ -43,7 +43,7 @@ from ...common import LoginCommand
 class LoginCommandProcessor(BaseCommandProcessor):
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, LoginCommand), 'login command error: %s' % content
         # return ReceiptCommand.new(message='Login received')
         return []

@@ -111,7 +111,7 @@ class BadgeKeeper:
 class PushService(ABC):
 
     @abstractmethod
-    def process(self, messages: List[ReliableMessage]) -> bool:
+    async def process(self, messages: List[ReliableMessage]) -> bool:
         """ build and push notification for a batch of messages """
         raise NotImplemented
 
@@ -151,7 +151,7 @@ class PushCenter(Runner, Logging):
         queue.add_message(msg=msg)
 
     # Override
-    def process(self) -> bool:
+    async def process(self) -> bool:
         # 1. get waiting messages
         queue = self.__queue
         messages = queue.get_messages()
@@ -164,4 +164,4 @@ class PushCenter(Runner, Logging):
             self.error(msg='push service not found')
             return False
         # 3. process
-        return service.process(messages=messages)
+        return await service.process(messages=messages)

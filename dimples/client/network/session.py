@@ -104,40 +104,40 @@ class ClientSession(BaseSession):
         assert ss is None or isinstance(ss, SessionState), 'session state error: %s' % ss
         return ss
 
-    def start(self, delegate: StateDelegate):
+    async def start(self, delegate: StateDelegate):
         if self.running:
-            self.stop()
+            await self.stop()
         # start a background thread
         self.__daemon.start()
         # start state machine
         fsm = self.__fsm
         fsm.delegate = delegate
-        fsm.start()
+        await fsm.start()
 
     # Override
-    def stop(self):
-        super().stop()
+    async def stop(self):
+        await super().stop()
         # stop state machine
-        self.__fsm.stop()
+        await self.__fsm.stop()
         # wait for thread stop
         self.__daemon.stop()
 
     # Override
-    def setup(self):
+    async def setup(self):
         self.set_active(active=True)
-        super().setup()
+        await super().setup()
 
     # Override
-    def finish(self):
+    async def finish(self):
         self.set_active(active=False)
-        super().finish()
+        await super().finish()
 
     #
     #   Docker Delegate
     #
 
     # Override
-    def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
+    async def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
         # super().docker_status_changed(previous=previous, current=current, docker=docker)
         if current is None or current == DockerStatus.ERROR:
             # connection error or session finished
@@ -149,7 +149,7 @@ class ClientSession(BaseSession):
             self.set_active(active=True)
 
     # Override
-    def docker_received(self, ship: Arrival, docker: Docker):
+    async def docker_received(self, ship: Arrival, docker: Docker):
         # super().docker_received(ship=ship, docker=docker)
         all_responses = []
         messenger = self.messenger
@@ -158,7 +158,7 @@ class ClientSession(BaseSession):
         for pack in packages:
             try:
                 # 2. process each data package
-                responses = messenger.process_package(data=pack)
+                responses = await messenger.process_package(data=pack)
                 for res in responses:
                     if len(res) == 0:
                         # should not happen
@@ -175,7 +175,7 @@ class ClientSession(BaseSession):
         destination = docker.local_address
         # 3. send responses separately
         for res in all_responses:
-            gate.send_response(payload=res, ship=ship, remote=source, local=destination)
+            await gate.send_response(payload=res, ship=ship, remote=source, local=destination)
 
 
 def get_data_packages(ship: Arrival) -> List[bytes]:

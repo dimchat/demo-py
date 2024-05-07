@@ -40,18 +40,18 @@ from .checkpoint import Checkpoint
 class ClientMessagePacker(CommonMessagePacker):
 
     # Override
-    def _check_receiver(self, msg: InstantMessage) -> bool:
+    async def _check_receiver(self, msg: InstantMessage) -> bool:
         receiver = msg.receiver
         if receiver.is_broadcast:
             # broadcast message
             return True
         elif receiver.is_user:
             # check user's meta & document
-            return super()._check_receiver(msg=msg)
+            return await super()._check_receiver(msg=msg)
         #
         #   check group's meta & members
         #
-        members = self._members(group=receiver)
+        members = await self._members(group=receiver)
         if len(members) == 0:
             # group not ready, suspend message for waiting meta/members
             error = {
@@ -65,7 +65,7 @@ class ClientMessagePacker(CommonMessagePacker):
         #
         waiting = []
         for item in members:
-            if self._visa_key(user=item) is None:
+            if await self._visa_key(user=item) is None:
                 # member not ready
                 waiting.append(item)
         if len(waiting) == 0:
@@ -86,7 +86,7 @@ class ClientMessagePacker(CommonMessagePacker):
         return len(waiting) < len(members)
 
     # protected
-    def _check_group(self, msg: ReliableMessage) -> bool:
+    async def _check_group(self, msg: ReliableMessage) -> bool:
         receiver = msg.receiver
         # check group
         group = ID.parse(identifier=msg.get('group'))
@@ -105,7 +105,7 @@ class ClientMessagePacker(CommonMessagePacker):
             return True
         # H, J, K - group message
         #     check for received group message
-        members = self._members(group=group)
+        members = await self._members(group=group)
         if len(members) > 0:
             # group is ready
             return True
@@ -118,22 +118,22 @@ class ClientMessagePacker(CommonMessagePacker):
         return False
 
     # Override
-    def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
+    async def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
         # check receiver/group with local user
-        if not self._check_group(msg=msg):
+        if not await self._check_group(msg=msg):
             # receiver (group) not ready
             self.warning(msg='receiver not ready: %s' % msg.receiver)
             return None
-        return super().verify_message(msg=msg)
+        return await super().verify_message(msg=msg)
 
     # # Override
-    # def serialize_message(self, msg: ReliableMessage) -> bytes:
-    #     attach_key_digest(msg=msg, messenger=self.messenger)
-    #     return super().serialize_message(msg=msg)
+    # async def serialize_message(self, msg: ReliableMessage) -> bytes:
+    #     await attach_key_digest(msg=msg, messenger=self.messenger)
+    #     return await super().serialize_message(msg=msg)
 
     # Override
-    def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
-        msg = super().deserialize_message(data=data)
+    async def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
+        msg = await super().deserialize_message(data=data)
         if msg is not None and self._message_duplicated(msg=msg):
             msg = None
         return msg
@@ -145,21 +145,21 @@ class ClientMessagePacker(CommonMessagePacker):
             return True
 
     # # Override
-    # def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
+    # async def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
     #     # make sure visa.key exists before encrypting message
-    #     s_msg = super().encrypt_message(msg=msg)
+    #     s_msg = await super().encrypt_message(msg=msg)
     #     receiver = msg.receiver
     #     if receiver.is_group:
     #         # reuse group message keys
-    #         key = self.messenger.cipher_key(sender=msg.sender, receiver=receiver)
+    #         key = await self.messenger.get_cipher_key(sender=msg.sender, receiver=receiver)
     #         key['reused'] = True
     #     # TODO: reuse personal message key?
     #     return s_msg
 
     # # Override
-    # def decrypt_message(self, msg: SecureMessage) -> Optional[InstantMessage]:
+    # async def decrypt_message(self, msg: SecureMessage) -> Optional[InstantMessage]:
     #     try:
-    #         return super().decrypt_message(msg=msg)
+    #         await return super().decrypt_message(msg=msg)
     #     except AssertionError as error:
     #         err_msg = '%s' % error
     #         # check exception thrown by DKD: chat.dim.dkd.EncryptedMessage.decrypt()
@@ -170,11 +170,11 @@ class ClientMessagePacker(CommonMessagePacker):
     #         facebook = get_facebook(packer=self)
     #         user = facebook.current_user
     #         current = user.identifier
-    #         visa = user.visa
+    #         visa = await user.visa
     #         assert visa is not None and visa.valid, 'user visa error: %s' % current
     #         command = DocumentCommand.response(document=visa, identifier=current)
     #         messenger = get_messenger(packer=self)
-    #         messenger.send_visa(sender=current, receiver=msg.sender, content=command)
+    #         await messenger.send_visa(sender=current, receiver=msg.sender, content=command)
 
 
 # def get_facebook(packer: CommonMessagePacker) -> CommonFacebook:
@@ -190,7 +190,7 @@ class ClientMessagePacker(CommonMessagePacker):
 #     return transceiver
 
 
-# def attach_key_digest(msg: ReliableMessage, messenger: Messenger):
+# async def attach_key_digest(msg: ReliableMessage, messenger: Messenger):
 #     # check message delegate
 #     if msg.delegate is None:
 #         msg.delegate = messenger
@@ -209,9 +209,9 @@ class ClientMessagePacker(CommonMessagePacker):
 #     sender = msg.sender
 #     group = msg.group
 #     if group is None:
-#         key = messenger.cipher_key(sender=sender, receiver=msg.receiver)
+#         key = await messenger.get_cipher_key(sender=sender, receiver=msg.receiver)
 #     else:
-#         key = messenger.cipher_key(sender=sender, receiver=group)
+#         key = await messenger.get_cipher_key(sender=sender, receiver=group)
 #     digest = key_digest(key=key)
 #     if digest is None:
 #         # key error

@@ -75,7 +75,7 @@ class ClientArchivist(CommonArchivist, ABC):
         self.__last_active_members[group] = member
 
     # Override
-    def query_meta(self, identifier: ID) -> bool:
+    async def query_meta(self, identifier: ID) -> bool:
         if not self.is_meta_query_expired(identifier=identifier):
             # query not expired yet
             self.info(msg='meta query not expired yet: %s' % identifier)
@@ -86,11 +86,11 @@ class ClientArchivist(CommonArchivist, ABC):
             return False
         self.info(msg='querying meta for: %s' % identifier)
         command = MetaCommand.query(identifier=identifier)
-        _, r_msg = messenger.send_content(sender=None, receiver=Station.ANY, content=command, priority=1)
+        _, r_msg = await messenger.send_content(sender=None, receiver=Station.ANY, content=command, priority=1)
         return r_msg is not None
 
     # Override
-    def query_documents(self, identifier: ID, documents: List[Document]) -> bool:
+    async def query_documents(self, identifier: ID, documents: List[Document]) -> bool:
         if not self.is_documents_query_expired(identifier=identifier):
             # query not expired yet
             self.info(msg='document query not expired yet: %s' % identifier)
@@ -99,14 +99,14 @@ class ClientArchivist(CommonArchivist, ABC):
         if messenger is None:
             self.warning(msg='messenger not ready yet')
             return False
-        last_time = self.get_last_document_time(identifier=identifier, documents=documents)
+        last_time = await self.get_last_document_time(identifier=identifier, documents=documents)
         self.info(msg='querying document for: %s, last time: %s' % (identifier, last_time))
         command = DocumentCommand.query(identifier=identifier, last_time=last_time)
-        _, r_msg = messenger.send_content(sender=None, receiver=Station.ANY, content=command, priority=1)
+        _, r_msg = await messenger.send_content(sender=None, receiver=Station.ANY, content=command, priority=1)
         return r_msg is not None
 
     # Override
-    def query_members(self, group: ID, members: List[ID]) -> bool:
+    async def query_members(self, group: ID, members: List[ID]) -> bool:
         if not self.is_members_query_expired(group=group):
             # query not expired yet
             self.info('members query not expired yet: %s' % group)
@@ -121,20 +121,20 @@ class ClientArchivist(CommonArchivist, ABC):
             self.error(msg='failed to get current user')
             return False
         me = user.identifier
-        last_time = self.get_last_group_history_time(group=group)
+        last_time = await self.get_last_group_history_time(group=group)
         self.info(msg='querying members for group: %s, last time: %s' % (group, last_time))
         # build query command for group members
         command = GroupCommand.query(group=group, last_time=last_time)
         # 1. check group bots
-        ok = self.query_members_from_assistants(command=command, sender=me, group=group)
+        ok = await self.query_members_from_assistants(command=command, sender=me, group=group)
         if ok:
             return True
         # 2. check administrators
-        ok = self.query_members_from_administrators(command=command, sender=me, group=group)
+        ok = await self.query_members_from_administrators(command=command, sender=me, group=group)
         if ok:
             return True
         # 3. check group owner
-        ok = self.query_members_from_owner(command=command, sender=me, group=group)
+        ok = await self.query_members_from_owner(command=command, sender=me, group=group)
         if ok:
             return True
         # all failed, try last active member
@@ -143,18 +143,18 @@ class ClientArchivist(CommonArchivist, ABC):
             r_msg = None
         else:
             self.info(msg='querying members from: %s, group: %s' % (last_member, group))
-            _, r_msg = messenger.send_content(sender=me, receiver=last_member, content=command, priority=1)
+            _, r_msg = await messenger.send_content(sender=me, receiver=last_member, content=command, priority=1)
         self.error(msg='group not ready: %s' % group)
         return r_msg is not None
 
     # protected
-    def query_members_from_assistants(self, command: QueryCommand, sender: ID, group: ID) -> bool:
+    async def query_members_from_assistants(self, command: QueryCommand, sender: ID, group: ID) -> bool:
         facebook = get_facebook(archivist=self)
         messenger = get_messenger(archivist=self)
         if facebook is None or messenger is None:
             self.warning(msg='facebook messenger not ready yet')
             return False
-        bots = facebook.assistants(group)
+        bots = await facebook.get_assistants(group)
         if len(bots) == 0:
             self.warning(msg='assistants not designated for group: %s' % group)
             return False
@@ -165,7 +165,7 @@ class ClientArchivist(CommonArchivist, ABC):
             if receiver == sender:
                 self.warning(msg='ignore cycled querying: %s, group: %s' % (receiver, group))
                 continue
-            _, r_msg = messenger.send_content(sender=sender, receiver=receiver, content=command, priority=1)
+            _, r_msg = await messenger.send_content(sender=sender, receiver=receiver, content=command, priority=1)
             if r_msg is not None:
                 success += 1
         if success == 0:
@@ -177,17 +177,17 @@ class ClientArchivist(CommonArchivist, ABC):
             pass
         else:
             self.info(msg='querying members from: %s, group: %s' % (last_member, group))
-            messenger.send_content(sender=sender, receiver=last_member, content=command, priority=1)
+            await messenger.send_content(sender=sender, receiver=last_member, content=command, priority=1)
         return True
 
     # protected
-    def query_members_from_administrators(self, command: QueryCommand, sender: ID, group: ID) -> bool:
+    async def query_members_from_administrators(self, command: QueryCommand, sender: ID, group: ID) -> bool:
         facebook = get_facebook(archivist=self)
         messenger = get_messenger(archivist=self)
         if facebook is None or messenger is None:
             self.warning(msg='facebook messenger not ready yet')
             return False
-        admins = facebook.administrators(group)
+        admins = await facebook.get_administrators(group)
         if len(admins) == 0:
             self.warning(msg='administrators not found for group: %s' % group)
             return False
@@ -198,7 +198,7 @@ class ClientArchivist(CommonArchivist, ABC):
             if receiver == sender:
                 self.warning(msg='ignore cycled querying: %s, group: %s' % (receiver, group))
                 continue
-            _, r_msg = messenger.send_content(sender=sender, receiver=receiver, content=command, priority=1)
+            _, r_msg = await messenger.send_content(sender=sender, receiver=receiver, content=command, priority=1)
             if r_msg is not None:
                 success += 1
         if success == 0:
@@ -210,17 +210,17 @@ class ClientArchivist(CommonArchivist, ABC):
             pass
         else:
             self.info(msg='querying members from: %s, group: %s' % (last_member, group))
-            messenger.send_content(sender=sender, receiver=last_member, content=command, priority=1)
+            await messenger.send_content(sender=sender, receiver=last_member, content=command, priority=1)
         return True
 
     # protected
-    def query_members_from_owner(self, command: QueryCommand, sender: ID, group: ID) -> bool:
+    async def query_members_from_owner(self, command: QueryCommand, sender: ID, group: ID) -> bool:
         facebook = get_facebook(archivist=self)
         messenger = get_messenger(archivist=self)
         if facebook is None or messenger is None:
             self.warning(msg='facebook messenger not ready yet')
             return False
-        owner = facebook.owner(group)
+        owner = await facebook.get_owner(group)
         if owner is None:
             self.warning(msg='owner not found for group: %s' % group)
             return False
@@ -229,7 +229,7 @@ class ClientArchivist(CommonArchivist, ABC):
             return False
         # querying members from owner
         self.info(msg='querying members from owner: %s, group: %s' % (owner, group))
-        _, r_msg = messenger.send_content(sender=sender, receiver=owner, content=command, priority=1)
+        _, r_msg = await messenger.send_content(sender=sender, receiver=owner, content=command, priority=1)
         if r_msg is None:
             # failed
             return False
@@ -239,5 +239,5 @@ class ClientArchivist(CommonArchivist, ABC):
             pass
         else:
             self.info(msg='querying members from: %s, group: %s' % (last_member, group))
-            messenger.send_content(sender=sender, receiver=last_member, content=command, priority=1)
+            await messenger.send_content(sender=sender, receiver=last_member, content=command, priority=1)
         return True

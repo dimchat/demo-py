@@ -107,7 +107,7 @@ class PrivateKeyStorage(Storage, PrivateKeyDBI):
     #
 
     # Override
-    def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
+    async def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
         if key_type == self.ID_KEY_TAG:
             # save private key for meta
             return self._save_id_key(key=key, identifier=user)
@@ -116,7 +116,7 @@ class PrivateKeyStorage(Storage, PrivateKeyDBI):
             return self._save_msg_key(key=key, identifier=user)
 
     # Override
-    def private_keys_for_decryption(self, user: ID) -> List[DecryptKey]:
+    async def private_keys_for_decryption(self, user: ID) -> List[DecryptKey]:
         keys: list = self._load_msg_keys(identifier=user)
         # the 'ID key' could be used for encrypting message too (RSA),
         # so we append it to the decrypt keys here
@@ -126,10 +126,10 @@ class PrivateKeyStorage(Storage, PrivateKeyDBI):
         return keys
 
     # Override
-    def private_key_for_signature(self, user: ID) -> Optional[SignKey]:
+    async def private_key_for_signature(self, user: ID) -> Optional[SignKey]:
         # TODO: support multi private keys
-        return self.private_key_for_visa_signature(user=user)
+        return await self.private_key_for_visa_signature(user=user)
 
     # Override
-    def private_key_for_visa_signature(self, user: ID) -> Optional[SignKey]:
+    async def private_key_for_visa_signature(self, user: ID) -> Optional[SignKey]:
         return self._load_id_key(identifier=user)

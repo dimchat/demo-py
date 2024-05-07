@@ -55,11 +55,11 @@ class UserStorage(Storage, UserDBI, ContactDBI):
     #
 
     # Override
-    def local_users(self) -> List[ID]:
+    async def get_local_users(self) -> List[ID]:
         return []
 
     # Override
-    def save_local_users(self, users: List[ID]) -> bool:
+    async def save_local_users(self, users: List[ID]) -> bool:
         pass
 
     #
@@ -67,7 +67,7 @@ class UserStorage(Storage, UserDBI, ContactDBI):
     #
 
     # Override
-    def contacts(self, user: ID) -> List[ID]:
+    async def get_contacts(self, user: ID) -> List[ID]:
         """ load contacts from file """
         path = self.__contacts_path(identifier=user)
         self.info(msg='Loading contacts from: %s' % path)
@@ -78,7 +78,7 @@ class UserStorage(Storage, UserDBI, ContactDBI):
         return ID.convert(array=contacts)
 
     # Override
-    def save_contacts(self, contacts: List[ID], user: ID) -> bool:
+    async def save_contacts(self, contacts: List[ID], user: ID) -> bool:
         """ save contacts into file """
         path = self.__contacts_path(identifier=user)
         self.info(msg='Saving contacts into: %s' % path)

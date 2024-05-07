@@ -73,7 +73,7 @@ class HistoryCommandProcessor(BaseCommandProcessor, Logging):
         return transceiver
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, Command), 'history command error: %s' % content
         text = 'Command not support.'
         return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
@@ -123,36 +123,36 @@ class HistoryCommandProcessor(BaseCommandProcessor, Logging):
 
 class GroupCommandProcessor(HistoryCommandProcessor):
 
-    def _owner(self, group: ID) -> Optional[ID]:
+    async def _owner(self, group: ID) -> Optional[ID]:
         delegate = self.delegate
-        return delegate.owner(identifier=group)
+        return await delegate.get_owner(identifier=group)
 
-    def _assistants(self, group: ID) -> List[ID]:
+    async def _assistants(self, group: ID) -> List[ID]:
         delegate = self.delegate
-        return delegate.assistants(identifier=group)
+        return await delegate.get_assistants(identifier=group)
 
-    def _administrators(self, group: ID) -> List[ID]:
+    async def _administrators(self, group: ID) -> List[ID]:
         delegate = self.delegate
-        return delegate.administrators(group=group)
+        return await delegate.get_administrators(group=group)
 
-    def _save_administrators(self, administrators: List[ID], group: ID) -> bool:
+    async def _save_administrators(self, administrators: List[ID], group: ID) -> bool:
         delegate = self.delegate
-        return delegate.save_administrators(administrators=administrators, group=group)
+        return await delegate.save_administrators(administrators=administrators, group=group)
 
-    def _members(self, group: ID) -> List[ID]:
+    async def _members(self, group: ID) -> List[ID]:
         delegate = self.delegate
-        return delegate.members(identifier=group)
+        return await delegate.get_members(identifier=group)
 
-    def _save_members(self, members: List[ID], group: ID) -> bool:
+    async def _save_members(self, members: List[ID], group: ID) -> bool:
         delegate = self.delegate
-        return delegate.save_members(members=members, group=group)
+        return await delegate.save_members(members=members, group=group)
 
-    def _save_group_history(self, group: ID, content: GroupCommand, r_msg: ReliableMessage) -> bool:
+    async def _save_group_history(self, group: ID, content: GroupCommand, r_msg: ReliableMessage) -> bool:
         delegate = self.helper
-        return delegate.save_group_history(group=group, content=content, message=r_msg)
+        return await delegate.save_group_history(group=group, content=content, message=r_msg)
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, GroupCommand), 'group command error: %s' % content
         text = 'Command not support.'
         return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
@@ -162,10 +162,10 @@ class GroupCommandProcessor(HistoryCommandProcessor):
             }
         })
 
-    def _check_expired(self, content: GroupCommand, r_msg: ReliableMessage) -> Tuple[Optional[ID], List[Content]]:
+    async def _check_expired(self, content: GroupCommand, r_msg: ReliableMessage) -> Tuple[Optional[ID], List[Content]]:
         group = content.group
         assert group is not None, 'group command error: %s' % content
-        expired = self.helper.is_expired(content=content)
+        expired = await self.helper.is_expired(content=content)
         if expired:
             text = 'Command expired.'
             errors = self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
@@ -181,7 +181,8 @@ class GroupCommandProcessor(HistoryCommandProcessor):
             errors = None
         return group, errors
 
-    def _check_command_members(self, content: GroupCommand, r_msg: ReliableMessage) -> Tuple[List[ID], List[Content]]:
+    async def _check_command_members(self, content: GroupCommand, r_msg: ReliableMessage
+                                     ) -> Tuple[List[ID], List[Content]]:
         group = content.group
         assert group is not None, 'group command error: %s' % content
         members = self.helper.members_from_command(content=content)
@@ -198,12 +199,12 @@ class GroupCommandProcessor(HistoryCommandProcessor):
             errors = None
         return members, errors
 
-    def _check_group_members(self, content: GroupCommand,
-                             r_msg: ReliableMessage) -> Tuple[Optional[ID], List[ID], List[Content]]:
+    async def _check_group_members(self, content: GroupCommand, r_msg: ReliableMessage
+                                   ) -> Tuple[Optional[ID], List[ID], List[Content]]:
         group = content.group
         assert group is not None, 'group command error: %s' % content
-        owner = self._owner(group=group)
-        members = self._members(group=group)
+        owner = await self._owner(group=group)
+        members = await self._members(group=group)
         if owner is None or len(members) == 0:
             # TODO: query group members?
             text = 'Group empty.'
@@ -219,11 +220,11 @@ class GroupCommandProcessor(HistoryCommandProcessor):
         return owner, members, errors
 
     # protected
-    def send_group_histories(self, group: ID, receiver: ID) -> bool:
-        messages = self.builder.build_group_histories(group=group)
+    async def send_group_histories(self, group: ID, receiver: ID) -> bool:
+        messages = await self.builder.build_group_histories(group=group)
         if len(messages) == 0:
             self.warning(msg='failed to build history for group: %s' % group)
             return False
         content = ForwardContent.create(messages=messages)
-        _, r_msg = self.messenger.send_content(sender=None, receiver=receiver, content=content, priority=1)
+        _, r_msg = await self.messenger.send_content(sender=None, receiver=receiver, content=content, priority=1)
         return r_msg is not None

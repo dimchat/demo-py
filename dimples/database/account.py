@@ -68,44 +68,44 @@ class AccountDatabase(AccountDBI):
     #
 
     # Override
-    def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
-        return self.__private_table.save_private_key(key=key, user=user, key_type=key_type)
+    async def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
+        return await self.__private_table.save_private_key(key=key, user=user, key_type=key_type)
 
     # Override
-    def private_keys_for_decryption(self, user: ID) -> List[DecryptKey]:
-        return self.__private_table.private_keys_for_decryption(user=user)
+    async def private_keys_for_decryption(self, user: ID) -> List[DecryptKey]:
+        return await self.__private_table.private_keys_for_decryption(user=user)
 
     # Override
-    def private_key_for_signature(self, user: ID) -> Optional[SignKey]:
-        return self.__private_table.private_key_for_signature(user=user)
+    async def private_key_for_signature(self, user: ID) -> Optional[SignKey]:
+        return await self.__private_table.private_key_for_signature(user=user)
 
     # Override
-    def private_key_for_visa_signature(self, user: ID) -> Optional[SignKey]:
-        return self.__private_table.private_key_for_visa_signature(user=user)
+    async def private_key_for_visa_signature(self, user: ID) -> Optional[SignKey]:
+        return await self.__private_table.private_key_for_visa_signature(user=user)
 
     #
     #   Meta DBI
     #
 
     # Override
-    def save_meta(self, meta: Meta, identifier: ID) -> bool:
+    async def save_meta(self, meta: Meta, identifier: ID) -> bool:
         # check meta with ID
         if not meta.match_identifier(identifier=identifier):
             raise ValueError('meta not match: %s => %s' % (identifier, meta))
-        return self.__meta_table.save_meta(meta=meta, identifier=identifier)
+        return await self.__meta_table.save_meta(meta=meta, identifier=identifier)
 
     # Override
-    def meta(self, identifier: ID) -> Optional[Meta]:
-        return self.__meta_table.meta(identifier=identifier)
+    async def get_meta(self, identifier: ID) -> Optional[Meta]:
+        return await self.__meta_table.get_meta(identifier=identifier)
 
     #
     #   Document DBI
     #
 
     # Override
-    def save_document(self, document: Document) -> bool:
+    async def save_document(self, document: Document) -> bool:
         # check meta first
-        meta = self.__meta_table.meta(identifier=document.identifier)
+        meta = await self.__meta_table.get_meta(identifier=document.identifier)
         if meta is None:
             raise LookupError('meta not exists: %s' % document.identifier)
         # check document valid before saving it
@@ -115,92 +115,92 @@ class AccountDatabase(AccountDBI):
         if isinstance(document, Bulletin):
             founder = document.founder
             if founder is not None:
-                f_meta = self.__meta_table.meta(identifier=founder)
+                f_meta = await self.__meta_table.get_meta(identifier=founder)
                 if f_meta is None or meta.public_key != meta.public_key:
                     raise ValueError('founder error: %s, group: %s' % (founder, document.identifier))
         # document ok, try to save it
-        return self.__doc_table.save_document(document=document)
+        return await self.__doc_table.save_document(document=document)
 
     # Override
-    def documents(self, identifier: ID) -> List[Document]:
-        return self.__doc_table.documents(identifier=identifier)
+    async def get_documents(self, identifier: ID) -> List[Document]:
+        return await self.__doc_table.get_documents(identifier=identifier)
 
     #
     #   User DBI
     #
 
     # Override
-    def local_users(self) -> List[ID]:
-        return self.__user_table.local_users()
+    async def get_local_users(self) -> List[ID]:
+        return await self.__user_table.get_local_users()
 
     # Override
-    def save_local_users(self, users: List[ID]) -> bool:
-        return self.__user_table.save_local_users(users=users)
+    async def save_local_users(self, users: List[ID]) -> bool:
+        return await self.__user_table.save_local_users(users=users)
 
     # Override
-    def contacts(self, user: ID) -> List[ID]:
-        return self.__user_table.contacts(user=user)
+    async def get_contacts(self, user: ID) -> List[ID]:
+        return await self.__user_table.get_contacts(user=user)
 
     # Override
-    def save_contacts(self, contacts: List[ID], user: ID) -> bool:
-        return self.__user_table.save_contacts(contacts=contacts, user=user)
+    async def save_contacts(self, contacts: List[ID], user: ID) -> bool:
+        return await self.__user_table.save_contacts(contacts=contacts, user=user)
 
     #
     #   Group DBI
     #
 
     # Override
-    def founder(self, group: ID) -> Optional[ID]:
-        return self.__group_table.founder(group=group)
+    async def get_founder(self, group: ID) -> Optional[ID]:
+        return await self.__group_table.get_founder(group=group)
 
     # Override
-    def owner(self, group: ID) -> Optional[ID]:
-        return self.__group_table.owner(group=group)
+    async def get_owner(self, group: ID) -> Optional[ID]:
+        return await self.__group_table.get_owner(group=group)
 
     # Override
-    def members(self, group: ID) -> List[ID]:
-        return self.__group_table.members(group=group)
+    async def get_members(self, group: ID) -> List[ID]:
+        return await self.__group_table.get_members(group=group)
 
     # Override
-    def save_members(self, members: List[ID], group: ID) -> bool:
-        return self.__group_table.save_members(members=members, group=group)
+    async def save_members(self, members: List[ID], group: ID) -> bool:
+        return await self.__group_table.save_members(members=members, group=group)
 
     # Override
-    def assistants(self, group: ID) -> List[ID]:
-        return self.__group_table.assistants(group=group)
+    async def get_assistants(self, group: ID) -> List[ID]:
+        return await self.__group_table.get_assistants(group=group)
 
     # Override
-    def save_assistants(self, assistants: List[ID], group: ID) -> bool:
-        return self.__group_table.save_assistants(assistants=assistants, group=group)
+    async def save_assistants(self, assistants: List[ID], group: ID) -> bool:
+        return await self.__group_table.save_assistants(assistants=assistants, group=group)
 
     # Override
-    def administrators(self, group: ID) -> List[ID]:
-        return self.__group_table.administrators(group=group)
+    async def get_administrators(self, group: ID) -> List[ID]:
+        return await self.__group_table.get_administrators(group=group)
 
     # Override
-    def save_administrators(self, administrators: List[ID], group: ID) -> bool:
-        return self.__group_table.save_administrators(administrators=administrators, group=group)
+    async def save_administrators(self, administrators: List[ID], group: ID) -> bool:
+        return await self.__group_table.save_administrators(administrators=administrators, group=group)
 
     #
     #   Group History DBI
     #
 
     # Override
-    def save_group_history(self, group: ID, content: GroupCommand, message: ReliableMessage) -> bool:
-        return self.__history_table.save_group_history(group=group, content=content, message=message)
+    async def save_group_history(self, group: ID, content: GroupCommand, message: ReliableMessage) -> bool:
+        return await self.__history_table.save_group_history(group=group, content=content, message=message)
 
     # Override
-    def group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
-        return self.__history_table.group_histories(group=group)
+    async def get_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
+        return await self.__history_table.get_group_histories(group=group)
 
     # Override
-    def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
-        return self.__history_table.reset_command_message(group=group)
+    async def get_reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
+        return await self.__history_table.get_reset_command_message(group=group)
 
     # Override
-    def clear_group_member_histories(self, group: ID) -> bool:
-        return self.__history_table.clear_group_member_histories(group=group)
+    async def clear_group_member_histories(self, group: ID) -> bool:
+        return await self.__history_table.clear_group_member_histories(group=group)
 
     # Override
-    def clear_group_admin_histories(self, group: ID) -> bool:
-        return self.__history_table.clear_group_admin_histories(group=group)
+    async def clear_group_admin_histories(self, group: ID) -> bool:
+        return await self.__history_table.clear_group_admin_histories(group=group)

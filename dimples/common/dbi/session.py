@@ -40,11 +40,11 @@ class LoginDBI(ABC):
     #   login command message
     #
     @abstractmethod
-    def login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
+    async def get_login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
         raise NotImplemented
 
     @abstractmethod
-    def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
+    async def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
         raise NotImplemented
 
 
@@ -63,10 +63,12 @@ class ProviderInfo:
         self.identifier = identifier
         self.chosen = chosen
 
+    # Override
     def __str__(self) -> str:
         clazz = self.__class__.__name__
         return '<%s ID="%s" chosen=%d />' % (clazz, self.identifier, self.chosen)
 
+    # Override
     def __repr__(self) -> str:
         clazz = self.__class__.__name__
         return '<%s ID="%s" chosen=%d />' % (clazz, self.identifier, self.chosen)
@@ -94,11 +96,13 @@ class StationInfo:
         self.provider = provider
         self.chosen = chosen
 
+    # Override
     def __str__(self) -> str:
         clazz = self.__class__.__name__
         return '<%s host="%s" port=%d ID="%s" SP="%s" chosen=%d />' % (clazz, self.host, self.port, self.identifier,
                                                                        self.provider, self.chosen)
 
+    # Override
     def __repr__(self) -> str:
         clazz = self.__class__.__name__
         return '<%s host="%s" port=%d ID="%s" SP="%s" chosen=%d />' % (clazz, self.host, self.port, self.identifier,
@@ -184,44 +188,44 @@ class ProviderDBI(ABC):
     """ Provider Stations Table """
 
     @abstractmethod
-    def all_providers(self) -> List[ProviderInfo]:
+    async def all_providers(self) -> List[ProviderInfo]:
         """ get list of (SP_ID, chosen) """
         raise NotImplemented
 
     @abstractmethod
-    def add_provider(self, identifier: ID, chosen: int = 0) -> bool:
+    async def add_provider(self, identifier: ID, chosen: int = 0) -> bool:
         raise NotImplemented
 
     @abstractmethod
-    def update_provider(self, identifier: ID, chosen: int) -> bool:
+    async def update_provider(self, identifier: ID, chosen: int) -> bool:
         raise NotImplemented
 
     @abstractmethod
-    def remove_provider(self, identifier: ID) -> bool:
+    async def remove_provider(self, identifier: ID) -> bool:
         raise NotImplemented
 
 
 class StationDBI(ABC):
 
     @abstractmethod
-    def all_stations(self, provider: ID) -> List[StationInfo]:
+    async def all_stations(self, provider: ID) -> List[StationInfo]:
         """ get list of (host, port, SP_ID, chosen) """
         raise NotImplemented
 
     @abstractmethod
-    def add_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = 0) -> bool:
+    async def add_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = 0) -> bool:
         raise NotImplemented
 
     @abstractmethod
-    def update_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = None) -> bool:
+    async def update_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = None) -> bool:
         raise NotImplemented
 
     @abstractmethod
-    def remove_station(self, host: str, port: int, provider: ID) -> bool:
+    async def remove_station(self, host: str, port: int, provider: ID) -> bool:
         raise NotImplemented
 
     @abstractmethod
-    def remove_stations(self, provider: ID) -> bool:
+    async def remove_stations(self, provider: ID) -> bool:
         raise NotImplemented
 
 

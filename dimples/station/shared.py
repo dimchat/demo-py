@@ -105,7 +105,7 @@ def create_config(app_name: str, default_config: str) -> Config:
     return config
 
 
-def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, SessionDBI]:
+async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, SessionDBI]:
     """ Step 2: create database """
     root = config.database_root
     public = config.database_public
@@ -123,11 +123,11 @@ def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, SessionDBI]
     neighbors = config.neighbors
     for node in neighbors:
         print('adding neighbor node: %s' % node)
-        sdb.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
+        await sdb.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
     return adb, mdb, sdb
 
 
-def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
+async def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
     """ Step 3: create facebook """
     facebook = CommonFacebook()
     # create archivist for facebook
@@ -138,20 +138,20 @@ def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
     archivist.facebook = facebook
     facebook.archivist = archivist
     # make sure private keys exists
-    sign_key = facebook.private_key_for_visa_signature(identifier=current_user)
-    msg_keys = facebook.private_keys_for_decryption(identifier=current_user)
+    sign_key = await facebook.private_key_for_visa_signature(identifier=current_user)
+    msg_keys = await facebook.private_keys_for_decryption(identifier=current_user)
     assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
     assert len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
     print('set current user: %s' % current_user)
-    user = facebook.user(identifier=current_user)
+    user = await facebook.get_user(identifier=current_user)
     assert user is not None, 'failed to get current user: %s' % current_user
-    visa = user.visa
+    visa = await user.visa
     if visa is not None:
         # refresh visa
         now = time.time()
         visa.set_property(key='time', value=now)
         visa.sign(private_key=sign_key)
-        facebook.save_document(document=visa)
+        await facebook.save_document(document=visa)
     facebook.current_user = user
     return facebook
 

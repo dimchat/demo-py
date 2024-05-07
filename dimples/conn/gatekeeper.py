@@ -47,7 +47,7 @@ from tcp import ServerHub, ClientHub
 
 from ..utils import get_remote_address, get_local_address
 from ..utils import get_msg_info
-from ..utils import Runner, Logging
+from ..utils import Runner, Log, Logging
 
 from .protocol import DeparturePacker
 
@@ -146,6 +146,14 @@ def reset_send_buffer_size(conn: Connection = None, sock: socket.socket = None) 
         print('[SOCKET] send buffer size: %d, %s' % (size, conn))
 
 
+async def _client_connect(hub: Hub, address):
+    conn = await hub.connect(remote=address)
+    if conn is None:
+        Log.error(msg='failed to connect to remote address: %s' % str(address))
+    else:
+        reset_send_buffer_size(conn=conn)
+
+
 class GateKeeper(Runner, DockerDelegate, Logging):
     """ Keep a gate to remote address """
 
@@ -173,9 +181,7 @@ class GateKeeper(Runner, DockerDelegate, Logging):
             # client
             assert address is not None, 'remote address empty'
             hub = StreamClientHub(delegate=delegate)
-            conn = hub.connect(remote=address)
-            reset_send_buffer_size(conn=conn)
-            # TODO: reset send buffer size
+            Runner.async_run(coro=_client_connect(hub=hub, address=address))
         else:
             # server
             sock.setblocking(False)
@@ -183,7 +189,7 @@ class GateKeeper(Runner, DockerDelegate, Logging):
             if address is None:
                 address = get_remote_address(sock=sock)
             channel = StreamChannel(remote=address, local=get_local_address(sock=sock))
-            channel.set_socket(sock=sock)
+            Runner.async_run(coro=channel.set_socket(sock=sock))
             hub = StreamServerHub(delegate=delegate)
             hub.put_channel(channel=channel)
         return hub
@@ -216,29 +222,29 @@ class GateKeeper(Runner, DockerDelegate, Logging):
     #         return self.gate.running
     #
     # # Override
-    # def stop(self):
-    #     super().stop()
+    # async def stop(self):
+    #     await super().stop()
     #     self.gate.stop()
     #
     # # Override
-    # def setup(self):
-    #     super().setup()
+    # async def setup(self):
+    #     await super().setup()
     #     self.gate.start()
     #
     # # Override
-    # def finish(self):
+    # async def finish(self):
     #     self.gate.stop()
-    #     super().finish()
+    #     await super().finish()
 
     # Override
-    def process(self) -> bool:
+    async def process(self) -> bool:
         gate = self.gate
         hub = gate.hub
         # from tcp import Hub
         # assert isinstance(hub, Hub), 'hub error: %s' % hub
         try:
-            incoming = hub.process()
-            outgoing = gate.process()
+            incoming = await hub.process()
+            outgoing = await gate.process()
             if incoming or outgoing:
                 # processed income/outgo packages
                 return True
@@ -263,13 +269,13 @@ class GateKeeper(Runner, DockerDelegate, Logging):
             # msg sent?
             return True
         # try to push
-        ok = gate.send_ship(ship=wrapper, remote=self.remote_address, local=None)
+        ok = await gate.send_ship(ship=wrapper, remote=self.remote_address, local=None)
         if not ok:
             self.error(msg='gate error, failed to send data')
         return ok
 
-    def _docker_pack(self, payload: bytes, priority: int = 0) -> Departure:
-        docker = self.gate.fetch_docker([], remote=self.remote_address, local=None)
+    async def _docker_pack(self, payload: bytes, priority: int = 0) -> Departure:
+        docker = await self.gate.fetch_docker([], remote=self.remote_address, local=None)
         assert isinstance(docker, DeparturePacker), 'departure packer error: %s' % docker
         return docker.pack(payload=payload, priority=priority)
 
@@ -281,24 +287,24 @@ class GateKeeper(Runner, DockerDelegate, Logging):
     #
 
     # Override
-    def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
+    async def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
         self.info(msg='docker status changed: %s -> %s, %s' % (previous, current, docker))
 
     # Override
-    def docker_received(self, ship: Arrival, docker: Docker):
+    async def docker_received(self, ship: Arrival, docker: Docker):
         self.debug(msg='docker received a ship: %s, %s' % (ship, docker))
 
     # Override
-    def docker_sent(self, ship: Departure, docker: Docker):
+    async def docker_sent(self, ship: Departure, docker: Docker):
         # TODO: remove sent message from local cache
         pass
 
     # Override
-    def docker_failed(self, error: IOError, ship: Departure, docker: Docker):
+    async def docker_failed(self, error: IOError, ship: Departure, docker: Docker):
         self.error(msg='docker failed to send ship: %s, %s' % (error, docker))
 
     # Override
-    def docker_error(self, error: IOError, ship: Departure, docker: Docker):
+    async def docker_error(self, error: IOError, ship: Departure, docker: Docker):
         self.error(msg='docker error while sending ship: %s, %s' % (error, docker))
         if isinstance(ship, MessageWrapper):
             msg = ship.msg

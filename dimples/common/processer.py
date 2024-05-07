@@ -41,7 +41,7 @@ class CommonMessageProcessor(MessageProcessor, Logging, ABC):
 
     # private
     # noinspection PyUnusedLocal
-    def _check_visa_time(self, content: Content, r_msg: ReliableMessage) -> bool:
+    async def _check_visa_time(self, content: Content, r_msg: ReliableMessage) -> bool:
         facebook = self.facebook
         archivist = facebook.archivist
         assert isinstance(archivist, CommonArchivist), 'archivist error: %s' % archivist
@@ -58,13 +58,13 @@ class CommonMessageProcessor(MessageProcessor, Logging, ABC):
             # check whether needs update
             if doc_updated:
                 self.info(msg='checking for new visa: %s' % sender)
-                facebook.documents(identifier=sender)
+                await facebook.get_documents(identifier=sender)
         return doc_updated
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
-        responses = super().process_content(content=content, r_msg=r_msg)
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+        responses = await super().process_content(content=content, r_msg=r_msg)
         # check sender's document times from the message
         # to make sure the user info synchronized
-        self._check_visa_time(content=content, r_msg=r_msg)
+        await self._check_visa_time(content=content, r_msg=r_msg)
         return responses

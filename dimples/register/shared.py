@@ -49,7 +49,7 @@ class GlobalVariable:
         self.adb: Optional[AccountDBI] = None
 
 
-def create_database(shared: GlobalVariable) -> AccountDBI:
+async def create_database(shared: GlobalVariable) -> AccountDBI:
     config = shared.config
     root = config.database_root
     public = config.database_public
@@ -72,7 +72,7 @@ def create_account(network: int, database: AccountDBI) -> BaseAccount:
         return UserAccount(database=database)
 
 
-def generate(database: AccountDBI):
+async def generate(database: AccountDBI):
     print('Generating DIM account...')
     #
     #   Step 0. get entity type, meta type & meta seed (ID.name)
@@ -87,16 +87,16 @@ def generate(database: AccountDBI):
     if isinstance(account, GroupAccount):
         founder = account.get_founder()
         assert founder is not None, 'failed to get founder'
-        account.load_founder(founder=founder)
+        await account.load_founder(founder=founder)
     account.generate(network=network, version=version, seed=seed)
     #
     #   Step 2. edit & save
     #
-    account.update()
+    await account.update()
     account.show_info()
 
 
-def modify(identifier: ID, database: AccountDBI):
+async def modify(identifier: ID, database: AccountDBI):
     print('Modifying DIM account...')
     #
     #   Step 0: check meta & document
@@ -115,5 +115,5 @@ def modify(identifier: ID, database: AccountDBI):
     #
     #   Step 2. edit & save
     #
-    account.update()
+    await account.update()
     account.show_info()
