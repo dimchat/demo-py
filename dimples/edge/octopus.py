@@ -41,7 +41,7 @@ from dimsdk import ReliableMessage
 from dimsdk import Station
 
 from ..utils import Log, Logging
-from ..utils import Runner, Daemon
+from ..utils import Runner, DaemonRunner
 from ..utils import get_msg_sig
 from ..common import ProviderInfo
 from ..common import MessageDBI, SessionDBI
@@ -58,7 +58,7 @@ from .shared import GlobalVariable
 from .shared import create_session
 
 
-class Octopus(Runner, Logging):
+class Octopus(DaemonRunner, Logging):
 
     def __init__(self, shared: GlobalVariable, local_host: str = '127.0.0.1', local_port: int = 9394):
         super().__init__(interval=60)
@@ -67,7 +67,6 @@ class Octopus(Runner, Logging):
         self.__outers: Set[Terminal] = set()
         self.__outer_map = weakref.WeakValueDictionary()
         self.__outer_lock = threading.Lock()
-        self.__daemon = Daemon(target=self)
 
     @property
     def shared(self) -> GlobalVariable:
@@ -129,19 +128,19 @@ class Octopus(Runner, Logging):
             self.__outers.add(terminal)
             return terminal
 
-    def start(self):
-        self.__daemon.start()
-
     # Override
     async def stop(self):
-        await super().stop()
+        # 1. stop inner terminal
         inner = self.__inner
         if inner is not None:
             await inner.stop()
+        # 2. stop outer terminals
         with self.__outer_lock:
             outers = set(self.__outers)
         for out in outers:
             await out.stop()
+        # 3. stop runner
+        await super().stop()
 
     # Override
     async def process(self) -> bool:
@@ -381,7 +380,7 @@ def create_messenger(facebook: ClientFacebook, database: MessageDBI,
 def create_terminal(messenger: OctopusMessenger) -> Terminal:
     terminal = Terminal(messenger=messenger)
     messenger.terminal = terminal
-    terminal.start()
+    Runner.async_run(coroutine=terminal.start())
     return terminal
 
 

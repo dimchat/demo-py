@@ -97,7 +97,7 @@ class StateMachine(AutoMachine, Context):
         else:
             session = self.session
             gate = session.gate
-            task = Runner.async_run(coro=gate.fetch_docker([], remote=session.remote_address, local=None))
+            task = Runner.async_run(coroutine=gate.fetch_docker([], remote=session.remote_address, local=None))
             task.add_done_callback(self._fetch_docker_callback)
         # waiting for callback
         return DockerStatus.ERROR

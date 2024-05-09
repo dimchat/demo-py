@@ -38,7 +38,7 @@ from typing import Optional, List, Dict
 
 from dimsdk import ID, ReliableMessage
 
-from ..utils import Runner, Daemon
+from ..utils import Runner, DaemonRunner
 from ..utils import Singleton, Logging
 
 
@@ -117,16 +117,14 @@ class PushService(ABC):
 
 
 @Singleton
-class PushCenter(Runner, Logging):
+class PushCenter(DaemonRunner, Logging):
 
     def __init__(self):
         super().__init__(interval=Runner.INTERVAL_SLOW)
         self.__queue = MessageQueue()
         self.__keeper = BadgeKeeper()
         self.__service: Optional[PushService] = None
-        # background thread
-        self.__daemon = Daemon(target=self)
-        self.__daemon.start()
+        Runner.async_run(coroutine=self.start())
 
     @property
     def service(self) -> Optional[PushService]:

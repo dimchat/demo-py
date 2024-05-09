@@ -30,11 +30,11 @@
     Handler for each connection
 """
 
-import asyncio
 import traceback
 from socketserver import StreamRequestHandler
 
 from ..utils import Logging
+from ..utils import Runner
 
 from ..server import ServerSession, SessionCenter
 
@@ -53,14 +53,14 @@ class RequestHandler(StreamRequestHandler, Logging):
         super().handle()
         try:
             self.info(msg='session started: %s' % str(self.client_address))
-            asyncio.run(run(client_address=self.client_address, request=self.request))
+            Runner.sync_run(main=start_session(client_address=self.client_address, request=self.request))
             self.info(msg='session finished: %s' % str(self.client_address))
         except Exception as error:
             self.error(msg='request handler error: %s' % error)
             traceback.print_exc()
 
 
-async def run(client_address, request):
+async def start_session(client_address, request):
     shared = GlobalVariable()
     session = ServerSession(remote=client_address, sock=request, database=shared.sdb)
     messenger = create_messenger(facebook=shared.facebook, database=shared.mdb, session=session)
@@ -69,7 +69,8 @@ async def run(client_address, request):
     center.add_session(session=session)
     try:
         # handle
-        await session.run()
+        await session.start()
     finally:
         # finish
         center.remove_session(session=session)
+    return messenger

@@ -39,7 +39,7 @@ from dimsdk import Station
 from dimsdk import Content, ReceiptCommand
 from dimsdk import ReliableMessage
 
-from ..utils import Singleton, Log, Logging, Runner, Daemon
+from ..utils import Singleton, Log, Logging, Runner, DaemonRunner
 from ..common import CommonFacebook
 from ..common import MessageDBI, SessionDBI
 from ..common import ReliableMessageDBI
@@ -133,7 +133,7 @@ class Dispatcher(MessageDeliver, Logging):
             assert db is not None, 'dispatcher not initialized'
             runner = Roamer(database=db)
             self.__roamer = runner
-            runner.start()
+            Runner.async_run(coroutine=runner.start())
         return runner
 
     def add_roaming(self, user: ID, station: ID) -> bool:
@@ -274,7 +274,7 @@ class RoamingInfo:
         self.station = station
 
 
-class Roamer(Runner, Logging):
+class Roamer(DaemonRunner, Logging):
     """ Delegate for redirect cached messages to roamed station """
 
     def __init__(self, database: MessageDBI):
@@ -283,7 +283,6 @@ class Roamer(Runner, Logging):
         # roaming (user id => station id)
         self.__queue: List[RoamingInfo] = []
         self.__lock = threading.Lock()
-        self.__daemon = Daemon(target=self)
 
     @property
     def database(self) -> Optional[MessageDBI]:
@@ -309,9 +308,6 @@ class Roamer(Runner, Logging):
         info = RoamingInfo(user=user, station=station)
         self.__append(info=info)
         return True
-
-    def start(self):
-        self.__daemon.start()
 
     # Override
     async def process(self) -> bool:

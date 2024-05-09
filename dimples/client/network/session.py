@@ -40,11 +40,10 @@ from typing import Optional, List
 
 from dimsdk import Station
 
-from startrek.fsm import Delegate as StateDelegate
 from startrek import Docker, DockerStatus
 from startrek import Arrival
 
-from ...utils import Daemon
+from ...utils import Daemon, Runner
 from ...common import SessionDBI
 from ...conn import BaseSession
 from ...conn import MTPStreamArrival
@@ -99,27 +98,36 @@ class ClientSession(BaseSession):
         self.__key = session_key
 
     @property
+    def fsm(self) -> StateMachine:
+        return self.__fsm
+
+    @property
     def state(self) -> SessionState:
-        ss = self.__fsm.current_state
+        ss = self.fsm.current_state
         assert ss is None or isinstance(ss, SessionState), 'session state error: %s' % ss
         return ss
 
-    async def start(self, delegate: StateDelegate):
-        if self.running:
-            await self.stop()
-        # start a background thread
-        self.__daemon.start()
-        # start state machine
-        fsm = self.__fsm
-        fsm.delegate = delegate
+    # Override
+    async def start(self):
+        assert not self.running, 'client session already started: %s' % self
+        # 1. mark this session to running
+        await super().start()
+        # 2. start state machine
+        fsm = self.fsm
+        assert fsm.delegate is not None, 'FSM delegate not set: %s' % self
         await fsm.start()
+        # 3. start an async task for this session
+        self.__daemon.start()
 
     # Override
     async def stop(self):
+        # 1. mark this session to stopped
         await super().stop()
-        # stop state machine
-        await self.__fsm.stop()
-        # wait for thread stop
+        # 2. stop state machine
+        await self.fsm.stop()
+        # 3. waiting for the session to stopped
+        await Runner.sleep(seconds=self.interval * 2)
+        # 4. cancel the async task
         self.__daemon.stop()
 
     # Override

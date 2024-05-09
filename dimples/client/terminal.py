@@ -34,7 +34,7 @@ import time
 
 from dimples import EntityType
 
-from ..utils import Runner, Daemon, Logging
+from ..utils import DaemonRunner, Logging
 from ..utils import StateDelegate
 
 from .network import ClientSession
@@ -51,14 +51,13 @@ class DeviceMixin:
         return 'DIMP/0.4 (Client; Linux; en-US) DIMCoreKit/0.9 (Terminal) DIM-by-GSP/1.0'
 
 
-class Terminal(Runner, DeviceMixin, Logging, StateDelegate):
+class Terminal(DaemonRunner, DeviceMixin, Logging, StateDelegate):
 
     def __init__(self, messenger: ClientMessenger):
         super().__init__(interval=60)
         self.__messenger = messenger
         # default online time
         self.__last_time = time.time()
-        self.__daemon = Daemon(target=self)
 
     @property
     def messenger(self) -> ClientMessenger:
@@ -73,18 +72,12 @@ class Terminal(Runner, DeviceMixin, Logging, StateDelegate):
         if super().running:
             return self.session.running
 
-    def start(self):
-        self.__daemon.start()
-
-    # Override
-    async def stop(self):
-        self.__daemon.stop()
-        await super().stop()
-
     # Override
     async def setup(self):
         await super().setup()
-        await self.session.start(delegate=self)
+        session = self.session
+        session.fsm.delegate = self
+        await session.start()
 
     # Override
     async def finish(self):

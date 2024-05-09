@@ -29,7 +29,6 @@
 # SOFTWARE.
 # ==============================================================================
 
-import asyncio
 import os
 import sys
 from socketserver import ThreadingTCPServer
@@ -40,7 +39,7 @@ path = os.path.dirname(path)
 path = os.path.dirname(path)
 sys.path.insert(0, path)
 
-from dimples.utils import Log
+from dimples.utils import Log, Runner
 
 from dimples.station.shared import GlobalVariable
 from dimples.station.shared import create_config, create_database, create_facebook
@@ -103,4 +102,4 @@ async def main():
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    Runner.sync_run(main=main())

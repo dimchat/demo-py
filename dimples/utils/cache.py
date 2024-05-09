@@ -29,10 +29,9 @@
 
 """
 
-import time
 from typing import TypeVar, Generic, Optional, Dict, Set, Tuple
 
-from startrek.fsm import Daemon, Runnable
+from startrek.fsm import Runnable, Runner, Daemon
 from dimsdk import DateTime
 
 from .singleton import Singleton
@@ -155,13 +154,13 @@ class CacheManager(Runnable):
         self.__daemon.stop()
 
     # Override
-    def run(self):
+    async def run(self):
         next_time = 0
         while self.running:
             # try to purge each 5 minutes
             now = DateTime.now()
             if now < next_time:
-                time.sleep(2)
+                await Runner.sleep(seconds=2)
                 continue
             else:
                 next_time = DateTime(now.timestamp + 300)

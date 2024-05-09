@@ -151,6 +151,7 @@ async def _client_connect(hub: Hub, address):
     if conn is None:
         Log.error(msg='failed to connect to remote address: %s' % str(address))
     else:
+        Log.info(msg='connected to remote address: %s, %s' % (address, conn))
         reset_send_buffer_size(conn=conn)
 
 
@@ -181,7 +182,8 @@ class GateKeeper(Runner, DockerDelegate, Logging):
             # client
             assert address is not None, 'remote address empty'
             hub = StreamClientHub(delegate=delegate)
-            Runner.async_run(coro=_client_connect(hub=hub, address=address))
+            Runner.async_run(coroutine=_client_connect(hub=hub, address=address))
+            self.info(msg='client hub created: %s' % str(address))
         else:
             # server
             sock.setblocking(False)
@@ -189,7 +191,7 @@ class GateKeeper(Runner, DockerDelegate, Logging):
             if address is None:
                 address = get_remote_address(sock=sock)
             channel = StreamChannel(remote=address, local=get_local_address(sock=sock))
-            Runner.async_run(coro=channel.set_socket(sock=sock))
+            Runner.async_run(coroutine=channel.set_socket(sock=sock))
             hub = StreamServerHub(delegate=delegate)
             hub.put_channel(channel=channel)
         return hub
@@ -225,16 +227,16 @@ class GateKeeper(Runner, DockerDelegate, Logging):
     # async def stop(self):
     #     await super().stop()
     #     self.gate.stop()
-    #
-    # # Override
-    # async def setup(self):
-    #     await super().setup()
-    #     self.gate.start()
-    #
-    # # Override
-    # async def finish(self):
-    #     self.gate.stop()
-    #     await super().finish()
+
+    # Override
+    async def setup(self):
+        # self.gate.start()
+        pass
+
+    # Override
+    async def finish(self):
+        # self.gate.stop()
+        pass
 
     # Override
     async def process(self) -> bool:

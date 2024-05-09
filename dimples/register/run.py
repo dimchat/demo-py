@@ -24,7 +24,6 @@
 # SOFTWARE.
 # ==============================================================================
 
-import asyncio
 import os
 import sys
 import getopt
@@ -38,6 +37,7 @@ path = os.path.dirname(path)
 sys.path.insert(0, path)
 
 from dimples.utils import Log, Config
+from dimples.utils import Runner
 from dimples.database import Storage
 
 from dimples.register.shared import GlobalVariable
@@ -118,4 +118,4 @@ async def main():
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    Runner.sync_run(main=main())

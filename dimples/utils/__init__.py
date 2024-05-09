@@ -50,7 +50,7 @@ from dimsdk import DocumentHelper
 
 from dimplugins.crypto.aes import random_bytes
 
-from startrek.fsm import Runnable, Runner, Daemon
+from startrek.fsm import Runnable, Runner, Daemon, DaemonRunner
 from startrek.fsm import Delegate as StateDelegate
 from startrek.net.channel import get_remote_address, get_local_address
 
@@ -122,7 +122,7 @@ __all__ = [
 
     'Converter',
 
-    'Runnable', 'Runner', 'Daemon',
+    'Runnable', 'Runner', 'Daemon', 'DaemonRunner',
     'StateDelegate',
 
     'get_remote_address', 'get_local_address',

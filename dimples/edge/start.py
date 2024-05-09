@@ -28,7 +28,6 @@
 # SOFTWARE.
 # ==============================================================================
 
-import asyncio
 import os
 import sys
 
@@ -75,10 +74,10 @@ async def main():
     port = config.station_port
     assert host is not None and port > 0, 'station config error: %s' % config
     octopus = Octopus(shared=shared, local_host=host, local_port=port)
-    octopus.start()
+    await octopus.start()
     while True:
         await Runner.sleep(seconds=1.0)
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    Runner.sync_run(main=main())
