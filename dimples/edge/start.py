@@ -75,7 +75,7 @@ async def main():
     assert host is not None and port > 0, 'station config error: %s' % config
     octopus = Octopus(shared=shared, local_host=host, local_port=port)
     await octopus.start()
-    while True:
+    while octopus.running:
         await Runner.sleep(seconds=1.0)
 
 

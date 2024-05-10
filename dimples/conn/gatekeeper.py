@@ -226,16 +226,16 @@ class GateKeeper(Runner, DockerDelegate, Logging):
     # # Override
     # async def stop(self):
     #     await super().stop()
-    #     self.gate.stop()
+    #     await self.gate.stop()
 
     # Override
     async def setup(self):
-        # self.gate.start()
+        # await self.gate.start()
         pass
 
     # Override
     async def finish(self):
-        # self.gate.stop()
+        # await self.gate.stop()
         pass
 
     # Override

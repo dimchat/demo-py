@@ -33,9 +33,7 @@
 import traceback
 from socketserver import StreamRequestHandler
 
-from ..utils import Logging
-from ..utils import Runner
-
+from ..utils import Logging, Runner
 from ..server import ServerSession, SessionCenter
 
 from .shared import GlobalVariable
@@ -47,6 +45,19 @@ class RequestHandler(StreamRequestHandler, Logging):
     """
         DIM Request Handler
     """
+
+    def __del__(self):
+        self.info(msg='request removed: %s' % str(self.client_address))
+
+    # Override
+    def setup(self):
+        super().setup()
+        self.info(msg='request setup: %s' % str(self.client_address))
+
+    # Override
+    def finish(self):
+        super().finish()
+        self.info(msg='request finished: %s' % str(self.client_address))
 
     # Override
     def handle(self):

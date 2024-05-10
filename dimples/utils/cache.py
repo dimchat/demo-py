@@ -139,18 +139,20 @@ class CacheManager(Runnable):
     def __init__(self):
         self.__pools: Dict[str, CachePool] = {}  # name -> pool
         # thread for cleaning caches
+        self.__running = True
         self.__daemon = Daemon(target=self)
-        self.__running = False
+        self.__daemon.start()
 
     @property
     def running(self) -> bool:
         return self.__running
 
-    def start(self):
-        self.__running = True
-        self.__daemon.start()
-
-    def stop(self):
+    async def stop(self):
+        # 1. mark this gate to stopped
+        self.__running = False
+        # 2. waiting for the gate to stop
+        await Runner.sleep(seconds=5)
+        # 3. cancel the async task
         self.__daemon.stop()
 
     # Override

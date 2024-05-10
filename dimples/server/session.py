@@ -92,27 +92,21 @@ class ServerSession(BaseSession):
     def key(self) -> str:
         return self.__key
 
-    def __load_cached_messages(self):
-        if self.identifier is None or not self.active:
-            return False
-        # load cached message asynchronously
-        Runner.async_run(coroutine=load_cached_messages(session=self))
-        return True
-
     # Override
     def set_identifier(self, identifier: ID) -> bool:
         old = self.identifier
         if super().set_identifier(identifier=identifier):
             session_change_id(session=self, new_id=identifier, old_id=old)
-            self.__load_cached_messages()
+            # load cached message asynchronously
+            Runner.async_run(coroutine=load_cached_messages(session=self))
             return True
 
     # Override
     def set_active(self, active: bool, when: float = None) -> bool:
         if super().set_active(active=active, when=when):
             session_change_active(session=self, active=active)
-            if active:
-                self.__load_cached_messages()
+            # load cached message asynchronously
+            Runner.async_run(coroutine=load_cached_messages(session=self))
             return True
 
     @property  # Override
@@ -232,7 +226,8 @@ def session_change_active(session: ServerSession, active: bool):
 
 async def load_cached_messages(session: ServerSession):
     identifier = session.identifier
-    assert identifier is not None and session.active, 'session error: %s' % identifier
+    if identifier is None or not session.active:
+        return False
     messenger = session.messenger
     db = messenger.database
     limit = ReliableMessageDBI.CACHE_LIMIT
