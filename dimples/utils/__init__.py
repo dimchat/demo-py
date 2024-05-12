@@ -50,12 +50,12 @@ from dimsdk import DocumentHelper
 
 from dimplugins.crypto.aes import random_bytes
 
+from startrek.fsm import Singleton
 from startrek.fsm import Runnable, Runner, Daemon, DaemonRunner
 from startrek.fsm import Delegate as StateDelegate
 from startrek.net.channel import get_remote_address, get_local_address
 
 
-from .singleton import Singleton
 from .log import Log, Logging
 from .dos import Path, File, TextFile, JSONFile
 from .cache import CachePool, CacheHolder, CacheManager

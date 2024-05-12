@@ -206,12 +206,12 @@ class TCPServerGate(CommonGate, Generic[H]):
         count = len(parties)
         if count == 0:
             # return MTPStreamDocker(remote=remote, local=local, gate=self)
-            assert False, 'data empty'
+            assert False, 'data empty: %s -> %s' % (remote, local)
         data = parties[0]
         for i in range(1, count):
             data = data + parties[i]
         if len(data) == 0:
-            assert False, 'data empty'
+            assert False, 'data empty: %s -> %s' % (remote, local)
         # check data format before creating docker
         if MTPStreamDocker.check(data=data):
             docker = MTPStreamDocker(remote=remote, local=local)
@@ -233,7 +233,7 @@ class UDPServerGate(CommonGate, Generic[H]):
         count = len(parties)
         if count == 0:
             # return MTPStreamDocker(remote=remote, local=local, gate=self)
-            assert False, 'data empty'
+            assert False, 'data empty: %s -> %s' % (remote, local)
         data = parties[count - 1]
         # check data format before creating docker
         if MTPStreamDocker.check(data=data):

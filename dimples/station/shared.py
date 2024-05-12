@@ -31,12 +31,12 @@ from typing import Optional, Tuple
 from dimsdk import ID
 
 from ..utils import Singleton, Config
+from ..utils import Path
 from ..common import AddressNameServer, ANSFactory
 from ..common import CommonFacebook, CommonMessenger
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..common import ProviderInfo
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
-from ..database import Storage
 from ..server import ServerArchivist
 from ..server import ServerSession
 from ..server import ServerMessenger
@@ -93,7 +93,7 @@ def create_config(app_name: str, default_config: str) -> Config:
     # check config filepath
     if ini_file is None:
         ini_file = default_config
-    if not Storage.exists(path=ini_file):
+    if not Path.exists(path=ini_file):
         show_help(cmd=cmd, app_name=app_name, default_config=default_config)
         print('')
         print('!!! config file not exists: %s' % ini_file)

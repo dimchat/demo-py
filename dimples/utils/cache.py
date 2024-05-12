@@ -31,10 +31,9 @@
 
 from typing import TypeVar, Generic, Optional, Dict, Set, Tuple
 
+from startrek.fsm import Singleton
 from startrek.fsm import Runnable, Runner, Daemon
 from dimsdk import DateTime
-
-from .singleton import Singleton
 
 
 K = TypeVar('K')

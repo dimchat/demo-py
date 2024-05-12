@@ -37,8 +37,8 @@ path = os.path.dirname(path)
 sys.path.insert(0, path)
 
 from dimples.utils import Log, Config
+from dimples.utils import Path
 from dimples.utils import Runner
-from dimples.database import Storage
 
 from dimples.register.shared import GlobalVariable
 from dimples.register.shared import create_database
@@ -93,7 +93,7 @@ async def main():
     # check config filepath
     if ini_file is None:
         ini_file = DEFAULT_CONFIG
-    if not Storage.exists(path=ini_file):
+    if not Path.exists(path=ini_file):
         show_help()
         print('')
         print('!!! config file not exists: %s' % ini_file)

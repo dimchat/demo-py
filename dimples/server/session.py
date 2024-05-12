@@ -37,7 +37,6 @@
 
 import socket
 import traceback
-import weakref
 from typing import Optional, List, Tuple
 
 from dimsdk import ID, EntityType
@@ -45,7 +44,6 @@ from dimsdk import ReliableMessage
 
 from startrek import Docker, DockerStatus
 from startrek import Arrival, Departure
-from startrek.net.channel import is_closed
 
 from ..utils import Log, Runner
 from ..utils import hex_encode, random_bytes
@@ -85,7 +83,6 @@ class ServerSession(BaseSession):
 
     def __init__(self, remote: Tuple[str, int], sock: socket.socket, database: SessionDBI):
         super().__init__(remote=remote, sock=sock, database=database)
-        self.__sock = weakref.ref(sock)
         self.__key = generate_session_key()
 
     @property
@@ -108,15 +105,6 @@ class ServerSession(BaseSession):
             # load cached message asynchronously
             Runner.async_run(coroutine=load_cached_messages(session=self))
             return True
-
-    @property  # Override
-    def running(self) -> bool:
-        if super().running:
-            # gate = self.gate
-            # conn = gate.get_channel(remote=self.remote_address, local=None)
-            # return not (conn is None or conn.closed)
-            sock = self.__sock()
-            return not (sock is None or is_closed(sock=sock))
 
     # Override
     async def start(self):

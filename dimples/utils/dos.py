@@ -32,7 +32,7 @@
 
 import os
 import sys
-from typing import Union, Optional, AnyStr
+from typing import Optional, Union, AnyStr, Dict, List
 import json
 
 
@@ -62,58 +62,77 @@ class Path:
 
     @classmethod
     def add(cls, path: str):
+        """ add system path """
         sys.path.insert(0, path)
+
+    """
+        Path Utils
+        ~~~~~~~~~~
+    """
+
+    @classmethod
+    def join(cls, parent: str, *children: str) -> str:
+        return os.path.join(parent, *children)
+
+    @classmethod
+    def is_dir(cls, path: str) -> bool:
+        return os.path.isdir(path)
+
+    @classmethod
+    def is_file(cls, path: str) -> bool:
+        return os.path.isfile(path)
+
+    @classmethod
+    def exists(cls, path: str) -> bool:
+        return os.path.exists(path)
+
+    @classmethod
+    def remove(cls, path: str) -> bool:
+        if os.path.exists(path):
+            os.remove(path)
+            return True
+
+    @classmethod
+    def make_dirs(cls, directory: str) -> bool:
+        if not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+            return True
+        elif os.path.isdir(directory):
+            # directory exists
+            return True
+        else:
+            raise IOError('%s exists but is not a directory!' % directory)
 
 
 class File:
+    """ Base File """
 
     def __init__(self, path: str):
         super().__init__()
         self.__path: str = path
         self.__data: Optional[AnyStr] = None
 
-    @classmethod
-    def make_dirs(cls, directory: str) -> bool:
-        if os.path.exists(directory):
-            if os.path.isdir(directory):
-                # directory exists
-                return True
-            else:
-                raise IOError('%s exists but is not a directory!' % directory)
-        else:
-            os.makedirs(directory, exist_ok=True)
-            return True
+    @property
+    def path(self) -> str:
+        return self.__path
 
-    def exists(self, path: str = None) -> bool:
-        # param 'path' deprecated
-        if path is None:
-            path = self.__path
-        return os.path.exists(path)
-
-    def remove(self, path: str = None) -> bool:
-        if path is None:
-            path = self.__path
-        if os.path.exists(path):
-            os.remove(path)
-            return True
-
-    def read(self, mode: str = 'rb', encoding=None) -> Optional[AnyStr]:
+    def read(self, mode: str = 'rb', encoding: str = None) -> Optional[AnyStr]:
         if self.__data is not None:
             # get data from cache
             return self.__data
-        if not os.path.exists(self.__path):
+        if not Path.exists(path=self.__path):
             # file not found
             return None
-        if not os.path.isfile(self.__path):
+        if not Path.is_file(path=self.__path):
             # the path is not a file
             raise IOError('%s is not a file' % self.__path)
         with open(self.__path, mode=mode, encoding=encoding) as file:
             self.__data = file.read()
         return self.__data
 
-    def write(self, data: AnyStr, mode: str = 'wb', encoding=None) -> bool:
-        directory = os.path.dirname(self.__path)
-        if not self.make_dirs(directory):
+    def write(self, data: AnyStr, mode: str = 'wb', encoding: str = None) -> bool:
+        directory = Path.dir(path=self.__path)
+        if not Path.make_dirs(directory=directory):
             return False
         with open(self.__path, mode=mode, encoding=encoding) as file:
             if len(data) == file.write(data):
@@ -121,9 +140,11 @@ class File:
                 self.__data = data
                 return True
 
-    def append(self, data: AnyStr, mode: str = 'ab', encoding=None) -> bool:
-        if not os.path.exists(self.__path):
+    def append(self, data: AnyStr, mode: str = 'ab', encoding: str = None) -> bool:
+        if not Path.exists(path=self.__path):
             # new file
+            if mode is not None:
+                mode = mode.replace('a', 'w')
             return self.write(data, mode=mode)
         # append to exists file
         with open(self.__path, mode=mode, encoding=encoding) as file:
@@ -133,44 +154,74 @@ class File:
                 return True
 
 
-class TextFile(File):
-
-    def read(self, mode: str = 'r', encoding='utf-8') -> Optional[str]:
-        return super().read(mode=mode, encoding=encoding)
-
-    def write(self, text: str, mode: str = 'w', encoding='utf-8') -> bool:
-        return super().write(text, mode=mode, encoding=encoding)
-
-    def append(self, text: str, mode: str = 'a', encoding='utf-8') -> bool:
-        return super().append(text, mode=mode, encoding=encoding)
-
-
-class JSONFile(TextFile):
+class BinaryFile:
 
     def __init__(self, path: str):
-        super().__init__(path=path)
-        self.__container: Union[dict, list, None] = None
+        super().__init__()
+        self.__file = File(path=path)
 
-    def read(self, **kwargs) -> Union[dict, list, None]:
+    @property
+    def path(self) -> str:
+        return self.__file.path
+
+    def read(self) -> Optional[bytes]:
+        return self.__file.read(mode='rb')
+
+    def write(self, data: bytes) -> bool:
+        return self.__file.write(data=data, mode='wb')
+
+    def append(self, data: bytes) -> bool:
+        return self.__file.append(data=data, mode='ab')
+
+
+class TextFile:
+
+    def __init__(self, path: str):
+        super().__init__()
+        self.__file = File(path=path)
+
+    @property
+    def path(self) -> str:
+        return self.__file.path
+
+    def read(self, encoding: str = 'utf-8') -> Optional[str]:
+        return self.__file.read(mode='r', encoding=encoding)
+
+    def write(self, text: str, encoding: str = 'utf-8') -> bool:
+        return self.__file.write(data=text, mode='w', encoding=encoding)
+
+    def append(self, text: str, encoding: str = 'utf-8') -> bool:
+        return self.__file.append(data=text, mode='a', encoding=encoding)
+
+
+class JSONFile:
+
+    def __init__(self, path: str):
+        super().__init__()
+        self.__file = TextFile(path=path)
+        self.__container: Union[Dict, List, None] = None
+
+    @property
+    def path(self) -> str:
+        return self.__file.path
+
+    def read(self) -> Union[Dict, List, None]:
         if self.__container is not None:
             # get content from cache
             return self.__container
         # read as text file
-        text = super().read()
+        text = self.__file.read()
         if text is not None:
             # convert text string to JSON object
             self.__container = json.loads(text)
         return self.__container
 
-    def write(self, container: Union[dict, list], **kwargs) -> bool:
+    def write(self, container: Union[Dict, List]) -> bool:
         # convert JSON object to text string
         text = json.dumps(container)
         if text is None:
             raise ValueError('cannot convert to JSON string: %s' % container)
-        if super().write(text):
+        if self.__file.write(text=text):
             # OK, update cache
             self.__container = container
             return True
-
-    def append(self, **kwargs) -> bool:
-        raise AssertionError('JSON file cannot be appended')

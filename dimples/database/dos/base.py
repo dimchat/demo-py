@@ -23,12 +23,12 @@
 # SOFTWARE.
 # ==============================================================================
 
-import os
 from typing import Optional, Union
 
 from ...utils import template_replace
 from ...utils import Log
-from ...utils import File, TextFile, JSONFile
+from ...utils import Path
+from ...utils import TextFile, JSONFile
 
 
 """
@@ -69,7 +69,7 @@ class Storage:
             return template
         else:
             # relative path
-            return os.path.join(self._public, template)
+            return Path.join(self._public, template)
 
     def private_path(self, template: str):
         """ replace '{PRIVATE}' with private directory """
@@ -82,11 +82,7 @@ class Storage:
             return template
         else:
             # relative path
-            return os.path.join(self._public, template)
-
-    @classmethod
-    def exists(cls, path: str) -> bool:
-        return File(path=path).exists(path=path)
+            return Path.join(self._public, template)
 
     @classmethod
     def read_text(cls, path: str) -> Optional[str]:
@@ -120,13 +116,6 @@ class Storage:
     def append_text(cls, text: str, path: str) -> bool:
         try:
             return TextFile(path=path).append(text=text)
-        except Exception as error:
-            Log.error(msg='Storage >\t%s' % error)
-
-    @classmethod
-    def remove(cls, path: str) -> bool:
-        try:
-            return File(path=path).remove()
         except Exception as error:
             Log.error(msg='Storage >\t%s' % error)
 
