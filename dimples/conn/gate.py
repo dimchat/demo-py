@@ -45,6 +45,7 @@ from ..utils import Logging
 from .mtp import TransactionID, MTPStreamDocker, MTPHelper
 from .mars import MarsStreamArrival, MarsStreamDocker, MarsHelper
 from .ws import WSDocker
+from .flexible import FlexibleDocker
 
 
 H = TypeVar('H')
@@ -204,16 +205,11 @@ class TCPServerGate(CommonGate, Generic[H]):
     def _create_docker(self, parties: List[bytes],
                        remote: SocketAddress, local: Optional[SocketAddress]) -> Docker:
         count = len(parties)
-        if count == 0:
-            # return MTPStreamDocker(remote=remote, local=local, gate=self)
-            assert False, 'data empty: %s -> %s' % (remote, local)
-        data = parties[0]
-        for i in range(1, count):
-            data = data + parties[i]
-        if len(data) == 0:
-            assert False, 'data empty: %s -> %s' % (remote, local)
+        data = b'' if count == 0 else parties[count - 1]
         # check data format before creating docker
-        if MTPStreamDocker.check(data=data):
+        if len(data) == 0:
+            docker = FlexibleDocker(remote=remote, local=local)
+        elif MTPStreamDocker.check(data=data):
             docker = MTPStreamDocker(remote=remote, local=local)
         elif MarsStreamDocker.check(data=data):
             docker = MarsStreamDocker(remote=remote, local=local)

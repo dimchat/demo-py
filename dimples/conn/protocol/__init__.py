@@ -28,7 +28,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from abc import ABC
+from abc import ABC, abstractmethod
 
 from startrek import Departure
 
@@ -38,6 +38,7 @@ from .mars import NetMsg, NetMsgHead, NetMsgSeq
 
 class DeparturePacker(ABC):
 
+    @abstractmethod
     def pack(self, payload: bytes, priority: int = 0) -> Departure:
         raise NotImplemented
 
