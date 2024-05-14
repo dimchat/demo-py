@@ -63,6 +63,7 @@ from .protocol import WebSocket, NetMsg, NetMsgHead, NetMsgSeq
 from .ws import WSArrival, WSDeparture, WSDocker
 from .mars import MarsStreamArrival, MarsStreamDeparture, MarsStreamDocker
 from .mtp import MTPStreamArrival, MTPStreamDeparture, MTPStreamDocker
+from .flexible import FlexibleDocker
 from .gate import CommonGate, TCPServerGate, TCPClientGate, UDPServerGate, UDPClientGate
 # from .gatekeeper import GateKeeper
 from .queue import MessageWrapper, MessageQueue
@@ -107,6 +108,7 @@ __all__ = [
     'WSArrival', 'WSDeparture', 'WSDocker',
     'MarsStreamArrival', 'MarsStreamDeparture', 'MarsStreamDocker',
     'MTPStreamArrival', 'MTPStreamDeparture', 'MTPStreamDocker',
+    'FlexibleDocker',
     'CommonGate', 'TCPServerGate', 'TCPClientGate', 'UDPServerGate', 'UDPClientGate',
     # 'GateKeeper',
     'MessageWrapper', 'MessageQueue',

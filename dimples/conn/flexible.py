@@ -31,16 +31,19 @@
 from typing import Optional, Union, List
 
 from startrek.types import SocketAddress
+from startrek.fsm import Runner
 from startrek import Connection
 from startrek import Arrival, Departure
 from startrek import StarDocker
 
+from .protocol import DeparturePacker
+
 from .ws import WSDocker
-from .mtp import MTPStreamDocker
-from .mars import MarsStreamDocker
+from .mtp import MTPStreamDocker, TransactionID, MTPHelper
+from .mars import MarsStreamDocker, MarsHelper
 
 
-class FlexibleDocker(StarDocker):
+class FlexibleDocker(StarDocker, DeparturePacker):
 
     def __init__(self, remote: SocketAddress, local: Optional[SocketAddress]):
         super().__init__(remote=remote, local=local)
@@ -62,7 +65,7 @@ class FlexibleDocker(StarDocker):
             return None
         # OK
         docker.delegate = self.delegate
-        docker.set_connection(conn=self.connection)
+        Runner.async_run(coroutine=docker.set_connection(conn=self.connection))
         self.__docker = docker
         return docker
 
@@ -107,7 +110,7 @@ class FlexibleDocker(StarDocker):
 
     # Override
     def purge(self, now: float = 0) -> int:
-        cnt = self.__dock.purge(now=now)
+        cnt = super().purge(now=now)
         docker = self.__docker
         if docker is not None:
             cnt += docker.purge(now=now)
@@ -130,7 +133,23 @@ class FlexibleDocker(StarDocker):
     # Override
     async def send_data(self, payload: Union[bytes, bytearray]) -> bool:
         docker = self.__docker
-        if docker is not None:
+        if docker is None:
+            # docker not ready
+            return False
+        elif isinstance(docker, WSDocker):
+            ship = docker.pack(payload=payload)
+            return await docker.send_ship(ship=ship)
+        elif isinstance(docker, MTPStreamDocker):
+            # sn = TransactionID.from_data(data=ship.sn)
+            sn = TransactionID.generate()
+            pack = MTPHelper.create_message(body=payload, sn=sn)
+            return await docker.send_package(pack=pack)
+        elif isinstance(docker, MarsStreamDocker):
+            mars = MarsHelper.create_push(payload=payload)
+            ship = MarsStreamDocker.create_departure(mars=mars)
+            return await docker.send_ship(ship=ship)
+        else:
+            # error
             return await docker.send_data(payload=payload)
 
     # Override
@@ -138,3 +157,12 @@ class FlexibleDocker(StarDocker):
         docker = self.__docker
         if docker is not None:
             await docker.heartbeat()
+
+    # Override
+    def pack(self, payload: bytes, priority: int = 0) -> Optional[Departure]:
+        docker = self.__docker
+        if docker is None:
+            return None
+        else:
+            assert isinstance(docker, DeparturePacker), 'docker error: %s' % docker
+        return docker.pack(payload=payload, priority=priority)

@@ -113,7 +113,9 @@ class CommonGate(StarGate, Logging, Generic[H], ABC):
     async def send_response(self, payload: bytes, ship: Arrival,
                             remote: SocketAddress, local: Optional[SocketAddress]) -> bool:
         worker = self._get_docker(remote=remote, local=local)
-        if isinstance(worker, MTPStreamDocker):
+        if isinstance(worker, FlexibleDocker):
+            return await worker.send_data(payload=payload)
+        elif isinstance(worker, MTPStreamDocker):
             # sn = TransactionID.from_data(data=ship.sn)
             sn = TransactionID.generate()
             pack = MTPHelper.create_message(body=payload, sn=sn)

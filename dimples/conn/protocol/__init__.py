@@ -29,6 +29,7 @@
 # ==============================================================================
 
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from startrek import Departure
 
@@ -39,7 +40,7 @@ from .mars import NetMsg, NetMsgHead, NetMsgSeq
 class DeparturePacker(ABC):
 
     @abstractmethod
-    def pack(self, payload: bytes, priority: int = 0) -> Departure:
+    def pack(self, payload: bytes, priority: int = 0) -> Optional[Departure]:
         raise NotImplemented
 
 

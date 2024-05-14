@@ -217,7 +217,7 @@ class WSDocker(PlainDocker, DeparturePacker):
         pass
 
     # Override
-    def pack(self, payload: bytes, priority: int = 0) -> Departure:
+    def pack(self, payload: bytes, priority: int = 0) -> Optional[Departure]:
         req_pack = WebSocket.pack(payload=payload)
         return WSDeparture(package=req_pack, payload=payload, priority=priority)
 

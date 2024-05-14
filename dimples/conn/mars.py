@@ -292,7 +292,7 @@ class MarsStreamDocker(PlainDocker, DeparturePacker):
         pass
 
     # Override
-    def pack(self, payload: bytes, priority: int = 0) -> Departure:
+    def pack(self, payload: bytes, priority: int = 0) -> Optional[Departure]:
         mars = MarsHelper.create_push(payload=payload)
         return self.create_departure(mars=mars, priority=priority)
 

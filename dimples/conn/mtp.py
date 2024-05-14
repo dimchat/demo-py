@@ -197,7 +197,7 @@ class MTPStreamDocker(PackageDocker, DeparturePacker):
         return MTPHelper.respond_message(sn=sn, pages=pages, index=index, body=OK)
 
     # Override
-    def pack(self, payload: bytes, priority: int = 0) -> Departure:
+    def pack(self, payload: bytes, priority: int = 0) -> Optional[Departure]:
         pkg = MTPHelper.create_message(body=payload)
         return self._create_departure(pack=pkg, priority=priority)
 

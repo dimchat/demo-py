@@ -276,7 +276,7 @@ class GateKeeper(Runner, DockerDelegate, Logging):
             self.error(msg='gate error, failed to send data')
         return ok
 
-    async def _docker_pack(self, payload: bytes, priority: int = 0) -> Departure:
+    async def _docker_pack(self, payload: bytes, priority: int = 0) -> Optional[Departure]:
         docker = await self.gate.fetch_docker([], remote=self.remote_address, local=None)
         assert isinstance(docker, DeparturePacker), 'departure packer error: %s' % docker
         return docker.pack(payload=payload, priority=priority)
