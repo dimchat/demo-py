@@ -33,6 +33,7 @@
                                              -- Albert Moky @ Jan. 23, 2019
 """
 
+import threading
 from typing import Optional, List, Dict
 
 from dimsdk import md5, sha1, sha256, keccak256, ripemd160
@@ -142,3 +143,37 @@ __all__ = [
     'template_replace',
 
 ]
+
+
+#
+#   Patch for Runner
+#
+async def _run_forever(runner: Runner):
+    await runner.start()
+    while True:
+        await Runner.sleep(seconds=2.0)
+        if not runner.running:
+            break
+    Log.warning(msg='runner stopped: %s' % runner)
+
+
+def _start_runner(runner: Runner):
+    Runner.sync_run(main=_run_forever(runner=runner))
+
+
+def _start_coroutine(coroutine):
+    Runner.sync_run(main=coroutine)
+
+
+def _bg_run(target):
+    if isinstance(target, Runner):
+        fn = _start_runner
+    else:
+        fn = _start_coroutine
+    thr = threading.Thread(target=fn, args=(target,), daemon=True)
+    thr.start()
+    return thr
+
+
+""" Run coroutine in background thread """
+Runner.thread_run = _bg_run

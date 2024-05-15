@@ -133,7 +133,8 @@ class Dispatcher(MessageDeliver, Logging):
             assert db is not None, 'dispatcher not initialized'
             runner = Roamer(database=db)
             self.__roamer = runner
-            Runner.async_run(coroutine=runner.start())
+            # Runner.async_run(coroutine=runner.start())
+            Runner.thread_run(runner)
         return runner
 
     def add_roaming(self, user: ID, station: ID) -> bool:
