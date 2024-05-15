@@ -380,8 +380,22 @@ def create_messenger(facebook: ClientFacebook, database: MessageDBI,
 def create_terminal(messenger: OctopusMessenger) -> Terminal:
     terminal = Terminal(messenger=messenger)
     messenger.terminal = terminal
-    Runner.async_run(coroutine=terminal.start())
+    thr = threading.Thread(target=__start_terminal, args=(terminal,), daemon=True)
+    thr.start()
     return terminal
+
+
+def __start_terminal(terminal: Terminal):
+    Runner.sync_run(main=__run_terminal(terminal=terminal))
+
+
+async def __run_terminal(terminal: Terminal):
+    await terminal.start()
+    while True:
+        await Runner.sleep(seconds=2.0)
+        if not terminal.running:
+            break
+    Log.warning(msg='terminal stopped: %s' % terminal)
 
 
 async def update_station(station: Station, database: SessionDBI):
