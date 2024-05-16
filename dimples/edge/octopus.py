@@ -380,7 +380,7 @@ def create_messenger(facebook: ClientFacebook, database: MessageDBI,
 def create_terminal(messenger: OctopusMessenger) -> Terminal:
     terminal = Terminal(messenger=messenger)
     messenger.terminal = terminal
-    Runner.thread_run(terminal)
+    Runner.thread_run(runner=terminal)
     return terminal
 
 

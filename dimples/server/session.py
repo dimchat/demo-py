@@ -97,7 +97,7 @@ class ServerSession(BaseSession):
             # load cached message asynchronously
             crt = load_cached_messages(session=self)
             # Runner.async_run(coroutine=crt)
-            Runner.thread_run(crt)
+            Runner.thread_run(main=crt)
             return True
 
     # Override
@@ -107,7 +107,7 @@ class ServerSession(BaseSession):
             # load cached message asynchronously
             crt = load_cached_messages(session=self)
             # Runner.async_run(coroutine=crt)
-            Runner.thread_run(crt)
+            Runner.thread_run(main=crt)
             return True
 
     # Override

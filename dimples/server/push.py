@@ -125,7 +125,7 @@ class PushCenter(DaemonRunner, Logging):
         self.__keeper = BadgeKeeper()
         self.__service: Optional[PushService] = None
         # Runner.async_run(coroutine=self.start())
-        Runner.thread_run(self)
+        Runner.thread_run(runner=self)
 
     @property
     def service(self) -> Optional[PushService]:

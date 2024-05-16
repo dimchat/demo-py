@@ -61,7 +61,7 @@ class GroupCommandHelper(Logging):
     #
 
     async def save_group_history(self, group: ID, content: GroupCommand, message: ReliableMessage) -> bool:
-        if self.is_expired(content=content):
+        if await self.is_expired(content=content):
             self.warning(msg='drop expired command: %s, %s => %s' % (content.cmd, message.sender, group))
             return False
         # check command time
@@ -114,6 +114,7 @@ class GroupCommandHelper(Logging):
         # membership command, check with reset command
         cmd, _ = await self.get_reset_command_message(group=group)
         if cmd is None:  # or msg is None:
+            self.error(msg='"reset" command not found: %s' % content)
             return False
         return is_before(old_time=cmd.time, new_time=content.time)
 

@@ -112,10 +112,10 @@ class MessageQueue:
                 self.__insert(priority=priority)
             else:
                 # 1.3. check duplicated
-                signature = msg.get('signature')
                 for wrapper in fleet:
                     item = wrapper.msg
                     if self.__is_duplicated(item, msg):
+                        signature = msg.get('signature')
                         print('[QUEUE] duplicated message: %s' % signature)
                         return False
             # 2. append with wrapper

@@ -33,7 +33,6 @@
                                              -- Albert Moky @ Jan. 23, 2019
 """
 
-import threading
 from typing import Optional, List, Dict
 
 from dimsdk import md5, sha1, sha256, keccak256, ripemd160
@@ -52,11 +51,12 @@ from dimsdk import DocumentHelper
 from dimplugins.crypto.aes import random_bytes
 
 from startrek.fsm import Singleton
-from startrek.fsm import Runnable, Runner, Daemon, DaemonRunner
+from startrek.fsm import Runnable, Daemon, DaemonRunner
 from startrek.fsm import Delegate as StateDelegate
 from startrek.net.channel import get_remote_address, get_local_address
 
 
+from .runner import PatchRunner as Runner
 from .log import Log, Logging
 from .dos import Path, File, TextFile, JSONFile
 from .cache import CachePool, CacheHolder, CacheManager
@@ -143,37 +143,3 @@ __all__ = [
     'template_replace',
 
 ]
-
-
-#
-#   Patch for Runner
-#
-async def _run_forever(runner: Runner):
-    await runner.start()
-    while True:
-        await Runner.sleep(seconds=2.0)
-        if not runner.running:
-            break
-    Log.warning(msg='runner stopped: %s' % runner)
-
-
-def _start_runner(runner: Runner):
-    Runner.sync_run(main=_run_forever(runner=runner))
-
-
-def _start_coroutine(coroutine):
-    Runner.sync_run(main=coroutine)
-
-
-def _bg_run(target):
-    if isinstance(target, Runner):
-        fn = _start_runner
-    else:
-        fn = _start_coroutine
-    thr = threading.Thread(target=fn, args=(target,), daemon=True)
-    thr.start()
-    return thr
-
-
-""" Run coroutine in background thread """
-Runner.thread_run = _bg_run

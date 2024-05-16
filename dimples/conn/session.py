@@ -87,7 +87,9 @@ class BaseSession(GateKeeper, Session, ABC):
     # Override
     async def queue_message_package(self, msg: ReliableMessage, data: bytes, priority: int = 0) -> bool:
         ship = await self._docker_pack(payload=data, priority=priority)
-        if ship is not None:
+        if ship is None:
+            self.error(msg='failed to pack msg: %s -> %s, %s' % (msg.sender, msg.receiver, msg.group))
+        else:
             return self._queue_append(msg=msg, ship=ship)
 
     #

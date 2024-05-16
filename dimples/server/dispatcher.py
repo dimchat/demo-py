@@ -134,7 +134,7 @@ class Dispatcher(MessageDeliver, Logging):
             runner = Roamer(database=db)
             self.__roamer = runner
             # Runner.async_run(coroutine=runner.start())
-            Runner.thread_run(runner)
+            Runner.thread_run(runner=runner)
         return runner
 
     def add_roaming(self, user: ID, station: ID) -> bool:
