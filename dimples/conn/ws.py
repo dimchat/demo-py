@@ -33,7 +33,7 @@ import threading
 from typing import Optional, List, Tuple
 
 from startrek.types import SocketAddress
-from startrek.fsm import Runner
+from startrek.skywalker import Runner
 from startrek import Arrival, Departure
 from startrek import ArrivalShip, DepartureShip, DeparturePriority
 from startrek import BaseConnection, BaseChannel

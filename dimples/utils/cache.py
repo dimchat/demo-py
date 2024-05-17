@@ -31,9 +31,11 @@
 
 from typing import TypeVar, Generic, Optional, Dict, Set, Tuple
 
-from startrek.fsm import Singleton
-from startrek.fsm import Runnable, Runner, Daemon
+from startrek.skywalker import Singleton
+from startrek.skywalker import Runner
 from dimsdk import DateTime
+
+from .log import Logging
 
 
 K = TypeVar('K')
@@ -133,44 +135,37 @@ class CachePool(Generic[K, V]):
 
 
 @Singleton
-class CacheManager(Runnable):
+class CacheManager(Runner, Logging):
 
     def __init__(self):
+        super().__init__(interval=2.0)
         self.__pools: Dict[str, CachePool] = {}  # name -> pool
-        # thread for cleaning caches
-        self.__running = True
-        self.__daemon = Daemon(target=self)
-        self.__daemon.start()
-
-    @property
-    def running(self) -> bool:
-        return self.__running
-
-    async def stop(self):
-        # 1. mark this gate to stopped
-        self.__running = False
-        # 2. waiting for the gate to stop
-        await Runner.sleep(seconds=5)
-        # 3. cancel the async task
-        self.__daemon.stop()
+        self.__next_time = DateTime.now()
+        # Runner.async_run(coroutine=self.start())
+        Runner.thread_run(runner=self)
 
     # Override
-    async def run(self):
-        next_time = 0
-        while self.running:
-            # try to purge each 5 minutes
-            now = DateTime.now()
-            if now < next_time:
-                await Runner.sleep(seconds=2)
-                continue
-            else:
-                next_time = DateTime(now.timestamp + 300)
-            try:
-                count = self.purge(now=now)
-                print('[MEM] purge %d item(s) from cache pools' % count)
-            except Exception as error:
-                print('[MEM] failed to purge cache: %s' % error)
-        print('[MEM] stop %s' % self)
+    async def setup(self):
+        pass
+
+    # Override
+    async def finish(self):
+        pass
+
+    # Override
+    async def process(self) -> bool:
+        # try to purge each 5 minutes
+        now = DateTime.now()
+        if now < self.__next_time:
+            return False
+        else:
+            self.__next_time = DateTime(now.timestamp + 300)
+        # purge
+        try:
+            count = self.purge(now=now)
+            self.info(msg='[MEM] purge %d item(s) from cache pools' % count)
+        except Exception as error:
+            self.error(msg='[MEM] failed to purge cache: %s' % error)
 
     def get_pool(self, name: str) -> CachePool[K, V]:
         """ get pool with name """

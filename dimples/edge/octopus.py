@@ -41,7 +41,7 @@ from dimsdk import ReliableMessage
 from dimsdk import Station
 
 from ..utils import Log, Logging
-from ..utils import Runner, DaemonRunner
+from ..utils import Runner
 from ..utils import get_msg_sig
 from ..common import ProviderInfo
 from ..common import MessageDBI, SessionDBI
@@ -58,7 +58,7 @@ from .shared import GlobalVariable
 from .shared import create_session
 
 
-class Octopus(DaemonRunner, Logging):
+class Octopus(Runner, Logging):
 
     def __init__(self, shared: GlobalVariable, local_host: str = '127.0.0.1', local_port: int = 9394):
         super().__init__(interval=60)
@@ -141,6 +141,14 @@ class Octopus(DaemonRunner, Logging):
             await out.stop()
         # 3. stop runner
         await super().stop()
+
+    # Override
+    async def setup(self):
+        pass
+
+    # Override
+    async def finish(self):
+        pass
 
     # Override
     async def process(self) -> bool:

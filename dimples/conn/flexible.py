@@ -31,7 +31,7 @@
 from typing import Optional, Union, List
 
 from startrek.types import SocketAddress
-from startrek.fsm import Runner
+from startrek.skywalker import Runner
 from startrek import Connection
 from startrek import Arrival, Departure
 from startrek import StarDocker

@@ -34,7 +34,8 @@ import time
 
 from dimples import EntityType
 
-from ..utils import DaemonRunner, Logging
+from ..utils import Logging
+from ..utils import Runner
 from ..utils import StateDelegate
 
 from .network import ClientSession
@@ -51,7 +52,7 @@ class DeviceMixin:
         return 'DIMP/0.4 (Client; Linux; en-US) DIMCoreKit/0.9 (Terminal) DIM-by-GSP/1.0'
 
 
-class Terminal(DaemonRunner, DeviceMixin, Logging, StateDelegate):
+class Terminal(Runner, DeviceMixin, Logging, StateDelegate):
 
     def __init__(self, messenger: ClientMessenger):
         super().__init__(interval=60)
@@ -74,7 +75,6 @@ class Terminal(DaemonRunner, DeviceMixin, Logging, StateDelegate):
 
     # Override
     async def setup(self):
-        await super().setup()
         session = self.session
         session.fsm.delegate = self
         await session.start()
@@ -82,7 +82,6 @@ class Terminal(DaemonRunner, DeviceMixin, Logging, StateDelegate):
     # Override
     async def finish(self):
         await self.session.stop()
-        await super().finish()
 
     # Override
     async def process(self) -> bool:
@@ -125,7 +124,7 @@ class Terminal(DaemonRunner, DeviceMixin, Logging, StateDelegate):
     async def exit_state(self, state: SessionState, ctx: StateMachine, now: float):
         # called after state changed
         current = ctx.current_state
-        self.info(msg='server state changed: %s -> %s' % (state, current))
+        self.info(msg='server state changed: %s -> %s, %s' % (state, current, self.session.station))
         if isinstance(current, SessionState):
             index = current.index
         else:

@@ -50,13 +50,11 @@ from dimsdk import DocumentHelper
 
 from dimplugins.crypto.aes import random_bytes
 
-from startrek.fsm import Singleton
-from startrek.fsm import Runnable, Daemon, DaemonRunner
+from startrek.skywalker import Singleton
+from startrek.skywalker import Runnable, Runner, Daemon
 from startrek.fsm import Delegate as StateDelegate
-from startrek.net.channel import get_remote_address, get_local_address
+from startrek.net.socket import get_remote_address, get_local_address
 
-
-from .runner import PatchRunner as Runner
 from .log import Log, Logging
 from .dos import Path, File, TextFile, JSONFile
 from .cache import CachePool, CacheHolder, CacheManager
@@ -123,7 +121,7 @@ __all__ = [
 
     'Converter',
 
-    'Runnable', 'Runner', 'Daemon', 'DaemonRunner',
+    'Runnable', 'Runner', 'Daemon',
     'StateDelegate',
 
     'get_remote_address', 'get_local_address',

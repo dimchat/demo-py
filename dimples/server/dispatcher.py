@@ -39,7 +39,7 @@ from dimsdk import Station
 from dimsdk import Content, ReceiptCommand
 from dimsdk import ReliableMessage
 
-from ..utils import Singleton, Log, Logging, Runner, DaemonRunner
+from ..utils import Singleton, Log, Logging, Runner
 from ..common import CommonFacebook
 from ..common import MessageDBI, SessionDBI
 from ..common import ReliableMessageDBI
@@ -275,7 +275,7 @@ class RoamingInfo:
         self.station = station
 
 
-class Roamer(DaemonRunner, Logging):
+class Roamer(Runner, Logging):
     """ Delegate for redirect cached messages to roamed station """
 
     def __init__(self, database: MessageDBI):
@@ -309,6 +309,14 @@ class Roamer(DaemonRunner, Logging):
         info = RoamingInfo(user=user, station=station)
         self.__append(info=info)
         return True
+
+    # Override
+    async def setup(self):
+        pass
+
+    # Override
+    async def finish(self):
+        pass
 
     # Override
     async def process(self) -> bool:

@@ -38,7 +38,7 @@ from typing import Optional, List, Dict
 
 from dimsdk import ID, ReliableMessage
 
-from ..utils import Runner, DaemonRunner
+from ..utils import Runner
 from ..utils import Singleton, Logging
 
 
@@ -117,7 +117,7 @@ class PushService(ABC):
 
 
 @Singleton
-class PushCenter(DaemonRunner, Logging):
+class PushCenter(Runner, Logging):
 
     def __init__(self):
         super().__init__(interval=Runner.INTERVAL_SLOW)
@@ -148,6 +148,14 @@ class PushCenter(DaemonRunner, Logging):
         """ Push notification for msg receiver """
         queue = self.__queue
         queue.add_message(msg=msg)
+
+    # Override
+    async def setup(self):
+        pass
+
+    # Override
+    async def finish(self):
+        pass
 
     # Override
     async def process(self) -> bool:

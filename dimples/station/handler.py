@@ -64,14 +64,15 @@ class RequestHandler(StreamRequestHandler, Logging):
         super().handle()
         try:
             self.info(msg='session started: %s' % str(self.client_address))
-            Runner.sync_run(main=start_session(client_address=self.client_address, request=self.request))
+            crt = _start_session(client_address=self.client_address, request=self.request)
+            Runner.sync_run(main=crt)
             self.info(msg='session finished: %s' % str(self.client_address))
         except Exception as error:
             self.error(msg='request handler error: %s' % error)
             traceback.print_exc()
 
 
-async def start_session(client_address, request):
+async def _start_session(client_address, request):
     shared = GlobalVariable()
     session = ServerSession(remote=client_address, sock=request, database=shared.sdb)
     messenger = create_messenger(facebook=shared.facebook, database=shared.mdb, session=session)
@@ -81,6 +82,8 @@ async def start_session(client_address, request):
     try:
         # handle
         await session.start()
+        await session.run()
+        # await session.stop()
     finally:
         # finish
         center.remove_session(session=session)

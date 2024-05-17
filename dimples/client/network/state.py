@@ -31,7 +31,7 @@ from typing import Optional, Union
 
 from dimsdk import ID
 
-from startrek.fsm import Runner
+from startrek.skywalker import Runner
 from startrek.fsm import Context, BaseTransition, BaseState, AutoMachine
 from startrek import Docker, DockerStatus
 
@@ -107,7 +107,7 @@ class StateMachine(AutoMachine, Context):
 
 
 class StateOrder(IntEnum):
-    """ Connection State Order """
+    """ Session State Order """
     INIT = 0  # default
     CONNECTING = 1
     CONNECTED = 2

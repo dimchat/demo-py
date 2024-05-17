@@ -96,8 +96,7 @@ class ServerSession(BaseSession):
             session_change_id(session=self, new_id=identifier, old_id=old)
             # load cached message asynchronously
             crt = load_cached_messages(session=self)
-            # Runner.async_run(coroutine=crt)
-            Runner.thread_run(main=crt)
+            Runner.async_run(coroutine=crt)
             return True
 
     # Override
@@ -106,14 +105,8 @@ class ServerSession(BaseSession):
             session_change_active(session=self, active=active)
             # load cached message asynchronously
             crt = load_cached_messages(session=self)
-            # Runner.async_run(coroutine=crt)
-            Runner.thread_run(main=crt)
+            Runner.async_run(coroutine=crt)
             return True
-
-    # Override
-    async def start(self):
-        await super().start()
-        await self.run()
 
     #
     #   Docker Delegate
