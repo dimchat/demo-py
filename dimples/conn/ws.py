@@ -164,7 +164,8 @@ class WSDocker(PlainDocker, DeparturePacker):
             res = WebSocket.handshake(stream=data)
             if res is not None:
                 ship = WSDeparture(package=res, payload=b'')
-                Runner.async_run(coroutine=self.send_ship(ship=ship))
+                coro = self.send_ship(ship=ship)
+                Runner.async_task(coro=coro)
                 self.__handshaking = False
             elif len(data) < self.MAX_PACK_LENGTH:
                 # waiting for more data

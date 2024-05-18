@@ -152,7 +152,7 @@ class MuteFilter(Logging):
             return True
         elif sender.type == EntityType.BOT:
             # mute group message from bot
-            return group is not None or receiver.is_group
+            return receiver.is_group or group is not None or 'GF' in msg
         elif receiver.type == EntityType.BOT:
             # mute all messages to bots
             return True

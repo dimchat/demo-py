@@ -32,9 +32,9 @@
 from typing import TypeVar, Generic, Optional, Dict, Set, Tuple
 
 from startrek.skywalker import Singleton
-from startrek.skywalker import Runner
 from dimsdk import DateTime
 
+from .runner import PatchRunner as Runner
 from .log import Logging
 
 
@@ -141,7 +141,7 @@ class CacheManager(Runner, Logging):
         super().__init__(interval=2.0)
         self.__pools: Dict[str, CachePool] = {}  # name -> pool
         self.__next_time = DateTime.now()
-        # Runner.async_run(coroutine=self.start())
+        # Runner.async_task(coro=self.start())
         Runner.thread_run(runner=self)
 
     # Override

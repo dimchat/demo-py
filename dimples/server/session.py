@@ -95,8 +95,8 @@ class ServerSession(BaseSession):
         if super().set_identifier(identifier=identifier):
             session_change_id(session=self, new_id=identifier, old_id=old)
             # load cached message asynchronously
-            crt = load_cached_messages(session=self)
-            Runner.async_run(coroutine=crt)
+            coro = load_cached_messages(session=self)
+            Runner.async_task(coro=coro)
             return True
 
     # Override
@@ -104,8 +104,8 @@ class ServerSession(BaseSession):
         if super().set_active(active=active, when=when):
             session_change_active(session=self, active=active)
             # load cached message asynchronously
-            crt = load_cached_messages(session=self)
-            Runner.async_run(coroutine=crt)
+            coro = load_cached_messages(session=self)
+            Runner.async_task(coro=coro)
             return True
 
     #

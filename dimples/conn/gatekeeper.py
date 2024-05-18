@@ -182,7 +182,8 @@ class GateKeeper(Runner, DockerDelegate, Logging):
             # client
             assert address is not None, 'remote address empty'
             hub = StreamClientHub(delegate=delegate)
-            Runner.async_run(coroutine=_client_connect(hub=hub, address=address))
+            coro = _client_connect(hub=hub, address=address)
+            Runner.async_task(coro=coro)
             self.info(msg='client hub created: %s' % str(address))
         else:
             # server
@@ -191,7 +192,8 @@ class GateKeeper(Runner, DockerDelegate, Logging):
             if address is None:
                 address = get_remote_address(sock=sock)
             channel = StreamChannel(remote=address, local=get_local_address(sock=sock))
-            Runner.async_run(coroutine=channel.set_socket(sock=sock))
+            coro = channel.set_socket(sock=sock)
+            Runner.async_task(coro=coro)
             hub = StreamServerHub(delegate=delegate)
             hub.put_channel(channel=channel)
         return hub

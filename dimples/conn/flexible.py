@@ -65,7 +65,8 @@ class FlexibleDocker(StarDocker, DeparturePacker):
             return None
         # OK
         docker.delegate = self.delegate
-        Runner.async_run(coroutine=docker.set_connection(conn=self.connection))
+        coro = docker.set_connection(conn=self.connection)
+        Runner.async_task(coro=coro)
         self.__docker = docker
         return docker
 
