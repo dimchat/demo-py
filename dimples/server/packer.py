@@ -143,6 +143,8 @@ class MuteFilter(Logging):
     """ Filter for Push Notification service """
 
     async def is_muted(self, msg: ReliableMessage) -> bool:
+        if msg.get_bool(key='muted', default=False):
+            return True
         sender = msg.sender
         receiver = msg.receiver
         group = msg.group
