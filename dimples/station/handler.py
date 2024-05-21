@@ -87,4 +87,5 @@ async def _start_session(client_address, request):
     finally:
         # finish
         center.remove_session(session=session)
+        await Runner.sleep(seconds=2.0)
     return messenger

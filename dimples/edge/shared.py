@@ -114,7 +114,7 @@ async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, Sessi
     provider = ProviderInfo.GSP
     neighbors = config.neighbors
     if len(neighbors) > 0:
-        await sdb.remove_stations(provider=provider)
+        # await sdb.remove_stations(provider=provider)
         for node in neighbors:
             print('adding neighbor node: %s' % node)
             await sdb.add_station(identifier=None, host=node.host, port=node.port, provider=provider)

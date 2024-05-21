@@ -94,19 +94,27 @@ class ServerSession(BaseSession):
         old = self.identifier
         if super().set_identifier(identifier=identifier):
             session_change_id(session=self, new_id=identifier, old_id=old)
-            # load cached message asynchronously
-            coro = load_cached_messages(session=self)
-            Runner.async_task(coro=coro)
+            self._load_cached_messages()
             return True
 
     # Override
     def set_active(self, active: bool, when: float = None) -> bool:
         if super().set_active(active=active, when=when):
             session_change_active(session=self, active=active)
-            # load cached message asynchronously
-            coro = load_cached_messages(session=self)
-            Runner.async_task(coro=coro)
+            self._load_cached_messages()
             return True
+
+    def _load_cached_messages(self):
+        if self.identifier is None:
+            # user not login
+            return False
+        elif not self.active:
+            # session not active
+            return False
+        # load cached message asynchronously
+        coro = load_cached_messages(session=self)
+        # Runner.async_task(coro=coro)
+        Runner.async_thread(coro=coro).start()
 
     #
     #   Docker Delegate
@@ -114,7 +122,7 @@ class ServerSession(BaseSession):
 
     # Override
     async def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
-        # super().docker_status_changed(previous=previous, current=current, docker=docker)
+        # await super().docker_status_changed(previous=previous, current=current, docker=docker)
         if current is None or current == DockerStatus.ERROR:
             # connection error or session finished
             self.set_active(active=False)
@@ -125,7 +133,7 @@ class ServerSession(BaseSession):
 
     # Override
     async def docker_received(self, ship: Arrival, docker: Docker):
-        # super().docker_received(ship=ship, docker=docker)
+        # await super().docker_received(ship=ship, docker=docker)
         all_responses = []
         messenger = self.messenger
         # 1. get data packages from arrival ship's payload
@@ -211,8 +219,7 @@ def session_change_active(session: ServerSession, active: bool):
 
 async def load_cached_messages(session: ServerSession):
     identifier = session.identifier
-    if identifier is None or not session.active:
-        return False
+    assert identifier is not None and session.active, 'session error: %s' % session
     messenger = session.messenger
     db = messenger.database
     limit = ReliableMessageDBI.CACHE_LIMIT
