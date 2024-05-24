@@ -133,7 +133,7 @@ class Dispatcher(MessageDeliver, Logging):
             assert db is not None, 'dispatcher not initialized'
             runner = Roamer(database=db)
             self.__roamer = runner
-            # Runner.async_run(coroutine=runner.start())
+            # Runner.async_task(coro=runner.start())
             Runner.thread_run(runner=runner)
         return runner
 
@@ -309,14 +309,6 @@ class Roamer(Runner, Logging):
         info = RoamingInfo(user=user, station=station)
         self.__append(info=info)
         return True
-
-    # Override
-    async def setup(self):
-        pass
-
-    # Override
-    async def finish(self):
-        pass
 
     # Override
     async def process(self) -> bool:

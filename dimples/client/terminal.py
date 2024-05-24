@@ -75,6 +75,7 @@ class Terminal(Runner, DeviceMixin, Logging, StateDelegate):
 
     # Override
     async def setup(self):
+        await super().setup()
         session = self.session
         session.fsm.delegate = self
         await session.start()
@@ -82,6 +83,7 @@ class Terminal(Runner, DeviceMixin, Logging, StateDelegate):
     # Override
     async def finish(self):
         await self.session.stop()
+        await super().finish()
 
     # Override
     async def process(self) -> bool:

@@ -213,11 +213,13 @@ class StationDBI(ABC):
         raise NotImplemented
 
     @abstractmethod
-    async def add_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = 0) -> bool:
+    async def add_station(self, identifier: Optional[ID], host: str, port: int, provider: ID,
+                          chosen: int = 0) -> bool:
         raise NotImplemented
 
     @abstractmethod
-    async def update_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = None) -> bool:
+    async def update_station(self, identifier: Optional[ID], host: str, port: int, provider: ID,
+                             chosen: int = None) -> bool:
         raise NotImplemented
 
     @abstractmethod

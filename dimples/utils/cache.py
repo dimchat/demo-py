@@ -145,14 +145,6 @@ class CacheManager(Runner, Logging):
         Runner.thread_run(runner=self)
 
     # Override
-    async def setup(self):
-        pass
-
-    # Override
-    async def finish(self):
-        pass
-
-    # Override
     async def process(self) -> bool:
         # try to purge each 5 minutes
         now = DateTime.now()

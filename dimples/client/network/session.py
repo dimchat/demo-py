@@ -118,6 +118,7 @@ class ClientSession(BaseSession):
         await fsm.start()
         # 3. start an async task for this session
         self.__daemon.start()
+        # await self.run()
 
     # Override
     async def stop(self):
@@ -146,7 +147,7 @@ class ClientSession(BaseSession):
 
     # Override
     async def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
-        # super().docker_status_changed(previous=previous, current=current, docker=docker)
+        # await super().docker_status_changed(previous=previous, current=current, docker=docker)
         if current is None or current == DockerStatus.ERROR:
             # connection error or session finished
             self.set_active(active=False)
@@ -158,7 +159,7 @@ class ClientSession(BaseSession):
 
     # Override
     async def docker_received(self, ship: Arrival, docker: Docker):
-        # super().docker_received(ship=ship, docker=docker)
+        # await super().docker_received(ship=ship, docker=docker)
         all_responses = []
         messenger = self.messenger
         # 1. get data packages from arrival ship's payload

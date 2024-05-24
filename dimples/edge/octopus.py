@@ -143,14 +143,6 @@ class Octopus(Runner, Logging):
         await super().stop()
 
     # Override
-    async def setup(self):
-        pass
-
-    # Override
-    async def finish(self):
-        pass
-
-    # Override
     async def process(self) -> bool:
         # get all neighbor stations
         db = self.database

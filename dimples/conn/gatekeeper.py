@@ -220,26 +220,6 @@ class GateKeeper(Runner, DockerDelegate, Logging):
             self.__last_active = when
             return True
 
-    # @property  # Override
-    # def running(self) -> bool:
-    #     if super().running:
-    #         return self.gate.running
-    #
-    # # Override
-    # async def stop(self):
-    #     await super().stop()
-    #     await self.gate.stop()
-
-    # Override
-    async def setup(self):
-        # await self.gate.start()
-        pass
-
-    # Override
-    async def finish(self):
-        # await self.gate.stop()
-        pass
-
     # Override
     async def process(self) -> bool:
         gate = self.gate
