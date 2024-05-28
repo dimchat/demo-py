@@ -55,9 +55,10 @@ from startrek.skywalker import Runnable, Daemon
 from startrek.fsm import Delegate as StateDelegate
 from startrek.net.socket import get_remote_address, get_local_address
 
+from aiou import Path, File, TextFile, JSONFile
+
 from .runner import PatchRunner as Runner
 from .log import Log, Logging
-from .dos import Path, File, TextFile, JSONFile
 from .cache import CachePool, CacheHolder, CacheManager
 
 from .config import Config

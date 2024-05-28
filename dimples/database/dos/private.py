@@ -67,20 +67,20 @@ class PrivateKeyStorage(Storage, PrivateKeyDBI):
         path = self.private_path(self.msg_keys_path)
         return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
-    def _save_id_key(self, key: PrivateKey, identifier: ID) -> bool:
+    async def _save_id_key(self, key: PrivateKey, identifier: ID) -> bool:
         path = self.__id_key_path(identifier=identifier)
         self.info(msg='Saving identity private key into: %s' % path)
-        return self.write_json(container=key.dictionary, path=path)
+        return await self.write_json(container=key.dictionary, path=path)
 
-    def _load_id_key(self, identifier: ID) -> Optional[PrivateKey]:
+    async def _load_id_key(self, identifier: ID) -> Optional[PrivateKey]:
         path = self.__id_key_path(identifier=identifier)
         self.info(msg='Loading identity private key from: %s' % path)
-        info = self.read_json(path=path)
+        info = await self.read_json(path=path)
         if info is not None:
             return PrivateKey.parse(key=info)
 
-    def _save_msg_key(self, key: PrivateKey, identifier: ID) -> bool:
-        private_keys = self._load_msg_keys(identifier=identifier)
+    async def _save_msg_key(self, key: PrivateKey, identifier: ID) -> bool:
+        private_keys = await self._load_msg_keys(identifier=identifier)
         private_keys = PrivateKeyDBI.insert(item=key, array=private_keys)
         if private_keys is None:
             # nothing changed
@@ -88,13 +88,13 @@ class PrivateKeyStorage(Storage, PrivateKeyDBI):
         plain = [item.dictionary for item in private_keys]
         path = self.__msg_keys_path(identifier=identifier)
         self.info(msg='Saving message private keys into: %s' % path)
-        return self.write_json(container=plain, path=path)
+        return await self.write_json(container=plain, path=path)
 
-    def _load_msg_keys(self, identifier: ID) -> List[PrivateKey]:
+    async def _load_msg_keys(self, identifier: ID) -> List[PrivateKey]:
         keys = []
         path = self.__msg_keys_path(identifier=identifier)
         self.info(msg='Loading message private keys from: %s' % path)
-        array = self.read_json(path=path)
+        array = await self.read_json(path=path)
         if array is not None:
             for item in array:
                 k = PrivateKey.parse(key=item)
@@ -110,17 +110,17 @@ class PrivateKeyStorage(Storage, PrivateKeyDBI):
     async def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
         if key_type == self.ID_KEY_TAG:
             # save private key for meta
-            return self._save_id_key(key=key, identifier=user)
+            return await self._save_id_key(key=key, identifier=user)
         else:
             # save private key for visa
-            return self._save_msg_key(key=key, identifier=user)
+            return await self._save_msg_key(key=key, identifier=user)
 
     # Override
     async def private_keys_for_decryption(self, user: ID) -> List[DecryptKey]:
-        keys: list = self._load_msg_keys(identifier=user)
+        keys: list = await self._load_msg_keys(identifier=user)
         # the 'ID key' could be used for encrypting message too (RSA),
         # so we append it to the decrypt keys here
-        id_key = self._load_id_key(identifier=user)
+        id_key = await self._load_id_key(identifier=user)
         if isinstance(id_key, DecryptKey) and PrivateKeyDBI.find(item=id_key, array=keys) < 0:
             keys.append(id_key)
         return keys
@@ -132,4 +132,4 @@ class PrivateKeyStorage(Storage, PrivateKeyDBI):
 
     # Override
     async def private_key_for_visa_signature(self, user: ID) -> Optional[SignKey]:
-        return self._load_id_key(identifier=user)
+        return await self._load_id_key(identifier=user)

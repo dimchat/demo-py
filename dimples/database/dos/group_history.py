@@ -57,7 +57,7 @@ class GroupHistoryStorage(Storage, GroupHistoryDBI):
     async def load_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
         path = self.__history_path(group=group)
         self.info(msg='Loading group history from: %s' % path)
-        array = self.read_json(path=path)
+        array = await self.read_json(path=path)
         if array is None:
             # history not found
             return []
@@ -88,7 +88,7 @@ class GroupHistoryStorage(Storage, GroupHistoryDBI):
             array.append(item)
         path = self.__history_path(group=group)
         self.info(msg='Saving %d group history(ies) into: %s' % (len(histories), path))
-        return self.write_json(container=array, path=path)
+        return await self.write_json(container=array, path=path)
 
     #
     #   Group History DBI

@@ -61,7 +61,7 @@ async def main():
     # create global variable
     shared = GlobalVariable()
     # Step 1: load config
-    config = create_config(app_name='DIM Network Station', default_config=DEFAULT_CONFIG)
+    config = await create_config(app_name='DIM Network Station', default_config=DEFAULT_CONFIG)
     shared.config = config
     # Step 2: create database
     adb, mdb, sdb = await create_database(config=config)

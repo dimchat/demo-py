@@ -85,37 +85,37 @@ class Storage:
             return Path.join(self._public, template)
 
     @classmethod
-    def read_text(cls, path: str) -> Optional[str]:
+    async def read_text(cls, path: str) -> Optional[str]:
         try:
-            return TextFile(path=path).read()
+            return await TextFile(path=path).read()
         except Exception as error:
             Log.error(msg='Storage >\t%s' % error)
 
     @classmethod
-    def read_json(cls, path: str) -> Union[dict, list, None]:
+    async def read_json(cls, path: str) -> Union[dict, list, None]:
         try:
-            return JSONFile(path=path).read()
+            return await JSONFile(path=path).read()
         except Exception as error:
             Log.error(msg='Storage >\t%s' % error)
 
     @classmethod
-    def write_text(cls, text: str, path: str) -> bool:
+    async def write_text(cls, text: str, path: str) -> bool:
         try:
-            return TextFile(path=path).write(text=text)
+            return await TextFile(path=path).write(text=text)
         except Exception as error:
             Log.error(msg='Storage >\t%s' % error)
 
     @classmethod
-    def write_json(cls, container: Union[dict, list], path: str) -> bool:
+    async def write_json(cls, container: Union[dict, list], path: str) -> bool:
         try:
-            return JSONFile(path=path).write(container=container)
+            return await JSONFile(path=path).write(container=container)
         except Exception as error:
             Log.error(msg='Storage >\t%s' % error)
 
     @classmethod
-    def append_text(cls, text: str, path: str) -> bool:
+    async def append_text(cls, text: str, path: str) -> bool:
         try:
-            return TextFile(path=path).append(text=text)
+            return await TextFile(path=path).append(text=text)
         except Exception as error:
             Log.error(msg='Storage >\t%s' % error)
 

@@ -60,7 +60,7 @@ class LoginStorage(Storage, LoginDBI):
         """ load login command from file """
         path = self.__login_path(identifier=user)
         self.info(msg='Loading login command from: %s' % path)
-        info = self.read_json(path=path)
+        info = await self.read_json(path=path)
         if info is None:
             # command not found
             return None, None
@@ -79,4 +79,4 @@ class LoginStorage(Storage, LoginDBI):
         }
         path = self.__login_path(identifier=user)
         self.info(msg='Saving login command into: %s' % path)
-        return self.write_json(container=info, path=path)
+        return await self.write_json(container=info, path=path)

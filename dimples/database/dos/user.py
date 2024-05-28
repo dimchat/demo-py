@@ -71,7 +71,7 @@ class UserStorage(Storage, UserDBI, ContactDBI):
         """ load contacts from file """
         path = self.__contacts_path(identifier=user)
         self.info(msg='Loading contacts from: %s' % path)
-        contacts = self.read_json(path=path)
+        contacts = await self.read_json(path=path)
         if contacts is None:
             # contacts not found
             return []
@@ -82,4 +82,4 @@ class UserStorage(Storage, UserDBI, ContactDBI):
         """ save contacts into file """
         path = self.__contacts_path(identifier=user)
         self.info(msg='Saving contacts into: %s' % path)
-        return self.write_json(container=ID.revert(array=contacts), path=path)
+        return await self.write_json(container=ID.revert(array=contacts), path=path)

@@ -58,13 +58,13 @@ class MetaStorage(Storage, MetaDBI):
         """ save meta into file """
         path = self.__meta_path(identifier=identifier)
         self.info(msg='Saving meta into: %s' % path)
-        return self.write_json(container=meta.dictionary, path=path)
+        return await self.write_json(container=meta.dictionary, path=path)
 
     # Override
     async def get_meta(self, identifier: ID) -> Optional[Meta]:
         """ load meta from file """
         path = self.__meta_path(identifier=identifier)
         self.info(msg='Loading meta from: %s' % path)
-        info = self.read_json(path=path)
+        info = await self.read_json(path=path)
         if info is not None:
             return Meta.parse(meta=info)

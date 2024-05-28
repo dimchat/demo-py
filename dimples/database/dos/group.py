@@ -84,7 +84,7 @@ class GroupStorage(Storage, GroupDBI):
         """ load members from file """
         path = self.__members_path(identifier=group)
         self.info(msg='Loading members from: %s' % path)
-        users = self.read_json(path=path)
+        users = await self.read_json(path=path)
         if users is None:
             # members not found
             return []
@@ -95,14 +95,14 @@ class GroupStorage(Storage, GroupDBI):
         """ save members into file """
         path = self.__members_path(identifier=group)
         self.info(msg='Saving members into: %s' % path)
-        return self.write_json(container=ID.revert(array=members), path=path)
+        return await self.write_json(container=ID.revert(array=members), path=path)
 
     # Override
     async def get_assistants(self, group: ID) -> List[ID]:
         """ load assistants from file """
         path = self.__assistants_path(identifier=group)
         self.info(msg='Loading assistants from: %s' % path)
-        bots = self.read_json(path=path)
+        bots = await self.read_json(path=path)
         if bots is None:
             # assistants not found
             return []
@@ -113,14 +113,14 @@ class GroupStorage(Storage, GroupDBI):
         """ save assistants into file """
         path = self.__assistants_path(identifier=group)
         self.info(msg='Saving assistants into: %s' % path)
-        return self.write_json(container=ID.revert(array=assistants), path=path)
+        return await self.write_json(container=ID.revert(array=assistants), path=path)
 
     # Override
     async def get_administrators(self, group: ID) -> List[ID]:
         """ load administrators from file """
         path = self.__administrators_path(identifier=group)
         self.info(msg='Loading administrators from: %s' % path)
-        users = self.read_json(path=path)
+        users = await self.read_json(path=path)
         if users is None:
             # administrators not found
             return []
@@ -131,4 +131,4 @@ class GroupStorage(Storage, GroupDBI):
         """ save administrators into file """
         path = self.__administrators_path(identifier=group)
         self.info(msg='Saving administrators into: %s' % path)
-        return self.write_json(container=ID.revert(array=administrators), path=path)
+        return await self.write_json(container=ID.revert(array=administrators), path=path)

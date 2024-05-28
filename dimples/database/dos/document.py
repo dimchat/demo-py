@@ -63,13 +63,13 @@ class DocumentStorage(Storage, DocumentDBI):
         for doc in documents:
             assert doc.identifier == identifier, 'document ID not matched: %s, %s' % (identifier, doc)
             array.append(doc.dictionary)
-        return self.write_json(container=array, path=path)
+        return await self.write_json(container=array, path=path)
 
     async def load_documents(self, identifier: ID) -> Optional[List[Document]]:
         """ load documents from file """
         path = self.__all_path(identifier=identifier)
         self.info(msg='Loading documents from: %s' % path)
-        array = self.read_json(path=path)
+        array = await self.read_json(path=path)
         if array is None:
             # file not found
             return None
@@ -86,7 +86,7 @@ class DocumentStorage(Storage, DocumentDBI):
         """ load document from file """
         path = self.__doc_path(identifier=identifier)
         self.info(msg='Loading document from: %s' % path)
-        info = self.read_json(path=path)
+        info = await self.read_json(path=path)
         if info is not None:
             return parse_document(dictionary=info, identifier=identifier)
 

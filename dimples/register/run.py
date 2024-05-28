@@ -93,7 +93,7 @@ async def main():
     # check config filepath
     if ini_file is None:
         ini_file = DEFAULT_CONFIG
-    if not Path.exists(path=ini_file):
+    if not await Path.exists(path=ini_file):
         show_help()
         print('')
         print('!!! config file not exists: %s' % ini_file)

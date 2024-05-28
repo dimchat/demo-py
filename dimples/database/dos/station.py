@@ -67,17 +67,17 @@ class StationStorage(Storage, ProviderDBI, StationDBI):
         """ load providers from file """
         path = self.__providers_path()
         self.info(msg='Loading providers from: %s' % path)
-        providers = self.read_json(path=path)
+        providers = await self.read_json(path=path)
         if providers is None:
             # service providers not found
             return []
         return ProviderInfo.convert(array=providers)
 
-    def _save_providers(self, providers: List[ProviderInfo]) -> bool:
+    async def _save_providers(self, providers: List[ProviderInfo]) -> bool:
         """ save providers into file """
         path = self.__providers_path()
         self.info(msg='Saving providers into: %s' % path)
-        return self.write_json(container=ProviderInfo.revert(array=providers), path=path)
+        return await self.write_json(container=ProviderInfo.revert(array=providers), path=path)
 
     # Override
     async def add_provider(self, identifier: ID, chosen: int = 0) -> bool:
@@ -88,7 +88,7 @@ class StationStorage(Storage, ProviderDBI, StationDBI):
                 self.warning(msg='provider exists: %s, %s' % (identifier, providers))
                 return True
         providers.insert(0, ProviderInfo(identifier=identifier, chosen=chosen))
-        return self._save_providers(providers=providers)
+        return await self._save_providers(providers=providers)
 
     # Override
     async def update_provider(self, identifier: ID, chosen: int) -> bool:
@@ -107,7 +107,7 @@ class StationStorage(Storage, ProviderDBI, StationDBI):
             providers.insert(0, info)
         else:
             info.chosen = chosen
-        return self._save_providers(providers=providers)
+        return await self._save_providers(providers=providers)
 
     # Override
     async def remove_provider(self, identifier: ID) -> bool:
@@ -120,7 +120,7 @@ class StationStorage(Storage, ProviderDBI, StationDBI):
                 break
         if info is not None:
             providers.remove(info)
-            return self._save_providers(providers=providers)
+            return await self._save_providers(providers=providers)
 
     #
     #   Station DBI
@@ -131,17 +131,17 @@ class StationStorage(Storage, ProviderDBI, StationDBI):
         """ load stations with SP ID """
         path = self.__stations_path(provider=provider)
         self.info(msg='Loading stations from: %s' % path)
-        stations = self.read_json(path=path)
+        stations = await self.read_json(path=path)
         if stations is None:
             # stations not found
             return []
         return StationInfo.convert(array=stations)
 
-    def _save_stations(self, stations: List[StationInfo], provider: ID) -> bool:
+    async def _save_stations(self, stations: List[StationInfo], provider: ID) -> bool:
         """ save stations into file """
         path = self.__stations_path(provider=provider)
         self.info(msg='Saving stations into: %s' % path)
-        return self.write_json(container=StationInfo.revert(array=stations), path=path)
+        return await self.write_json(container=StationInfo.revert(array=stations), path=path)
 
     # Override
     async def add_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = 0) -> bool:
@@ -152,7 +152,7 @@ class StationStorage(Storage, ProviderDBI, StationDBI):
                 self.warning(msg='station exists: %s, %d, %s' % (host, port, stations))
                 return True
         stations.insert(0, StationInfo(identifier=identifier, host=host, port=port, provider=provider, chosen=chosen))
-        return self._save_stations(stations=stations, provider=provider)
+        return await self._save_stations(stations=stations, provider=provider)
 
     # Override
     async def update_station(self, identifier: Optional[ID], host: str, port: int,
@@ -174,7 +174,7 @@ class StationStorage(Storage, ProviderDBI, StationDBI):
             if not (identifier is None or identifier.is_broadcast):
                 info.identifier = identifier
             info.chosen = chosen
-        return self._save_stations(stations=stations, provider=provider)
+        return await self._save_stations(stations=stations, provider=provider)
 
     # Override
     async def remove_station(self, host: str, port: int, provider: ID) -> bool:
@@ -187,7 +187,7 @@ class StationStorage(Storage, ProviderDBI, StationDBI):
                 break
         if info is not None:
             stations.remove(info)
-            return self._save_stations(stations=stations, provider=provider)
+            return await self._save_stations(stations=stations, provider=provider)
 
     # Override
     async def remove_stations(self, provider: ID) -> bool:
@@ -196,4 +196,4 @@ class StationStorage(Storage, ProviderDBI, StationDBI):
         if len(stations) == 0:
             # already empty
             return True
-        return self._save_stations(stations=[], provider=provider)
+        return await self._save_stations(stations=[], provider=provider)
