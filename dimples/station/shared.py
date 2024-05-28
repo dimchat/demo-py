@@ -117,14 +117,34 @@ async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, Sessi
     adb.show_info()
     mdb.show_info()
     sdb.show_info()
-    # update neighbor stations (default provider)
+    #
+    #  Update neighbor stations (default provider)
+    #
     provider = ProviderInfo.GSP
     neighbors = config.neighbors
     if len(neighbors) > 0:
-        await sdb.remove_stations(provider=provider)
+        # await sdb.remove_stations(provider=provider)
+        # 1. remove vanished neighbors
+        old_stations = await sdb.all_stations(provider=provider)
+        for old in old_stations:
+            found = False
+            for item in neighbors:
+                if item.port == old.port and item.host == old.host:
+                    found = True
+                    break
+            if not found:
+                print('removing neighbor station: %s' % old)
+                await sdb.remove_station(host=old.host, port=old.port, provider=provider)
+        # 2. add new neighbors
         for node in neighbors:
-            print('adding neighbor node: %s' % node)
-            await sdb.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
+            found = False
+            for old in old_stations:
+                if old.port == node.port and old.host == node.host:
+                    found = True
+                    break
+            if not found:
+                print('adding neighbor node: %s' % node)
+                await sdb.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
     return adb, mdb, sdb
 
 

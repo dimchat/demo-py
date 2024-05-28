@@ -84,7 +84,7 @@ class MetaTable(MetaDBI):
     async def save_meta(self, meta: Meta, identifier: ID) -> bool:
         # assert Meta.match_id(meta=meta, identifier=identifier), 'meta invalid: %s, %s' % (identifier, meta)
         # 0. check old record
-        old = self.get_meta(identifier=identifier)
+        old = await self.get_meta(identifier=identifier)
         if old is not None:
             # meta exists, no need to update it
             return True
