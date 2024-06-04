@@ -74,7 +74,7 @@ def show_help():
     print('')
 
 
-async def main():
+async def async_main():
     try:
         opts, args = getopt.getopt(args=sys.argv[1:],
                                    shortopts='hf:',
@@ -117,5 +117,9 @@ async def main():
         show_help()
 
 
+def main():
+    Runner.sync_run(main=async_main())
+
+
 if __name__ == '__main__':
-    Runner.sync_run(main=main())
+    main()

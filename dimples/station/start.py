@@ -57,7 +57,7 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/station.ini'
 
 
-async def main():
+async def async_main():
     # create global variable
     shared = GlobalVariable()
     # Step 1: load config
@@ -101,5 +101,9 @@ async def main():
         Log.info(msg='======== station shutdown!')
 
 
+def main():
+    Runner.sync_run(main=async_main())
+
+
 if __name__ == '__main__':
-    Runner.sync_run(main=main())
+    main()

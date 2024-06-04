@@ -114,7 +114,7 @@ class GroupCommandHelper(Logging):
         # membership command, check with reset command
         cmd, _ = await self.get_reset_command_message(group=group)
         if cmd is None:  # or msg is None:
-            self.error(msg='"reset" command not found: %s' % content)
+            self.info(msg='"reset" command not found: %s' % content)
             return False
         return is_before(old_time=cmd.time, new_time=content.time)
 
