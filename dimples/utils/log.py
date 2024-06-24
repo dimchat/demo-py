@@ -43,9 +43,9 @@ ERROR_FLAG = 0x08
 
 class Log:
 
-    DEBUG = 0xFF    # debug(), info(), warning(), error()
-    DEVELOP = 0xFE  # info(), warning(), error()
-    RELEASE = 0xFC  # warning(), error()
+    DEBUG = 0xFF    # 0000 1111 : debug(), info(), warning(), error()
+    DEVELOP = 0xFE  # 0000 1110 :          info(), warning(), error()
+    RELEASE = 0xFC  # 0000 1100 :                  warning(), error()
 
     LEVEL = RELEASE
 

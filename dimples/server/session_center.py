@@ -42,11 +42,12 @@ from typing import Optional, Dict, Set, Tuple
 
 from dimsdk import ID
 
+from ..utils import Logging
 from ..utils import Singleton
 from ..common import Session
 
 
-class SessionPool:
+class SessionPool(Logging):
 
     def __init__(self):
         super().__init__()
@@ -93,6 +94,31 @@ class SessionPool:
     def remove_session(self, remote: Tuple[str, int]):
         self.__sessions.pop(remote, None)
 
+    def all_sessions(self, identifier: ID) -> Set[Session]:
+        all_addresses = self.__addresses.get(identifier)
+        if all_addresses is None:
+            return set()
+        candidates = set()
+        clone_addresses = set(all_addresses)  # copy
+        for remote in clone_addresses:
+            session = self.get_session(remote=remote)
+            if session is None:
+                self.warning(msg='session removed: %s, %s' % (identifier, remote))
+                all_addresses.discard(remote)
+                self.remove_address(identifier=identifier, remote=remote)
+                continue
+            elif session.identifier != identifier:
+                self.warning(msg='session reused: %s, %s, %s' % (identifier, remote, session))
+                all_addresses.discard(remote)
+                self.remove_address(identifier=identifier, remote=remote)
+                continue
+            # got it
+            candidates.add(session)
+        if len(all_addresses) == 0:
+            # remote addresses empty, remote it from cache
+            self.__addresses.pop(identifier, None)
+        return candidates
+
 
 @Singleton
 class SessionCenter:
@@ -107,15 +133,30 @@ class SessionCenter:
         with self.__lock:
             return self.__pool.all_users()
 
-    def get_session(self, remote: Tuple[str, int]) -> Optional[Session]:
-        """ Get session by remote address """
-        with self.__lock:
-            return self.__pool.get_session(remote=remote)
+    # def get_session(self, remote: Tuple[str, int]) -> Optional[Session]:
+    #     """ Get session by remote address """
+    #     with self.__lock:
+    #         return self.__pool.get_session(remote=remote)
 
     def add_session(self, session: Session):
         """ Cache session with remote address """
         with self.__lock:
+            remote = session.remote_address
+            # check old session
+            old = self.__pool.get_session(remote=remote)
+            if old is not None:
+                # remove old session with remote address
+                self.__pool.remove_session(remote=remote)
+                # remove remote address with ID if exists
+                oid = session.identifier
+                if oid is not None:
+                    self.__pool.remove_address(identifier=oid, remote=remote)
+            # add new session
             self.__pool.add_session(session=session)
+        if old is not None:
+            # set session inactive
+            old.set_active(active=False)
+        # assert session.identifier is None, 'new session error: %s' % session
         return True
 
     def remove_session(self, session: Session):
@@ -135,16 +176,16 @@ class SessionCenter:
 
     def update_session(self, session: Session, identifier: ID):
         """ Update ID in this session """
-        old = session.identifier
-        if old == identifier:
+        oid = session.identifier
+        if oid == identifier:
             # nothing changed
             return False
         address = session.remote_address
         assert address is not None, 'session error: %s' % session
         with self.__lock:
-            if old is not None:
+            if oid is not None:
                 # remove remote address from old ID
-                self.__pool.remove_address(identifier=old, remote=address)
+                self.__pool.remove_address(identifier=oid, remote=address)
             # insert remote address for new ID
             self.__pool.add_address(identifier=identifier, remote=address)
         # update session ID
@@ -155,30 +196,17 @@ class SessionCenter:
         """ Get all active sessions with user ID """
         actives: Set[Session] = set()
         with self.__lock:
-            discarded = set()
-            # get all addresses with ID
-            all_addresses = self.__pool.all_addresses(identifier=identifier)
-            for address in all_addresses:
-                # get session by each address
-                session = self.__pool.get_session(remote=address)
-                if session is None:
-                    # session gone, discard this address
-                    discarded.add(address)
-                elif session.active:
+            all_sessions = self.__pool.all_sessions(identifier=identifier)
+            for session in all_sessions:
+                if session.active:
                     actives.add(session)
-            # remove discarded addresses
-            for address in discarded:
-                all_addresses.discard(address)
         return actives
 
     def is_active(self, identifier: ID) -> bool:
         """ check whether user online """
         with self.__lock:
-            # get all addresses with ID
-            all_addresses = self.__pool.all_addresses(identifier=identifier)
-            for address in all_addresses:
-                # get session by each address
-                session = self.__pool.get_session(remote=address)
-                if session is not None and session.active:
+            all_sessions = self.__pool.all_sessions(identifier=identifier)
+            for session in all_sessions:
+                if session.active:
                     # got one active
                     return True

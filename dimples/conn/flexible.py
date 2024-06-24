@@ -36,6 +36,7 @@ from startrek import Connection
 from startrek import Arrival, Departure
 from startrek import StarDocker
 
+from ..utils import Logging
 from .protocol import DeparturePacker
 
 from .ws import WSDocker
@@ -43,7 +44,7 @@ from .mtp import MTPStreamDocker, TransactionID, MTPHelper
 from .mars import MarsStreamDocker, MarsHelper
 
 
-class FlexibleDocker(StarDocker, DeparturePacker):
+class FlexibleDocker(StarDocker, DeparturePacker, Logging):
 
     def __init__(self, remote: SocketAddress, local: Optional[SocketAddress]):
         super().__init__(remote=remote, local=local)
@@ -61,7 +62,7 @@ class FlexibleDocker(StarDocker, DeparturePacker):
         elif MarsStreamDocker.check(data=data):
             docker = MarsStreamDocker(remote=self.remote_address, local=self.local_address)
         else:
-            print('[FlexibleDocker] unsupported data format: %s' % data)
+            self.error(msg='unsupported data format: %s' % data)
             return None
         # OK
         docker.delegate = self.delegate
@@ -74,19 +75,26 @@ class FlexibleDocker(StarDocker, DeparturePacker):
     async def set_connection(self, conn: Optional[Connection]):
         await super().set_connection(conn=conn)
         docker = self.__docker
-        if docker is not None:
+        if docker is None:
+            self.error(msg='docker not ready, failed to set connection: %s' % conn)
+        else:
             await docker.set_connection(conn=conn)
 
     # Override
     async def send_ship(self, ship: Departure) -> bool:
         docker = self.__docker
-        if docker is not None:
+        if docker is None:
+            self.error(msg='docker not ready, failed to send ship: %s' % ship)
+            return False
+        else:
             return await docker.send_ship(ship=ship)
 
     # Override
     async def process_received(self, data: bytes):
         docker = self._get_docker(data=data)
-        if docker is not None:
+        if docker is None:
+            self.error(msg='docker not ready, failed to process received: %s' % data)
+        else:
             return await docker.process_received(data=data)
 
     # Override
@@ -113,7 +121,9 @@ class FlexibleDocker(StarDocker, DeparturePacker):
     def purge(self, now: float = 0) -> int:
         cnt = super().purge(now=now)
         docker = self.__docker
-        if docker is not None:
+        if docker is None:
+            self.warning(msg='docker not ready, failed to purge')
+        else:
             cnt += docker.purge(now=now)
         return cnt
 
@@ -128,14 +138,17 @@ class FlexibleDocker(StarDocker, DeparturePacker):
     # Override
     async def process(self) -> bool:
         docker = self.__docker
-        if docker is not None:
+        if docker is None:
+            self.warning(msg='docker not ready, failed to process')
+            return False
+        else:
             return await docker.process()
 
     # Override
     async def send_data(self, payload: Union[bytes, bytearray]) -> bool:
         docker = self.__docker
         if docker is None:
-            # docker not ready
+            self.error(msg='docker not ready, failed to send payload: %s' % payload)
             return False
         elif isinstance(docker, WSDocker):
             ship = docker.pack(payload=payload)
@@ -156,13 +169,16 @@ class FlexibleDocker(StarDocker, DeparturePacker):
     # Override
     async def heartbeat(self):
         docker = self.__docker
-        if docker is not None:
+        if docker is None:
+            self.warning(msg='docker not ready, failed to heart bet')
+        else:
             await docker.heartbeat()
 
     # Override
     def pack(self, payload: bytes, priority: int = 0) -> Optional[Departure]:
         docker = self.__docker
         if docker is None:
+            self.error(msg='docker not ready, failed to pack: %s' % payload)
             return None
         else:
             assert isinstance(docker, DeparturePacker), 'docker error: %s' % docker
