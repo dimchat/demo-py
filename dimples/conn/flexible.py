@@ -122,7 +122,7 @@ class FlexibleDocker(StarDocker, DeparturePacker, Logging):
         cnt = super().purge(now=now)
         docker = self.__docker
         if docker is None:
-            self.warning(msg='docker not ready, failed to purge')
+            self.debug(msg='docker not ready, failed to purge')
         else:
             cnt += docker.purge(now=now)
         return cnt
@@ -139,7 +139,7 @@ class FlexibleDocker(StarDocker, DeparturePacker, Logging):
     async def process(self) -> bool:
         docker = self.__docker
         if docker is None:
-            self.warning(msg='docker not ready, failed to process')
+            self.debug(msg='docker not ready, failed to process')
             return False
         else:
             return await docker.process()

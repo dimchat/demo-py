@@ -14,7 +14,7 @@ import io
 
 from setuptools import setup, find_packages
 
-__version__ = '1.2.4'
+__version__ = '1.2.5'
 __author__ = 'Albert Moky'
 __contact__ = 'albert.moky@gmail.com'
 
@@ -62,6 +62,6 @@ setup(
         'tcp>=2.1.1',
         'udp>=2.1.1',
 
-        'aiou>=0.1.0',
+        'aiou>=0.3.0',
     ]
 )

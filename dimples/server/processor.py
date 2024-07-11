@@ -28,7 +28,6 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
-import time
 from typing import Optional, Union, List, Dict
 
 from dimsdk import EntityType, ID, ANYONE, EVERYONE
@@ -254,14 +253,12 @@ class ServerMessageProcessor(CommonMessageProcessor):
             elif isinstance(res, ReceiptCommand):
                 if sender.type == EntityType.STATION:
                     # no need to respond receipt to station
-                    when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
-                    self.info(msg='drop receipt responding to %s, origin msg time=[%s]' % (sender, when))
+                    self.info(msg='drop receipt to %s, origin msg time=[%s]' % (sender, r_msg.time))
                     continue
             elif isinstance(res, TextContent):
                 if sender.type == EntityType.STATION:
                     # no need to respond text message to station
-                    when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
-                    self.info(msg='drop text responding to %s, origin time=[%s], text=%s' % (sender, when, res.text))
+                    self.info(msg='drop text to %s, origin time=[%s], text=%s' % (sender, r_msg.time, res.text))
                     continue
             contents.append(res)
         # OK
