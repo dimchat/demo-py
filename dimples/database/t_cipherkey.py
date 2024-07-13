@@ -23,14 +23,17 @@
 # SOFTWARE.
 # ==============================================================================
 
+import threading
 from typing import Optional
 
 from dimsdk import DateTime
 from dimsdk import ID, SymmetricKey
 from dimplugins import PlainKey
 
-from ..utils import CacheManager
+from ..utils import SharedCacheManager
 from ..common import CipherKeyDBI
+
+from .t_base import DbInfo
 
 
 class CipherKeyTable(CipherKeyDBI):
@@ -39,10 +42,11 @@ class CipherKeyTable(CipherKeyDBI):
     CACHE_EXPIRES = 3600*24*7  # seconds
 
     # noinspection PyUnusedLocal
-    def __init__(self, root: str = None, public: str = None, private: str = None):
+    def __init__(self, info: DbInfo):
         super().__init__()
-        man = CacheManager()
+        man = SharedCacheManager()
         self.__keys_cache = man.get_pool(name='cipher_keys')  # (ID, ID) => SymmetricKey
+        self.__lock = threading.Lock()
 
     # noinspection PyMethodMayBeStatic
     def show_info(self):
@@ -58,12 +62,13 @@ class CipherKeyTable(CipherKeyDBI):
             return PlainKey()
         now = DateTime.now()
         direction = (sender, receiver)
-        key, _ = self.__keys_cache.fetch(key=direction, now=now)
-        if key is None and generate:
-            # generate and cache it
-            key = SymmetricKey.generate(algorithm=SymmetricKey.AES)
-            assert key is not None, 'failed to generate symmetric key'
-            self.__keys_cache.update(key=direction, value=key, life_span=self.CACHE_EXPIRES, now=now)
+        with self.__lock:
+            key, _ = self.__keys_cache.fetch(key=direction, now=now)
+            if key is None and generate:
+                # generate and cache it
+                key = SymmetricKey.generate(algorithm=SymmetricKey.AES)
+                assert key is not None, 'failed to generate symmetric key'
+                self.__keys_cache.update(key=direction, value=key, life_span=self.CACHE_EXPIRES, now=now)
         return key
 
     # Override
@@ -71,8 +76,9 @@ class CipherKeyTable(CipherKeyDBI):
         if receiver.is_broadcast:
             # no need to store cipher key for broadcast message
             return False
-        now = DateTime.now()
-        direction = (sender, receiver)
-        # 1. store into memory cache
-        self.__keys_cache.update(key=direction, value=key, life_span=self.CACHE_EXPIRES, now=now)
+        with self.__lock:
+            now = DateTime.now()
+            direction = (sender, receiver)
+            # 1. store into memory cache
+            self.__keys_cache.update(key=direction, value=key, life_span=self.CACHE_EXPIRES, now=now)
         return True

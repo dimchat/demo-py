@@ -33,6 +33,8 @@ from ..common.dbi import *
 
 from .dos import *
 
+from .t_base import DbInfo, DbTask
+
 from .t_private import PrivateKeyTable
 from .t_meta import MetaTable
 from .t_document import DocumentTable
@@ -81,6 +83,8 @@ __all__ = [
     #
     #   Table
     #
+    'DbInfo', 'DbTask',
+
     'PrivateKeyTable', 'MetaTable', 'DocumentTable',
     'UserTable', 'GroupTable', 'GroupHistoryTable',
     'GroupKeysTable',

@@ -31,6 +31,7 @@ from dimsdk import ReliableMessage
 from ..common import ProviderInfo, StationInfo
 from ..common import SessionDBI, LoginCommand
 
+from .t_base import DbInfo
 from .t_login import LoginTable
 from .t_station import StationTable
 
@@ -41,10 +42,10 @@ class SessionDatabase(SessionDBI):
         ~~~~~~~~~~~~~~~~~~~~
     """
 
-    def __init__(self, root: str = None, public: str = None, private: str = None):
+    def __init__(self, info: DbInfo):
         super().__init__()
-        self.__login_table = LoginTable(root=root, public=public, private=private)
-        self.__station_table = StationTable(root=root, public=public, private=private)
+        self.__login_table = LoginTable(info=info)
+        self.__station_table = StationTable(info=info)
 
     def show_info(self):
         self.__login_table.show_info()

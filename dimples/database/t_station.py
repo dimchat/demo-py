@@ -23,34 +23,135 @@
 # SOFTWARE.
 # ==============================================================================
 
+import threading
 from typing import Optional, List
 
-from dimsdk import DateTime
+from aiou.mem import CachePool
+
 from dimsdk import ID
 
-from ..utils import CacheManager
+from ..utils import SharedCacheManager
 from ..common import ProviderInfo, StationInfo
 from ..common import ProviderDBI, StationDBI
 
 from .dos import StationStorage
+from .redis import StationCache
+
+from .t_base import DbInfo, DbTask
+
+
+class SpTask(DbTask):
+
+    MEM_CACHE_EXPIRES = 300  # seconds
+    MEM_CACHE_REFRESH = 32   # seconds
+
+    def __init__(self,
+                 cache_pool: CachePool, redis: StationCache, storage: StationStorage,
+                 mutex_lock: threading.Lock):
+        super().__init__(cache_pool=cache_pool,
+                         cache_expires=self.MEM_CACHE_EXPIRES,
+                         cache_refresh=self.MEM_CACHE_REFRESH,
+                         mutex_lock=mutex_lock)
+        self._redis = redis
+        self._dos = storage
+
+    # Override
+    def cache_key(self) -> str:
+        return 'providers'
+
+    # Override
+    async def _load_redis_cache(self) -> Optional[List[ProviderInfo]]:
+        array = await self._redis.all_providers()
+        if array is None or len(array) == 0:
+            return None
+        else:
+            return array
+
+    # Override
+    async def _save_redis_cache(self, value: List[ProviderInfo]) -> bool:
+        return await self._redis.save_providers(providers=value)
+
+    # Override
+    async def _load_local_storage(self) -> Optional[List[ProviderInfo]]:
+        array = await self._dos.all_providers()
+        if array is None or len(array) == 0:
+            return None
+        else:
+            return array
+
+    # Override
+    async def _save_local_storage(self, value: List[ProviderInfo]) -> bool:
+        pass
+
+
+class SrvTask(DbTask):
+
+    MEM_CACHE_EXPIRES = 300  # seconds
+    MEM_CACHE_REFRESH = 32   # seconds
+
+    def __init__(self, provider: ID,
+                 cache_pool: CachePool, redis: StationCache, storage: StationStorage,
+                 mutex_lock: threading.Lock):
+        super().__init__(cache_pool=cache_pool,
+                         cache_expires=self.MEM_CACHE_EXPIRES,
+                         cache_refresh=self.MEM_CACHE_REFRESH,
+                         mutex_lock=mutex_lock)
+        self._provider = provider
+        self._redis = redis
+        self._dos = storage
+
+    # Override
+    def cache_key(self) -> ID:
+        return self._provider
+
+    # Override
+    async def _load_redis_cache(self) -> Optional[List[StationInfo]]:
+        array = await self._redis.all_stations(provider=self._provider)
+        if array is None or len(array) == 0:
+            return None
+        else:
+            return array
+
+    # Override
+    async def _save_redis_cache(self, value: List[StationInfo]) -> bool:
+        return await self._redis.save_stations(stations=value, provider=self._provider)
+
+    # Override
+    async def _load_local_storage(self) -> Optional[List[StationInfo]]:
+        array = await self._dos.all_stations(provider=self._provider)
+        if array is None or len(array) == 0:
+            return None
+        else:
+            return array
+
+    # Override
+    async def _save_local_storage(self, value: List[StationInfo]) -> bool:
+        pass
 
 
 class StationTable(ProviderDBI, StationDBI):
     """ Implementations of ProviderDBI """
 
-    CACHE_EXPIRES = 300    # seconds
-    CACHE_REFRESHING = 32  # seconds
-
-    # noinspection PyUnusedLocal
-    def __init__(self, root: str = None, public: str = None, private: str = None):
+    def __init__(self, info: DbInfo):
         super().__init__()
-        self.__dos = StationStorage(root=root, public=public, private=private)
-        man = CacheManager()
+        man = SharedCacheManager()
         self.__dim_cache = man.get_pool(name='dim')            # 'providers' => List[ProviderInfo]
         self.__stations_cache = man.get_pool(name='stations')  # SP_ID => List[StationInfo]
+        self.__redis = StationCache(connector=info.redis_connector)
+        self.__dos = StationStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self.__lock = threading.Lock()
 
     def show_info(self):
         self.__dos.show_info()
+
+    def _new_sp_task(self) -> SpTask:
+        return SpTask(cache_pool=self.__dim_cache, redis=self.__redis, storage=self.__dos,
+                      mutex_lock=self.__lock)
+
+    def _new_srv_task(self, provider: ID) -> SrvTask:
+        return SrvTask(provider=provider,
+                       cache_pool=self.__stations_cache, redis=self.__redis, storage=self.__dos,
+                       mutex_lock=self.__lock)
 
     #
     #   Provider DBI
@@ -58,51 +159,36 @@ class StationTable(ProviderDBI, StationDBI):
 
     # Override
     async def all_providers(self) -> List[ProviderInfo]:
-        """ get providers """
-        now = DateTime.now()
-        # 1. check memory cache
-        value, holder = self.__dim_cache.fetch(key='providers', now=now)
-        if value is None:
-            # cache empty
-            if holder is None:
-                # cache not load yet, wait for loading
-                self.__dim_cache.update(key='providers', life_span=self.CACHE_REFRESHING, now=now)
-            else:
-                if holder.is_alive(now=now):
-                    # cache not exists
-                    return []
-                # cache expired, wait for reloading
-                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
-            # 2. check local storage
-            value = await self.__dos.all_providers()
-            if len(value) == 0:
-                # default providers
-                value = [ProviderInfo(identifier=ProviderInfo.GSP, chosen=0)]
-            # 3. update memory cache
-            self.__dim_cache.update(key='providers', value=value, life_span=self.CACHE_EXPIRES, now=now)
-        # OK, return cached value
-        return value
+        task = self._new_sp_task()
+        providers = await task.load()
+        if providers is None or len(providers) == 0:
+            providers = [ProviderInfo(identifier=ProviderInfo.GSP, chosen=0)]
+            self.__dim_cache.update(key='providers', value=providers, life_span=SpTask.MEM_CACHE_EXPIRES)
+        return providers
 
     # Override
     async def add_provider(self, identifier: ID, chosen: int = 0) -> bool:
-        # 1. clear cache to reload
-        self.__dim_cache.erase(key='providers')
-        # 2. store into local storage
-        return await self.__dos.add_provider(identifier=identifier, chosen=chosen)
+        with self.__lock:
+            # 1. clear cache to reload
+            self.__dim_cache.erase(key='providers')
+            # 2. store into local storage
+            return await self.__dos.add_provider(identifier=identifier, chosen=chosen)
 
     # Override
     async def update_provider(self, identifier: ID, chosen: int) -> bool:
-        # 1. clear cache to reload
-        self.__dim_cache.erase(key='providers')
-        # 2. store into local storage
-        return await self.__dos.update_provider(identifier=identifier, chosen=chosen)
+        with self.__lock:
+            # 1. clear cache to reload
+            self.__dim_cache.erase(key='providers')
+            # 2. store into local storage
+            return await self.__dos.update_provider(identifier=identifier, chosen=chosen)
 
     # Override
     async def remove_provider(self, identifier: ID) -> bool:
-        # 1. clear cache to reload
-        self.__dim_cache.erase(key='providers')
-        # 2. store into local storage
-        return await self.__dos.remove_provider(identifier=identifier)
+        with self.__lock:
+            # 1. clear cache to reload
+            self.__dim_cache.erase(key='providers')
+            # 2. store into local storage
+            return await self.__dos.remove_provider(identifier=identifier)
 
     #
     #   Station DBI
@@ -110,56 +196,42 @@ class StationTable(ProviderDBI, StationDBI):
 
     # Override
     async def all_stations(self, provider: ID) -> List[StationInfo]:
-        """ get stations with SP ID """
-        now = DateTime.now()
-        # 1. check memory cache
-        value, holder = self.__stations_cache.fetch(key=provider, now=now)
-        if value is None:
-            # cache empty
-            if holder is None:
-                # cache not load yet, wait for loading
-                self.__stations_cache.update(key=provider, life_span=self.CACHE_REFRESHING, now=now)
-            else:
-                if holder.is_alive(now=now):
-                    # cache not exists
-                    return []
-                # cache expired, wait for reloading
-                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
-            # 2. check local storage
-            value = await self.__dos.all_stations(provider=provider)
-            # 3. update memory cache
-            self.__stations_cache.update(key=provider, value=value, life_span=self.CACHE_EXPIRES, now=now)
-        # OK, return cached value
-        return value
+        task = self._new_srv_task(provider=provider)
+        stations = await task.load()
+        return [] if stations is None else stations
 
     # Override
     async def add_station(self, identifier: Optional[ID], host: str, port: int,
                           provider: ID, chosen: int = 0) -> bool:
-        # 1. clear cache to reload
-        self.__stations_cache.erase(key=provider)
-        # 2. store into local storage
-        return await self.__dos.add_station(identifier=identifier, host=host, port=port,
-                                            provider=provider, chosen=chosen)
+        with self.__lock:
+            # 1. clear cache to reload
+            self.__stations_cache.erase(key=provider)
+            # 2. store into local storage
+            return await self.__dos.add_station(identifier=identifier, host=host, port=port,
+                                                provider=provider, chosen=chosen)
 
     # Override
     async def update_station(self, identifier: Optional[ID], host: str, port: int,
                              provider: ID, chosen: int = None) -> bool:
-        # 1. clear cache to reload
-        self.__stations_cache.erase(key=provider)
-        # 2. store into local storage
-        return await self.__dos.update_station(identifier=identifier, host=host, port=port,
-                                               provider=provider, chosen=chosen)
+        with self.__lock:
+            # 1. clear cache to reload
+            self.__stations_cache.erase(key=provider)
+            # 2. store into local storage
+            return await self.__dos.update_station(identifier=identifier, host=host, port=port,
+                                                   provider=provider, chosen=chosen)
 
     # Override
     async def remove_station(self, host: str, port: int, provider: ID) -> bool:
-        # 1. clear cache to reload
-        self.__stations_cache.erase(key=provider)
-        # 2. store into local storage
-        return await self.__dos.remove_station(host=host, port=port, provider=provider)
+        with self.__lock:
+            # 1. clear cache to reload
+            self.__stations_cache.erase(key=provider)
+            # 2. store into local storage
+            return await self.__dos.remove_station(host=host, port=port, provider=provider)
 
     # Override
     async def remove_stations(self, provider: ID) -> bool:
-        # 1. clear cache to reload
-        self.__stations_cache.erase(key=provider)
-        # 2. store into local storage
-        return await self.__dos.remove_stations(provider=provider)
+        with self.__lock:
+            # 1. clear cache to reload
+            self.__stations_cache.erase(key=provider)
+            # 2. store into local storage
+            return await self.__dos.remove_stations(provider=provider)

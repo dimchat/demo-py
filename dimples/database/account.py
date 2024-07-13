@@ -32,6 +32,7 @@ from dimsdk import ReliableMessage
 
 from ..common import AccountDBI
 
+from .t_base import DbInfo
 from .t_private import PrivateKeyTable
 from .t_meta import MetaTable
 from .t_document import DocumentTable
@@ -46,14 +47,14 @@ class AccountDatabase(AccountDBI):
         ~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    def __init__(self, root: str = None, public: str = None, private: str = None):
+    def __init__(self, info: DbInfo):
         super().__init__()
-        self.__private_table = PrivateKeyTable(root=root, public=public, private=private)
-        self.__meta_table = MetaTable(root=root, public=public, private=private)
-        self.__doc_table = DocumentTable(root=root, public=public, private=private)
-        self.__user_table = UserTable(root=root, public=public, private=private)
-        self.__group_table = GroupTable(root=root, public=public, private=private)
-        self.__history_table = GroupHistoryTable(root=root, public=public, private=private)
+        self.__private_table = PrivateKeyTable(info=info)
+        self.__meta_table = MetaTable(info=info)
+        self.__doc_table = DocumentTable(info=info)
+        self.__user_table = UserTable(info=info)
+        self.__group_table = GroupTable(info=info)
+        self.__history_table = GroupHistoryTable(info=info)
 
     def show_info(self):
         self.__private_table.show_info()

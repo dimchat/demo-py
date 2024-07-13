@@ -31,6 +31,7 @@ from dimsdk import ReliableMessage
 
 from ..common import MessageDBI
 
+from .t_base import DbInfo
 from .t_group_keys import GroupKeysTable
 from .t_cipherkey import CipherKeyTable
 from .t_message import ReliableMessageTable
@@ -42,11 +43,11 @@ class MessageDatabase(MessageDBI):
         ~~~~~~~~~~~~~~~~~~~~~
     """
 
-    def __init__(self, root: str = None, public: str = None, private: str = None):
+    def __init__(self, info: DbInfo):
         super().__init__()
-        self.__group_keys_table = GroupKeysTable(root=root, public=public, private=private)
-        self.__cipher_table = CipherKeyTable(root=root, public=public, private=private)
-        self.__msg_table = ReliableMessageTable(root=root, public=public, private=private)
+        self.__group_keys_table = GroupKeysTable(info=info)
+        self.__cipher_table = CipherKeyTable(info=info)
+        self.__msg_table = ReliableMessageTable(info=info)
 
     def show_info(self):
         self.__group_keys_table.show_info()

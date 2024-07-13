@@ -23,16 +23,19 @@
 # SOFTWARE.
 # ==============================================================================
 
+import threading
 from typing import Optional, List
 
 from dimsdk import DateTime
 from dimsdk import PrivateKey, DecryptKey, SignKey
 from dimsdk import ID
 
-from ..utils import CacheManager
+from ..utils import SharedCacheManager
 from ..common import PrivateKeyDBI
 
 from .dos import PrivateKeyStorage
+
+from .t_base import DbInfo
 
 
 class PrivateKeyTable(PrivateKeyDBI):
@@ -41,12 +44,13 @@ class PrivateKeyTable(PrivateKeyDBI):
     # CACHE_EXPIRES = 300  # seconds
     CACHE_REFRESHING = 32  # seconds
 
-    def __init__(self, root: str = None, public: str = None, private: str = None):
+    def __init__(self, info: DbInfo):
         super().__init__()
-        self.__dos = PrivateKeyStorage(root=root, public=public, private=private)
-        man = CacheManager()
+        man = SharedCacheManager()
         self.__id_key_cache = man.get_pool(name='private_id_key')      # ID => PrivateKey
         self.__msg_keys_cache = man.get_pool(name='private_msg_keys')  # ID => List[PrivateKey]
+        self.__dos = PrivateKeyStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self.__lock = threading.Lock()
 
     def show_info(self):
         self.__dos.show_info()

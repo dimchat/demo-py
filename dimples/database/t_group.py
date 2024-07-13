@@ -23,33 +23,156 @@
 # SOFTWARE.
 # ==============================================================================
 
+import threading
+from abc import ABC
 from typing import Optional, List
 
-from dimsdk import DateTime
+from aiou.mem import CachePool
+
 from dimsdk import ID
 
-from ..utils import CacheManager
+from ..utils import SharedCacheManager
 from ..common import GroupDBI
 
 from .dos import GroupStorage
+from .redis import GroupCache
+
+from .t_base import DbInfo, DbTask
+
+
+# noinspection PyAbstractClass
+class GrpTask(DbTask, ABC):
+
+    MEM_CACHE_EXPIRES = 300  # seconds
+    MEM_CACHE_REFRESH = 32   # seconds
+
+    def __init__(self, group: ID,
+                 cache_pool: CachePool, redis: GroupCache, storage: GroupStorage,
+                 mutex_lock: threading.Lock):
+        super().__init__(cache_pool=cache_pool,
+                         cache_expires=self.MEM_CACHE_EXPIRES,
+                         cache_refresh=self.MEM_CACHE_REFRESH,
+                         mutex_lock=mutex_lock)
+        self._group = group
+        self._redis = redis
+        self._dos = storage
+
+    # Override
+    def cache_key(self) -> ID:
+        return self._group
+
+
+class MemberTask(GrpTask):
+
+    # Override
+    async def _load_redis_cache(self) -> Optional[List[ID]]:
+        members = await self._redis.get_members(group=self._group)
+        if members is None or len(members) == 0:
+            return None
+        else:
+            return members
+
+    # Override
+    async def _save_redis_cache(self, value: List[ID]) -> bool:
+        return await self._redis.save_members(members=value, group=self._group)
+
+    # Override
+    async def _load_local_storage(self) -> Optional[List[ID]]:
+        members = await self._dos.get_members(group=self._group)
+        if members is None or len(members) == 0:
+            return None
+        else:
+            return members
+
+    # Override
+    async def _save_local_storage(self, value: List[ID]) -> bool:
+        return await self._dos.save_members(members=value, group=self._group)
+
+
+class BotTask(GrpTask):
+
+    # Override
+    async def _load_redis_cache(self) -> Optional[List[ID]]:
+        bots = await self._redis.get_assistants(group=self._group)
+        if bots is None or len(bots) == 0:
+            return None
+        else:
+            return bots
+
+    # Override
+    async def _save_redis_cache(self, value: List[ID]) -> bool:
+        return await self._redis.save_assistants(assistants=value, group=self._group)
+
+    # Override
+    async def _load_local_storage(self) -> Optional[List[ID]]:
+        bots = await self._dos.get_assistants(group=self._group)
+        if bots is None or len(bots) == 0:
+            return None
+        else:
+            return bots
+
+    # Override
+    async def _save_local_storage(self, value: List[ID]) -> bool:
+        return await self._dos.save_assistants(assistants=value, group=self._group)
+
+
+class AdminTask(GrpTask):
+
+    # Override
+    async def _load_redis_cache(self) -> Optional[List[ID]]:
+        admins = await self._redis.get_administrators(group=self._group)
+        if admins is None or len(admins) == 0:
+            return None
+        else:
+            return admins
+
+    # Override
+    async def _save_redis_cache(self, value: List[ID]) -> bool:
+        return await self._redis.save_administrators(administrators=value, group=self._group)
+
+    # Override
+    async def _load_local_storage(self) -> Optional[List[ID]]:
+        admins = await self._dos.get_administrators(group=self._group)
+        if admins is None or len(admins) == 0:
+            return None
+        else:
+            return admins
+
+    # Override
+    async def _save_local_storage(self, value: List[ID]) -> bool:
+        return await self._dos.save_administrators(administrators=value, group=self._group)
 
 
 class GroupTable(GroupDBI):
     """ Implementations of GroupDBI """
 
-    CACHE_EXPIRES = 300    # seconds
-    CACHE_REFRESHING = 32  # seconds
-
-    def __init__(self, root: str = None, public: str = None, private: str = None):
+    def __init__(self, info: DbInfo):
         super().__init__()
-        self.__dos = GroupStorage(root=root, public=public, private=private)
-        man = CacheManager()
-        self.__members_cache = man.get_pool(name='group.members')                # ID => List[ID]
-        self.__assistants_cache = man.get_pool(name='group.assistants')          # ID => List[ID]
-        self.__administrators_cache = man.get_pool(name='group.administrators')  # ID => List[ID]
+        man = SharedCacheManager()
+        self.__member_cache = man.get_pool(name='group.members')        # ID => List[ID]
+        self.__bot_cache = man.get_pool(name='group.assistants')        # ID => List[ID]
+        self.__admin_cache = man.get_pool(name='group.administrators')  # ID => List[ID]
+        self.__redis = GroupCache(connector=info.redis_connector)
+        self.__dos = GroupStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self.__lock = threading.Lock()
 
     def show_info(self):
         self.__dos.show_info()
+
+    def _new_member_task(self, group: ID) -> GrpTask:
+        return MemberTask(group=group,
+                          cache_pool=self.__member_cache, redis=self.__redis, storage=self.__dos,
+                          mutex_lock=self.__lock)
+
+    def _new_bot_task(self, group: ID) -> GrpTask:
+        return BotTask(group=group,
+                       cache_pool=self.__bot_cache, redis=self.__redis, storage=self.__dos,
+                       mutex_lock=self.__lock)
+
+    def _new_admin_task(self, group: ID) -> GrpTask:
+        return AdminTask(group=group,
+                         cache_pool=self.__admin_cache, redis=self.__redis, storage=self.__dos,
+                         mutex_lock=self.__lock)
 
     #
     #   Group DBI
@@ -65,93 +188,33 @@ class GroupTable(GroupDBI):
 
     # Override
     async def get_members(self, group: ID) -> List[ID]:
-        """ get members of group """
-        now = DateTime.now()
-        # 1. check memory cache
-        value, holder = self.__members_cache.fetch(key=group, now=now)
-        if value is None:
-            # cache empty
-            if holder is None:
-                # cache not load yet, wait to load
-                self.__members_cache.update(key=group, life_span=self.CACHE_REFRESHING, now=now)
-            else:
-                if holder.is_alive(now=now):
-                    # cache not exists
-                    return []
-                # cache expired, wait to reload
-                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
-            # 2. check local storage
-            value = await self.__dos.get_members(group=group)
-            # 3. update memory cache
-            self.__members_cache.update(key=group, value=value, life_span=self.CACHE_EXPIRES, now=now)
-        # OK, return cached value
-        return value
+        task = self._new_member_task(group=group)
+        members = await task.load()
+        return [] if members is None else members
 
     # Override
     async def save_members(self, members: List[ID], group: ID) -> bool:
-        # 1. store into memory cache
-        self.__members_cache.update(key=group, value=members, life_span=self.CACHE_EXPIRES)
-        # 2. store into local storage
-        return await self.__dos.save_members(members=members, group=group)
+        task = self._new_member_task(group=group)
+        return await task.save(value=members)
 
     # Override
     async def get_assistants(self, group: ID) -> List[ID]:
-        """ get assistants of group """
-        now = DateTime.now()
-        # 1. check memory cache
-        value, holder = self.__assistants_cache.fetch(key=group, now=now)
-        if value is None:
-            # cache empty
-            if holder is None:
-                # cache not load yet, wait to load
-                self.__assistants_cache.update(key=group, life_span=self.CACHE_REFRESHING, now=now)
-            else:
-                if holder.is_alive(now=now):
-                    # cache not exists
-                    return []
-                # cache expired, wait to reload
-                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
-            # 2. check local storage
-            value = await self.__dos.get_assistants(group=group)
-            # 3. update memory cache
-            self.__assistants_cache.update(key=group, value=value, life_span=self.CACHE_EXPIRES, now=now)
-        # OK, return cached value
-        return value
+        task = self._new_bot_task(group=group)
+        bots = await task.load()
+        return [] if bots is None else bots
 
     # Override
     async def save_assistants(self, assistants: List[ID], group: ID) -> bool:
-        # 1. store into memory cache
-        self.__assistants_cache.update(key=group, value=assistants, life_span=self.CACHE_EXPIRES)
-        # 2. store into local storage
-        return await self.__dos.save_assistants(assistants=assistants, group=group)
+        task = self._new_bot_task(group=group)
+        return await task.save(value=assistants)
 
     # Override
     async def get_administrators(self, group: ID) -> List[ID]:
-        """ get administrators of group """
-        now = DateTime.now()
-        # 1. check memory cache
-        value, holder = self.__administrators_cache.fetch(key=group, now=now)
-        if value is None:
-            # cache empty
-            if holder is None:
-                # cache not load yet, wait to load
-                self.__administrators_cache.update(key=group, life_span=self.CACHE_REFRESHING, now=now)
-            else:
-                if holder.is_alive(now=now):
-                    # cache not exists
-                    return []
-                # cache expired, wait to reload
-                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
-            # 2. check local storage
-            value = await self.__dos.get_administrators(group=group)
-            # 3. update memory cache
-            self.__administrators_cache.update(key=group, value=value, life_span=self.CACHE_EXPIRES, now=now)
-        # OK, return cached value
-        return value
+        task = self._new_admin_task(group=group)
+        admins = await task.load()
+        return [] if admins is None else admins
 
     # Override
     async def save_administrators(self, administrators: List[ID], group: ID) -> bool:
-        # 1. store into memory cache
-        self.__administrators_cache.update(key=group, value=administrators, life_span=self.CACHE_EXPIRES)
-        # 2. store into local storage
-        return await self.__dos.save_administrators(administrators=administrators, group=group)
+        task = self._new_admin_task(group=group)
+        return await task.save(value=administrators)

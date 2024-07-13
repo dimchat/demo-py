@@ -23,31 +23,77 @@
 # SOFTWARE.
 # ==============================================================================
 
+import threading
 from typing import Optional
 
-from dimsdk import DateTime
+from aiou.mem import CachePool
+
 from dimsdk import ID, Meta
 
-from ..utils import CacheManager
+from ..utils import SharedCacheManager
 from ..common import MetaDBI
 
 from .dos import MetaStorage
+from .redis import MetaCache
+
+from .t_base import DbInfo, DbTask
+
+
+class TaiTask(DbTask):
+
+    MEM_CACHE_EXPIRES = 300  # seconds
+    MEM_CACHE_REFRESH = 32   # seconds
+
+    def __init__(self, identifier: ID,
+                 cache_pool: CachePool, redis: MetaCache, storage: MetaStorage,
+                 mutex_lock: threading.Lock):
+        super().__init__(cache_pool=cache_pool,
+                         cache_expires=self.MEM_CACHE_EXPIRES,
+                         cache_refresh=self.MEM_CACHE_REFRESH,
+                         mutex_lock=mutex_lock)
+        self._identifier = identifier
+        self._redis = redis
+        self._dos = storage
+
+    # Override
+    def cache_key(self) -> ID:
+        return self._identifier
+
+    # Override
+    async def _load_redis_cache(self) -> Optional[Meta]:
+        return await self._redis.get_meta(identifier=self._identifier)
+
+    # Override
+    async def _save_redis_cache(self, value: Meta) -> bool:
+        return await self._redis.save_meta(meta=value, identifier=self._identifier)
+
+    # Override
+    async def _load_local_storage(self) -> Optional[Meta]:
+        return await self._dos.get_meta(identifier=self._identifier)
+
+    # Override
+    async def _save_local_storage(self, value: Meta) -> bool:
+        return await self._dos.save_meta(meta=value, identifier=self._identifier)
 
 
 class MetaTable(MetaDBI):
     """ Implementations of MetaDBI """
 
-    # CACHE_EXPIRES = 300  # seconds
-    CACHE_REFRESHING = 32  # seconds
-
-    def __init__(self, root: str = None, public: str = None, private: str = None):
+    def __init__(self, info: DbInfo):
         super().__init__()
-        self.__dos = MetaStorage(root=root, public=public, private=private)
-        man = CacheManager()
-        self.__meta_cache = man.get_pool(name='meta')  # ID => Meta
+        man = SharedCacheManager()
+        self.__cache = man.get_pool(name='meta')  # ID => Meta
+        self.__redis = MetaCache(connector=info.redis_connector)
+        self.__dos = MetaStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self.__lock = threading.Lock()
 
     def show_info(self):
         self.__dos.show_info()
+
+    def _new_task(self, identifier: ID) -> TaiTask:
+        return TaiTask(identifier=identifier,
+                       cache_pool=self.__cache, redis=self.__redis, storage=self.__dos,
+                       mutex_lock=self.__lock)
 
     #
     #   Meta DBI
@@ -55,40 +101,11 @@ class MetaTable(MetaDBI):
 
     # Override
     async def get_meta(self, identifier: ID) -> Optional[Meta]:
-        """ get meta for ID """
-        now = DateTime.now()
-        # 1. check memory cache
-        value, holder = self.__meta_cache.fetch(key=identifier, now=now)
-        if value is None:
-            # cache empty
-            if holder is None:
-                # cache not load yet, wait to load
-                self.__meta_cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
-            else:
-                if holder.is_alive(now=now):
-                    # cache not exists
-                    return None
-                # cache expired, wait to reload
-                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
-            # 2. check local storage
-            value = await self.__dos.get_meta(identifier=identifier)
-            # 3. update memory cache
-            if value is None:
-                self.__meta_cache.update(key=identifier, value=value, life_span=300, now=now)
-            else:
-                self.__meta_cache.update(key=identifier, value=value, life_span=36000, now=now)
-        # OK, return cached value
-        return value
+        task = self._new_task(identifier=identifier)
+        return await task.load()
 
     # Override
     async def save_meta(self, meta: Meta, identifier: ID) -> bool:
         # assert Meta.match_id(meta=meta, identifier=identifier), 'meta invalid: %s, %s' % (identifier, meta)
-        # 0. check old record
-        old = await self.get_meta(identifier=identifier)
-        if old is not None:
-            # meta exists, no need to update it
-            return True
-        # 1. store into memory cache
-        self.__meta_cache.update(key=identifier, value=meta, life_span=36000)
-        # 2. store into local storage
-        return await self.__dos.save_meta(meta=meta, identifier=identifier)
+        task = self._new_task(identifier=identifier)
+        return await task.save(value=meta)

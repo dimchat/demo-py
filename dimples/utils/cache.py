@@ -29,129 +29,36 @@
 
 """
 
-from typing import TypeVar, Generic, Optional, Dict, Set, Tuple
+import time
+from typing import Optional, Set
+
+from aiou.mem import CachePool, CacheManager
+from aiou.mem.cache import K, V
 
 from startrek.skywalker import Singleton
-from dimsdk import DateTime
 
 from .runner import PatchRunner as Runner
 from .log import Logging
 
 
-K = TypeVar('K')
-V = TypeVar('V')
-
-
-class CacheHolder(Generic[V]):
-
-    def __init__(self, value: Optional[V], life_span: float, now: DateTime):
-        super().__init__()
-        self.__value = value
-        self.__life_span = life_span
-        if now is None:
-            now = DateTime.now()
-        self.__expired = DateTime(now.timestamp + life_span)
-        self.__deprecated = DateTime(now.timestamp + life_span * 2)
-
-    @property
-    def value(self) -> Optional[V]:
-        return self.__value
-
-    def update(self, value: V, now: DateTime = None):
-        if now is None:
-            now = DateTime.now()
-        life_span = self.__life_span
-        self.__value = value
-        self.__expired = DateTime(now.timestamp + life_span)
-        self.__deprecated = DateTime(now.timestamp + life_span * 2)
-
-    def is_alive(self, now: DateTime = None) -> bool:
-        if now is None:
-            now = DateTime.now()
-        return now < self.__expired
-
-    def is_deprecated(self, now: DateTime = None) -> bool:
-        if now is None:
-            now = DateTime.now()
-        return now > self.__deprecated
-
-    def renewal(self, duration: float = 128, now: DateTime = None):
-        if now is None:
-            now = DateTime.now()
-        life_span = self.__life_span
-        self.__deprecated = DateTime(now.timestamp + life_span * 2)
-        self.__expired = DateTime(now.timestamp + duration)
-
-
-class CachePool(Generic[K, V]):
-
-    def __init__(self):
-        self.__holders: Dict[K, CacheHolder[V]] = {}  # key -> holder(value)
-
-    def all_keys(self) -> Set[K]:
-        return set(self.__holders.keys())
-
-    def update(self, key: K, holder: CacheHolder[V] = None,
-               value: V = None, life_span: float = 3600, now: DateTime = None) -> CacheHolder[V]:
-        """ update: key -> holder(value) """
-        if holder is None:
-            holder = CacheHolder(value=value, life_span=life_span, now=now)
-        self.__holders[key] = holder
-        return holder
-
-    def erase(self, key: K, now: DateTime = None) -> Tuple[Optional[V], Optional[CacheHolder[V]]]:
-        """ erase value holder with key """
-        if now is None:
-            self.__holders.pop(key, None)
-            return None, None
-        # get exists value before erasing
-        value, holder = self.fetch(key=key, now=now)
-        self.__holders.pop(key, None)
-        return value, holder
-
-    def fetch(self, key: K, now: DateTime = None) -> Tuple[Optional[V], Optional[CacheHolder[V]]]:
-        """ fetch value & holder with key """
-        holder = self.__holders.get(key)
-        if holder is None:
-            # holder not found
-            return None, None
-        elif holder.is_alive(now=now):
-            return holder.value, holder
-        else:
-            # holder expired
-            return None, holder
-
-    def purge(self, now: DateTime = None) -> int:
-        """ remove all expired cache holders """
-        count = 0
-        keys = self.all_keys()
-        for key in keys:
-            holder = self.__holders.get(key)
-            if holder is None or holder.is_deprecated(now=now):
-                # remove expired holders
-                self.__holders.pop(key, None)
-                count += 1
-        return count
-
-
 @Singleton
-class CacheManager(Runner, Logging):
+class SharedCacheManager(Runner, Logging):
 
     def __init__(self):
         super().__init__(interval=2.0)
-        self.__pools: Dict[str, CachePool] = {}  # name -> pool
-        self.__next_time = DateTime.now()
+        self.__manager = CacheManager()
+        self.__next_time = 0
         # Runner.async_task(coro=self.start())
         Runner.thread_run(runner=self)
 
     # Override
     async def process(self) -> bool:
         # try to purge each 5 minutes
-        now = DateTime.now()
+        now = time.time()
         if now < self.__next_time:
             return False
         else:
-            self.__next_time = DateTime(now.timestamp + 300)
+            self.__next_time = now + 300
         # purge
         try:
             count = self.purge(now=now)
@@ -159,20 +66,18 @@ class CacheManager(Runner, Logging):
         except Exception as error:
             self.error(msg='[MEM] failed to purge cache: %s' % error)
 
+    def all_names(self) -> Set[K]:
+        """ get names of all pools """
+        return self.__manager.all_names()
+
     def get_pool(self, name: str) -> CachePool[K, V]:
         """ get pool with name """
-        pool = self.__pools.get(name)
-        if pool is None:
-            pool = CachePool()
-            self.__pools[name] = pool
-        return pool
+        return self.__manager.get_pool(name=name)
 
-    def purge(self, now: DateTime) -> int:
+    def remove_pool(self, name: str) -> Optional[CachePool[K, V]]:
+        """ remove pool with name """
+        return self.__manager.remove_pool(name=name)
+
+    def purge(self, now: float) -> int:
         """ purge all pools """
-        count = 0
-        names = set(self.__pools.keys())
-        for name in names:
-            pool = self.__pools.get(name)
-            if pool is not None:
-                count += pool.purge(now=now)
-        return count
+        return self.__manager.purge(now=now)

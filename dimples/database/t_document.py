@@ -23,31 +23,85 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import List
+import threading
+from typing import List, Optional
 
-from dimsdk import DateTime
+from aiou.mem import CachePool
+
 from dimsdk import ID, Document, DocumentHelper
 
-from ..utils import CacheManager
+from ..utils import SharedCacheManager
 from ..common import DocumentDBI
 
 from .dos import DocumentStorage
+from .redis import DocumentCache
+
+from .t_base import DbInfo, DbTask
+
+
+class DocTask(DbTask):
+
+    MEM_CACHE_EXPIRES = 300  # seconds
+    MEM_CACHE_REFRESH = 32   # seconds
+
+    def __init__(self, identifier: ID,
+                 cache_pool: CachePool, redis: DocumentCache, storage: DocumentStorage,
+                 mutex_lock: threading.Lock):
+        super().__init__(cache_pool=cache_pool,
+                         cache_expires=self.MEM_CACHE_EXPIRES,
+                         cache_refresh=self.MEM_CACHE_REFRESH,
+                         mutex_lock=mutex_lock)
+        self._identifier = identifier
+        self._redis = redis
+        self._dos = storage
+
+    # Override
+    def cache_key(self) -> ID:
+        return self._identifier
+
+    # Override
+    async def _load_redis_cache(self) -> Optional[List[Document]]:
+        docs = await self._redis.get_documents(identifier=self._identifier)
+        if docs is None or len(docs) == 0:
+            return None
+        else:
+            return docs
+
+    # Override
+    async def _save_redis_cache(self, value: List[Document]) -> bool:
+        return await self._redis.save_documents(documents=value, identifier=self._identifier)
+
+    # Override
+    async def _load_local_storage(self) -> Optional[List[Document]]:
+        docs = await self._dos.get_documents(identifier=self._identifier)
+        if docs is None or len(docs) == 0:
+            return None
+        else:
+            return docs
+
+    # Override
+    async def _save_local_storage(self, value: List[Document]) -> bool:
+        return await self._dos.save_documents(documents=value, identifier=self._identifier)
 
 
 class DocumentTable(DocumentDBI):
     """ Implementations of DocumentDBI """
 
-    CACHE_EXPIRES = 300    # seconds
-    CACHE_REFRESHING = 32  # seconds
-
-    def __init__(self, root: str = None, public: str = None, private: str = None):
+    def __init__(self, info: DbInfo):
         super().__init__()
-        self.__dos = DocumentStorage(root=root, public=public, private=private)
-        man = CacheManager()
-        self.__docs_cache = man.get_pool(name='documents')  # ID => List[Document]
+        man = SharedCacheManager()
+        self.__cache = man.get_pool(name='documents')  # ID => List[Document]
+        self.__redis = DocumentCache(connector=info.redis_connector)
+        self.__dos = DocumentStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self.__lock = threading.Lock()
 
     def show_info(self):
         self.__dos.show_info()
+
+    def _new_task(self, identifier: ID) -> DocTask:
+        return DocTask(identifier=identifier,
+                       cache_pool=self.__cache, redis=self.__redis, storage=self.__dos,
+                       mutex_lock=self.__lock)
 
     #
     #   Document DBI
@@ -58,7 +112,9 @@ class DocumentTable(DocumentDBI):
         assert document.valid, 'document invalid: %s' % document
         identifier = document.identifier
         doc_type = document.type
-        # 0. check old documents
+        #
+        #  check old documents
+        #
         all_documents = await self.get_documents(identifier=identifier)
         old = DocumentHelper.last_document(all_documents, doc_type)
         if old is None and doc_type == Document.VISA:
@@ -69,31 +125,17 @@ class DocumentTable(DocumentDBI):
                 return False
             all_documents.remove(old)
         all_documents.append(document)
-        # 1. store into memory cache
-        self.__docs_cache.update(key=identifier, value=all_documents, life_span=self.CACHE_EXPIRES)
-        # 2. store into local storage
-        return await self.__dos.save_documents(documents=all_documents, identifier=identifier)
+        #
+        #  build task for saving
+        #
+        task = self._new_task(identifier=identifier)
+        return await task.save(value=all_documents)
 
     # Override
     async def get_documents(self, identifier: ID) -> List[Document]:
-        """ get document for ID """
-        now = DateTime.now()
-        # 1. check memory cache
-        value, holder = self.__docs_cache.fetch(key=identifier, now=now)
-        if value is None:
-            # cache empty
-            if holder is None:
-                # cache not load yet, wait to load
-                self.__docs_cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
-            else:
-                if holder.is_alive(now=now):
-                    # cache not exists
-                    return []
-                # cache expired, wait to reload
-                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
-            # 2. check local storage
-            value = await self.__dos.get_documents(identifier=identifier)
-            # 3. update memory cache
-            self.__docs_cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
-        # OK, return cached value
-        return value
+        #
+        #  build task for loading
+        #
+        task = self._new_task(identifier=identifier)
+        docs = await task.load()
+        return [] if docs is None else docs

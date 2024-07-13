@@ -23,31 +23,77 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import List
+import threading
+from typing import List, Optional
 
-from dimsdk import DateTime
+from aiou.mem import CachePool
+
 from dimsdk import ID
 
-from ..utils import CacheManager
+from ..utils import SharedCacheManager
 from ..common import UserDBI, ContactDBI
 
 from .dos import UserStorage
+from .redis import UserCache
+
+from .t_base import DbInfo, DbTask
+
+
+class UsrTask(DbTask):
+
+    MEM_CACHE_EXPIRES = 300  # seconds
+    MEM_CACHE_REFRESH = 32   # seconds
+
+    def __init__(self, user: ID,
+                 cache_pool: CachePool, redis: UserCache, storage: UserStorage,
+                 mutex_lock: threading.Lock):
+        super().__init__(cache_pool=cache_pool,
+                         cache_expires=self.MEM_CACHE_EXPIRES,
+                         cache_refresh=self.MEM_CACHE_REFRESH,
+                         mutex_lock=mutex_lock)
+        self._user = user
+        self._redis = redis
+        self._dos = storage
+
+    # Override
+    def cache_key(self) -> ID:
+        return self._user
+
+    # Override
+    async def _load_redis_cache(self) -> Optional[List[ID]]:
+        return await self._redis.get_contacts(identifier=self._user)
+
+    # Override
+    async def _save_redis_cache(self, value: List[ID]) -> bool:
+        return await self._redis.save_contacts(contacts=value, identifier=self._user)
+
+    # Override
+    async def _load_local_storage(self) -> Optional[List[ID]]:
+        return await self._dos.get_contacts(user=self._user)
+
+    # Override
+    async def _save_local_storage(self, value: List[ID]) -> bool:
+        return await self._dos.save_contacts(contacts=value, user=self._user)
 
 
 class UserTable(UserDBI, ContactDBI):
     """ Implementations of UserDBI """
 
-    CACHE_EXPIRES = 300    # seconds
-    CACHE_REFRESHING = 32  # seconds
-
-    def __init__(self, root: str = None, public: str = None, private: str = None):
+    def __init__(self, info: DbInfo):
         super().__init__()
-        self.__dos = UserStorage(root=root, public=public, private=private)
-        man = CacheManager()
-        self.__contacts_cache = man.get_pool(name='contacts')  # ID => List[ID]
+        man = SharedCacheManager()
+        self.__cache = man.get_pool(name='contacts')  # ID => List[ID]
+        self.__redis = UserCache(connector=info.redis_connector)
+        self.__dos = UserStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self.__lock = threading.Lock()
 
     def show_info(self):
         self.__dos.show_info()
+
+    def _new_task(self, user: ID) -> UsrTask:
+        return UsrTask(user=user,
+                       cache_pool=self.__cache, redis=self.__redis, storage=self.__dos,
+                       mutex_lock=self.__lock)
 
     #
     #   User DBI
@@ -67,31 +113,11 @@ class UserTable(UserDBI, ContactDBI):
 
     # Override
     async def get_contacts(self, user: ID) -> List[ID]:
-        """ get contacts for user """
-        now = DateTime.now()
-        # 1. check memory cache
-        value, holder = self.__contacts_cache.fetch(key=user, now=now)
-        if value is None:
-            # cache empty
-            if holder is None:
-                # contacts not load yet, wait to load
-                self.__contacts_cache.update(key=user, life_span=self.CACHE_REFRESHING, now=now)
-            else:
-                if holder.is_alive(now=now):
-                    # contacts not exists
-                    return []
-                # contacts expired, wait to reload
-                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
-            # 2. check local storage
-            value = await self.__dos.get_contacts(user=user)
-            # 3. update memory cache
-            self.__contacts_cache.update(key=user, value=value, life_span=self.CACHE_EXPIRES, now=now)
-        # OK, return cached value
-        return value
+        task = self._new_task(user=user)
+        contacts = await task.load()
+        return [] if contacts is None else contacts
 
     # Override
     async def save_contacts(self, contacts: List[ID], user: ID) -> bool:
-        # 1. store into memory cache
-        self.__contacts_cache.update(key=user, value=contacts, life_span=self.CACHE_EXPIRES)
-        # 2. store into local storage
-        return await self.__dos.save_contacts(contacts=contacts, user=user)
+        task = self._new_task(user=user)
+        return await task.save(value=contacts)

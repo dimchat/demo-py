@@ -34,6 +34,8 @@ from ..utils import Singleton, Config
 from ..utils import Path
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..common import ProviderInfo
+from ..database.redis import RedisConnector
+from ..database import DbInfo
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
 from ..client import ClientSession, ClientFacebook, ClientArchivist
 
@@ -98,15 +100,32 @@ async def create_config(app_name: str, default_config: str) -> Config:
     return config
 
 
+def create_redis_connector(config: Config) -> Optional[RedisConnector]:
+    redis_enable = config.get_boolean(section='redis', option='enable')
+    if redis_enable:
+        # create redis connector
+        host = config.get_string(section='redis', option='host')
+        if host is None:
+            host = 'localhost'
+        port = config.get_integer(section='redis', option='port')
+        if port is None or port <= 0:
+            port = 6379
+        username = config.get_string(section='redis', option='username')
+        password = config.get_string(section='redis', option='password')
+        return RedisConnector(host=host, port=port, username=username, password=password)
+
+
 async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, SessionDBI]:
     """ Step 2: create database """
     root = config.database_root
     public = config.database_public
     private = config.database_private
+    redis_conn = create_redis_connector(config=config)
+    info = DbInfo(redis_connector=redis_conn, root_dir=root, public_dir=public, private_dir=private)
     # create database
-    adb = AccountDatabase(root=root, public=public, private=private)
-    mdb = MessageDatabase(root=root, public=public, private=private)
-    sdb = SessionDatabase(root=root, public=public, private=private)
+    adb = AccountDatabase(info=info)
+    mdb = MessageDatabase(info=info)
+    sdb = SessionDatabase(info=info)
     adb.show_info()
     mdb.show_info()
     sdb.show_info()

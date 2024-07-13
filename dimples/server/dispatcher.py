@@ -32,7 +32,7 @@
 
 import threading
 from abc import ABC, abstractmethod
-from typing import Optional, Set, List
+from typing import Optional, Set, List, Dict
 
 from dimsdk import EntityType, ID, EVERYONE
 from dimsdk import Station
@@ -457,5 +457,7 @@ async def get_roaming_station(receiver: ID, database: SessionDBI) -> Optional[ID
     cmd, msg = await database.get_login_command_message(user=receiver)
     if isinstance(cmd, LoginCommand):
         station = cmd.station
-        assert isinstance(station, dict), 'login command error: %s' % cmd
-        return ID.parse(identifier=station.get('ID'))
+        if isinstance(station, Dict):
+            return ID.parse(identifier=station.get('ID'))
+        else:
+            Log.error(msg='login command error: %s -> %s' % (receiver, cmd))

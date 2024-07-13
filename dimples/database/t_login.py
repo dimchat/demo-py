@@ -23,33 +23,83 @@
 # SOFTWARE.
 # ==============================================================================
 
+import threading
 from typing import Optional, Tuple
 
-from dimsdk import DateTime
+from aiou.mem import CachePool
+
 from dimsdk import ID
 from dimsdk import ReliableMessage
 
-from ..utils import CacheManager
+from ..utils import SharedCacheManager
 from ..utils import is_before
 from ..common import LoginDBI, LoginCommand
 
 from .dos import LoginStorage
+from .redis import LoginCache
+
+from .t_base import DbInfo, DbTask
+
+
+class CmdTask(DbTask):
+
+    MEM_CACHE_EXPIRES = 300  # seconds
+    MEM_CACHE_REFRESH = 32   # seconds
+
+    def __init__(self, user: ID,
+                 cache_pool: CachePool, redis: LoginCache, storage: LoginStorage,
+                 mutex_lock: threading.Lock):
+        super().__init__(cache_pool=cache_pool,
+                         cache_expires=self.MEM_CACHE_EXPIRES,
+                         cache_refresh=self.MEM_CACHE_REFRESH,
+                         mutex_lock=mutex_lock)
+        self._user = user
+        self._redis = redis
+        self._dos = storage
+
+    # Override
+    def cache_key(self) -> ID:
+        return self._user
+
+    # Override
+    async def _load_redis_cache(self) -> Optional[Tuple[Optional[LoginCommand], Optional[ReliableMessage]]]:
+        return await self._redis.load_login(user=self._user)
+
+    # Override
+    async def _save_redis_cache(self, value: Tuple[LoginCommand, ReliableMessage]) -> bool:
+        cmd = value[0]
+        msg = value[1]
+        return await self._redis.save_login(user=self._user, content=cmd, msg=msg)
+
+    # Override
+    async def _load_local_storage(self) -> Optional[Tuple[Optional[LoginCommand], Optional[ReliableMessage]]]:
+        return await self._dos.get_login_command_message(user=self._user)
+
+    # Override
+    async def _save_local_storage(self, value: Tuple[LoginCommand, ReliableMessage]) -> bool:
+        cmd = value[0]
+        msg = value[1]
+        return await self._dos.save_login_command_message(user=self._user, content=cmd, msg=msg)
 
 
 class LoginTable(LoginDBI):
     """ Implementations of LoginDBI """
 
-    CACHE_EXPIRES = 300    # seconds
-    CACHE_REFRESHING = 32  # seconds
-
-    def __init__(self, root: str = None, public: str = None, private: str = None):
+    def __init__(self, info: DbInfo):
         super().__init__()
-        self.__dos = LoginStorage(root=root, public=public, private=private)
-        man = CacheManager()
-        self.__login_cache = man.get_pool(name='login')  # ID => (LoginCommand, ReliableMessage)
+        man = SharedCacheManager()
+        self.__cache = man.get_pool(name='login')  # ID => (LoginCommand, ReliableMessage)
+        self.__redis = LoginCache(connector=info.redis_connector)
+        self.__dos = LoginStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self.__lock = threading.Lock()
 
     def show_info(self):
         self.__dos.show_info()
+
+    def _new_task(self, user: ID) -> CmdTask:
+        return CmdTask(user=user,
+                       cache_pool=self.__cache, redis=self.__redis, storage=self.__dos,
+                       mutex_lock=self.__lock)
 
     async def _is_expired(self, user: ID, content: LoginCommand) -> bool:
         """ check old record with command time """
@@ -57,10 +107,14 @@ class LoginTable(LoginDBI):
         if new_time is None or new_time <= 0:
             return False
         # check old record
-        old, _ = await self.get_login_command_message(user=user)
+        old, _ = await self.load_login_command_message(user=user)
         if old is not None and is_before(old_time=old.time, new_time=new_time):
             # command expired
             return True
+
+    async def load_login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
+        task = self._new_task(user=user)
+        return await task.load()
 
     #
     #   Login DBI
@@ -68,36 +122,20 @@ class LoginTable(LoginDBI):
 
     # Override
     async def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
-        # 0. check command time
+        #
+        #  check command time
+        #
         if await self._is_expired(user=user, content=content):
             # command expired, drop it
             return False
-        # 1. store into memory cache
-        self.__login_cache.update(key=user, value=(content, msg), life_span=self.CACHE_EXPIRES)
-        # 2. store into local storage
-        return await self.__dos.save_login_command_message(user=user, content=content, msg=msg)
+        else:
+            value = (content, msg)
+        #
+        #  build task for saving
+        #
+        task = self._new_task(user=user)
+        return await task.save(value=value)
 
     # Override
     async def get_login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
-        """ get login command message for user """
-        now = DateTime.now()
-        # 1. check memory cache
-        value, holder = self.__login_cache.fetch(key=user, now=now)
-        if value is None:
-            # cache empty
-            if holder is None:
-                # cache not load yet, wait to load
-                self.__login_cache.update(key=user, life_span=self.CACHE_REFRESHING, now=now)
-            else:
-                if holder.is_alive(now=now):
-                    # cache not exists
-                    return None, None
-                # cache expired, wait to reload
-                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
-            # 2. check local storage
-            cmd, msg = await self.__dos.get_login_command_message(user=user)
-            value = (cmd, msg)
-            # 3. update memory cache
-            self.__login_cache.update(key=user, value=value, life_span=self.CACHE_EXPIRES, now=now)
-        # OK, return cached value
-        return value
+        return await self.load_login_command_message(user=user)

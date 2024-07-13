@@ -23,31 +23,78 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, Dict
+import threading
+from typing import Optional, Tuple, Dict
 
-from dimsdk import DateTime
+from aiou.mem import CachePool
+
 from dimsdk import ID
 
-from ..utils import CacheManager
+from ..utils import SharedCacheManager
 from ..common import GroupKeysDBI
 
 from .dos import GroupKeysStorage
+from .redis import GroupKeysCache
+
+from .t_base import DbInfo, DbTask
+
+
+class PwdTask(DbTask):
+
+    MEM_CACHE_EXPIRES = 300  # seconds
+    MEM_CACHE_REFRESH = 32   # seconds
+
+    def __init__(self, group: ID, sender: ID,
+                 cache_pool: CachePool, redis: GroupKeysCache, storage: GroupKeysStorage,
+                 mutex_lock: threading.Lock):
+        super().__init__(cache_pool=cache_pool,
+                         cache_expires=self.MEM_CACHE_EXPIRES,
+                         cache_refresh=self.MEM_CACHE_REFRESH,
+                         mutex_lock=mutex_lock)
+        self._group = group
+        self._sender = sender
+        self._redis = redis
+        self._dos = storage
+
+    # Override
+    def cache_key(self) -> Tuple[ID, ID]:
+        return self._group, self._sender
+
+    # Override
+    async def _load_redis_cache(self) -> Optional[Dict[str, str]]:
+        return await self._redis.get_group_keys(group=self._group, sender=self._sender)
+
+    # Override
+    async def _save_redis_cache(self, value: Dict[str, str]) -> bool:
+        return await self._redis.save_group_keys(group=self._group, sender=self._sender, keys=value)
+
+    # Override
+    async def _load_local_storage(self) -> Optional[Dict[str, str]]:
+        return await self._dos.get_group_keys(group=self._group, sender=self._sender)
+
+    # Override
+    async def _save_local_storage(self, value: Dict[str, str]) -> bool:
+        return await self._dos.save_group_keys(group=self._group, sender=self._sender, keys=value)
 
 
 class GroupKeysTable(GroupKeysDBI):
     """ Implementations of GroupKeysDBI """
 
-    CACHE_EXPIRES = 300    # seconds
-    CACHE_REFRESHING = 32  # seconds
-
-    def __init__(self, root: str = None, public: str = None, private: str = None):
+    def __init__(self, info: DbInfo):
         super().__init__()
-        self.__dos = GroupKeysStorage(root=root, public=public, private=private)
-        man = CacheManager()
-        self.__keys_cache = man.get_pool(name='group.keys')  # (ID, ID) => Dict
+        man = SharedCacheManager()
+        self.__cache = man.get_pool(name='group.keys')  # (ID, ID) => Dict
+        self.__redis = GroupKeysCache(connector=info.redis_connector)
+        self.__dos = GroupKeysStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self.__lock = threading.Lock()
 
     def show_info(self):
         self.__dos.show_info()
+
+    def _new_task(self, group: ID, sender: ID) -> PwdTask:
+        return PwdTask(group=group, sender=sender,
+                       cache_pool=self.__cache, redis=self.__redis, storage=self.__dos,
+                       mutex_lock=self.__lock)
 
     async def _merge_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> Dict[str, str]:
         if 'digest' not in keys:
@@ -68,40 +115,19 @@ class GroupKeysTable(GroupKeysDBI):
                 table[receiver] = keys[receiver]
             return table
 
+    async def load_group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
+        task = self._new_task(group=group, sender=sender)
+        return await task.load()
+
     #
     #   Group Keys DBI
     #
 
     # Override
     async def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
-        identifier = (group, sender)
-        # 0. check old record
-        keys = await self._merge_keys(group=group, sender=sender, keys=keys)
-        # 1. store into memory cache
-        self.__keys_cache.update(key=identifier, value=keys, life_span=self.CACHE_EXPIRES)
-        # 2. store into local storage
-        return await self.__dos.save_group_keys(group=group, sender=sender, keys=keys)
+        task = self._new_task(group=group, sender=sender)
+        return await task.save(value=keys)
 
     # Override
     async def get_group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
-        now = DateTime.now()
-        identifier = (group, sender)
-        # 1. check memory cache
-        value, holder = self.__keys_cache.fetch(key=identifier, now=now)
-        if value is None:
-            # cache empty
-            if holder is None:
-                # cache not load yet, wait to load
-                self.__keys_cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
-            else:
-                if holder.is_alive(now=now):
-                    # cache not exists
-                    return None
-                # cache expired, wait to reload
-                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
-            # 2. check local storage
-            value = await self.__dos.get_group_keys(group=group, sender=sender)
-            # 3. update memory cache
-            self.__keys_cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
-        # OK, return cached value
-        return value
+        return await self.load_group_keys(group=group, sender=sender)

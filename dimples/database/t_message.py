@@ -23,26 +23,33 @@
 # SOFTWARE.
 # ==============================================================================
 
+import threading
 from typing import List
 
 from dimsdk import DateTime
 from dimsdk import ID
 from dimsdk import ReliableMessage
 
-from ..utils import CacheManager
+from ..utils import SharedCacheManager
 from ..common import ReliableMessageDBI
+
+from .redis import MessageCache
+
+from .t_base import DbInfo
 
 
 class ReliableMessageTable(ReliableMessageDBI):
     """ Implementations of ReliableMessageDBI """
 
-    CACHE_EXPIRES = 3600*24*7  # seconds
+    MEM_CACHE_EXPIRES = 360  # seconds
+    MEM_CACHE_REFRESH = 128  # seconds
 
-    # noinspection PyUnusedLocal
-    def __init__(self, root: str = None, public: str = None, private: str = None):
+    def __init__(self, info: DbInfo):
         super().__init__()
-        man = CacheManager()
-        self.__msg_cache = man.get_pool(name='reliable_messages')  # ID => List[ReliableMessage]
+        man = SharedCacheManager()
+        self.__cache = man.get_pool(name='reliable_messages')  # ID => List[ReliableMessages]
+        self.__redis = MessageCache(connector=info.redis_connector)
+        self.__lock = threading.Lock()
 
     # noinspection PyMethodMayBeStatic
     def show_info(self):
@@ -55,62 +62,61 @@ class ReliableMessageTable(ReliableMessageDBI):
     # Override
     async def get_reliable_messages(self, receiver: ID, limit: int = 1024) -> List[ReliableMessage]:
         now = DateTime.now()
-        # get all messages
-        messages, _ = self.__msg_cache.fetch(key=receiver, now=now)
-        if messages is None:
+        cache_pool = self.__cache
+        #
+        #  1. check memory cache
+        #
+        value, holder = cache_pool.fetch(key=receiver, now=now)
+        if value is not None:
+            # got it from cache
+            return value
+        elif holder is None:
+            # holder not exists, means it is the first querying
+            pass
+        elif holder.is_alive(now=now):
+            # holder is not expired yet,
+            # means the value is actually empty,
+            # no need to check it again.
             return []
-        # only last cached messages will be returned
-        if 0 < limit < len(messages):
-            messages = messages[-limit:]
-        return messages
+        #
+        #  2. lock for querying
+        #
+        with self.__lock:
+            # locked, check again to make sure the cache not exists.
+            # (maybe the cache was updated by other threads while waiting the lock)
+            value, holder = cache_pool.fetch(key=receiver, now=now)
+            if value is not None:
+                return value
+            elif holder is None:
+                pass
+            elif holder.is_alive(now=now):
+                return []
+            else:
+                # holder exists, renew the expired time for other threads
+                holder.renewal(duration=self.MEM_CACHE_REFRESH, now=now)
+            # 2.1. check redis server
+            value = await self.__redis.get_reliable_messages(receiver=receiver, limit=limit)
+            # 2.2. update memory cache
+            self.__cache.update(key=receiver, value=value, life_span=self.MEM_CACHE_EXPIRES, now=now)
+        #
+        #  3. OK, return cached value
+        #
+        return value
 
     # Override
     async def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
-        now = DateTime.now()
-        # assert receiver.is_user, 'message receiver error: %s' % receiver
-        messages, holder = self.__msg_cache.fetch(key=receiver, now=now)
-        if messages is None:
-            messages = [msg]
-            self.__msg_cache.update(key=receiver, value=messages, life_span=self.CACHE_EXPIRES, now=now)
-            return True
-        elif find_message(msg=msg, messages=messages) < 0:
-            assert isinstance(messages, List), 'msg cache list error: %s' % messages
-            while len(messages) > ReliableMessageDBI.CACHE_LIMIT:
-                # overflow
-                messages.pop(0)
-            # append to tail
-            messages.append(msg)
-            holder.update(value=messages, now=now)
-            return True
-        else:
-            # duplicated
-            return False
+        with self.__lock:
+            # 1. store into redis server
+            if await self.__redis.save_reliable_message(msg=msg, receiver=receiver):
+                # 2. clear cache to reload
+                self.__cache.erase(key=receiver)
+                return True
 
     # Override
     async def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
-        now = DateTime.now()
-        # assert receiver.is_user, 'message receiver error: %s' % receiver
-        messages, holder = self.__msg_cache.fetch(key=receiver, now=now)
-        if messages is None:
-            # not exists
-            return False
-        index = find_message(msg=msg, messages=messages)
-        if index < 0:
-            # not exists
-            return False
-        assert isinstance(messages, list), 'msg list error: %s' % messages
-        messages.pop(index)
-        holder.update(value=messages, now=now)
-        return True
-
-
-def find_message(msg: ReliableMessage, messages: List[ReliableMessage]) -> int:
-    """ check message by signature """
-    index = 0
-    sig = msg.get('signature')
-    for item in messages:
-        if item.get('signature') == sig:
-            return index
-        index += 1
-    # not found
-    return -1
+        with self.__lock:
+            # 1. remove from redis server
+            if await self.__redis.remove_reliable_message(msg=msg, receiver=receiver):
+                # 2. clear cache to reload
+                self.__cache.erase(key=receiver)
+                return True

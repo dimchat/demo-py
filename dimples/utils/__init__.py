@@ -59,7 +59,7 @@ from aiou import Path, File, TextFile, JSONFile
 
 from .runner import PatchRunner as Runner
 from .log import Log, Logging
-from .cache import CachePool, CacheHolder, CacheManager
+from .cache import CachePool, SharedCacheManager
 
 from .config import Config
 
@@ -132,7 +132,7 @@ __all__ = [
     'Singleton',
     'Log', 'Logging',
     'Path', 'File', 'TextFile', 'JSONFile',
-    'CachePool', 'CacheHolder', 'CacheManager',
+    'CachePool', 'SharedCacheManager',
 
     'FrequencyChecker', 'RecentTimeChecker',
 
