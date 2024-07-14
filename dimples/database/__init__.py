@@ -32,6 +32,7 @@
 from ..common.dbi import *
 
 from .dos import *
+from .redis import *
 
 from .t_base import DbInfo, DbTask
 
@@ -79,6 +80,17 @@ __all__ = [
     'GroupKeysStorage',
     'LoginStorage',
     'StationStorage',
+
+    #
+    #   Redis
+    #
+    'RedisConnector', 'RedisCache',
+
+    'MetaCache', 'DocumentCache',
+    'UserCache', 'LoginCache',
+    'GroupCache', 'GroupHistoryCache', 'GroupKeysCache',
+    'MessageCache',
+    'StationCache',
 
     #
     #   Table

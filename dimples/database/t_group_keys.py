@@ -83,18 +83,18 @@ class GroupKeysTable(GroupKeysDBI):
     def __init__(self, info: DbInfo):
         super().__init__()
         man = SharedCacheManager()
-        self.__cache = man.get_pool(name='group.keys')  # (ID, ID) => Dict
-        self.__redis = GroupKeysCache(connector=info.redis_connector)
-        self.__dos = GroupKeysStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
-        self.__lock = threading.Lock()
+        self._cache = man.get_pool(name='group.keys')  # (ID, ID) => Dict
+        self._redis = GroupKeysCache(connector=info.redis_connector)
+        self._dos = GroupKeysStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._lock = threading.Lock()
 
     def show_info(self):
-        self.__dos.show_info()
+        self._dos.show_info()
 
     def _new_task(self, group: ID, sender: ID) -> PwdTask:
         return PwdTask(group=group, sender=sender,
-                       cache_pool=self.__cache, redis=self.__redis, storage=self.__dos,
-                       mutex_lock=self.__lock)
+                       cache_pool=self._cache, redis=self._redis, storage=self._dos,
+                       mutex_lock=self._lock)
 
     async def _merge_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> Dict[str, str]:
         if 'digest' not in keys:
@@ -115,9 +115,15 @@ class GroupKeysTable(GroupKeysDBI):
                 table[receiver] = keys[receiver]
             return table
 
-    async def load_group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
+    async def load_group_keys(self, group: ID, sender: ID) -> Dict[str, str]:
         task = self._new_task(group=group, sender=sender)
-        return await task.load()
+        keys = await task.load()
+        if keys is None:
+            keys = {}  # placeholder
+            with self._lock:
+                await self._redis.save_group_keys(group=group, sender=sender, keys=keys)
+                self._cache.update(key=(group, sender), value=keys, life_span=PwdTask.MEM_CACHE_EXPIRES)
+        return keys
 
     #
     #   Group Keys DBI

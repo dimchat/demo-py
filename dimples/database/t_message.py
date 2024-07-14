@@ -24,9 +24,10 @@
 # ==============================================================================
 
 import threading
-from typing import List
+from typing import List, Optional
 
-from dimsdk import DateTime
+from aiou.mem import CachePool
+
 from dimsdk import ID
 from dimsdk import ReliableMessage
 
@@ -35,25 +36,64 @@ from ..common import ReliableMessageDBI
 
 from .redis import MessageCache
 
-from .t_base import DbInfo
+from .t_base import DbInfo, DbTask
+
+
+class MsgTask(DbTask):
+
+    MEM_CACHE_EXPIRES = 360  # seconds
+    MEM_CACHE_REFRESH = 128  # seconds
+
+    def __init__(self, receiver: ID, limit: int,
+                 cache_pool: CachePool, redis: MessageCache,
+                 mutex_lock: threading.Lock):
+        super().__init__(cache_pool=cache_pool,
+                         cache_expires=self.MEM_CACHE_EXPIRES,
+                         cache_refresh=self.MEM_CACHE_REFRESH,
+                         mutex_lock=mutex_lock)
+        self._receiver = receiver
+        self._limit = limit
+        self._redis = redis
+
+    # Override
+    def cache_key(self) -> ID:
+        return self._receiver
+
+    # Override
+    async def _load_redis_cache(self) -> Optional[List[ReliableMessage]]:
+        return await self._redis.get_reliable_messages(receiver=self._receiver, limit=self._limit)
+
+    # Override
+    async def _save_redis_cache(self, value: List[ReliableMessage]) -> bool:
+        pass
+
+    # Override
+    async def _load_local_storage(self) -> Optional[List[ReliableMessage]]:
+        pass
+
+    # Override
+    async def _save_local_storage(self, value: List[ReliableMessage]) -> bool:
+        pass
 
 
 class ReliableMessageTable(ReliableMessageDBI):
     """ Implementations of ReliableMessageDBI """
 
-    MEM_CACHE_EXPIRES = 360  # seconds
-    MEM_CACHE_REFRESH = 128  # seconds
-
     def __init__(self, info: DbInfo):
         super().__init__()
         man = SharedCacheManager()
-        self.__cache = man.get_pool(name='reliable_messages')  # ID => List[ReliableMessages]
-        self.__redis = MessageCache(connector=info.redis_connector)
-        self.__lock = threading.Lock()
+        self._cache = man.get_pool(name='reliable_messages')  # ID => List[ReliableMessages]
+        self._redis = MessageCache(connector=info.redis_connector)
+        self._lock = threading.Lock()
 
     # noinspection PyMethodMayBeStatic
     def show_info(self):
         print('!!! messages cached in memory only !!!')
+
+    def _new_task(self, receiver: ID, limit: int) -> MsgTask:
+        return MsgTask(receiver=receiver, limit=limit,
+                       cache_pool=self._cache, redis=self._redis,
+                       mutex_lock=self._lock)
 
     #
     #   Reliable Message DBI
@@ -61,62 +101,24 @@ class ReliableMessageTable(ReliableMessageDBI):
 
     # Override
     async def get_reliable_messages(self, receiver: ID, limit: int = 1024) -> List[ReliableMessage]:
-        now = DateTime.now()
-        cache_pool = self.__cache
-        #
-        #  1. check memory cache
-        #
-        value, holder = cache_pool.fetch(key=receiver, now=now)
-        if value is not None:
-            # got it from cache
-            return value
-        elif holder is None:
-            # holder not exists, means it is the first querying
-            pass
-        elif holder.is_alive(now=now):
-            # holder is not expired yet,
-            # means the value is actually empty,
-            # no need to check it again.
-            return []
-        #
-        #  2. lock for querying
-        #
-        with self.__lock:
-            # locked, check again to make sure the cache not exists.
-            # (maybe the cache was updated by other threads while waiting the lock)
-            value, holder = cache_pool.fetch(key=receiver, now=now)
-            if value is not None:
-                return value
-            elif holder is None:
-                pass
-            elif holder.is_alive(now=now):
-                return []
-            else:
-                # holder exists, renew the expired time for other threads
-                holder.renewal(duration=self.MEM_CACHE_REFRESH, now=now)
-            # 2.1. check redis server
-            value = await self.__redis.get_reliable_messages(receiver=receiver, limit=limit)
-            # 2.2. update memory cache
-            self.__cache.update(key=receiver, value=value, life_span=self.MEM_CACHE_EXPIRES, now=now)
-        #
-        #  3. OK, return cached value
-        #
-        return value
+        task = self._new_task(receiver=receiver, limit=limit)
+        messages = await task.load()
+        return [] if messages is None else messages
 
     # Override
     async def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
-        with self.__lock:
+        with self._lock:
             # 1. store into redis server
-            if await self.__redis.save_reliable_message(msg=msg, receiver=receiver):
+            if await self._redis.save_reliable_message(msg=msg, receiver=receiver):
                 # 2. clear cache to reload
-                self.__cache.erase(key=receiver)
+                self._cache.erase(key=receiver)
                 return True
 
     # Override
     async def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
-        with self.__lock:
+        with self._lock:
             # 1. remove from redis server
-            if await self.__redis.remove_reliable_message(msg=msg, receiver=receiver):
+            if await self._redis.remove_reliable_message(msg=msg, receiver=receiver):
                 # 2. clear cache to reload
-                self.__cache.erase(key=receiver)
+                self._cache.erase(key=receiver)
                 return True

@@ -90,18 +90,18 @@ class DocumentTable(DocumentDBI):
     def __init__(self, info: DbInfo):
         super().__init__()
         man = SharedCacheManager()
-        self.__cache = man.get_pool(name='documents')  # ID => List[Document]
-        self.__redis = DocumentCache(connector=info.redis_connector)
-        self.__dos = DocumentStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
-        self.__lock = threading.Lock()
+        self._cache = man.get_pool(name='documents')  # ID => List[Document]
+        self._redis = DocumentCache(connector=info.redis_connector)
+        self._dos = DocumentStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._lock = threading.Lock()
 
     def show_info(self):
-        self.__dos.show_info()
+        self._dos.show_info()
 
     def _new_task(self, identifier: ID) -> DocTask:
         return DocTask(identifier=identifier,
-                       cache_pool=self.__cache, redis=self.__redis, storage=self.__dos,
-                       mutex_lock=self.__lock)
+                       cache_pool=self._cache, redis=self._redis, storage=self._dos,
+                       mutex_lock=self._lock)
 
     #
     #   Document DBI

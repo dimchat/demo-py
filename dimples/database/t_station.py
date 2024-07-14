@@ -135,23 +135,23 @@ class StationTable(ProviderDBI, StationDBI):
     def __init__(self, info: DbInfo):
         super().__init__()
         man = SharedCacheManager()
-        self.__dim_cache = man.get_pool(name='dim')            # 'providers' => List[ProviderInfo]
-        self.__stations_cache = man.get_pool(name='stations')  # SP_ID => List[StationInfo]
-        self.__redis = StationCache(connector=info.redis_connector)
-        self.__dos = StationStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
-        self.__lock = threading.Lock()
+        self._dim_cache = man.get_pool(name='dim')            # 'providers' => List[ProviderInfo]
+        self._stations_cache = man.get_pool(name='stations')  # SP_ID => List[StationInfo]
+        self._redis = StationCache(connector=info.redis_connector)
+        self._dos = StationStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._lock = threading.Lock()
 
     def show_info(self):
-        self.__dos.show_info()
+        self._dos.show_info()
 
     def _new_sp_task(self) -> SpTask:
-        return SpTask(cache_pool=self.__dim_cache, redis=self.__redis, storage=self.__dos,
-                      mutex_lock=self.__lock)
+        return SpTask(cache_pool=self._dim_cache, redis=self._redis, storage=self._dos,
+                      mutex_lock=self._lock)
 
     def _new_srv_task(self, provider: ID) -> SrvTask:
         return SrvTask(provider=provider,
-                       cache_pool=self.__stations_cache, redis=self.__redis, storage=self.__dos,
-                       mutex_lock=self.__lock)
+                       cache_pool=self._stations_cache, redis=self._redis, storage=self._dos,
+                       mutex_lock=self._lock)
 
     #
     #   Provider DBI
@@ -162,33 +162,41 @@ class StationTable(ProviderDBI, StationDBI):
         task = self._new_sp_task()
         providers = await task.load()
         if providers is None or len(providers) == 0:
+            # default value
             providers = [ProviderInfo(identifier=ProviderInfo.GSP, chosen=0)]
-            self.__dim_cache.update(key='providers', value=providers, life_span=SpTask.MEM_CACHE_EXPIRES)
+            with self._lock:
+                self._dim_cache.update(key='providers', value=providers, life_span=SpTask.MEM_CACHE_EXPIRES)
         return providers
 
     # Override
     async def add_provider(self, identifier: ID, chosen: int = 0) -> bool:
-        with self.__lock:
-            # 1. clear cache to reload
-            self.__dim_cache.erase(key='providers')
-            # 2. store into local storage
-            return await self.__dos.add_provider(identifier=identifier, chosen=chosen)
+        with self._lock:
+            # clear memory cache to reload
+            self._dim_cache.erase(key='providers')
+            # update redis & local storage
+            ok1 = await self._redis.add_provider(identifier=identifier, chosen=chosen)
+            ok2 = await self._dos.add_provider(identifier=identifier, chosen=chosen)
+            return ok1 or ok2
 
     # Override
     async def update_provider(self, identifier: ID, chosen: int) -> bool:
-        with self.__lock:
-            # 1. clear cache to reload
-            self.__dim_cache.erase(key='providers')
-            # 2. store into local storage
-            return await self.__dos.update_provider(identifier=identifier, chosen=chosen)
+        with self._lock:
+            # clear memory cache to reload
+            self._dim_cache.erase(key='providers')
+            # update redis & local storage
+            ok1 = await self._redis.update_provider(identifier=identifier, chosen=chosen)
+            ok2 = await self._dos.update_provider(identifier=identifier, chosen=chosen)
+            return ok1 or ok2
 
     # Override
     async def remove_provider(self, identifier: ID) -> bool:
-        with self.__lock:
-            # 1. clear cache to reload
-            self.__dim_cache.erase(key='providers')
-            # 2. store into local storage
-            return await self.__dos.remove_provider(identifier=identifier)
+        with self._lock:
+            # clear memory cache to reload
+            self._dim_cache.erase(key='providers')
+            # update redis & local storage
+            ok1 = await self._redis.remove_provider(identifier=identifier)
+            ok2 = await self._dos.remove_provider(identifier=identifier)
+            return ok1 or ok2
 
     #
     #   Station DBI
@@ -203,35 +211,45 @@ class StationTable(ProviderDBI, StationDBI):
     # Override
     async def add_station(self, identifier: Optional[ID], host: str, port: int,
                           provider: ID, chosen: int = 0) -> bool:
-        with self.__lock:
-            # 1. clear cache to reload
-            self.__stations_cache.erase(key=provider)
-            # 2. store into local storage
-            return await self.__dos.add_station(identifier=identifier, host=host, port=port,
+        with self._lock:
+            # clear memory cache to reload
+            self._stations_cache.erase(key=provider)
+            # update redis & local storage
+            ok1 = await self._redis.add_station(identifier=identifier, host=host, port=port,
                                                 provider=provider, chosen=chosen)
+            ok2 = await self._dos.add_station(identifier=identifier, host=host, port=port,
+                                              provider=provider, chosen=chosen)
+            return ok1 or ok2
 
     # Override
     async def update_station(self, identifier: Optional[ID], host: str, port: int,
                              provider: ID, chosen: int = None) -> bool:
-        with self.__lock:
-            # 1. clear cache to reload
-            self.__stations_cache.erase(key=provider)
-            # 2. store into local storage
-            return await self.__dos.update_station(identifier=identifier, host=host, port=port,
+        with self._lock:
+            # clear memory cache to reload
+            self._stations_cache.erase(key=provider)
+            # update redis & local storage
+            ok1 = await self._redis.update_station(identifier=identifier, host=host, port=port,
                                                    provider=provider, chosen=chosen)
+            ok2 = await self._dos.update_station(identifier=identifier, host=host, port=port,
+                                                 provider=provider, chosen=chosen)
+            return ok1 or ok2
 
     # Override
     async def remove_station(self, host: str, port: int, provider: ID) -> bool:
-        with self.__lock:
-            # 1. clear cache to reload
-            self.__stations_cache.erase(key=provider)
-            # 2. store into local storage
-            return await self.__dos.remove_station(host=host, port=port, provider=provider)
+        with self._lock:
+            # clear memory cache to reload
+            self._stations_cache.erase(key=provider)
+            # update redis & local storage
+            ok1 = await self._redis.remove_station(host=host, port=port, provider=provider)
+            ok2 = await self._dos.remove_station(host=host, port=port, provider=provider)
+            return ok1 or ok2
 
     # Override
     async def remove_stations(self, provider: ID) -> bool:
-        with self.__lock:
-            # 1. clear cache to reload
-            self.__stations_cache.erase(key=provider)
-            # 2. store into local storage
-            return await self.__dos.remove_stations(provider=provider)
+        with self._lock:
+            # clear memory cache to reload
+            self._stations_cache.erase(key=provider)
+            # update redis & local storage
+            ok1 = await self._redis.remove_stations(provider=provider)
+            ok2 = await self._dos.remove_stations(provider=provider)
+            return ok1 or ok2

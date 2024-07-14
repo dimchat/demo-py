@@ -26,6 +26,8 @@
 import threading
 from typing import Optional, List
 
+from aiou.mem import CachePool
+
 from dimsdk import DateTime
 from dimsdk import PrivateKey, DecryptKey, SignKey
 from dimsdk import ID
@@ -35,25 +37,82 @@ from ..common import PrivateKeyDBI
 
 from .dos import PrivateKeyStorage
 
-from .t_base import DbInfo
+from .t_base import DbInfo, DbTask
+
+
+class PriKeyTask(DbTask):
+
+    MEM_CACHE_EXPIRES = 36000  # seconds
+    MEM_CACHE_REFRESH = 32     # seconds
+
+    def __init__(self, user: ID,
+                 cache_pool: CachePool, storage: PrivateKeyStorage,
+                 mutex_lock: threading.Lock):
+        super().__init__(cache_pool=cache_pool,
+                         cache_expires=self.MEM_CACHE_EXPIRES,
+                         cache_refresh=self.MEM_CACHE_REFRESH,
+                         mutex_lock=mutex_lock)
+        self._user = user
+        self._dos = storage
+
+    # Override
+    def cache_key(self) -> ID:
+        return self._user
+
+    # Override
+    async def _load_redis_cache(self) -> Optional[SignKey]:
+        pass
+
+    # Override
+    async def _save_redis_cache(self, value: SignKey) -> bool:
+        pass
+
+    # Override
+    async def _load_local_storage(self) -> Optional[SignKey]:
+        pass
+
+    # Override
+    async def _save_local_storage(self, value: SignKey) -> bool:
+        pass
+
+
+class IdKeyTask(PriKeyTask):
+
+    # Override
+    async def _load_local_storage(self) -> Optional[SignKey]:
+        return await self._dos.private_key_for_visa_signature(user=self._user)
+
+
+class MsgKeyTask(PriKeyTask):
+
+    # Override
+    async def _load_local_storage(self) -> Optional[List[DecryptKey]]:
+        return await self._dos.private_keys_for_decryption(user=self._user)
 
 
 class PrivateKeyTable(PrivateKeyDBI):
     """ Implementations of PrivateKeyDBI """
 
-    # CACHE_EXPIRES = 300  # seconds
-    CACHE_REFRESHING = 32  # seconds
-
     def __init__(self, info: DbInfo):
         super().__init__()
         man = SharedCacheManager()
-        self.__id_key_cache = man.get_pool(name='private_id_key')      # ID => PrivateKey
-        self.__msg_keys_cache = man.get_pool(name='private_msg_keys')  # ID => List[PrivateKey]
-        self.__dos = PrivateKeyStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
-        self.__lock = threading.Lock()
+        self._id_key_cache = man.get_pool(name='private_id_key')      # ID => PrivateKey
+        self._msg_keys_cache = man.get_pool(name='private_msg_keys')  # ID => List[PrivateKey]
+        self._dos = PrivateKeyStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._lock = threading.Lock()
 
     def show_info(self):
-        self.__dos.show_info()
+        self._dos.show_info()
+
+    def _new_id_key_task(self, user: ID) -> IdKeyTask:
+        return IdKeyTask(user=user,
+                         cache_pool=self._id_key_cache, storage=self._dos,
+                         mutex_lock=self._lock)
+
+    def _new_msg_key_task(self, user: ID) -> MsgKeyTask:
+        return MsgKeyTask(user=user,
+                          cache_pool=self._msg_keys_cache, storage=self._dos,
+                          mutex_lock=self._lock)
 
     async def _add_decrypt_key(self, key: PrivateKey, user: ID) -> Optional[List[PrivateKey]]:
         private_keys = await self.private_keys_for_decryption(user=user)
@@ -66,48 +125,37 @@ class PrivateKeyTable(PrivateKeyDBI):
 
     # Override
     async def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
-        now = DateTime.now()
-        # 1. update memory cache
+        #
+        #  check key type
+        #
         if key_type == PrivateKeyStorage.ID_KEY_TAG:
             # update 'id_key'
-            self.__id_key_cache.update(key=user, value=key, life_span=36000, now=now)
+            value = key
+            cache_pool = self._id_key_cache
         else:
             # add to old keys
             private_keys = self._add_decrypt_key(key=key, user=user)
             if private_keys is None:
                 # key already exists, nothing changed
                 return False
-            # update 'msg_keys'
-            self.__msg_keys_cache.update(key=user, value=private_keys, life_span=36000, now=now)
-        # 2. update local storage
-        return await self.__dos.save_private_key(key=key, user=user, key_type=key_type)
+            value = private_keys
+            cache_pool = self._msg_keys_cache
+        #
+        #  lock to update
+        #
+        now = DateTime.now()
+        with self._lock:
+            # store into memory cache
+            cache_pool.update(key=user, value=value, life_span=PriKeyTask.MEM_CACHE_EXPIRES, now=now)
+            # save into local storage
+            return await self._dos.save_private_key(key=key, user=user, key_type=key_type)
 
     # Override
     async def private_keys_for_decryption(self, user: ID) -> List[DecryptKey]:
         """ get sign key for ID """
-        now = DateTime.now()
-        # 1. check memory cache
-        value, holder = self.__msg_keys_cache.fetch(key=user, now=now)
-        if value is None:
-            # cache empty
-            if holder is None:
-                # cache not load yet, wait to load
-                self.__msg_keys_cache.update(key=user, life_span=self.CACHE_REFRESHING, now=now)
-            else:
-                if holder.is_alive(now=now):
-                    # cache not exists
-                    return []
-                # cache expired, wait to reload
-                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
-            # 2. check local storage
-            value = await self.__dos.private_keys_for_decryption(user=user)
-            # 3. update memory cache
-            if value is None:
-                self.__msg_keys_cache.update(key=user, value=value, life_span=300, now=now)
-            else:
-                self.__msg_keys_cache.update(key=user, value=value, life_span=36000, now=now)
-        # OK, return cached value
-        return value
+        task = self._new_msg_key_task(user=user)
+        keys = await task.load()
+        return [] if keys is None else keys
 
     # Override
     async def private_key_for_signature(self, user: ID) -> Optional[SignKey]:
@@ -117,26 +165,5 @@ class PrivateKeyTable(PrivateKeyDBI):
     # Override
     async def private_key_for_visa_signature(self, user: ID) -> Optional[SignKey]:
         """ get sign key for ID """
-        now = DateTime.now()
-        # 1. check memory cache
-        value, holder = self.__id_key_cache.fetch(key=user, now=now)
-        if value is None:
-            # cache empty
-            if holder is None:
-                # cache not load yet, wait to load
-                self.__id_key_cache.update(key=user, life_span=self.CACHE_REFRESHING, now=now)
-            else:
-                if holder.is_alive(now=now):
-                    # cache not exists
-                    return None
-                # cache expired, wait to reload
-                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
-            # 2. check local storage
-            value = await self.__dos.private_key_for_visa_signature(user=user)
-            # 3. update memory cache
-            if value is None:
-                self.__id_key_cache.update(key=user, value=value, life_span=600, now=now)
-            else:
-                self.__id_key_cache.update(key=user, value=value, life_span=36000, now=now)
-        # OK, return cached value
-        return value
+        task = self._new_id_key_task(user=user)
+        return await task.load()

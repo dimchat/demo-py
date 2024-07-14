@@ -82,18 +82,18 @@ class UserTable(UserDBI, ContactDBI):
     def __init__(self, info: DbInfo):
         super().__init__()
         man = SharedCacheManager()
-        self.__cache = man.get_pool(name='contacts')  # ID => List[ID]
-        self.__redis = UserCache(connector=info.redis_connector)
-        self.__dos = UserStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
-        self.__lock = threading.Lock()
+        self._cache = man.get_pool(name='contacts')  # ID => List[ID]
+        self._redis = UserCache(connector=info.redis_connector)
+        self._dos = UserStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._lock = threading.Lock()
 
     def show_info(self):
-        self.__dos.show_info()
+        self._dos.show_info()
 
     def _new_task(self, user: ID) -> UsrTask:
         return UsrTask(user=user,
-                       cache_pool=self.__cache, redis=self.__redis, storage=self.__dos,
-                       mutex_lock=self.__lock)
+                       cache_pool=self._cache, redis=self._redis, storage=self._dos,
+                       mutex_lock=self._lock)
 
     #
     #   User DBI

@@ -29,7 +29,7 @@
 
 """
 
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from dimsdk import EntityType, ID
 from dimsdk import ReliableMessage
@@ -37,6 +37,7 @@ from dimsdk import Content, ForwardContent, DocumentCommand
 
 from dimsdk.cpu import DocumentCommandProcessor as SuperCommandProcessor
 
+from ...utils import Log
 from ...common import CommonFacebook, CommonMessenger
 from ...common import Session, SessionDBI
 
@@ -111,7 +112,10 @@ async def get_login_msg(doc_id: ID, sender: ID, node: ID, database: SessionDBI) 
             # if the user is not roaming to this station, just ignore it,
             # let the target station to respond.
             roaming = cmd.station
-            assert isinstance(roaming, dict), 'login command error: %s' % cmd
+            if not isinstance(roaming, Dict):
+                Log.error(msg='[CPU] login command error: %s -> %s' % (doc_id, cmd))
+                Log.error(msg='[CPU] login command error: %s -> %s' % (doc_id, msg))
+                return None
             sid = ID.parse(identifier=roaming.get('ID'))
             if sid != node:
                 # not my guest, ignore it.

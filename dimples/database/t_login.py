@@ -63,7 +63,11 @@ class CmdTask(DbTask):
 
     # Override
     async def _load_redis_cache(self) -> Optional[Tuple[Optional[LoginCommand], Optional[ReliableMessage]]]:
-        return await self._redis.load_login(user=self._user)
+        cmd, msg = await self._redis.load_login(user=self._user)
+        if cmd is None or msg is None:
+            return None
+        else:
+            return cmd, msg
 
     # Override
     async def _save_redis_cache(self, value: Tuple[LoginCommand, ReliableMessage]) -> bool:
@@ -73,7 +77,11 @@ class CmdTask(DbTask):
 
     # Override
     async def _load_local_storage(self) -> Optional[Tuple[Optional[LoginCommand], Optional[ReliableMessage]]]:
-        return await self._dos.get_login_command_message(user=self._user)
+        cmd, msg = await self._dos.get_login_command_message(user=self._user)
+        if cmd is None or msg is None:
+            return None
+        else:
+            return cmd, msg
 
     # Override
     async def _save_local_storage(self, value: Tuple[LoginCommand, ReliableMessage]) -> bool:
@@ -88,18 +96,18 @@ class LoginTable(LoginDBI):
     def __init__(self, info: DbInfo):
         super().__init__()
         man = SharedCacheManager()
-        self.__cache = man.get_pool(name='login')  # ID => (LoginCommand, ReliableMessage)
-        self.__redis = LoginCache(connector=info.redis_connector)
-        self.__dos = LoginStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
-        self.__lock = threading.Lock()
+        self._cache = man.get_pool(name='login')  # ID => (LoginCommand, ReliableMessage)
+        self._redis = LoginCache(connector=info.redis_connector)
+        self._dos = LoginStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._lock = threading.Lock()
 
     def show_info(self):
-        self.__dos.show_info()
+        self._dos.show_info()
 
     def _new_task(self, user: ID) -> CmdTask:
         return CmdTask(user=user,
-                       cache_pool=self.__cache, redis=self.__redis, storage=self.__dos,
-                       mutex_lock=self.__lock)
+                       cache_pool=self._cache, redis=self._redis, storage=self._dos,
+                       mutex_lock=self._lock)
 
     async def _is_expired(self, user: ID, content: LoginCommand) -> bool:
         """ check old record with command time """
@@ -114,7 +122,13 @@ class LoginTable(LoginDBI):
 
     async def load_login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
         task = self._new_task(user=user)
-        return await task.load()
+        pair = await task.load()
+        if pair is None:
+            pair = None, None  # placeholder
+            with self._lock:
+                await self._redis.save_login(user=user, content=None, msg=None)
+                self._cache.update(key=user, value=pair, life_span=CmdTask.MEM_CACHE_EXPIRES)
+        return pair
 
     #
     #   Login DBI

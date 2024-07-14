@@ -40,24 +40,19 @@ class DocumentStorage(Storage, DocumentDBI):
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         file path: '.dim/public/{ADDRESS}/documents.js'
     """
-    doc_path = '{PUBLIC}/{ADDRESS}/document.js'
-    all_path = '{PUBLIC}/{ADDRESS}/documents.js'
+    docs_path = '{PUBLIC}/{ADDRESS}/documents.js'
 
     def show_info(self):
-        path = self.public_path(self.all_path)
+        path = self.public_path(self.docs_path)
         print('!!!      documents path: %s' % path)
 
-    def __doc_path(self, identifier: ID) -> str:
-        path = self.public_path(self.doc_path)
-        return template_replace(path, key='ADDRESS', value=str(identifier.address))
-
-    def __all_path(self, identifier: ID) -> str:
-        path = self.public_path(self.all_path)
+    def __docs_path(self, identifier: ID) -> str:
+        path = self.public_path(self.docs_path)
         return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
     async def save_documents(self, documents: List[Document], identifier: ID) -> bool:
         """ save documents into file """
-        path = self.__all_path(identifier=identifier)
+        path = self.__docs_path(identifier=identifier)
         self.info(msg='Saving %d document(s) into: %s' % (len(documents), path))
         array = []
         for doc in documents:
@@ -67,7 +62,7 @@ class DocumentStorage(Storage, DocumentDBI):
 
     async def load_documents(self, identifier: ID) -> Optional[List[Document]]:
         """ load documents from file """
-        path = self.__all_path(identifier=identifier)
+        path = self.__docs_path(identifier=identifier)
         self.info(msg='Loading documents from: %s' % path)
         array = await self.read_json(path=path)
         if array is None:
@@ -76,19 +71,10 @@ class DocumentStorage(Storage, DocumentDBI):
         documents = []
         for info in array:
             doc = parse_document(dictionary=info, identifier=identifier)
-            if info is None:
-                assert False, 'document error: %s, %s' % (identifier, info)
+            assert doc is not None, 'document error: %s, %s' % (identifier, info)
             documents.append(doc)
         self.info(msg='Loaded %d documents from: %s' % (len(documents), path))
         return documents
-
-    async def load_document(self, identifier: ID) -> Optional[Document]:
-        """ load document from file """
-        path = self.__doc_path(identifier=identifier)
-        self.info(msg='Loading document from: %s' % path)
-        info = await self.read_json(path=path)
-        if info is not None:
-            return parse_document(dictionary=info, identifier=identifier)
 
     #
     #   Document DBI
@@ -116,12 +102,8 @@ class DocumentStorage(Storage, DocumentDBI):
     # Override
     async def get_documents(self, identifier: ID) -> List[Document]:
         """ load documents from file """
-        all_documents = await self.load_documents(identifier=identifier)
-        if all_documents is not None:
-            return all_documents
-        # try old file
-        doc = await self.load_document(identifier=identifier)
-        return [] if doc is None else [doc]
+        docs = await self.load_documents(identifier=identifier)
+        return [] if docs is None else docs
 
 
 def parse_document(dictionary: dict, identifier: ID = None, doc_type: str = '*') -> Optional[Document]:

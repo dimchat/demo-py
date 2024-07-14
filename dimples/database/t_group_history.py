@@ -92,22 +92,28 @@ class GroupHistoryTable(GroupHistoryDBI):
     def __init__(self, info: DbInfo):
         super().__init__()
         man = SharedCacheManager()
-        self.__cache = man.get_pool(name='group.history')  # ID => List
-        self.__redis = GroupHistoryCache(connector=info.redis_connector)
-        self.__dos = GroupHistoryStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
-        self.__lock = threading.Lock()
+        self._cache = man.get_pool(name='group.history')  # ID => List
+        self._redis = GroupHistoryCache(connector=info.redis_connector)
+        self._dos = GroupHistoryStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._lock = threading.Lock()
 
     def show_info(self):
-        self.__dos.show_info()
+        self._dos.show_info()
 
     def _new_task(self, group: ID) -> HisTask:
         return HisTask(group=group,
-                       cache_pool=self.__cache, redis=self.__redis, storage=self.__dos,
-                       mutex_lock=self.__lock)
+                       cache_pool=self._cache, redis=self._redis, storage=self._dos,
+                       mutex_lock=self._lock)
 
-    async def load_group_histories(self, group: ID) -> Optional[List[Tuple[GroupCommand, ReliableMessage]]]:
+    async def load_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
         task = self._new_task(group=group)
-        return await task.load()
+        histories = await task.load()
+        if histories is None:
+            histories = []  # placeholder
+            with self._lock:
+                await self._redis.save_group_histories(group=group, histories=histories)
+                self._cache.update(key=group, value=histories, life_span=HisTask.MEM_CACHE_EXPIRES)
+        return histories
 
     async def save_group_histories(self, group: ID, histories: List[Tuple[GroupCommand, ReliableMessage]]) -> bool:
         task = self._new_task(group=group)
@@ -129,11 +135,7 @@ class GroupHistoryTable(GroupHistoryDBI):
 
     # Override
     async def get_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
-        histories = await self.load_group_histories(group=group)
-        if histories is None:
-            histories = []  # placeholder
-            self.__cache.update(key=group, value=histories, life_span=HisTask.MEM_CACHE_EXPIRES)
-        return histories
+        return await self.load_group_histories(group=group)
 
     # Override
     async def get_reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:

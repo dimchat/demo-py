@@ -45,8 +45,8 @@ class CipherKeyTable(CipherKeyDBI):
     def __init__(self, info: DbInfo):
         super().__init__()
         man = SharedCacheManager()
-        self.__keys_cache = man.get_pool(name='cipher_keys')  # (ID, ID) => SymmetricKey
-        self.__lock = threading.Lock()
+        self._cache = man.get_pool(name='cipher_keys')  # (ID, ID) => SymmetricKey
+        self._lock = threading.Lock()
 
     # noinspection PyMethodMayBeStatic
     def show_info(self):
@@ -62,23 +62,40 @@ class CipherKeyTable(CipherKeyDBI):
             return PlainKey()
         now = DateTime.now()
         direction = (sender, receiver)
-        with self.__lock:
-            key, _ = self.__keys_cache.fetch(key=direction, now=now)
-            if key is None and generate:
+        cache_pool = self._cache
+        #
+        #  1. check memory cache
+        #
+        pwd, _ = cache_pool.fetch(key=direction, now=now)
+        if pwd is not None:
+            # got it from cache
+            return pwd
+        #
+        #  2. lock for querying
+        #
+        with self._lock:
+            # locked, check again to make sure the cache not exists.
+            # (maybe the cache was updated by other threads while waiting the lock)
+            pwd, _ = cache_pool.fetch(key=direction, now=now)
+            if pwd is None and generate:
                 # generate and cache it
-                key = SymmetricKey.generate(algorithm=SymmetricKey.AES)
-                assert key is not None, 'failed to generate symmetric key'
-                self.__keys_cache.update(key=direction, value=key, life_span=self.CACHE_EXPIRES, now=now)
-        return key
+                pwd = SymmetricKey.generate(algorithm=SymmetricKey.AES)
+                assert pwd is not None, 'failed to generate symmetric key'
+                cache_pool.update(key=direction, value=pwd, life_span=self.CACHE_EXPIRES, now=now)
+        #
+        #  3. OK, return cached value
+        #
+        return pwd
 
     # Override
     async def cache_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
         if receiver.is_broadcast:
             # no need to store cipher key for broadcast message
             return False
-        with self.__lock:
-            now = DateTime.now()
-            direction = (sender, receiver)
-            # 1. store into memory cache
-            self.__keys_cache.update(key=direction, value=key, life_span=self.CACHE_EXPIRES, now=now)
+        now = DateTime.now()
+        direction = (sender, receiver)
+        cache_pool = self._cache
+        with self._lock:
+            # store into memory cache
+            cache_pool.update(key=direction, value=key, life_span=self.CACHE_EXPIRES, now=now)
         return True

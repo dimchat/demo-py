@@ -30,7 +30,7 @@
 """
 
 from .base import RedisConnector
-from .base import Cache
+from .base import Cache as RedisCache
 
 from .meta import MetaCache
 from .document import DocumentCache
@@ -46,7 +46,7 @@ from .station import StationCache
 __all__ = [
 
     'RedisConnector',
-    'Cache',
+    'RedisCache',
 
     'MetaCache',
     'DocumentCache',
@@ -55,4 +55,5 @@ __all__ = [
     'GroupKeysCache',
     'MessageCache',
     'StationCache',
+
 ]

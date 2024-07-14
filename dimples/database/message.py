@@ -45,25 +45,25 @@ class MessageDatabase(MessageDBI):
 
     def __init__(self, info: DbInfo):
         super().__init__()
-        self.__group_keys_table = GroupKeysTable(info=info)
-        self.__cipher_table = CipherKeyTable(info=info)
-        self.__msg_table = ReliableMessageTable(info=info)
+        self._group_keys_table = GroupKeysTable(info=info)
+        self._cipher_table = CipherKeyTable(info=info)
+        self._msg_table = ReliableMessageTable(info=info)
 
     def show_info(self):
-        self.__group_keys_table.show_info()
-        self.__cipher_table.show_info()
-        self.__msg_table.show_info()
+        self._group_keys_table.show_info()
+        self._cipher_table.show_info()
+        self._msg_table.show_info()
 
     #
     #   GroupKeys DBI
 
     # Override
     async def get_group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
-        return await self.__group_keys_table.get_group_keys(group=group, sender=sender)
+        return await self._group_keys_table.get_group_keys(group=group, sender=sender)
 
     # Override
     async def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
-        return await self.__group_keys_table.save_group_keys(group=group, sender=sender, keys=keys)
+        return await self._group_keys_table.save_group_keys(group=group, sender=sender, keys=keys)
 
     #
     #   CipherKey DBI
@@ -71,11 +71,11 @@ class MessageDatabase(MessageDBI):
 
     # Override
     async def get_cipher_key(self, sender: ID, receiver: ID, generate: bool = False) -> Optional[SymmetricKey]:
-        return await self.__cipher_table.get_cipher_key(sender=sender, receiver=receiver, generate=generate)
+        return await self._cipher_table.get_cipher_key(sender=sender, receiver=receiver, generate=generate)
 
     # Override
     async def cache_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
-        return await self.__cipher_table.cache_cipher_key(key=key, sender=sender, receiver=receiver)
+        return await self._cipher_table.cache_cipher_key(key=key, sender=sender, receiver=receiver)
 
     #
     #   ReliableMessage DBI
@@ -83,12 +83,12 @@ class MessageDatabase(MessageDBI):
 
     # Override
     async def get_reliable_messages(self, receiver: ID, limit: int = 1024) -> List[ReliableMessage]:
-        return await self.__msg_table.get_reliable_messages(receiver=receiver, limit=limit)
+        return await self._msg_table.get_reliable_messages(receiver=receiver, limit=limit)
 
     # Override
     async def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
-        return await self.__msg_table.cache_reliable_message(msg=msg, receiver=receiver)
+        return await self._msg_table.cache_reliable_message(msg=msg, receiver=receiver)
 
     # Override
     async def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
-        return await self.__msg_table.remove_reliable_message(msg=msg, receiver=receiver)
+        return await self._msg_table.remove_reliable_message(msg=msg, receiver=receiver)

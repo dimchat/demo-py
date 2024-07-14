@@ -30,7 +30,7 @@
     login protocol
 """
 
-from typing import List
+from typing import List, Dict
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
@@ -61,15 +61,19 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
     async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, LoginCommand), 'command error: %s' % content
         sender = content.identifier
-        # 1. store login command
+        # 1. check roaming station
+        station = content.station
+        if not isinstance(station, Dict):
+            self.error(msg='login command error: %s -> %s' % (sender, content))
+            self.error(msg='login command error: %s -> %s' % (sender, r_msg))
+            return []
+        # 2. store login command
         session = self.messenger.session
         db = session.database
         if not await db.save_login_command_message(user=sender, content=content, msg=r_msg):
             self.error(msg='login command error/expired: %s' % content)
             return []
-        # 2. check roaming station
         current = self.facebook.current_user
-        station = content.station
         roaming = ID.parse(identifier=station.get('ID'))
         # assert isinstance(roaming, ID), 'login command error: %s' % content
         if not isinstance(roaming, ID):

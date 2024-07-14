@@ -44,22 +44,22 @@ class SessionDatabase(SessionDBI):
 
     def __init__(self, info: DbInfo):
         super().__init__()
-        self.__login_table = LoginTable(info=info)
-        self.__station_table = StationTable(info=info)
+        self._login_table = LoginTable(info=info)
+        self._station_table = StationTable(info=info)
 
     def show_info(self):
-        self.__login_table.show_info()
-        self.__station_table.show_info()
+        self._login_table.show_info()
+        self._station_table.show_info()
 
     #
     #   Login DBI
     #
 
     async def get_login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
-        return await self.__login_table.get_login_command_message(user=user)
+        return await self._login_table.get_login_command_message(user=user)
 
     async def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
-        return await self.__login_table.save_login_command_message(user=user, content=content, msg=msg)
+        return await self._login_table.save_login_command_message(user=user, content=content, msg=msg)
 
     #
     #   Provider DBI
@@ -67,19 +67,19 @@ class SessionDatabase(SessionDBI):
 
     # Override
     async def all_providers(self) -> List[ProviderInfo]:
-        return await self.__station_table.all_providers()
+        return await self._station_table.all_providers()
 
     # Override
     async def add_provider(self, identifier: ID, chosen: int = 0) -> bool:
-        return await self.__station_table.add_provider(identifier=identifier, chosen=chosen)
+        return await self._station_table.add_provider(identifier=identifier, chosen=chosen)
 
     # Override
     async def update_provider(self, identifier: ID, chosen: int) -> bool:
-        return await self.__station_table.update_provider(identifier=identifier, chosen=chosen)
+        return await self._station_table.update_provider(identifier=identifier, chosen=chosen)
 
     # Override
     async def remove_provider(self, identifier: ID) -> bool:
-        return await self.__station_table.remove_provider(identifier=identifier)
+        return await self._station_table.remove_provider(identifier=identifier)
 
     #
     #   Station DBI
@@ -87,24 +87,24 @@ class SessionDatabase(SessionDBI):
 
     # Override
     async def all_stations(self, provider: ID) -> List[StationInfo]:
-        return await self.__station_table.all_stations(provider=provider)
+        return await self._station_table.all_stations(provider=provider)
 
     # Override
     async def add_station(self, identifier: Optional[ID], host: str, port: int, provider: ID,
                           chosen: int = 0) -> bool:
-        return await self.__station_table.add_station(identifier=identifier,
-                                                      host=host, port=port, provider=provider, chosen=chosen)
+        return await self._station_table.add_station(identifier=identifier,
+                                                     host=host, port=port, provider=provider, chosen=chosen)
 
     # Override
     async def update_station(self, identifier: Optional[ID], host: str, port: int, provider: ID,
                              chosen: int = 0) -> bool:
-        return await self.__station_table.update_station(identifier=identifier,
-                                                         host=host, port=port, provider=provider, chosen=chosen)
+        return await self._station_table.update_station(identifier=identifier,
+                                                        host=host, port=port, provider=provider, chosen=chosen)
 
     # Override
     async def remove_station(self, host: str, port: int, provider: ID) -> bool:
-        return await self.__station_table.remove_station(host=host, port=port, provider=provider)
+        return await self._station_table.remove_station(host=host, port=port, provider=provider)
 
     # Override
     async def remove_stations(self, provider: ID) -> bool:
-        return await self.__station_table.remove_stations(provider=provider)
+        return await self._station_table.remove_stations(provider=provider)

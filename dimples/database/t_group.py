@@ -149,30 +149,30 @@ class GroupTable(GroupDBI):
     def __init__(self, info: DbInfo):
         super().__init__()
         man = SharedCacheManager()
-        self.__member_cache = man.get_pool(name='group.members')        # ID => List[ID]
-        self.__bot_cache = man.get_pool(name='group.assistants')        # ID => List[ID]
-        self.__admin_cache = man.get_pool(name='group.administrators')  # ID => List[ID]
-        self.__redis = GroupCache(connector=info.redis_connector)
-        self.__dos = GroupStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
-        self.__lock = threading.Lock()
+        self._member_cache = man.get_pool(name='group.members')        # ID => List[ID]
+        self._bot_cache = man.get_pool(name='group.assistants')        # ID => List[ID]
+        self._admin_cache = man.get_pool(name='group.administrators')  # ID => List[ID]
+        self._redis = GroupCache(connector=info.redis_connector)
+        self._dos = GroupStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._lock = threading.Lock()
 
     def show_info(self):
-        self.__dos.show_info()
+        self._dos.show_info()
 
     def _new_member_task(self, group: ID) -> GrpTask:
         return MemberTask(group=group,
-                          cache_pool=self.__member_cache, redis=self.__redis, storage=self.__dos,
-                          mutex_lock=self.__lock)
+                          cache_pool=self._member_cache, redis=self._redis, storage=self._dos,
+                          mutex_lock=self._lock)
 
     def _new_bot_task(self, group: ID) -> GrpTask:
         return BotTask(group=group,
-                       cache_pool=self.__bot_cache, redis=self.__redis, storage=self.__dos,
-                       mutex_lock=self.__lock)
+                       cache_pool=self._bot_cache, redis=self._redis, storage=self._dos,
+                       mutex_lock=self._lock)
 
     def _new_admin_task(self, group: ID) -> GrpTask:
         return AdminTask(group=group,
-                         cache_pool=self.__admin_cache, redis=self.__redis, storage=self.__dos,
-                         mutex_lock=self.__lock)
+                         cache_pool=self._admin_cache, redis=self._redis, storage=self._dos,
+                         mutex_lock=self._lock)
 
     #
     #   Group DBI

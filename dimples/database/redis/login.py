@@ -82,7 +82,7 @@ class LoginCache(Cache):
         value = await self.get(name=key)
         if value is None:
             # data not exists
-            return LoginCommand(identifier=user), None
+            return None, None
         js = utf8_decode(data=value)
         assert js is not None, 'failed to decode string: %s' % value
         info = json_decode(string=js)
@@ -107,7 +107,7 @@ class LoginCache(Cache):
         name = self.__active_sockets_cache_name()
         all_keys = await self.hkeys(name=name)
         for key in all_keys:
-            self.hdel(name=name, key=key)
+            await self.hdel(name=name, key=key)
         return await self.delete(name)
 
     async def save_socket_addresses(self, identifier: ID, addresses: Set[Tuple[str, int]]) -> bool:

@@ -41,8 +41,8 @@ from .t_base import DbInfo, DbTask
 
 class TaiTask(DbTask):
 
-    MEM_CACHE_EXPIRES = 300  # seconds
-    MEM_CACHE_REFRESH = 32   # seconds
+    MEM_CACHE_EXPIRES = 36000  # seconds
+    MEM_CACHE_REFRESH = 32     # seconds
 
     def __init__(self, identifier: ID,
                  cache_pool: CachePool, redis: MetaCache, storage: MetaStorage,
@@ -82,18 +82,18 @@ class MetaTable(MetaDBI):
     def __init__(self, info: DbInfo):
         super().__init__()
         man = SharedCacheManager()
-        self.__cache = man.get_pool(name='meta')  # ID => Meta
-        self.__redis = MetaCache(connector=info.redis_connector)
-        self.__dos = MetaStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
-        self.__lock = threading.Lock()
+        self._cache = man.get_pool(name='meta')  # ID => Meta
+        self._redis = MetaCache(connector=info.redis_connector)
+        self._dos = MetaStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._lock = threading.Lock()
 
     def show_info(self):
-        self.__dos.show_info()
+        self._dos.show_info()
 
     def _new_task(self, identifier: ID) -> TaiTask:
         return TaiTask(identifier=identifier,
-                       cache_pool=self.__cache, redis=self.__redis, storage=self.__dos,
-                       mutex_lock=self.__lock)
+                       cache_pool=self._cache, redis=self._redis, storage=self._dos,
+                       mutex_lock=self._lock)
 
     #
     #   Meta DBI
@@ -102,7 +102,11 @@ class MetaTable(MetaDBI):
     # Override
     async def get_meta(self, identifier: ID) -> Optional[Meta]:
         task = self._new_task(identifier=identifier)
-        return await task.load()
+        meta = await task.load()
+        if meta is None:
+            with self._lock:
+                self._cache.update(key=identifier, value=None, life_span=300)
+        return meta
 
     # Override
     async def save_meta(self, meta: Meta, identifier: ID) -> bool:
