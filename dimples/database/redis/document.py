@@ -57,12 +57,13 @@ class DocumentCache(Cache):
         return '%s.%s.%s' % (self.db_name, self.tbl_name, identifier)
 
     async def get_documents(self, identifier: ID) -> Optional[List[Document]]:
-        array = []
         name = self.__cache_name(identifier=identifier)
         value = await self.get(name=name)
         if value is None:
             # not found
             return None
+        else:
+            array = []
         js = utf8_decode(data=value)
         assert js is not None, 'failed to decode string: %s' % value
         info = json_decode(string=js)

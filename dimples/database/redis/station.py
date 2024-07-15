@@ -56,13 +56,12 @@ class StationCache(Cache):
     def __providers_cache_name(self) -> str:
         return '%s.%s.providers' % (self.db_name, self.tbl_name)
 
-    # Override
-    async def all_providers(self) -> List[ProviderInfo]:
+    async def load_providers(self) -> Optional[List[ProviderInfo]]:
         """ get list of (SP_ID, chosen) """
         sp_key = self.__providers_cache_name()
         value = await self.get(name=sp_key)
         if value is None:
-            return []
+            return None
         js = utf8_decode(data=value)
         array = json_decode(string=js)
         return ProviderInfo.convert(array=array)
@@ -73,6 +72,11 @@ class StationCache(Cache):
         js = json_encode(obj=array)
         value = utf8_encode(string=js)
         return await self.set(name=sp_key, value=value, expires=self.EXPIRES)
+
+    # Override
+    async def all_providers(self) -> List[ProviderInfo]:
+        providers = await self.load_providers()
+        return [] if providers is None else providers
 
     # Override
     async def add_provider(self, identifier: ID, chosen: int = 0) -> bool:
@@ -123,13 +127,12 @@ class StationCache(Cache):
     def __stations_cache_name(self, provider: ID) -> str:
         return '%s.%s.%s.stations' % (self.db_name, self.tbl_name, provider)
 
-    # Override
-    async def all_stations(self, provider: ID) -> List[StationInfo]:
+    async def load_stations(self, provider: ID) -> Optional[List[StationInfo]]:
         """ get list of (host, port, SP_ID, chosen) """
         srv_key = self.__stations_cache_name(provider=provider)
         value = await self.get(name=srv_key)
         if value is None:
-            return []
+            return None
         js = utf8_decode(data=value)
         array = json_decode(string=js)
         return StationInfo.convert(array=array)
@@ -140,6 +143,11 @@ class StationCache(Cache):
         js = json_encode(obj=array)
         value = utf8_encode(string=js)
         return await self.set(name=srv_key, value=value, expires=self.EXPIRES)
+
+    # Override
+    async def all_stations(self, provider: ID) -> List[StationInfo]:
+        stations = await self.load_stations(provider=provider)
+        return [] if stations is None else stations
 
     # Override
     async def add_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = 0) -> bool:

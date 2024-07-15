@@ -62,6 +62,8 @@ class PwdTask(DbTask):
 
     # Override
     async def _load_redis_cache(self) -> Optional[Dict[str, str]]:
+        # 1. the redis server will return None when cache not found
+        # 2. when redis server return an empty array, no need to check local storage again
         return await self._redis.get_group_keys(group=self._group, sender=self._sender)
 
     # Override
@@ -70,7 +72,12 @@ class PwdTask(DbTask):
 
     # Override
     async def _load_local_storage(self) -> Optional[Dict[str, str]]:
-        return await self._dos.get_group_keys(group=self._group, sender=self._sender)
+        # 1. the local storage will return None when file not found
+        # 2. return empty array as a placeholder for the memory cache
+        keys = await self._dos.get_group_keys(group=self._group, sender=self._sender)
+        if keys is None:
+            keys = {}  # placeholder
+        return keys
 
     # Override
     async def _save_local_storage(self, value: Dict[str, str]) -> bool:
@@ -115,15 +122,9 @@ class GroupKeysTable(GroupKeysDBI):
                 table[receiver] = keys[receiver]
             return table
 
-    async def load_group_keys(self, group: ID, sender: ID) -> Dict[str, str]:
+    async def load_group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
         task = self._new_task(group=group, sender=sender)
-        keys = await task.load()
-        if keys is None:
-            keys = {}  # placeholder
-            with self._lock:
-                await self._redis.save_group_keys(group=group, sender=sender, keys=keys)
-                self._cache.update(key=(group, sender), value=keys, life_span=PwdTask.MEM_CACHE_EXPIRES)
-        return keys
+        return await task.load()
 
     #
     #   Group Keys DBI

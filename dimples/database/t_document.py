@@ -61,11 +61,9 @@ class DocTask(DbTask):
 
     # Override
     async def _load_redis_cache(self) -> Optional[List[Document]]:
-        docs = await self._redis.get_documents(identifier=self._identifier)
-        if docs is None or len(docs) == 0:
-            return None
-        else:
-            return docs
+        # 1. the redis server will return None when cache not found
+        # 2. when redis server return an empty array, no need to check local storage again
+        return await self._redis.get_documents(identifier=self._identifier)
 
     # Override
     async def _save_redis_cache(self, value: List[Document]) -> bool:
@@ -73,11 +71,9 @@ class DocTask(DbTask):
 
     # Override
     async def _load_local_storage(self) -> Optional[List[Document]]:
-        docs = await self._dos.get_documents(identifier=self._identifier)
-        if docs is None or len(docs) == 0:
-            return None
-        else:
-            return docs
+        # 1. the local storage will return an empty array, when no document for this id
+        # 2. return empty array as a placeholder for the memory cache
+        return await self._dos.get_documents(identifier=self._identifier)
 
     # Override
     async def _save_local_storage(self, value: List[Document]) -> bool:

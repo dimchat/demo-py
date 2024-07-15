@@ -57,12 +57,12 @@ class GroupHistoryCache(Cache, Logging):
     def __cache_name(self, group: ID) -> str:
         return '%s.%s.%s.history' % (self.db_name, self.tbl_name, group)
 
-    async def load_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
+    async def load_group_histories(self, group: ID) -> Optional[List[Tuple[GroupCommand, ReliableMessage]]]:
         name = self.__cache_name(group=group)
         value = await self.get(name=name)
         if value is None:
             # cache not found
-            return []
+            return None
         js = utf8_decode(data=value)
         assert js is not None, 'failed to decode string: %s' % value
         array = json_decode(string=js)

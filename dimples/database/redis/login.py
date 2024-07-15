@@ -71,7 +71,7 @@ class LoginCache(Cache):
         key = self.__login_cache_name(identifier=user)
         return await self.set(name=key, value=value, expires=self.EXPIRES)
 
-    async def load_login(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
+    async def load_login(self, user: ID) -> Optional[Tuple[Optional[LoginCommand], Optional[ReliableMessage]]]:
         """
         Get 'login' command message
 
@@ -82,7 +82,7 @@ class LoginCache(Cache):
         value = await self.get(name=key)
         if value is None:
             # data not exists
-            return None, None
+            return None
         js = utf8_decode(data=value)
         assert js is not None, 'failed to decode string: %s' % value
         info = json_decode(string=js)

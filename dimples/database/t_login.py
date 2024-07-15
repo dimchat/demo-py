@@ -63,11 +63,9 @@ class CmdTask(DbTask):
 
     # Override
     async def _load_redis_cache(self) -> Optional[Tuple[Optional[LoginCommand], Optional[ReliableMessage]]]:
-        cmd, msg = await self._redis.load_login(user=self._user)
-        if cmd is None or msg is None:
-            return None
-        else:
-            return cmd, msg
+        # 1. the redis server will return None when cache not found
+        # 2. when redis server return a tuple with None values, no need to check local storage again
+        return await self._redis.load_login(user=self._user)
 
     # Override
     async def _save_redis_cache(self, value: Tuple[LoginCommand, ReliableMessage]) -> bool:
@@ -77,11 +75,9 @@ class CmdTask(DbTask):
 
     # Override
     async def _load_local_storage(self) -> Optional[Tuple[Optional[LoginCommand], Optional[ReliableMessage]]]:
-        cmd, msg = await self._dos.get_login_command_message(user=self._user)
-        if cmd is None or msg is None:
-            return None
-        else:
-            return cmd, msg
+        # 1. the local storage will return a tuple with None values, when command not found
+        # 2. return a tuple with None values as a placeholder for the memory cache
+        return await self._dos.get_login_command_message(user=self._user)
 
     # Override
     async def _save_local_storage(self, value: Tuple[LoginCommand, ReliableMessage]) -> bool:
@@ -124,10 +120,7 @@ class LoginTable(LoginDBI):
         task = self._new_task(user=user)
         pair = await task.load()
         if pair is None:
-            pair = None, None  # placeholder
-            with self._lock:
-                await self._redis.save_login(user=user, content=None, msg=None)
-                self._cache.update(key=user, value=pair, life_span=CmdTask.MEM_CACHE_EXPIRES)
+            return None, None
         return pair
 
     #

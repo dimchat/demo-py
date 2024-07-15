@@ -61,11 +61,9 @@ class SpTask(DbTask):
 
     # Override
     async def _load_redis_cache(self) -> Optional[List[ProviderInfo]]:
-        array = await self._redis.all_providers()
-        if array is None or len(array) == 0:
-            return None
-        else:
-            return array
+        # 1. the redis server will return None when cache not found
+        # 2. when redis server return an empty array, no need to check local storage again
+        return await self._redis.load_providers()
 
     # Override
     async def _save_redis_cache(self, value: List[ProviderInfo]) -> bool:
@@ -73,9 +71,12 @@ class SpTask(DbTask):
 
     # Override
     async def _load_local_storage(self) -> Optional[List[ProviderInfo]]:
+        # 1. the local storage will return an empty array, when no provider
+        # 2. return default provider then
         array = await self._dos.all_providers()
         if array is None or len(array) == 0:
-            return None
+            sp = ProviderInfo(identifier=ProviderInfo.GSP, chosen=0)
+            return [sp]  # placeholder
         else:
             return array
 
@@ -106,11 +107,9 @@ class SrvTask(DbTask):
 
     # Override
     async def _load_redis_cache(self) -> Optional[List[StationInfo]]:
-        array = await self._redis.all_stations(provider=self._provider)
-        if array is None or len(array) == 0:
-            return None
-        else:
-            return array
+        # 1. the redis server will return None when cache not found
+        # 2. when redis server return an empty array, no need to check local storage again
+        return await self._redis.load_stations(provider=self._provider)
 
     # Override
     async def _save_redis_cache(self, value: List[StationInfo]) -> bool:
@@ -118,11 +117,9 @@ class SrvTask(DbTask):
 
     # Override
     async def _load_local_storage(self) -> Optional[List[StationInfo]]:
-        array = await self._dos.all_stations(provider=self._provider)
-        if array is None or len(array) == 0:
-            return None
-        else:
-            return array
+        # 1. the local storage will return an empty array, when no station for this sp
+        # 2. return empty array as a placeholder for the memory cache
+        return await self._dos.all_stations(provider=self._provider)
 
     # Override
     async def _save_local_storage(self, value: List[StationInfo]) -> bool:
@@ -161,11 +158,9 @@ class StationTable(ProviderDBI, StationDBI):
     async def all_providers(self) -> List[ProviderInfo]:
         task = self._new_sp_task()
         providers = await task.load()
-        if providers is None or len(providers) == 0:
-            # default value
-            providers = [ProviderInfo(identifier=ProviderInfo.GSP, chosen=0)]
-            with self._lock:
-                self._dim_cache.update(key='providers', value=providers, life_span=SpTask.MEM_CACHE_EXPIRES)
+        if providers is None:
+            # should not happen
+            providers = []
         return providers
 
     # Override
