@@ -30,43 +30,25 @@
     A dispatcher to decide which way to deliver message.
 """
 
-import threading
-from abc import ABC, abstractmethod
-from typing import Optional, Set, List, Dict
+from typing import Optional, Set, List
 
 from dimsdk import EntityType, ID, EVERYONE
 from dimsdk import Station
 from dimsdk import Content, ReceiptCommand
 from dimsdk import ReliableMessage
 
-from ..utils import Singleton, Log, Logging, Runner
+from ..utils import Singleton, Logging
 from ..common import CommonFacebook
 from ..common import MessageDBI, SessionDBI
-from ..common import ReliableMessageDBI
-from ..common import LoginCommand
 
-from .session_center import SessionCenter
 from .push import PushCenter
 from .archivist import ServerArchivist
-
-
-class MessageDeliver(ABC):
-    """ Delegate for deliver message """
-
-    @abstractmethod
-    async def deliver_message(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
-        """
-        Deliver message to destination
-
-        :param msg:      message delivering
-        :param receiver: message destination
-        :return: responses
-        """
-        raise NotImplemented
+from .deliver import MessageDeliver, session_push
+from .dis_roamer import Roamer
 
 
 @Singleton
-class Dispatcher(MessageDeliver, Logging):
+class Dispatcher(Logging):
 
     def __init__(self):
         super().__init__()
@@ -74,7 +56,7 @@ class Dispatcher(MessageDeliver, Logging):
         self.__mdb: Optional[MessageDBI] = None
         self.__sdb: Optional[SessionDBI] = None
         # actually deliver worker
-        self.__worker: Optional[DeliverWorker] = None
+        self.__deliver: Optional[MessageDeliver] = None
         # roaming user receptionist
         self.__roamer: Optional[Roamer] = None
 
@@ -107,35 +89,28 @@ class Dispatcher(MessageDeliver, Logging):
         self.__sdb = db
 
     #
-    #   Worker
+    #   Message Deliver
     #
 
     @property
-    def deliver_worker(self):  # -> DeliverWorker:
-        worker = self.__worker
-        if worker is None:
-            db = self.sdb
-            facebook = self.facebook
-            assert db is not None and facebook is not None, 'dispatcher not initialized'
-            worker = DeliverWorker(database=db, facebook=facebook)
-            self.__worker = worker
-        return worker
+    def deliver(self) -> MessageDeliver:
+        return self.__deliver
+
+    @deliver.setter
+    def deliver(self, worker: MessageDeliver):
+        self.__deliver = worker
 
     #
     #   Roamer
     #
 
     @property
-    def roamer(self):  # -> Roamer
-        runner = self.__roamer
-        if runner is None:
-            db = self.mdb
-            assert db is not None, 'dispatcher not initialized'
-            runner = Roamer(database=db)
-            self.__roamer = runner
-            # Runner.async_task(coro=runner.start())
-            Runner.thread_run(runner=runner)
-        return runner
+    def roamer(self) -> Roamer:
+        return self.__roamer
+
+    @roamer.setter
+    def roamer(self, worker: Roamer):
+        self.__roamer = worker
 
     def add_roaming(self, user: ID, station: ID) -> bool:
         """ Add roaming user with station """
@@ -143,13 +118,18 @@ class Dispatcher(MessageDeliver, Logging):
         return roamer.add_roaming(user=user, station=station)
 
     #
-    #   Deliver
+    #   Delivery
     #
 
-    # Override
     async def deliver_message(self, msg: ReliableMessage, receiver: ID) -> List[Content]:
-        """ Deliver message to destination """
-        worker = self.deliver_worker
+        """
+        Deliver message to destination
+
+        :param msg:      message delivering
+        :param receiver: message destination
+        :return: responses
+        """
+        worker = self.deliver
         if receiver.is_group:
             # broadcast message to neighbor stations
             # e.g.: 'stations@everywhere', 'everyone@everywhere'
@@ -246,7 +226,7 @@ class Dispatcher(MessageDeliver, Logging):
         #
         #  2. push to other neighbor stations via station bridge
         #
-        worker = self.deliver_worker
+        worker = self.deliver
         await worker.redirect_message(msg=msg, neighbor=None)
         #
         #  OK
@@ -263,202 +243,5 @@ class Dispatcher(MessageDeliver, Logging):
         elif msg.receiver.is_broadcast:
             # no need to save broadcast message
             return False
-        db = self.__mdb
-        return await db.cache_reliable_message(msg=msg, receiver=receiver)
-
-
-class RoamingInfo:
-
-    def __init__(self, user: ID, station: ID):
-        super().__init__()
-        self.user = user
-        self.station = station
-
-
-class Roamer(Runner, Logging):
-    """ Delegate for redirect cached messages to roamed station """
-
-    def __init__(self, database: MessageDBI):
-        super().__init__(interval=Runner.INTERVAL_SLOW)
-        self.__database = database
-        # roaming (user id => station id)
-        self.__queue: List[RoamingInfo] = []
-        self.__lock = threading.Lock()
-
-    @property
-    def database(self) -> Optional[MessageDBI]:
-        return self.__database
-
-    def __append(self, info: RoamingInfo):
-        with self.__lock:
-            self.__queue.append(info)
-
-    def __next(self) -> Optional[RoamingInfo]:
-        with self.__lock:
-            if len(self.__queue) > 0:
-                return self.__queue.pop(0)
-
-    def add_roaming(self, user: ID, station: ID) -> bool:
-        """
-        Add roaming user with station
-
-        :param user:    roaming user
-        :param station: station roamed to
-        :return: False on error
-        """
-        info = RoamingInfo(user=user, station=station)
-        self.__append(info=info)
-        return True
-
-    # Override
-    async def process(self) -> bool:
-        info = self.__next()
-        if info is None:
-            # nothing to do
-            return False
-        receiver = info.user
-        roaming = info.station
-        limit = ReliableMessageDBI.CACHE_LIMIT
-        try:
-            db = self.database
-            cached_messages = await db.get_reliable_messages(receiver=receiver, limit=limit)
-            self.debug(msg='got %d cached messages for roaming user: %s' % (len(cached_messages), receiver))
-            # get deliver delegate for receiver
-            dispatcher = Dispatcher()
-            worker = dispatcher.deliver_worker
-            # deliver cached messages one by one
-            for msg in cached_messages:
-                await worker.push_message(msg=msg, receiver=receiver)
-        except Exception as e:
-            self.error(msg='process roaming user (%s => %s) error: %s' % (receiver, roaming, e))
-        # return True to process next immediately
-        return True
-
-
-class DeliverWorker(Logging):
-    """ Actual deliver worker """
-
-    def __init__(self, database: SessionDBI, facebook: CommonFacebook):
-        super().__init__()
-        self.__database = database
-        self.__facebook = facebook
-
-    @property
-    def database(self) -> Optional[SessionDBI]:
-        return self.__database
-
-    @property
-    def facebook(self) -> Optional[CommonFacebook]:
-        return self.__facebook
-
-    async def push_message(self, msg: ReliableMessage, receiver: ID) -> Optional[List[Content]]:
-        """
-        Push message for receiver
-
-        :param msg:      network message
-        :param receiver: actual receiver
-        :return: responses
-        """
-        assert receiver.is_user, 'receiver ID error: %s' % receiver
-        assert receiver.type != EntityType.STATION, 'should not push message for station: %s' % receiver
-        # 1. try to push message directly
-        if await session_push(msg=msg, receiver=receiver) > 0:
-            text = 'Message delivered.'
-            cmd = ReceiptCommand.create(text=text, envelope=msg.envelope)
-            cmd['recipient'] = str(receiver)
-            return [cmd]
-        # 2. get roaming station
-        roaming = await get_roaming_station(receiver=receiver, database=self.database)
-        if roaming is None:
-            # login command not found
-            # return None to tell the push center to push notification for it.
-            return None
-        # 3. redirect message to roaming station
-        return await self.redirect_message(msg=msg, neighbor=roaming)
-
-    async def redirect_message(self, msg: ReliableMessage, neighbor: Optional[ID]) -> Optional[List[Content]]:
-        """
-        Redirect message to neighbor station
-
-        :param msg:      network message
-        :param neighbor: neighbor station
-        :return: responses
-        """
-        """ Redirect message to neighbor station """
-        assert neighbor is None or neighbor.type == EntityType.STATION, 'neighbor station ID error: %s' % neighbor
-        self.info(msg='redirect message %s => %s to neighbor station: %s' % (msg.sender, msg.receiver, neighbor))
-        # 0. check current station
-        current = self.facebook.current_user.identifier
-        assert current.type == EntityType.STATION, 'current station ID error: %s' % current
-        if neighbor == current:
-            self.debug(msg='same destination: %s, msg %s => %s' % (neighbor, msg.sender, msg.receiver))
-            # the user is roaming to current station, but it's not online now
-            # return None to tell the push center to push notification for it.
-            return None
-        # 1. try to push message to neighbor station directly
-        if neighbor is not None and await session_push(msg=msg, receiver=neighbor) > 0:
-            text = 'Message redirected.'
-            cmd = ReceiptCommand.create(text=text, envelope=msg.envelope)
-            cmd['neighbor'] = str(neighbor)
-            return [cmd]
-        # 2. push message to bridge
-        return await bridge_message(msg=msg, neighbor=neighbor, bridge=current)
-
-
-async def bridge_message(msg: ReliableMessage, neighbor: Optional[ID], bridge: ID) -> List[Content]:
-    """
-    Redirect message to neighbor station via the station bridge
-    if neighbor is None, try to broadcast
-
-    :param msg:      network message
-    :param neighbor: roaming station
-    :param bridge:   current station
-    :return: responses
-    """
-    # NOTE: the messenger will serialize this message immediately, so
-    #       we don't need to clone this dictionary to avoid 'neighbor'
-    #       be changed to another value before pushing to the bridge.
-    # clone = msg.copy_dictionary()
-    # msg = ReliableMessage.parse(msg=clone)
-    if neighbor is None:
-        # broadcast to all neighbor stations
-        # except that ones already in msg['recipients']
-        await session_push(msg=msg, receiver=bridge)
-        # no need to respond receipt for this broadcast message
-        return []
-    else:
-        assert neighbor != bridge, 'cannot bridge cycled message: %s' % neighbor
-        msg['neighbor'] = str(neighbor)
-    # push to the bridge
-    if await session_push(msg=msg, receiver=bridge) == 0:
-        # station bridge not found
-        Log.warning(msg='failed to push message to bridge: %s, drop message: %s -> %s'
-                        % (bridge, msg.sender, msg.receiver))
-        return []
-    text = 'Message redirected via station bridge.'
-    cmd = ReceiptCommand.create(text=text, envelope=msg.envelope)
-    cmd['neighbor'] = str(neighbor)
-    return [cmd]
-
-
-async def session_push(msg: ReliableMessage, receiver: ID) -> int:
-    """ push message via active session(s) of receiver """
-    success = 0
-    center = SessionCenter()
-    active_sessions = center.active_sessions(identifier=receiver)
-    for session in active_sessions:
-        if await session.send_reliable_message(msg=msg):
-            success += 1
-    return success
-
-
-async def get_roaming_station(receiver: ID, database: SessionDBI) -> Optional[ID]:
-    """ get login command for roaming station """
-    cmd, msg = await database.get_login_command_message(user=receiver)
-    if isinstance(cmd, LoginCommand):
-        station = cmd.station
-        if isinstance(station, Dict):
-            return ID.parse(identifier=station.get('ID'))
-        else:
-            Log.error(msg='login command error: %s -> %s' % (receiver, cmd))
-            Log.error(msg='login command error: %s -> %s' % (receiver, msg))
+        # save message in cache
+        return await self.mdb.cache_reliable_message(msg=msg, receiver=receiver)

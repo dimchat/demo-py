@@ -31,6 +31,7 @@ from typing import Optional, Tuple
 from dimsdk import ID
 
 from ..utils import Singleton, Config
+from ..utils import Runner
 from ..utils import Path
 from ..common import AddressNameServer, ANSFactory
 from ..common import CommonFacebook, CommonMessenger
@@ -44,7 +45,7 @@ from ..server import ServerSession
 from ..server import ServerMessenger
 from ..server import ServerMessagePacker
 from ..server import ServerMessageProcessor
-from ..server import Dispatcher
+from ..server import Dispatcher, MessageDeliver, Roamer
 
 
 @Singleton
@@ -212,10 +213,19 @@ def create_messenger(facebook: CommonFacebook, database: MessageDBI,
 
 def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
     """ Step 4: create dispatcher """
+    mdb = shared.mdb
+    sdb = shared.sdb
+    facebook = shared.facebook
+    deliver = MessageDeliver(database=sdb, facebook=facebook)
+    roamer = Roamer(database=mdb, deliver=deliver)
+    Runner.thread_run(runner=roamer)
+    # Runner.async_task(coro=roamer.start())
     dispatcher = Dispatcher()
-    dispatcher.mdb = shared.mdb
-    dispatcher.sdb = shared.sdb
-    dispatcher.facebook = shared.facebook
+    dispatcher.mdb = mdb
+    dispatcher.sdb = sdb
+    dispatcher.facebook = facebook
+    dispatcher.deliver = deliver
+    dispatcher.roamer = roamer
     return dispatcher
 
 

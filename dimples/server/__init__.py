@@ -35,7 +35,8 @@ from .session_center import SessionCenter  # SessionPool
 from .push import BadgeKeeper, PushService
 from .push import PushCenter
 
-# from .dispatcher import Roamer, MessageDeliver, DeliverWorker
+from .deliver import MessageDeliver
+from .dis_roamer import Roamer
 from .dispatcher import Dispatcher
 
 from .trace import TraceNode, TraceList
@@ -59,7 +60,8 @@ __all__ = [
     'PushCenter',
 
     # Dispatcher
-    # 'Roamer', 'MessageDeliver', 'DeliverWorker',
+    'MessageDeliver',
+    'Roamer',
     'Dispatcher',
 
     # Trace
