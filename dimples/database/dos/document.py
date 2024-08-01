@@ -67,6 +67,7 @@ class DocumentStorage(Storage, DocumentDBI):
         array = await self.read_json(path=path)
         if array is None:
             # file not found
+            self.warning(msg='document file not found: %s' % path)
             return None
         documents = []
         for info in array:

@@ -36,7 +36,7 @@ from startrek import Arrival, ArrivalShip
 from startrek import Departure, DepartureShip, DeparturePriority
 
 from udp.ba import Data
-from tcp import PlainDocker
+from tcp import PlainPorter
 
 from ..utils import utf8_encode, utf8_decode, base64_encode, base64_decode
 
@@ -180,7 +180,7 @@ class MarsStreamDeparture(DepartureShip):
         return mars.head.cmd == NetMsgHead.PUSH_MESSAGE
 
 
-class MarsStreamDocker(PlainDocker, DeparturePacker):
+class MarsStreamPorter(PlainPorter, DeparturePacker):
     """ Docker for Mars packages """
 
     def __init__(self, remote: SocketAddress, local: Optional[SocketAddress]):

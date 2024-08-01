@@ -42,7 +42,7 @@ from typing import Optional, List, Tuple
 from dimsdk import ID, EntityType
 from dimsdk import ReliableMessage
 
-from startrek import Docker, DockerStatus
+from startrek import Porter, PorterStatus
 from startrek import Arrival, Departure
 
 from ..utils import Log, Runner
@@ -89,6 +89,12 @@ class ServerSession(BaseSession):
     def key(self) -> str:
         return self.__key
 
+    @property  # Override
+    def running(self) -> bool:
+        if super().running:
+            status = self.gate.get_porter_status(remote=self.remote_address, local=None)
+            return status != PorterStatus.ERROR
+
     # Override
     def set_identifier(self, identifier: ID) -> bool:
         old = self.identifier
@@ -121,19 +127,20 @@ class ServerSession(BaseSession):
     #
 
     # Override
-    async def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
-        # await super().docker_status_changed(previous=previous, current=current, docker=docker)
-        if current is None or current == DockerStatus.ERROR:
+    async def porter_status_changed(self, previous: PorterStatus, current: PorterStatus, porter: Porter):
+        # await super().porter_status_changed(previous=previous, current=current, porter=porter)
+        if current is None or current == PorterStatus.ERROR:
             # connection error or session finished
             self.set_active(active=False)
+            await porter.close()
             await self.stop()
-        elif current == DockerStatus.READY:
+        elif current == PorterStatus.READY:
             # connected/reconnected
             self.set_active(active=True)
 
     # Override
-    async def docker_received(self, ship: Arrival, docker: Docker):
-        # await super().docker_received(ship=ship, docker=docker)
+    async def porter_received(self, ship: Arrival, porter: Porter):
+        # await super().porter_received(ship=ship, porter=porter)
         all_responses = []
         messenger = self.messenger
         # 1. get data packages from arrival ship's payload
@@ -148,14 +155,14 @@ class ServerSession(BaseSession):
                         continue
                     all_responses.append(res)
             except Exception as error:
-                source = docker.remote_address
+                source = porter.remote_address
                 self.error(msg='parse message failed (%s): %s, %s' % (source, error, pack))
                 traceback.print_exc()
                 # from dimsdk import TextContent
                 # return TextContent.new(text='parse message failed: %s' % error)
         gate = self.gate
-        source = docker.remote_address
-        destination = docker.local_address
+        source = porter.remote_address
+        destination = porter.local_address
         # 3. send responses
         if len(all_responses) > 0:
             # respond separately
@@ -166,7 +173,7 @@ class ServerSession(BaseSession):
             await gate.send_response(payload=b'', ship=ship, remote=source, local=destination)
 
     # Override
-    async def docker_sent(self, ship: Departure, docker: Docker):
+    async def porter_sent(self, ship: Departure, porter: Porter):
         if isinstance(ship, MessageWrapper):
             msg = ship.msg
             if msg is not None:

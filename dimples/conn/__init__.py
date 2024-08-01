@@ -29,12 +29,12 @@
 
         +--------------+
         |   Facebook   |
-        +--------------+         DockerDelegate      ConnectionDelegate
+        +--------------+         PorterDelegate      ConnectionDelegate
               :  AccountDB      +--------------+        +----------+
               :                 |  GateKeeper  | . . . >|   Gate   |
         +--------------+        +--------------+        +----------+
         |   Messenger  | . . . >|   Session    |            Hub (Connection)
-        +--------------+        +--------------+            Docker
+        +--------------+        +--------------+            Porter
                  MessageDB               SessionDB
                  Filter
                  Dispatcher
@@ -46,24 +46,24 @@ from startrek import BaseChannel, ChannelReader, ChannelWriter
 from startrek import BaseHub, BaseConnection, ActiveConnection
 
 from startrek import Ship, Arrival, Departure, DeparturePriority
-from startrek import Docker, DockerStatus, DockerDelegate, Gate
+from startrek import Porter, PorterStatus, PorterDelegate, Gate
 from startrek import ArrivalShip, ArrivalHall, DepartureShip, DepartureHall
-from startrek import Dock, LockedDock, StarDocker, StarGate
+from startrek import Dock, LockedDock, StarPorter, StarGate
 
-from tcp import PlainArrival, PlainDeparture, PlainDocker
+from tcp import PlainArrival, PlainDeparture, PlainPorter
 from tcp import StreamChannel, StreamHub
 from tcp import ServerHub as TCPServerHub, ClientHub as TCPClientHub
 
-from udp import PackageArrival, PackageDeparture, PackageDocker
+from udp import PackageArrival, PackageDeparture, PackagePorter
 from udp import PacketChannel, PacketHub
 from udp import ServerHub as UDPServerHub, ClientHub as UDPClientHub
 
 from .protocol import WebSocket, NetMsg, NetMsgHead, NetMsgSeq
 
-from .ws import WSArrival, WSDeparture, WSDocker
-from .mars import MarsStreamArrival, MarsStreamDeparture, MarsStreamDocker
-from .mtp import MTPStreamArrival, MTPStreamDeparture, MTPStreamDocker
-from .flexible import FlexibleDocker
+from .ws import WSArrival, WSDeparture, WSPorter
+from .mars import MarsStreamArrival, MarsStreamDeparture, MarsStreamPorter
+from .mtp import MTPStreamArrival, MTPStreamDeparture, MTPStreamPorter
+from .flexible import FlexiblePorter
 from .gate import CommonGate, TCPServerGate, TCPClientGate, UDPServerGate, UDPClientGate
 # from .gatekeeper import GateKeeper
 from .queue import MessageWrapper, MessageQueue
@@ -81,20 +81,20 @@ __all__ = [
     'BaseHub', 'BaseConnection', 'ActiveConnection',
 
     'Ship', 'Arrival', 'Departure', 'DeparturePriority',
-    'Docker', 'DockerStatus', 'DockerDelegate', 'Gate',
+    'Porter', 'PorterStatus', 'PorterDelegate', 'Gate',
     'ArrivalShip', 'ArrivalHall', 'DepartureShip', 'DepartureHall',
-    'Dock', 'LockedDock', 'StarDocker', 'StarGate',
+    'Dock', 'LockedDock', 'StarPorter', 'StarGate',
 
     #
     #   TCP
     #
-    'PlainArrival', 'PlainDeparture', 'PlainDocker',
+    'PlainArrival', 'PlainDeparture', 'PlainPorter',
     'StreamChannel', 'StreamHub', 'TCPServerHub', 'TCPClientHub',
 
     #
     #   UDP
     #
-    'PackageArrival', 'PackageDeparture', 'PackageDocker',
+    'PackageArrival', 'PackageDeparture', 'PackagePorter',
     'PacketChannel', 'PacketHub', 'UDPServerHub', 'UDPClientHub',
 
     #
@@ -105,10 +105,10 @@ __all__ = [
     #
     #   Network
     #
-    'WSArrival', 'WSDeparture', 'WSDocker',
-    'MarsStreamArrival', 'MarsStreamDeparture', 'MarsStreamDocker',
-    'MTPStreamArrival', 'MTPStreamDeparture', 'MTPStreamDocker',
-    'FlexibleDocker',
+    'WSArrival', 'WSDeparture', 'WSPorter',
+    'MarsStreamArrival', 'MarsStreamDeparture', 'MarsStreamPorter',
+    'MTPStreamArrival', 'MTPStreamDeparture', 'MTPStreamPorter',
+    'FlexiblePorter',
     'CommonGate', 'TCPServerGate', 'TCPClientGate', 'UDPServerGate', 'UDPClientGate',
     # 'GateKeeper',
     'MessageWrapper', 'MessageQueue',

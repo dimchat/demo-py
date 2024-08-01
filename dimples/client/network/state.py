@@ -33,7 +33,7 @@ from dimsdk import ID
 
 from startrek.skywalker import Runner
 from startrek.fsm import Context, BaseTransition, BaseState, AutoMachine
-from startrek import Docker, DockerStatus
+from startrek import Porter, PorterStatus
 
 # from .session import ClientSession
 
@@ -43,7 +43,7 @@ class StateMachine(AutoMachine, Context):
     def __init__(self, session):
         super().__init__()
         self.__session = weakref.ref(session)
-        self.__docker_ref = None
+        self.__porter_ref = None
         # init states
         builder = self._create_state_builder()
         self.add_state(state=builder.get_default_state())
@@ -58,17 +58,17 @@ class StateMachine(AutoMachine, Context):
         return self.__session()
 
     @property
-    def docker(self) -> Optional[Docker]:
-        ref = self.__docker_ref
+    def porter(self) -> Optional[Porter]:
+        ref = self.__porter_ref
         if ref is not None:
             return ref()
 
-    @docker.setter
-    def docker(self, worker: Docker):
-        if worker is None:
-            self.__docker_ref = None
+    @porter.setter
+    def porter(self, docker: Porter):
+        if docker is None:
+            self.__porter_ref = None
         else:
-            self.__docker_ref = weakref.ref(worker)
+            self.__porter_ref = weakref.ref(docker)
 
     # noinspection PyMethodMayBeStatic
     def _create_state_builder(self):
@@ -90,21 +90,21 @@ class StateMachine(AutoMachine, Context):
         return session.identifier
 
     @property
-    def status(self) -> DockerStatus:
-        docker = self.docker
+    def status(self) -> PorterStatus:
+        docker = self.porter
         if docker is not None:
             return docker.status
         else:
             session = self.session
             gate = session.gate
-            coro = gate.fetch_docker([], remote=session.remote_address, local=None)
+            coro = gate.fetch_porter(remote=session.remote_address, local=None)
             task = Runner.async_task(coro=coro)
-            task.add_done_callback(self._fetch_docker_callback)
+            task.add_done_callback(self._fetch_porter_callback)
         # waiting for callback
-        return DockerStatus.ERROR
+        return PorterStatus.ERROR
 
-    def _fetch_docker_callback(self, t: asyncio.Task):
-        self.docker = t.result()
+    def _fetch_porter_callback(self, t: asyncio.Task):
+        self.porter = t.result()
 
 
 class StateOrder(IntEnum):

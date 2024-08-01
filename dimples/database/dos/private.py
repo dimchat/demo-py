@@ -76,7 +76,10 @@ class PrivateKeyStorage(Storage, PrivateKeyDBI):
         path = self.__id_key_path(identifier=identifier)
         self.info(msg='Loading identity private key from: %s' % path)
         info = await self.read_json(path=path)
-        if info is not None:
+        if info is None:
+            # file not found
+            self.warning(msg='id key file not found: %s' % path)
+        else:
             return PrivateKey.parse(key=info)
 
     async def _save_msg_key(self, key: PrivateKey, identifier: ID) -> bool:
@@ -95,7 +98,10 @@ class PrivateKeyStorage(Storage, PrivateKeyDBI):
         path = self.__msg_keys_path(identifier=identifier)
         self.info(msg='Loading message private keys from: %s' % path)
         array = await self.read_json(path=path)
-        if array is not None:
+        if array is None:
+            # file not found
+            self.warning(msg='msg key file not found: %s' % path)
+        else:
             for item in array:
                 k = PrivateKey.parse(key=item)
                 if k is not None:

@@ -40,7 +40,7 @@ from typing import Optional, List
 
 from dimsdk import Station
 
-from startrek import Docker, DockerStatus
+from startrek import Porter, PorterStatus
 from startrek import Arrival
 
 from ...utils import Daemon, Runner
@@ -146,20 +146,20 @@ class ClientSession(BaseSession):
     #
 
     # Override
-    async def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
-        # await super().docker_status_changed(previous=previous, current=current, docker=docker)
-        if current is None or current == DockerStatus.ERROR:
+    async def porter_status_changed(self, previous: PorterStatus, current: PorterStatus, porter: Porter):
+        # await super().porter_status_changed(previous=previous, current=current, porter=porter)
+        if current is None or current == PorterStatus.ERROR:
             # connection error or session finished
             self.set_active(active=False)
-            self.warning(msg='connection lost, waiting for reconnecting: %s' % docker)
+            self.warning(msg='connection lost, waiting for reconnecting: %s' % porter)
             # TODO: clear session ID and handshake again
-        elif current == DockerStatus.READY:
+        elif current == PorterStatus.READY:
             # connected/reconnected
             self.set_active(active=True)
 
     # Override
-    async def docker_received(self, ship: Arrival, docker: Docker):
-        # await super().docker_received(ship=ship, docker=docker)
+    async def porter_received(self, ship: Arrival, porter: Porter):
+        # await super().porter_received(ship=ship, porter=porter)
         all_responses = []
         messenger = self.messenger
         # 1. get data packages from arrival ship's payload
@@ -174,14 +174,14 @@ class ClientSession(BaseSession):
                         continue
                     all_responses.append(res)
             except Exception as error:
-                source = docker.remote_address
+                source = porter.remote_address
                 self.error(msg='parse message failed (%s): %s, %s' % (source, error, pack))
                 traceback.print_exc()
                 # from dimsdk import TextContent
                 # return TextContent.new(text='parse message failed: %s' % error)
         gate = self.gate
-        source = docker.remote_address
-        destination = docker.local_address
+        source = porter.remote_address
+        destination = porter.local_address
         # 3. send responses separately
         for res in all_responses:
             await gate.send_response(payload=res, ship=ship, remote=source, local=destination)

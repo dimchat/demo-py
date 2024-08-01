@@ -36,7 +36,7 @@ from startrek.types import SocketAddress
 
 from udp.ba import ByteArray, Data
 from udp.mtp import DataType, TransactionID, Header, Package
-from udp import PackageArrival, PackageDeparture, PackageDocker
+from udp import PackageArrival, PackageDeparture, PackagePorter
 
 from .protocol import DeparturePacker
 from .seeker import MTPPackageSeeker
@@ -103,7 +103,7 @@ class MTPStreamDeparture(PackageDeparture):
         return [pack]
 
 
-class MTPStreamDocker(PackageDocker, DeparturePacker):
+class MTPStreamPorter(PackagePorter, DeparturePacker):
     """ Docker for MTP packages """
 
     def __init__(self, remote: SocketAddress, local: Optional[SocketAddress]):

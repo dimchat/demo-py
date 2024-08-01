@@ -32,6 +32,8 @@ from ..common.compat import NetworkType, network_to_type
 
 from ..utils import Singleton, Config
 from ..common import AccountDBI
+from ..database.redis import RedisConnector
+from ..database import DbInfo
 from ..database import AccountDatabase
 
 
@@ -49,15 +51,30 @@ class GlobalVariable:
         self.adb: Optional[AccountDBI] = None
 
 
-async def create_database(shared: GlobalVariable) -> AccountDBI:
-    config = shared.config
+def create_redis_connector(config: Config) -> Optional[RedisConnector]:
+    redis_enable = config.get_boolean(section='redis', option='enable')
+    if redis_enable:
+        # create redis connector
+        host = config.get_string(section='redis', option='host')
+        if host is None:
+            host = 'localhost'
+        port = config.get_integer(section='redis', option='port')
+        if port is None or port <= 0:
+            port = 6379
+        username = config.get_string(section='redis', option='username')
+        password = config.get_string(section='redis', option='password')
+        return RedisConnector(host=host, port=port, username=username, password=password)
+
+
+async def create_database(config: Config) -> AccountDBI:
     root = config.database_root
     public = config.database_public
     private = config.database_private
+    redis_conn = create_redis_connector(config=config)
+    info = DbInfo(redis_connector=redis_conn, root_dir=root, public_dir=public, private_dir=private)
     # create database
-    adb = AccountDatabase(root=root, public=public, private=private)
+    adb = AccountDatabase(info=info)
     adb.show_info()
-    shared.adb = adb
     return adb
 
 

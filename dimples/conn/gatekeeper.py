@@ -40,7 +40,7 @@ from startrek import Channel, Hub
 from startrek import BaseChannel
 from startrek import Connection, ConnectionDelegate, BaseConnection
 from startrek import Arrival, Departure
-from startrek import Docker, DockerStatus, DockerDelegate
+from startrek import Porter, PorterStatus, PorterDelegate
 
 from tcp import StreamChannel
 from tcp import ServerHub, ClientHub
@@ -155,7 +155,7 @@ async def _client_connect(hub: Hub, address):
         reset_send_buffer_size(conn=conn)
 
 
-class GateKeeper(Runner, DockerDelegate, Logging):
+class GateKeeper(Runner, PorterDelegate, Logging):
     """ Keep a gate to remote address """
 
     SEND_BUFFER_SIZE = 64 * 1024  # 64 KB
@@ -258,8 +258,8 @@ class GateKeeper(Runner, DockerDelegate, Logging):
             self.error(msg='gate error, failed to send data')
         return ok
 
-    async def _docker_pack(self, payload: bytes, priority: int = 0) -> Optional[Departure]:
-        docker = await self.gate.fetch_docker([], remote=self.remote_address, local=None)
+    async def _porter_pack(self, payload: bytes, priority: int = 0) -> Optional[Departure]:
+        docker = await self.gate.fetch_porter(remote=self.remote_address, local=None)
         assert isinstance(docker, DeparturePacker), 'departure packer error: %s' % docker
         return docker.pack(payload=payload, priority=priority)
 
@@ -271,25 +271,25 @@ class GateKeeper(Runner, DockerDelegate, Logging):
     #
 
     # Override
-    async def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
-        self.info(msg='docker status changed: %s -> %s, %s' % (previous, current, docker))
+    async def porter_status_changed(self, previous: PorterStatus, current: PorterStatus, porter: Porter):
+        self.info(msg='docker status changed: %s -> %s, %s' % (previous, current, porter))
 
     # Override
-    async def docker_received(self, ship: Arrival, docker: Docker):
-        self.debug(msg='docker received a ship: %s, %s' % (ship, docker))
+    async def porter_received(self, ship: Arrival, porter: Porter):
+        self.debug(msg='docker received a ship: %s, %s' % (ship, porter))
 
     # Override
-    async def docker_sent(self, ship: Departure, docker: Docker):
+    async def porter_sent(self, ship: Departure, porter: Porter):
         # TODO: remove sent message from local cache
         pass
 
     # Override
-    async def docker_failed(self, error: IOError, ship: Departure, docker: Docker):
-        self.error(msg='docker failed to send ship: %s, %s' % (error, docker))
+    async def porter_failed(self, error: IOError, ship: Departure, porter: Porter):
+        self.error(msg='docker failed to send ship: %s, %s' % (error, porter))
 
     # Override
-    async def docker_error(self, error: IOError, ship: Departure, docker: Docker):
-        self.error(msg='docker error while sending ship: %s, %s' % (error, docker))
+    async def porter_error(self, error: IOError, ship: Departure, porter: Porter):
+        self.error(msg='docker error while sending ship: %s, %s' % (error, porter))
         if isinstance(ship, MessageWrapper):
             msg = ship.msg
             if msg is not None:

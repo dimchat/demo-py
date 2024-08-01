@@ -66,5 +66,8 @@ class MetaStorage(Storage, MetaDBI):
         path = self.__meta_path(identifier=identifier)
         self.info(msg='Loading meta from: %s' % path)
         info = await self.read_json(path=path)
-        if info is not None:
+        if info is None:
+            # file not found
+            self.warning(msg='meta file not found: %s' % path)
+        else:
             return Meta.parse(meta=info)

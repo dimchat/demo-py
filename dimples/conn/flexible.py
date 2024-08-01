@@ -34,47 +34,26 @@ from startrek.types import SocketAddress
 from startrek.skywalker import Runner
 from startrek import Connection
 from startrek import Arrival, Departure
-from startrek import StarDocker
+from startrek import StarPorter
 
 from ..utils import Logging
 from .protocol import DeparturePacker
 
-from .ws import WSDocker
-from .mtp import MTPStreamDocker, TransactionID, MTPHelper
-from .mars import MarsStreamDocker, MarsHelper
+from .ws import WSPorter
+from .mtp import MTPStreamPorter, TransactionID, MTPHelper
+from .mars import MarsStreamPorter, MarsHelper
 
 
-class FlexibleDocker(StarDocker, DeparturePacker, Logging):
+class FlexiblePorter(StarPorter, DeparturePacker, Logging):
 
     def __init__(self, remote: SocketAddress, local: Optional[SocketAddress]):
         super().__init__(remote=remote, local=local)
-        self.__docker: Optional[StarDocker] = None
-
-    def _get_docker(self, data: bytes) -> Optional[StarDocker]:
-        docker = self.__docker
-        if docker is not None or len(data) == 0:
-            return docker
-        # check data for packer
-        if WSDocker.check(data=data):
-            docker = WSDocker(remote=self.remote_address, local=self.local_address)
-        elif MTPStreamDocker.check(data=data):
-            docker = MTPStreamDocker(remote=self.remote_address, local=self.local_address)
-        elif MarsStreamDocker.check(data=data):
-            docker = MarsStreamDocker(remote=self.remote_address, local=self.local_address)
-        else:
-            self.error(msg='unsupported data format: %s' % data)
-            return None
-        # OK
-        docker.delegate = self.delegate
-        coro = docker.set_connection(conn=self.connection)
-        Runner.async_task(coro=coro)
-        self.__docker = docker
-        return docker
+        self.__porter: Optional[StarPorter] = None
 
     # Override
     async def set_connection(self, conn: Optional[Connection]):
         await super().set_connection(conn=conn)
-        docker = self.__docker
+        docker = self.__porter
         if docker is None:
             self.error(msg='docker not ready, failed to set connection: %s' % conn)
         else:
@@ -82,7 +61,7 @@ class FlexibleDocker(StarDocker, DeparturePacker, Logging):
 
     # Override
     async def send_ship(self, ship: Departure) -> bool:
-        docker = self.__docker
+        docker = self.__porter
         if docker is None:
             self.error(msg='docker not ready, failed to send ship: %s' % ship)
             return False
@@ -91,11 +70,28 @@ class FlexibleDocker(StarDocker, DeparturePacker, Logging):
 
     # Override
     async def process_received(self, data: bytes):
-        docker = self._get_docker(data=data)
+        docker = self.__porter
         if docker is None:
-            self.error(msg='docker not ready, failed to process received: %s' % data)
-        else:
-            return await docker.process_received(data=data)
+            # check data for packer
+            if WSPorter.check(data=data):
+                docker = WSPorter(remote=self.remote_address, local=self.local_address)
+            elif MTPStreamPorter.check(data=data):
+                docker = MTPStreamPorter(remote=self.remote_address, local=self.local_address)
+            elif MarsStreamPorter.check(data=data):
+                docker = MarsStreamPorter(remote=self.remote_address, local=self.local_address)
+            else:
+                self.error(msg='unsupported data format: %s' % data)
+                return None
+            # initialize
+            docker.delegate = self.delegate
+            coro = docker.set_connection(conn=self.connection)
+            Runner.async_task(coro=coro)
+            self.__porter = docker
+            if isinstance(docker, WSPorter):
+                # ignore first handshake package
+                return None
+        # OK
+        return await docker.process_received(data=data)
 
     # Override
     def _get_arrivals(self, data: bytes) -> List[Arrival]:
@@ -120,7 +116,7 @@ class FlexibleDocker(StarDocker, DeparturePacker, Logging):
     # Override
     def purge(self, now: float = 0) -> int:
         cnt = super().purge(now=now)
-        docker = self.__docker
+        docker = self.__porter
         if docker is None:
             self.debug(msg='docker not ready, failed to purge')
         else:
@@ -129,15 +125,17 @@ class FlexibleDocker(StarDocker, DeparturePacker, Logging):
 
     # Override
     async def close(self):
-        await self.set_connection(conn=None)
-        docker = self.__docker
-        if docker is not None:
-            self.__docker = None
+        await super().set_connection(conn=None)
+        docker = self.__porter
+        if docker is None:
+            self.warning(msg='docker not ready, failed to close')
+        else:
+            self.__porter = None
             await docker.close()
 
     # Override
     async def process(self) -> bool:
-        docker = self.__docker
+        docker = self.__porter
         if docker is None:
             self.debug(msg='docker not ready, failed to process')
             return False
@@ -146,21 +144,21 @@ class FlexibleDocker(StarDocker, DeparturePacker, Logging):
 
     # Override
     async def send_data(self, payload: Union[bytes, bytearray]) -> bool:
-        docker = self.__docker
+        docker = self.__porter
         if docker is None:
             self.error(msg='docker not ready, failed to send payload: %s' % payload)
             return False
-        elif isinstance(docker, WSDocker):
+        elif isinstance(docker, WSPorter):
             ship = docker.pack(payload=payload)
             return await docker.send_ship(ship=ship)
-        elif isinstance(docker, MTPStreamDocker):
+        elif isinstance(docker, MTPStreamPorter):
             # sn = TransactionID.from_data(data=ship.sn)
             sn = TransactionID.generate()
             pack = MTPHelper.create_message(body=payload, sn=sn)
             return await docker.send_package(pack=pack)
-        elif isinstance(docker, MarsStreamDocker):
+        elif isinstance(docker, MarsStreamPorter):
             mars = MarsHelper.create_push(payload=payload)
-            ship = MarsStreamDocker.create_departure(mars=mars)
+            ship = MarsStreamPorter.create_departure(mars=mars)
             return await docker.send_ship(ship=ship)
         else:
             # error
@@ -168,7 +166,7 @@ class FlexibleDocker(StarDocker, DeparturePacker, Logging):
 
     # Override
     async def heartbeat(self):
-        docker = self.__docker
+        docker = self.__porter
         if docker is None:
             self.warning(msg='docker not ready, failed to heart bet')
         else:
@@ -176,7 +174,7 @@ class FlexibleDocker(StarDocker, DeparturePacker, Logging):
 
     # Override
     def pack(self, payload: bytes, priority: int = 0) -> Optional[Departure]:
-        docker = self.__docker
+        docker = self.__porter
         if docker is None:
             self.error(msg='docker not ready, failed to pack: %s' % payload)
             return None

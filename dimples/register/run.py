@@ -103,9 +103,11 @@ async def async_main():
     config = Config.load(file=ini_file)
     # initializing
     print('[DB] init with config: %s => %s' % (ini_file, config))
+    adb = await create_database(config=config)
+    # OK
     shared = GlobalVariable()
     shared.config = config
-    await create_database(shared=shared)
+    shared.adb = adb
     # check actions
     if len(args) == 1 and args[0] == 'generate':
         await generate(database=shared.adb)

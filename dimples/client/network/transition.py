@@ -23,7 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from startrek import DockerStatus
+from startrek import PorterStatus
 
 from .state import StateMachine, StateTransition
 from .state import StateOrder
@@ -106,7 +106,7 @@ class DefaultConnectingTransition(StateTransition):
         if ctx.session_id is None:
             # current user not set yet
             return False
-        return ctx.status in [DockerStatus.PREPARING, DockerStatus.READY]
+        return ctx.status in [PorterStatus.PREPARING, PorterStatus.READY]
 
 
 class ConnectingConnectedTransition(StateTransition):
@@ -122,7 +122,7 @@ class ConnectingConnectedTransition(StateTransition):
     def evaluate(self, ctx: StateMachine, now: float) -> bool:
         # assert ctx.session_key is None, 'session key must be empty before handshaking'
         # assert ctx.session_id is not None, 'current user lost?'
-        return ctx.status == DockerStatus.READY
+        return ctx.status == PorterStatus.READY
 
 
 class ConnectingErrorTransition(StateTransition):
@@ -141,7 +141,7 @@ class ConnectingErrorTransition(StateTransition):
         if self.is_expired(state=ctx.current_state, now=now):
             # connecting expired, do it again
             return True
-        return ctx.status not in [DockerStatus.PREPARING, DockerStatus.READY]
+        return ctx.status not in [PorterStatus.PREPARING, PorterStatus.READY]
 
 
 class ConnectedHandshakingTransition(StateTransition):
@@ -159,7 +159,7 @@ class ConnectedHandshakingTransition(StateTransition):
             # FIXME: current user lost?
             #        state will be changed to 'error'
             return False
-        return ctx.status == DockerStatus.READY
+        return ctx.status == PorterStatus.READY
 
 
 class ConnectedErrorTransition(StateTransition):
@@ -176,7 +176,7 @@ class ConnectedErrorTransition(StateTransition):
         if ctx.session_id is None:
             # FIXME: current user lost?
             return True
-        return ctx.status != DockerStatus.READY
+        return ctx.status != PorterStatus.READY
 
 
 class HandshakingRunningTransition(StateTransition):
@@ -194,7 +194,7 @@ class HandshakingRunningTransition(StateTransition):
             # FIXME: current user lost?
             #        state will be changed to 'error'
             return False
-        if ctx.status != DockerStatus.READY:
+        if ctx.status != PorterStatus.READY:
             # connection lost, state will be changed to 'error'
             return False
         # when current user changed, the session key will cleared, so
@@ -217,7 +217,7 @@ class HandshakingConnectedTransition(StateTransition):
             # FIXME: current user lost?
             #        state will be changed to 'error'
             return False
-        if ctx.status != DockerStatus.READY:
+        if ctx.status != PorterStatus.READY:
             # connection lost, state will be changed to 'error'
             return False
         if ctx.session_key is not None:
@@ -241,7 +241,7 @@ class HandshakingErrorTransition(StateTransition):
         if ctx.session_id is None:
             # FIXME: current user lost?
             return True
-        return ctx.status != DockerStatus.READY
+        return ctx.status != PorterStatus.READY
 
 
 class RunningDefaultTransition(StateTransition):
@@ -258,7 +258,7 @@ class RunningDefaultTransition(StateTransition):
 
     # Override
     def evaluate(self, ctx: StateMachine, now: float) -> bool:
-        if ctx.status != DockerStatus.READY:
+        if ctx.status != PorterStatus.READY:
             # connection lost, state will be changed to 'error'
             return False
         if ctx.session_id is None:
@@ -277,7 +277,7 @@ class RunningErrorTransition(StateTransition):
 
     # Override
     def evaluate(self, ctx: StateMachine, now: float) -> bool:
-        return ctx.status != DockerStatus.READY
+        return ctx.status != PorterStatus.READY
 
 
 class ErrorDefaultTransition(StateTransition):
@@ -289,4 +289,4 @@ class ErrorDefaultTransition(StateTransition):
 
     # Override
     def evaluate(self, ctx: StateMachine, now: float) -> bool:
-        return ctx.status != DockerStatus.ERROR
+        return ctx.status != PorterStatus.ERROR

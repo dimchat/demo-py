@@ -38,7 +38,7 @@ from startrek import Arrival, Departure
 from startrek import ArrivalShip, DepartureShip, DeparturePriority
 from startrek import BaseConnection, BaseChannel
 
-from tcp import PlainDocker
+from tcp import PlainPorter
 
 from .protocol import WebSocket
 from .protocol import DeparturePacker
@@ -105,7 +105,7 @@ class WSDeparture(DepartureShip):
         return False
 
 
-class WSDocker(PlainDocker, DeparturePacker):
+class WSPorter(PlainPorter, DeparturePacker):
     """ Docker for WebSocket packages """
 
     MAX_PACK_LENGTH = 65536  # 64 KB
