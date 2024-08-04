@@ -123,12 +123,12 @@ async def modify(identifier: ID, database: AccountDBI):
     #   Step 1: create account
     #
     account = create_account(network=network, database=database)
-    meta, doc = account.load_info(identifier=identifier)
+    meta, doc = await account.load_info(identifier=identifier)
     if isinstance(account, GroupAccount):
         assert isinstance(doc, Bulletin), 'group document error: %s' % doc
         founder = doc.founder
         assert founder is not None, 'founder not found: %s' % doc
-        account.load_founder(founder=founder)
+        await account.load_founder(founder=founder)
     #
     #   Step 2. edit & save
     #

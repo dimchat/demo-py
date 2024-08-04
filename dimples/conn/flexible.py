@@ -87,9 +87,6 @@ class FlexiblePorter(StarPorter, DeparturePacker, Logging):
             coro = docker.set_connection(conn=self.connection)
             Runner.async_task(coro=coro)
             self.__porter = docker
-            if isinstance(docker, WSPorter):
-                # ignore first handshake package
-                return None
         # OK
         return await docker.process_received(data=data)
 

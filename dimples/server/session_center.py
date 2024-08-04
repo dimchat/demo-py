@@ -101,16 +101,16 @@ class SessionPool(Logging):
         candidates = set()
         clone_addresses = set(all_addresses)  # copy
         for remote in clone_addresses:
-            session = self.get_session(remote=remote)
+            session = self.__sessions.get(remote)
             if session is None:
                 self.warning(msg='session removed: %s, %s' % (identifier, remote))
                 all_addresses.discard(remote)
-                self.remove_address(identifier=identifier, remote=remote)
+                # self.remove_address(identifier=identifier, remote=remote)
                 continue
             elif session.identifier != identifier:
                 self.warning(msg='session reused: %s, %s, %s' % (identifier, remote, session))
                 all_addresses.discard(remote)
-                self.remove_address(identifier=identifier, remote=remote)
+                # self.remove_address(identifier=identifier, remote=remote)
                 continue
             # got it
             candidates.add(session)

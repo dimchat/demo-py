@@ -36,6 +36,7 @@
 """
 
 import socket
+import threading
 import traceback
 from typing import Optional, List, Tuple
 
@@ -84,6 +85,7 @@ class ServerSession(BaseSession):
     def __init__(self, remote: Tuple[str, int], sock: socket.socket, database: SessionDBI):
         super().__init__(remote=remote, sock=sock, database=database)
         self.__key = generate_session_key()
+        self.__loader = OfflineMessageLoader()
 
     @property
     def key(self) -> str:
@@ -100,27 +102,15 @@ class ServerSession(BaseSession):
         old = self.identifier
         if super().set_identifier(identifier=identifier):
             session_change_id(session=self, new_id=identifier, old_id=old)
-            self._load_cached_messages()
+            self.__loader.load_cached_messages(session=self)
             return True
 
     # Override
     def set_active(self, active: bool, when: float = None) -> bool:
         if super().set_active(active=active, when=when):
             session_change_active(session=self, active=active)
-            self._load_cached_messages()
+            self.__loader.load_cached_messages(session=self)
             return True
-
-    def _load_cached_messages(self):
-        if self.identifier is None:
-            # user not login
-            return False
-        elif not self.active:
-            # session not active
-            return False
-        # load cached message asynchronously
-        coro = load_cached_messages(session=self)
-        # Runner.async_task(coro=coro)
-        Runner.async_thread(coro=coro).start()
 
     #
     #   Docker Delegate
@@ -183,6 +173,36 @@ class ServerSession(BaseSession):
                 await remove_reliable_message(msg=msg, receiver=receiver, database=db)
 
 
+class OfflineMessageLoader:
+
+    def __init__(self):
+        super().__init__()
+        self.__lock = threading.Lock()
+        self.__thread = None
+
+    def load_cached_messages(self, session: ServerSession):
+        identifier = session.identifier
+        if identifier is None:
+            # user not login
+            return False
+        elif not session.active:
+            # session not active
+            return False
+        thr: threading.Thread = self.__thread
+        if thr is not None and thr.is_alive():
+            return False
+        with self.__lock:
+            thr = self.__thread
+            if thr is not None and thr.is_alive():
+                return False
+            # load cached message asynchronously
+            coro = _load_cached_messages(identifier=identifier, session=session)
+            thr = Runner.async_thread(coro=coro)
+            thr.start()
+            self.__thread = thr
+            return True
+
+
 def get_data_packages(ship: Arrival) -> List[bytes]:
     # get payload
     if isinstance(ship, MTPStreamArrival):
@@ -224,9 +244,7 @@ def session_change_active(session: ServerSession, active: bool):
         return True
 
 
-async def load_cached_messages(session: ServerSession):
-    identifier = session.identifier
-    assert identifier is not None and session.active, 'session error: %s' % session
+async def _load_cached_messages(identifier: ID, session: ServerSession):
     messenger = session.messenger
     db = messenger.database
     limit = ReliableMessageDBI.CACHE_LIMIT

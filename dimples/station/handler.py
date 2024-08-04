@@ -46,33 +46,21 @@ class RequestHandler(StreamRequestHandler, Logging):
         DIM Request Handler
     """
 
-    def __del__(self):
-        self.info(msg='request removed: %s' % str(self.client_address))
-
-    # Override
-    def setup(self):
-        super().setup()
-        self.info(msg='request setup: %s' % str(self.client_address))
-
-    # Override
-    def finish(self):
-        super().finish()
-        self.info(msg='request finished: %s' % str(self.client_address))
-
     # Override
     def handle(self):
         super().handle()
         try:
             self.info(msg='session started: %s' % str(self.client_address))
-            crt = _start_session(client_address=self.client_address, request=self.request)
-            Runner.sync_run(main=crt)
+            Runner.sync_run(main=_start_session(handler=self))
             self.info(msg='session finished: %s' % str(self.client_address))
         except Exception as error:
             self.error(msg='request handler error: %s' % error)
             traceback.print_exc()
 
 
-async def _start_session(client_address, request):
+async def _start_session(handler: RequestHandler):
+    client_address = handler.client_address
+    request = handler.request
     shared = GlobalVariable()
     session = ServerSession(remote=client_address, sock=request, database=shared.sdb)
     messenger = create_messenger(facebook=shared.facebook, database=shared.mdb, session=session)
