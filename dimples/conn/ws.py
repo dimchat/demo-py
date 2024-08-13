@@ -61,7 +61,9 @@ class WSArrival(ArrivalShip):
 
     @property  # Override
     def sn(self) -> bytes:
-        return self.__payload
+        data = self.__payload
+        sn = _fetch_sig_or_time(data=data)
+        return data if sn is None else sn
 
     # Override
     def assemble(self, ship):
@@ -71,11 +73,12 @@ class WSArrival(ArrivalShip):
 
 class WSDeparture(DepartureShip):
 
-    def __init__(self, package: bytes, payload: bytes, priority: int = 0):
+    def __init__(self, package: bytes, payload: bytes, priority: int = 0, important: bool = False):
         super().__init__(priority=priority, max_tries=1)
         self.__fragments = [package]
         self.__package = package
         self.__payload = payload
+        self.__important = important
 
     @property
     def package(self) -> bytes:
@@ -87,7 +90,9 @@ class WSDeparture(DepartureShip):
 
     @property  # Override
     def sn(self) -> bytes:
-        return self.__payload
+        data = self.__payload
+        sn = _fetch_sig_or_time(data=data)
+        return data if sn is None else sn
 
     @property  # Override
     def fragments(self) -> List[bytes]:
@@ -102,7 +107,42 @@ class WSDeparture(DepartureShip):
 
     @property
     def is_important(self) -> bool:
-        return False
+        return self.__important
+
+
+def _fetch_sig_or_time(data: bytes) -> Optional[bytes]:
+    sn = _fetch_value(data=data, tag=b'signature')
+    if sn is None:
+        sn = _fetch_value(data=data, tag=b'time')
+    return sn
+
+
+def _fetch_value(data: bytes, tag: bytes) -> Optional[bytes]:
+    tag_len = len(tag)
+    if tag_len == 0:
+        return None
+    # search tag
+    pos = data.find(tag)
+    if pos < 0:
+        return None
+    else:
+        pos += tag_len
+    # skip to start of value
+    pos = data.find(b':', pos)
+    if pos < 0:
+        return None
+    else:
+        pos += 1
+    # find end value
+    end = data.find(b',', pos)
+    if end < 0:
+        end = data.find(b'}', pos)
+        if end < 0:
+            return None
+    value = data[pos:end]
+    value = value.strip(b'"')
+    value = value.strip(b"'")
+    return value
 
 
 class WSPorter(PlainPorter, DeparturePacker):
@@ -116,6 +156,7 @@ class WSPorter(PlainPorter, DeparturePacker):
         self.__chunks = b''
         self.__chunks_lock = threading.RLock()
         self.__package_received = False
+        self.__ack_enable = False
 
     def _parse_package(self, data: bytes) -> Tuple[Optional[bytes], Optional[bytes], int]:
         conn = self.connection
@@ -208,6 +249,11 @@ class WSPorter(PlainPorter, DeparturePacker):
         elif body == OK:
             # should not happen
             return None
+        if body.startswith(b'ACK:'):
+            # respond for message
+            await self._check_response(ship=ship)
+            self.__ack_enable = True
+            return None
         # NOTICE: the delegate must respond to client in current request,
         #         cause it's a HTTP connection
         return ship
@@ -220,7 +266,8 @@ class WSPorter(PlainPorter, DeparturePacker):
     # Override
     def pack(self, payload: bytes, priority: int = 0) -> Optional[Departure]:
         req_pack = WebSocket.pack(payload=payload)
-        return WSDeparture(package=req_pack, payload=payload, priority=priority)
+        important = self.__ack_enable
+        return WSDeparture(package=req_pack, payload=payload, priority=priority, important=important)
 
     @classmethod
     def check(cls, data: bytes) -> bool:

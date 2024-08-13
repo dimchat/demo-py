@@ -29,7 +29,6 @@
 # ==============================================================================
 
 import socket
-import threading
 from abc import ABC
 from typing import Generic, TypeVar, Optional, Union
 
@@ -38,7 +37,7 @@ from startrek.net.state import StateOrder
 from startrek import Hub
 from startrek import Connection, ConnectionState, ActiveConnection
 from startrek import Porter, PorterStatus, PorterDelegate
-from startrek import Arrival, StarPorter, StarGate
+from startrek import Arrival, StarGate
 
 from ..utils import Logging
 
@@ -57,7 +56,6 @@ class CommonGate(StarGate, Logging, Generic[H], ABC):
     def __init__(self, delegate: PorterDelegate):
         super().__init__(delegate=delegate)
         self.__hub: H = None
-        self.__lock = threading.Lock()
 
     @property
     def hub(self) -> H:
@@ -92,29 +90,15 @@ class CommonGate(StarGate, Logging, Generic[H], ABC):
         else:
             return docker.status
 
-    async def fetch_porter(self, remote: SocketAddress, local: Optional[SocketAddress]) -> Porter:
-        # try to get docker
-        with self.__lock:
-            old = self._get_porter(remote=remote, local=local)
-            if old is None:
-                # create & cache docker
-                worker = self._create_porter(remote=remote, local=local)
-                self._set_porter(worker, remote=remote, local=local)
-            else:
-                worker = old
-        if old is None:
-            hub = self.hub
-            assert isinstance(hub, Hub), 'gate hub error: %s' % hub
-            conn = await hub.connect(remote=remote, local=local)
-            if conn is None:
-                # assert False, 'failed to get connection: %s -> %s' % (local, remote)
-                self._remove_porter(worker, remote=remote, local=local)
-                worker = None
-            else:
-                assert isinstance(worker, StarPorter), 'docker error: %s, %s' % (remote, worker)
-                # set connection for this docker
-                await worker.set_connection(conn)
-        return worker
+    async def fetch_porter(self, remote: SocketAddress, local: Optional[SocketAddress]) -> Optional[Porter]:
+        # get connection from hub
+        hub = self.hub
+        assert isinstance(hub, Hub), 'gate hub error: %s' % hub
+        conn = await hub.connect(remote=remote, local=local)
+        if conn is not None:
+            # connected, get docker with this connection
+            return await self._dock(connection=conn, create_porter=True)
+        assert False, 'failed to get connection: %s -> %s' % (local, remote)
 
     async def send_response(self, payload: bytes, ship: Arrival,
                             remote: SocketAddress, local: Optional[SocketAddress]) -> bool:
