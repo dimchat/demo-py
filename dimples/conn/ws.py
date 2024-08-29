@@ -140,6 +140,7 @@ def _fetch_value(data: bytes, tag: bytes) -> Optional[bytes]:
         if end < 0:
             return None
     value = data[pos:end]
+    value = value.strip(b' ')
     value = value.strip(b'"')
     value = value.strip(b"'")
     return value
