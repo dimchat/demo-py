@@ -36,6 +36,8 @@ from .ans import AnsCommand
 from .mute import MuteCommand
 from .block import BlockCommand
 
+from .group import GroupKeyCommand
+
 
 def register_all_factories():
     # Register core factories
@@ -65,6 +67,8 @@ __all__ = [
 
     'BlockCommand',
     'MuteCommand',
+
+    'GroupKeyCommand',
 
     'register_all_factories',
     'register_plugins',

@@ -103,28 +103,40 @@ class GroupKeysTable(GroupKeysDBI):
                        cache_pool=self._cache, redis=self._redis, storage=self._dos,
                        mutex_lock=self._lock)
 
-    async def _merge_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> Dict[str, str]:
-        if 'digest' not in keys:
-            # FIXME: old version?
-            return keys
-        # 0. check old record
+    async def _merge_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> Optional[Dict[str, str]]:
+        # 0. load old records
         table = await self.get_group_keys(group=group, sender=sender)
-        if table is None or 'digest' not in table:
+        if table is None:
             # new keys
             return keys
-        elif table.get('digest') != keys.get('digest'):
+        # 1. check times
+        old_time = table.get('time')
+        new_time = keys.get('time')
+        # assert old_time is not None and new_time is not None
+        if old_time is not None:
+            if new_time is None:
+                # error
+                return None
+            elif float(new_time) < float(old_time):
+                # expired records, drop them
+                return None
+        # 2. check digest
+        old_digest = table.get('digest')
+        new_digest = keys.get('digest')
+        if old_digest is None or new_digest is None:
+            # FIXME: old version?
+            return keys
+        elif old_digest != new_digest:
             # key changed
             return keys
-        else:
-            # same digest, merge keys
-            table = table.copy()
-            for receiver in keys:
-                table[receiver] = keys[receiver]
-            return table
-
-    async def load_group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
-        task = self._new_task(group=group, sender=sender)
-        return await task.load()
+        # 3. same digest, merge keys
+        table = table.copy()
+        for member in keys:
+            # update key for member
+            table[member] = keys[member]
+        # table['digest'] = new_digest
+        # table['time'] = new_time
+        return table
 
     #
     #   Group Keys DBI
@@ -132,9 +144,13 @@ class GroupKeysTable(GroupKeysDBI):
 
     # Override
     async def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
+        keys = await self._merge_keys(group=group, sender=sender, keys=keys)
+        if keys is None:
+            return False
         task = self._new_task(group=group, sender=sender)
         return await task.save(value=keys)
 
     # Override
     async def get_group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
-        return await self.load_group_keys(group=group, sender=sender)
+        task = self._new_task(group=group, sender=sender)
+        return await task.load()

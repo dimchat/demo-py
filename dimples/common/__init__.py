@@ -64,6 +64,8 @@ __all__ = [
     'BlockCommand',
     'MuteCommand',
 
+    'GroupKeyCommand',
+
     #
     #   Database Interface
     #

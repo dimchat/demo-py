@@ -151,7 +151,7 @@ __all__ = [
 
     'Command', 'CommandFactory',
     'MetaCommand', 'DocumentCommand',
-    'ReceiptCommand', 'ReceiptCommandMixIn',
+    'ReceiptCommand',
 
     'HistoryCommand', 'GroupCommand',
     'InviteCommand', 'ExpelCommand', 'JoinCommand', 'QuitCommand', 'QueryCommand', 'ResetCommand',
@@ -170,7 +170,7 @@ __all__ = [
 
     'BaseCommand',
     'BaseMetaCommand', 'BaseDocumentCommand',
-    'BaseReceipt', 'BaseReceiptCommand',
+    'BaseReceiptCommand',
 
     'BaseHistoryCommand', 'BaseGroupCommand',
     'InviteGroupCommand', 'ExpelGroupCommand', 'JoinGroupCommand',
@@ -311,6 +311,8 @@ __all__ = [
 
     'BlockCommand',
     'MuteCommand',
+
+    'GroupKeyCommand',
 
     #
     #   Database Interface
