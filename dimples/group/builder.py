@@ -124,7 +124,7 @@ class GroupHistoryBuilder(Logging):
 
     async def build_document_command(self, group: ID) -> Tuple[Optional[Document], Optional[ReliableMessage]]:
         """ create broadcast 'document' command """
-        user = self.facebook.current_user
+        user = await self.facebook.current_user
         doc = await self.delegate.get_bulletin(group)
         if user is None or doc is None:
             assert user is not None, 'failed to get current user'
@@ -139,7 +139,7 @@ class GroupHistoryBuilder(Logging):
     async def builder_reset_command(self, group: ID, members: Optional[List[ID]]) \
             -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
         """ create broadcast 'reset' group command with newest member list """
-        user = self.facebook.current_user
+        user = await self.facebook.current_user
         owner = await self.delegate.get_owner(identifier=group)
         if user is None or owner is None:
             assert user is not None, 'failed to get current user'

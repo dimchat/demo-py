@@ -28,33 +28,20 @@
 # SOFTWARE.
 # ==============================================================================
 
+import weakref
 from abc import ABC
-from typing import Dict, List
+from typing import Optional, List, Dict
 
 from dimsdk import ID
-from dimsdk import FrequencyChecker
-from dimsdk import Document
+from dimsdk import Meta, Document
 from dimsdk import MetaCommand, DocumentCommand, GroupCommand, QueryCommand
 from dimsdk import Station
+from dimsdk import FrequencyChecker
 
 from ..common import AccountDBI
 from ..common import CommonArchivist
-from ..common import CommonMessenger
-
-
-def get_facebook(archivist: CommonArchivist):
-    facebook = archivist.facebook
-    if facebook is not None:
-        from .facebook import ClientFacebook
-        assert isinstance(facebook, ClientFacebook), 'facebook error: %s' % facebook
-    return facebook
-
-
-def get_messenger(archivist: CommonArchivist):
-    messenger = archivist.messenger
-    if messenger is not None:
-        assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
-    return messenger
+from ..common import CommonFacebook, CommonMessenger
+from .network import ClientSession
 
 
 class ClientArchivist(CommonArchivist, ABC):
@@ -66,6 +53,29 @@ class ClientArchivist(CommonArchivist, ABC):
         super().__init__(database=database)
         self.__document_responses = FrequencyChecker(expires=self.RESPOND_EXPIRES)
         self.__last_active_members: Dict[ID, ID] = {}  # group => member
+        # twins
+        self.__facebook = None
+        self.__messenger = None
+
+    @property
+    def facebook(self) -> Optional[CommonFacebook]:
+        ref = self.__facebook
+        if ref is not None:
+            return ref()
+
+    @property
+    def messenger(self) -> Optional[CommonMessenger]:
+        ref = self.__messenger
+        if ref is not None:
+            return ref()
+
+    @facebook.setter
+    def facebook(self, barrack: CommonFacebook):
+        self.__facebook = weakref.ref(barrack)
+
+    @messenger.setter
+    def messenger(self, transceiver: CommonMessenger):
+        self.__messenger = weakref.ref(transceiver)
 
     # protected
     def is_documents_respond_expired(self, identifier: ID, force: bool) -> bool:
@@ -75,12 +85,46 @@ class ClientArchivist(CommonArchivist, ABC):
         self.__last_active_members[group] = member
 
     # Override
+    async def check_meta(self, identifier: ID, meta: Optional[Meta]) -> bool:
+        if identifier.is_broadcast:
+            # broadcast entity has no meta to query
+            return False
+        else:
+            return await super().check_meta(identifier=identifier, meta=meta)
+
+    # Override
+    async def check_documents(self, identifier: ID, documents: List[Document]) -> bool:
+        if identifier.is_broadcast:
+            # broadcast entity has no document to update
+            return False
+        else:
+            return await super().check_documents(identifier=identifier, documents=documents)
+
+    # Override
+    async def check_members(self, group: ID, members: List[ID]) -> bool:
+        if group.is_broadcast:
+            # broadcast entity has no members to update
+            return False
+        else:
+            return await super().check_members(group=group, members=members)
+
+    def _check_session_ready(self) -> bool:
+        messenger = self.messenger
+        if messenger is None:
+            return False
+        session = messenger.session
+        return isinstance(session, ClientSession) and session.ready
+
+    # Override
     async def query_meta(self, identifier: ID) -> bool:
+        if not self._check_session_ready():
+            self.warning(msg='querying meta cancel, waiting to connect: %s' % identifier)
+            return False
         if not self.is_meta_query_expired(identifier=identifier):
             # query not expired yet
             self.info(msg='meta query not expired yet: %s' % identifier)
             return False
-        messenger = get_messenger(archivist=self)
+        messenger = self.messenger
         if messenger is None:
             self.warning(msg='messenger not ready yet')
             return False
@@ -91,11 +135,14 @@ class ClientArchivist(CommonArchivist, ABC):
 
     # Override
     async def query_documents(self, identifier: ID, documents: List[Document]) -> bool:
+        if not self._check_session_ready():
+            self.warning(msg='querying document cancel, waiting to connect: %s' % identifier)
+            return False
         if not self.is_documents_query_expired(identifier=identifier):
             # query not expired yet
             self.info(msg='document query not expired yet: %s' % identifier)
             return False
-        messenger = get_messenger(archivist=self)
+        messenger = self.messenger
         if messenger is None:
             self.warning(msg='messenger not ready yet')
             return False
@@ -107,16 +154,19 @@ class ClientArchivist(CommonArchivist, ABC):
 
     # Override
     async def query_members(self, group: ID, members: List[ID]) -> bool:
+        if not self._check_session_ready():
+            self.warning(msg='querying members cancel, waiting to connect: %s' % group)
+            return False
         if not self.is_members_query_expired(group=group):
             # query not expired yet
             self.info('members query not expired yet: %s' % group)
             return False
-        facebook = get_facebook(archivist=self)
-        messenger = get_messenger(archivist=self)
+        facebook = self.facebook
+        messenger = self.messenger
         if facebook is None or messenger is None:
             self.warning(msg='facebook messenger not ready yet')
             return False
-        user = facebook.current_user
+        user = await facebook.current_user
         if user is None:
             self.error(msg='failed to get current user')
             return False
@@ -149,8 +199,8 @@ class ClientArchivist(CommonArchivist, ABC):
 
     # protected
     async def query_members_from_assistants(self, command: QueryCommand, sender: ID, group: ID) -> bool:
-        facebook = get_facebook(archivist=self)
-        messenger = get_messenger(archivist=self)
+        facebook = self.facebook
+        messenger = self.messenger
         if facebook is None or messenger is None:
             self.warning(msg='facebook messenger not ready yet')
             return False
@@ -182,8 +232,8 @@ class ClientArchivist(CommonArchivist, ABC):
 
     # protected
     async def query_members_from_administrators(self, command: QueryCommand, sender: ID, group: ID) -> bool:
-        facebook = get_facebook(archivist=self)
-        messenger = get_messenger(archivist=self)
+        facebook = self.facebook
+        messenger = self.messenger
         if facebook is None or messenger is None:
             self.warning(msg='facebook messenger not ready yet')
             return False
@@ -215,8 +265,8 @@ class ClientArchivist(CommonArchivist, ABC):
 
     # protected
     async def query_members_from_owner(self, command: QueryCommand, sender: ID, group: ID) -> bool:
-        facebook = get_facebook(archivist=self)
-        messenger = get_messenger(archivist=self)
+        facebook = self.facebook
+        messenger = self.messenger
         if facebook is None or messenger is None:
             self.warning(msg='facebook messenger not ready yet')
             return False

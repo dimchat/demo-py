@@ -39,9 +39,9 @@ from abc import ABC, abstractmethod
 from typing import Optional, Union, Tuple
 
 from dimsdk import SymmetricKey
-from dimsdk import ID
+from dimsdk import ID, Visa
 from dimsdk import Content, Envelope
-from dimsdk import Command, DocumentCommand
+from dimsdk import Command
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import EntityDelegate, CipherKeyDelegate
 from dimsdk import Messenger, Packer, Processor
@@ -102,11 +102,6 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     def session(self) -> Session:
         return self.__session
 
-    @abstractmethod
-    async def handshake_success(self):
-        """ callback for handshake success """
-        raise NotImplemented
-
     # Override
     async def encrypt_key(self, data: bytes, receiver: ID, msg: InstantMessage) -> Optional[bytes]:
         try:
@@ -151,16 +146,20 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
             content = fix_command(content=content)
         return content
 
+    @abstractmethod
+    async def send_visa(self, visa: Visa, receiver: ID, updated: bool = False) -> bool:
+        raise NotImplemented
+
     #
     #   Interfaces for Transmitting Message
     #
 
     # Override
-    async def send_content(self, sender: Optional[ID], receiver: ID, content: Content,
+    async def send_content(self,  content: Content, sender: Optional[ID], receiver: ID,
                            priority: int = 0) -> Tuple[InstantMessage, Optional[ReliableMessage]]:
         """ Send message content with priority """
         if sender is None:
-            current = self.facebook.current_user
+            current = await self.facebook.current_user
             assert current is not None, 'current user not set'
             sender = current.identifier
         env = Envelope.create(sender=sender, receiver=receiver)
@@ -170,9 +169,9 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
 
     # private
     async def _attach_visa_time(self, sender: ID, msg: InstantMessage) -> bool:
-        if isinstance(msg.content, DocumentCommand):
+        if isinstance(msg.content, Command):
             # no need to attach times for command
-            return True
+            return False
         doc = await self.facebook.get_visa(identifier=sender)
         if doc is None:
             self.error(msg='failed to get visa document for sender: %s' % sender)
@@ -192,7 +191,7 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         sender = msg.sender
         # 0. check cycled message
         if sender == msg.receiver:
-            self.warning(msg='drop cycled message: %s => %s, %s' % (sender, msg.receiver, msg.group))
+            self.warning(msg='cycled message: %s => %s, %s' % (sender, msg.receiver, msg.group))
             # return None
         else:
             self.debug(msg='send instant message message (type=%d): %s => %s, %s'
@@ -200,7 +199,9 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
             # attach sender's document times
             # for the receiver to check whether user info synchronized
             ok = await self._attach_visa_time(sender=sender, msg=msg)
-            if not ok:
+            if ok or isinstance(msg.content, Command):
+                pass
+            else:
                 self.warning(msg='failed to attach document time: %s => %s' % (sender, msg.content))
         #
         #  1. encrypt message
@@ -228,10 +229,10 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     # Override
     async def send_reliable_message(self, msg: ReliableMessage, priority: int = 0) -> bool:
         """ send reliable message with priority """
-        # # 0. check cycled message
-        # if msg.sender == msg.receiver:
-        #     self.warning(msg='drop cycled message: %s => %s, %s' % (msg.sender, msg.receiver, msg.group))
-        #     return False
+        # 0. check cycled message
+        if msg.sender == msg.receiver:
+            self.warning(msg='cycled message: %s => %s, %s' % (msg.sender, msg.receiver, msg.group))
+            # return False
         # 1. serialize message
         data = await self.serialize_message(msg=msg)
         assert data is not None, 'failed to serialize message: %s' % msg

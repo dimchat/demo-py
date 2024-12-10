@@ -75,7 +75,7 @@ class JoinCommandProcessor(GroupCommandProcessor):
             # maybe the command sender is already become a member,
             # but if it can still receive a 'join' command here,
             # we should notify the sender that the member list was updated.
-            user = self.facebook.current_user
+            user = await self.facebook.current_user
             if cannot_reset and owner == user.identifier:
                 # the sender cannot reset the group, means it's an ordinary member now,
                 # and if I am the owner, then send the group history commands

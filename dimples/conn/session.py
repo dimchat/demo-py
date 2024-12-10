@@ -53,12 +53,12 @@ class BaseSession(GateKeeper, Session, ABC):
     # Override
     def __str__(self) -> str:
         cname = self.__class__.__name__
-        return '<%s id="%s" remote="%s" key="%s" />' % (cname, self.identifier, self.remote_address, self.key)
+        return '<%s id="%s" remote="%s" key="%s" />' % (cname, self.identifier, self.remote_address, self.session_key)
 
     # Override
     def __repr__(self):
         cname = self.__class__.__name__
-        return '<%s id="%s" remote="%s" key="%s" />' % (cname, self.identifier, self.remote_address, self.key)
+        return '<%s id="%s" remote="%s" key="%s" />' % (cname, self.identifier, self.remote_address, self.session_key)
 
     @property  # Override
     def database(self) -> SessionDBI:

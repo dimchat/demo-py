@@ -23,16 +23,14 @@
 # SOFTWARE.
 # ==============================================================================
 
-import threading
-from abc import ABC
-from typing import Optional, List, Dict
+from abc import ABC, abstractmethod
+from typing import Optional, Dict
 
 from dimsdk import EncryptKey
 from dimsdk import ID
 from dimsdk import ReceiptCommand, DocumentCommand
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import MessagePacker, MessageHelper
-from dimsdk import Facebook, Messenger
 
 from ..utils import Logging
 
@@ -43,17 +41,7 @@ from .compat import fix_document_command
 
 class CommonMessagePacker(MessagePacker, Logging, ABC):
 
-    def __init__(self, facebook: Facebook, messenger: Messenger):
-        super().__init__(facebook=facebook, messenger=messenger)
-        # suspended messages
-        self.__suspend_lock = threading.Lock()
-        self.__incoming_messages: List[ReliableMessage] = []
-        self.__outgoing_messages: List[InstantMessage] = []
-
-    #
-    #   Suspending
-    #
-
+    @abstractmethod  # protected
     def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
         """
         Add income message in a queue for waiting sender's visa
@@ -61,13 +49,9 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
         :param msg:   incoming message
         :param error: error info
         """
-        self.warning(msg='suspend message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
-        msg['error'] = error
-        with self.__suspend_lock:
-            if len(self.__incoming_messages) > 32:
-                self.__incoming_messages.pop(0)
-            self.__incoming_messages.append(msg)
+        raise NotImplemented
 
+    @abstractmethod  # protected
     def suspend_instant_message(self, msg: InstantMessage, error: Dict):
         """
         Add outgo message in a queue for waiting receiver's visa
@@ -75,24 +59,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
         :param msg:   outgo message
         :param error: error info
         """
-        self.warning(msg='suspend message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
-        msg['error'] = error
-        with self.__suspend_lock:
-            if len(self.__outgoing_messages) > 32:
-                self.__outgoing_messages.pop(0)
-            self.__outgoing_messages.append(msg)
-
-    def resume_reliable_messages(self) -> List[ReliableMessage]:
-        with self.__suspend_lock:
-            messages = self.__incoming_messages
-            self.__incoming_messages = []
-            return messages
-
-    def resume_instant_messages(self) -> List[InstantMessage]:
-        with self.__suspend_lock:
-            messages = self.__outgoing_messages
-            self.__outgoing_messages = []
-            return messages
+        raise NotImplemented
 
     #
     #   Checking
@@ -101,12 +68,8 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
     # protected
     async def _visa_key(self, user: ID) -> Optional[EncryptKey]:
         """ for checking whether user's ready """
-        return await self.facebook.public_key_for_encryption(identifier=user)
-
-    # protected
-    async def _members(self, group: ID) -> List[ID]:
-        """ for checking whether group's ready """
-        return await self.facebook.get_members(identifier=group)
+        db = self.facebook
+        return await db.public_key_for_encryption(identifier=user)
 
     # protected
     async def _check_sender(self, msg: ReliableMessage) -> bool:
@@ -117,9 +80,10 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
         visa = MessageHelper.get_visa(msg=msg)
         if visa is not None:
             # first handshake?
-            assert visa.identifier == sender, 'visa ID not match: %s => %s' % (sender, visa)
+            matched = visa.identifier == sender
+            assert matched, 'visa ID not match: %s => %s' % (sender, visa)
             # assert Meta.match_id(meta=msg.meta, identifier=sender), 'meta error: %s' % msg
-            return visa.identifier == sender
+            return matched
         elif await self._visa_key(user=sender) is not None:
             # sender is OK
             return True
@@ -206,7 +170,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
 
     # Override
     async def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
-        if data is None or len(data) < 2:
+        if data is None or len(data) <= 4:
             # message data error
             return None
         # elif not (data.startswith(b'{') and data.endswith(b'}')):

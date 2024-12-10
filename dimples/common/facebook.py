@@ -35,6 +35,7 @@
     Barrack for cache entities
 """
 
+from abc import ABC, abstractmethod
 from typing import Optional, List
 
 from dimsdk import SignKey, DecryptKey
@@ -48,20 +49,16 @@ from .archivist import CommonArchivist
 from .anonymous import Anonymous
 
 
-class CommonFacebook(Facebook, Logging):
+class CommonFacebook(Facebook, Logging, ABC):
 
     def __init__(self):
         super().__init__()
         self.__current: Optional[User] = None
-        self.__archivist = None
 
-    @property
+    @property  # Override
+    @abstractmethod
     def archivist(self) -> CommonArchivist:
-        return self.__archivist
-
-    @archivist.setter
-    def archivist(self, db: CommonArchivist):
-        self.__archivist = db
+        raise NotImplemented
 
     #
     #   Super
@@ -69,16 +66,37 @@ class CommonFacebook(Facebook, Logging):
 
     @property  # Override
     async def local_users(self) -> List[User]:
-        current = self.__current
-        return [] if current is None else [current]
+        all_users = []
+        # load from database
+        array = await self.archivist.local_users()
+        if array is None or len(array) == 0:
+            # get current user
+            user = self.__current
+            if user is not None:
+                all_users.append(user)
+        else:
+            for item in array:
+                # assert self.private_key_for_signature(identifier=item) is not None, 'error: %s' % item
+                user = await self.get_user(identifier=item)
+                if user is not None:
+                    all_users.append(user)
+                # else:
+                #     assert False, 'failed to create user: %s' % item
+        # OK
+        return all_users
 
     @property
-    def current_user(self) -> Optional[User]:
+    async def current_user(self) -> Optional[User]:
         """ Get current user (for signing and sending message) """
-        return self.__current
+        user = self.__current
+        if user is None:
+            all_users = await self.local_users
+            if len(all_users) > 0:
+                user = all_users[0]
+                self.__current = user
+        return user
 
-    @current_user.setter
-    def current_user(self, user: User):
+    async def set_current_user(self, user: User):
         if user.data_source is None:
             user.data_source = self
         self.__current = user
@@ -88,7 +106,7 @@ class CommonFacebook(Facebook, Logging):
         doc = DocumentHelper.last_document(all_documents, doc_type)
         # compatible for document type
         if doc is None and doc_type == Document.VISA:
-            doc = DocumentHelper.last_document(all_documents, 'profile')
+            doc = DocumentHelper.last_document(all_documents, Document.PROFILE)
         return doc
 
     async def get_name(self, identifier: ID) -> str:
@@ -106,70 +124,6 @@ class CommonFacebook(Facebook, Logging):
                 return name
         # get name from ID
         return Anonymous.get_name(identifier=identifier)
-
-    # # Override
-    # async def save_meta(self, meta: Meta, identifier: ID) -> bool:
-    #     # check valid
-    #     if meta.valid and meta.match_identifier(identifier=identifier):
-    #         pass
-    #     else:
-    #         # assert False, 'meta not valid: %s' % identifier
-    #         return False
-    #     # check old meta
-    #     old = await self.get_meta(identifier=identifier)
-    #     if old is not None:
-    #         # assert meta == old, 'meta should not changed'
-    #         return True
-    #     # meta not exists yet, save it
-    #     db = self.database
-    #     return await db.save_meta(meta=meta, identifier=identifier)
-    #
-    # # Override
-    # async def save_document(self, document: Document) -> bool:
-    #     identifier = document.identifier
-    #     if not document.valid:
-    #         # try to verify
-    #         meta = await self.get_meta(identifier=identifier)
-    #         if meta is None:
-    #             self.error(msg='meta not found: %s' % identifier)
-    #             return False
-    #         elif document.verify(public_key=meta.public_key):
-    #             self.debug(msg='document verified: %s' % identifier)
-    #         else:
-    #             self.error(msg='failed to verify document: %s' % identifier)
-    #             # assert False, 'document not valid: %s' % identifier
-    #             return False
-    #     doc_type = document.type
-    #     if doc_type is None:
-    #         doc_type = '*'
-    #     # check old documents with type
-    #     documents = await self.get_documents(identifier=identifier)
-    #     old = DocumentHelper.last_document(documents, doc_type)
-    #     if old is not None and DocumentHelper.is_expired(document, old):
-    #         self.warning(msg='drop expired document: %s' % identifier)
-    #         return False
-    #     db = self.database
-    #     return await db.save_document(document=document)
-    #
-    # #
-    # #   EntityDataSource
-    # #
-    #
-    # # Override
-    # async def get_meta(self, identifier: ID) -> Optional[Meta]:
-    #     # if identifier.is_broadcast:
-    #     #     # broadcast ID has no meta
-    #     #     return None
-    #     db = self.database
-    #     return await db.get_meta(identifier=identifier)
-    #
-    # # Override
-    # async def get_documents(self, identifier: ID) -> List[Document]:
-    #     # if identifier.is_broadcast:
-    #     #     # broadcast ID has no documents
-    #     #     return None
-    #     db = self.database
-    #     return await db.get_documents(identifier=identifier)
 
     #
     #   UserDataSource
@@ -195,45 +149,18 @@ class CommonFacebook(Facebook, Logging):
         db = self.archivist
         return await db.private_key_for_visa_signature(identifier)
 
-    # #
-    # #    GroupDataSource
-    # #
     #
-    # # Override
-    # async def get_founder(self, identifier: ID) -> Optional[ID]:
-    #     db = self.database
-    #     user = db.get_founder(group=identifier)
-    #     if user is None:
-    #         user = await super().get_founder(identifier=identifier)
-    #     return user
+    #    Group
     #
-    # # Override
-    # async def get_owner(self, identifier: ID) -> Optional[ID]:
-    #     db = self.database
-    #     user = db.get_owner(group=identifier)
-    #     if user is None:
-    #         user = await super().get_owner(identifier=identifier)
-    #     return user
-    #
-    # # Override
-    # async def get_members(self, identifier: ID) -> List[ID]:
-    #     owner = await self.get_owner(identifier=identifier)
-    #     if owner is None:
-    #         # assert False, 'group owner not found: %s' % identifier
-    #         return []
-    #     db = self.database
-    #     users = db.get_members(group=identifier)
-    #     if len(users) == 0:
-    #         users = await super().get_members(identifier=identifier)
-    #         if len(users) == 0:
-    #             users = [owner]
-    #     assert owner == users[0], 'group owner must be the first member: %s, group: %s' % (owner, identifier)
-    #     return users
-    #
-    # # Override
-    # async def get_assistants(self, identifier: ID) -> List[ID]:
-    #     db = self.database
-    #     bots = db.get_assistants(group=identifier)
-    #     if len(bots) == 0:
-    #         bots = await super().assistants(identifier=identifier)
-    #     return bots
+
+    async def save_members(self, members: List[ID], group: ID) -> bool:
+        db = self.archivist
+        return await db.save_members(members=members, group=group)
+
+    async def save_administrators(self, administrators: List[ID], group: ID) -> bool:
+        db = self.archivist
+        return await db.save_administrators(administrators=administrators, group=group)
+
+    async def get_administrators(self, group: ID) -> List[ID]:
+        db = self.archivist
+        return await db.get_administrators(group=group)

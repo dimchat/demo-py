@@ -28,14 +28,13 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, Any, Dict
-
 from dimsdk import ReliableMessage
 from dimsdk import Command, MetaCommand, DocumentCommand
 from dimsdk import ReceiptCommand
 
-from ...utils import Converter
 from ..protocol import ReportCommand
+
+from .algorithm import MetaType
 
 
 #
@@ -44,32 +43,33 @@ from ..protocol import ReportCommand
 
 
 def patch():
-    patch_meta()
-    patch_cmd()
+    # patch_meta()
+    # patch_cmd()
+    pass
 
 
-def patch_meta():
-    from mkm.factory import AccountFactoryManager
-    AccountFactoryManager.general_factory.get_meta_type = get_meta_type
-
-
-def patch_cmd():
-    from dimp.dkd.factory import CommandFactoryManager
-    CommandFactoryManager.general_factory.get_cmd = get_cmd
-
-
-def get_meta_type(meta: Dict[str, Any], default: Optional[int]) -> Optional[int]:
-    """ get meta type(version) """
-    fix_meta_version(meta=meta)
-    value = meta.get('type')
-    return Converter.get_int(value=value, default=default)
-
-
-def get_cmd(content: Dict[str, Any], default: Optional[str]) -> Optional[str]:
-    """ get command name(cmd) """
-    fix_cmd(content=content)
-    value = content.get('cmd')
-    return Converter.get_str(value=value, default=default)
+# def patch_meta():
+#     from mkm.factory import AccountFactoryManager
+#     AccountFactoryManager.general_factory.get_meta_type = get_meta_type
+#
+#
+# def patch_cmd():
+#     from dimp.dkd.factory import CommandFactoryManager
+#     CommandFactoryManager.general_factory.get_cmd = get_cmd
+#
+#
+# def get_meta_type(meta: Dict[str, Any], default: Optional[int]) -> Optional[int]:
+#     """ get meta type(version) """
+#     fix_meta_version(meta=meta)
+#     value = meta.get('type')
+#     return Converter.get_int(value=value, default=default)
+#
+#
+# def get_cmd(content: Dict[str, Any], default: Optional[str]) -> Optional[str]:
+#     """ get command name(cmd) """
+#     fix_cmd(content=content)
+#     value = content.get('cmd')
+#     return Converter.get_str(value=value, default=default)
 
 
 def fix_meta_attachment(msg: ReliableMessage):
@@ -79,33 +79,43 @@ def fix_meta_attachment(msg: ReliableMessage):
 
 
 def fix_meta_version(meta: dict):
-    version = meta.get('version')
+    version = meta.get('type')
     if version is None:
-        meta['version'] = meta.get('type')
-    elif 'type' not in meta:
+        version = meta.get('version')  # compatible with MKM 0.9.*
+    elif isinstance(version, str) and 'algorithm' not in meta:
+        # TODO: check number
+        if len(version) > 2:
+            meta['algorithm'] = version
+    # compatible with v1.0
+    version = MetaType.parse_int(version=version, default=0)
+    if version > 0:
         meta['type'] = version
+        meta['version'] = version
     return meta
 
 
-def fix_cmd(content: dict):
-    cmd = content.get('cmd')
-    if cmd is None:
-        content['cmd'] = content.get('command')
-    elif 'command' not in content:
-        content['command'] = cmd
-    return content
-
-
 def fix_command(content: Command) -> Command:
-    fix_cmd(content=content.dictionary)
-    content = Command.parse(content=content)
-    # check other command
+    # 1. fix 'cmd'
+    content = fix_cmd(content=content)
+    # 2. fix other commands
     if isinstance(content, ReceiptCommand):
         fix_receipt_command(content=content)
     elif isinstance(content, MetaCommand):
         meta = content.get('meta')
         if meta is not None:
             fix_meta_version(meta=meta)
+    # OK
+    return content
+
+
+def fix_cmd(content: Command):
+    cmd = content.get('cmd')
+    if cmd is None:
+        cmd = content.get('command')
+        content['cmd'] = cmd
+    elif 'command' not in content:
+        content['command'] = cmd
+        content = Command.parse(content=content.dictionary)
     return content
 
 

@@ -28,7 +28,6 @@
 # SOFTWARE.
 # ==============================================================================
 
-import weakref
 from abc import ABC
 from typing import List, Optional
 
@@ -36,7 +35,7 @@ from dimsdk import DateTime
 from dimsdk import SignKey, DecryptKey, VerifyKey, EncryptKey
 from dimsdk import ID, Document, Meta
 from dimsdk import UserDataSource, GroupDataSource
-from dimsdk import Archivist, Facebook, Messenger
+from dimsdk import Archivist
 
 from ..utils import Logging
 
@@ -46,42 +45,22 @@ from .dbi import AccountDBI
 # noinspection PyAbstractClass
 class CommonArchivist(Archivist, UserDataSource, GroupDataSource, Logging, ABC):
 
+    # each query will be expired after 10 minutes
+    QUERY_EXPIRES = 600.0  # seconds
+
     def __init__(self, database: AccountDBI):
-        super().__init__(expires=Archivist.QUERY_EXPIRES)
+        super().__init__(expires=self.QUERY_EXPIRES)
         self.__db = database
-        # twins
-        self.__facebook = None
-        self.__messenger = None
 
     @property
     def database(self) -> AccountDBI:
         return self.__db
 
-    @property
-    def facebook(self) -> Optional[Facebook]:
-        ref = self.__facebook
-        if ref is not None:
-            return ref()
-
-    @facebook.setter
-    def facebook(self, barrack: Facebook):
-        self.__facebook = weakref.ref(barrack)
-
-    @property
-    def messenger(self) -> Optional[Messenger]:
-        ref = self.__messenger
-        if ref is not None:
-            return ref()
-
-    @messenger.setter
-    def messenger(self, transceiver: Messenger):
-        self.__messenger = weakref.ref(transceiver)
-
     # Override
     async def get_last_group_history_time(self, group: ID) -> Optional[DateTime]:
         db = self.database
         array = await db.get_group_histories(group=group)
-        if len(array) == 0:
+        if array is None or len(array) == 0:
             return None
         last_time: Optional[DateTime] = None
         for cmd, _ in array:
@@ -93,31 +72,9 @@ class CommonArchivist(Archivist, UserDataSource, GroupDataSource, Logging, ABC):
                 last_time = his_time
         return last_time
 
-    # # Override
-    # async def check_meta(self, identifier: ID, meta: Optional[Meta]) -> bool:
-    #     if identifier.is_broadcast:
-    #         # broadcast entity has no meta to query
-    #         return False
-    #     return super().check_meta(identifier=identifier, meta=meta)
-    #
-    # # Override
-    # async def check_documents(self, identifier: ID, documents: List[Document]) -> bool:
-    #     if identifier.is_broadcast:
-    #         # broadcast entity has no document to update
-    #         return False
-    #     return super().check_documents(identifier=identifier, documents=documents)
-    #
-    # # Override
-    # async def check_members(self, group: ID, members: List[ID]) -> bool:
-    #     if group.is_broadcast:
-    #         # broadcast group has no members to update
-    #         return False
-    #     return super().check_members(group=group, members=members)
-
-    # # Override
-    # async def local_users(self) -> List[ID]:
-    #     db = self.database
-    #     return db.get_local_users()
+    async def local_users(self) -> List[ID]:
+        db = self.database
+        return await db.get_local_users()
 
     # Override
     async def save_meta(self, meta: Meta, identifier: ID) -> bool:
@@ -214,17 +171,14 @@ class CommonArchivist(Archivist, UserDataSource, GroupDataSource, Logging, ABC):
     #   Organization Structure
     #
 
-    # Override
     async def get_administrators(self, group: ID) -> List[ID]:
         db = self.database
         return await db.get_administrators(group=group)
 
-    # Override
-    async def save_administrators(self, members: List[ID], group: ID) -> bool:
+    async def save_administrators(self, administrators: List[ID], group: ID) -> bool:
         db = self.database
-        return await db.save_administrators(administrators=members, group=group)
+        return await db.save_administrators(administrators=administrators, group=group)
 
-    # Override
     async def save_members(self, members: List[ID], group: ID) -> bool:
         db = self.database
         return await db.save_members(members=members, group=group)

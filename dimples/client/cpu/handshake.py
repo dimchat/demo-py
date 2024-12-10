@@ -60,7 +60,7 @@ class HandshakeCommandProcessor(BaseCommandProcessor, Logging):
         # handle handshake command with title & session key
         title = content.title
         new_sess_key = content.session
-        old_sess_key = client_session.key
+        old_sess_key = client_session.session_key
         assert new_sess_key is not None, 'new session key should not be empty: %s' % content
         if 'DIM?' == title:
             # S -> C: station ask client to handshake again
@@ -78,7 +78,7 @@ class HandshakeCommandProcessor(BaseCommandProcessor, Logging):
                 # connection changed?
                 self.error(msg='session key from %s not match: %s => %s' % (sender, old_sess_key, new_sess_key))
                 # erase session key to handshake again
-                client_session.key = None
+                client_session.session_key = None
         elif 'DIM!' == title:
             # S -> C: handshake accepted by station
             self.info(msg='handshake success: %s, local: %s' % (station.identifier, client_session.identifier))
@@ -86,7 +86,7 @@ class HandshakeCommandProcessor(BaseCommandProcessor, Logging):
             if old_sess_key is None:
                 # normal handshake response,
                 # update session key to change state to 'running'
-                client_session.key = new_sess_key
+                client_session.session_key = new_sess_key
             elif old_sess_key == new_sess_key:
                 # duplicated handshake response?
                 pass
@@ -94,7 +94,7 @@ class HandshakeCommandProcessor(BaseCommandProcessor, Logging):
                 # FIXME: handshake error
                 self.error(msg='session key from %s not match: %s => %s' % (sender, old_sess_key, new_sess_key))
                 # erase session key to handshake again
-                client_session.key = None
+                client_session.session_key = None
         else:
             # C -> S: Hello world!
             self.error(msg='[Error] handshake command from %s: %s' % (sender, content))

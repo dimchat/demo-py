@@ -41,8 +41,10 @@ from .facebook import CommonFacebook
 from .messenger import CommonMessenger
 from .packer import CommonMessagePacker
 from .processer import CommonMessageProcessor
+from .processer import Vestibule
 from .session import Transmitter, Session
 
+from .compat import MetaType
 from .compat import register_compatible_factories
 
 
@@ -52,6 +54,8 @@ register_compatible_factories()
 
 
 __all__ = [
+
+    'MetaType',
 
     #
     #   protocol
@@ -88,9 +92,12 @@ __all__ = [
 
     'CommonArchivist',
     'CommonFacebook',
+
     'CommonMessenger',
     'CommonMessagePacker',
     'CommonMessageProcessor',
+    'Vestibule',
+
     'Transmitter',
     'Session',
 

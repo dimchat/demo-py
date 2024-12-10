@@ -32,7 +32,7 @@ from typing import List
 
 from dimsdk import DateTime
 from dimsdk import EntityType
-from dimsdk import ReliableMessage
+from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import Content, TextContent
 from dimsdk import ReceiptCommand
 from dimsdk import ContentProcessorCreator
@@ -54,14 +54,40 @@ class ClientMessageProcessor(CommonMessageProcessor):
         assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
         return transceiver
 
+    @property
+    def archivist(self) -> ClientArchivist:
+        db = self.facebook.archivist
+        assert isinstance(db, ClientArchivist), 'client archivist error: %s' % db
+        return db
+
+    # Override
+    async def process_secure_message(self, msg: SecureMessage, r_msg: ReliableMessage) -> List[SecureMessage]:
+        try:
+            return await super().process_secure_message(msg=msg, r_msg=r_msg)
+        except Exception as error:
+            self.error(msg='failed to process message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
+            return []
+
+    # Override
+    async def process_instant_message(self, msg: InstantMessage, r_msg: ReliableMessage) -> List[InstantMessage]:
+        responses = await super().process_instant_message(msg=msg, r_msg=r_msg)
+        if not await self._save_instant_message(msg=msg):
+            self.error(msg='failed to save instant message: %s -> %s' % (msg.sender, msg.receiver))
+            return []
+        return responses
+
+    async def _save_instant_message(self, msg: InstantMessage) -> bool:
+        self.info(msg='TODO: saving instant message: %s -> %s' % (msg.sender, msg.receiver))
+        return True
+
     # private
     async def _check_group_times(self, content: Content, r_msg: ReliableMessage) -> bool:
         group = content.group
         if group is None:
             return False
-        facebook = self.facebook
-        archivist = facebook.archivist
-        assert isinstance(archivist, ClientArchivist), 'client archivist error: %s' % archivist
+        else:
+            facebook = self.facebook
+            archivist = self.archivist
         now = DateTime.now()
         doc_updated = False
         mem_updated = False
@@ -88,6 +114,7 @@ class ClientMessageProcessor(CommonMessageProcessor):
                 archivist.set_last_active_member(member=r_msg.sender, group=group)
                 self.info(msg='checking for group members: %s' % group)
                 await facebook.get_members(identifier=group)
+        # OK
         return doc_updated or mem_updated
 
     # Override
@@ -112,22 +139,23 @@ class ClientMessageProcessor(CommonMessageProcessor):
         receiver = user.identifier
         messenger = self.messenger
         # check responses
+        from_bots = sender.type == EntityType.STATION or sender.type == EntityType.BOT
         for res in responses:
             if res is None:
                 # should not happen
                 continue
             elif isinstance(res, ReceiptCommand):
-                if sender.type == EntityType.STATION or sender.type == EntityType.BOT:
+                if from_bots:
                     # no need to respond receipt to station
                     self.info(msg='drop receipt to %s, origin msg time=[%s]' % (sender, r_msg.time))
                     continue
             elif isinstance(res, TextContent):
-                if sender.type == EntityType.STATION or sender.type == EntityType.BOT:
+                if from_bots:
                     # no need to respond text message to station
                     self.info(msg='drop text to %s, origin time=[%s], text=%s' % (sender, r_msg.time, res.text))
                     continue
             # normal response
-            await messenger.send_content(sender=receiver, receiver=sender, content=res)
+            await messenger.send_content(sender=receiver, receiver=sender, content=res, priority=1)
         # DON'T respond to station directly
         return []
 

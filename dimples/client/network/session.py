@@ -43,6 +43,7 @@ from dimsdk import Station
 from startrek import Porter, PorterStatus
 from startrek import Arrival
 
+from ...utils import StateDelegate
 from ...utils import Daemon, Runner
 from ...common import SessionDBI
 from ...conn import BaseSession
@@ -80,6 +81,7 @@ class ClientSession(BaseSession):
         self.__station = station
         # session key
         self.__key: Optional[str] = None
+        self.__accepted = False
         # state machine
         self.__fsm = StateMachine(session=self)
         # background thread to drive gate & hub processing
@@ -90,12 +92,25 @@ class ClientSession(BaseSession):
         return self.__station
 
     @property
-    def key(self) -> Optional[str]:
+    def session_key(self) -> Optional[str]:
         return self.__key
 
-    @key.setter
-    def key(self, session_key: str):
-        self.__key = session_key
+    @session_key.setter
+    def session_key(self, key: str):
+        self.__key = key
+
+    @property
+    def accepted(self) -> bool:
+        return self.__accepted
+
+    @accepted.setter
+    def accepted(self, flag: bool):
+        self.__accepted = flag
+
+    @property
+    def ready(self) -> bool:
+        if self.active and self.accepted:
+            return self.identifier is not None and self.session_key is not None
 
     @property
     def fsm(self) -> StateMachine:
@@ -104,19 +119,26 @@ class ClientSession(BaseSession):
     @property
     def state(self) -> SessionState:
         ss = self.fsm.current_state
-        assert ss is None or isinstance(ss, SessionState), 'session state error: %s' % ss
+        if ss is None:
+            ss = self.fsm.default_state
+        assert isinstance(ss, SessionState), 'session state error: %s' % ss
         return ss
 
     # Override
-    async def start(self):
-        assert not self.running, 'client session already started: %s' % self
-        # 1. mark this session to running
-        await super().start()
-        # 2. start state machine
+    def set_active(self, active: bool, when: float = None) -> bool:
+        if not active:
+            self.__accepted = False
+        return super().set_active(active=active, when=when)
+
+    def start(self, delegate: StateDelegate):
+        if self.running:
+            # await self.stop()
+            return False
+        # start state machine
         fsm = self.fsm
-        assert fsm.delegate is not None, 'FSM delegate not set: %s' % self
-        await fsm.start()
-        # 3. start an async task for this session
+        fsm.delegate = delegate
+        Runner.async_task(coro=fsm.start())
+        # start an async task for this session
         self.__daemon.start()
         # await self.run()
 
@@ -133,8 +155,8 @@ class ClientSession(BaseSession):
 
     # Override
     async def setup(self):
-        self.set_active(active=True)
         await super().setup()
+        self.set_active(active=True)
 
     # Override
     async def finish(self):

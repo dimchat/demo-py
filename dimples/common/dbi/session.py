@@ -25,6 +25,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Optional, Any, Dict, List, Tuple
+from typing import Iterable
 
 from dimsdk import ID, Identifier, EVERYWHERE
 from dimsdk import Station
@@ -56,7 +57,7 @@ class LoginDBI(ABC):
 class ProviderInfo:
 
     # default service provider
-    GSP = Identifier(identifier='gsp@everywhere', name='gsp', address=EVERYWHERE)
+    GSP = Identifier.new(name='gsp', address=EVERYWHERE)
 
     def __init__(self, identifier: ID, chosen: int):
         super().__init__()
@@ -74,7 +75,7 @@ class ProviderInfo:
         return '<%s ID="%s" chosen=%d />' % (clazz, self.identifier, self.chosen)
 
     @classmethod
-    def convert(cls, array: List[Dict[str, Any]]):  # -> List[ProviderInfo]:
+    def convert(cls, array: Iterable[Dict[str, Any]]):  # -> List[ProviderInfo]:
         gf = ProviderFactoryManager.general_factory
         return gf.convert_providers(array=array)
 
@@ -109,7 +110,7 @@ class StationInfo:
                                                                        self.provider, self.chosen)
 
     @classmethod
-    def convert(cls, array: List[Dict[str, Any]]):  # -> List[StationInfo]:
+    def convert(cls, array: Iterable[Dict[str, Any]]):  # -> List[StationInfo]:
         gf = ProviderFactoryManager.general_factory
         return gf.convert_stations(array=array)
 
@@ -125,7 +126,7 @@ class ProviderGeneralFactory:
         super().__init__()
 
     # noinspection PyMethodMayBeStatic
-    def convert_providers(self, array: List[Dict[str, Any]]) -> List[ProviderInfo]:
+    def convert_providers(self, array: Iterable[Dict[str, Any]]) -> List[ProviderInfo]:
         providers = []
         for item in array:
             identifier = ID.parse(identifier=item.get('ID'))
@@ -138,7 +139,7 @@ class ProviderGeneralFactory:
         return providers
 
     # noinspection PyMethodMayBeStatic
-    def revert_providers(self, array: List[ProviderInfo]) -> List[Dict[str, Any]]:
+    def revert_providers(self, array: Iterable[ProviderInfo]) -> List[Dict[str, Any]]:
         providers = []
         for item in array:
             providers.append({
@@ -148,7 +149,7 @@ class ProviderGeneralFactory:
         return providers
 
     # noinspection PyMethodMayBeStatic
-    def convert_stations(self, array: List[Dict[str, Any]]) -> List[StationInfo]:
+    def convert_stations(self, array: Iterable[Dict[str, Any]]) -> List[StationInfo]:
         stations = []
         for item in array:
             identifier = ID.parse(identifier=item.get('ID'))
@@ -166,7 +167,7 @@ class ProviderGeneralFactory:
         return stations
 
     # noinspection PyMethodMayBeStatic
-    def revert_stations(self, array: List[StationInfo]) -> List[Dict[str, Any]]:
+    def revert_stations(self, array: Iterable[StationInfo]) -> List[Dict[str, Any]]:
         stations = []
         for item in array:
             stations.append({

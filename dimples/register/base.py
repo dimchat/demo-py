@@ -28,10 +28,11 @@ from typing import Optional, Tuple, List
 
 from dimsdk import SignKey
 from dimsdk import EntityType, ID
-from dimsdk import MetaType, Meta
+from dimsdk import Meta
 from dimsdk import Document, DocumentHelper
 
 from ..utils import Logging
+from ..common import MetaType
 from ..common import AccountDBI
 from ..common.compat import NetworkType, network_to_type
 
@@ -55,10 +56,10 @@ class BaseAccount(Logging, ABC):
     ]
 
     USER_META_TYPES = [
-        (MetaType.BTC, 'BTC'),
-        (MetaType.ETH, 'ETH'),
+        (2, 'BTC'),
+        (4, 'ETH'),
     ]
-    DEFAULT_META_TYPE = MetaType.DEFAULT.value
+    DEFAULT_META_TYPE = 1
 
     def __init__(self, database: AccountDBI):
         super().__init__()
@@ -76,7 +77,7 @@ class BaseAccount(Logging, ABC):
         return self.__id
 
     @classmethod
-    def input_type(cls, candidates: list, name: str) -> int:
+    def input_type(cls, candidates: List, name: str) -> int:
         print('--- %s(s) ---' % name)
         for candy in candidates:
             print('% 5d: %s' % candy)
@@ -136,7 +137,7 @@ class BaseAccount(Logging, ABC):
         print('!!!')
         print('!!! ID: %s' % identifier)
         print('!!!')
-        print('!!! meta type: %d, document type: %s, name: "%s"' % (meta.type, doc.type, doc.name))
+        print('!!! meta type: %s, document type: %s, name: "%s"' % (meta.type, doc.type, doc.name))
         print('!!!')
 
     async def load_info(self, identifier: ID) -> Tuple[Optional[Meta], Optional[Document]]:
@@ -187,11 +188,11 @@ class BaseAccount(Logging, ABC):
         raise NotImplemented
 
     @abstractmethod
-    def generate(self, network: int, version: int, seed: Optional[str]) -> Document:
+    def generate(self, network: int, version: str, seed: Optional[str]) -> Document:
         raise NotImplemented
 
     # protected
-    def generate_meta(self, version: int, seed: Optional[str], sign_key: SignKey) -> Meta:
+    def generate_meta(self, version: str, seed: Optional[str], sign_key: SignKey) -> Meta:
         """ 1. generate meta with sign key """
         assert self.__meta is None, 'meta exists: %s' % self.__meta
         self.__meta = Meta.generate(version=version, private_key=sign_key, seed=seed)
@@ -226,7 +227,7 @@ class BaseAccount(Logging, ABC):
             name = item[0]
             desc = item[1]
             kind = item[2]
-            old_value = doc.get_property(key=name)
+            old_value = doc.get_property(name=name)
             if old_value is None:
                 old_value = item[3]
             # input new value
@@ -241,7 +242,7 @@ class BaseAccount(Logging, ABC):
                 value = int(value)
             print('<<<   %s = %s;' % (name, value))
             print('!!!')
-            doc.set_property(key=name, value=value)
+            doc.set_property(name=name, value=value)
         print('!!! ------------------------------------------------------------------------')
         print('!!!   Done!')
         print('!!! ========================================================================')

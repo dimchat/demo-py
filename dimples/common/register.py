@@ -35,7 +35,7 @@ from dimsdk import PortableNetworkFile
 from dimsdk import EncryptKey, SignKey
 from dimsdk import AsymmetricKey, PrivateKey
 from dimsdk import EntityType, ID
-from dimsdk import MetaType, Meta
+from dimsdk import Meta
 from dimsdk import Visa, BaseVisa
 from dimsdk import Bulletin, BaseBulletin
 
@@ -67,7 +67,7 @@ class Register:
         #
         #   Step 2: generate meta with private key (and meta seed)
         #
-        meta = Meta.generate(version=MetaType.ETH, private_key=id_key)
+        meta = Meta.generate(version=Meta.ETH, private_key=id_key)
         #
         #   Step 3: generate ID with meta
         #
@@ -109,7 +109,7 @@ class Register:
         #
         #   Step 2: generate meta with private key (and meta seed)
         #
-        meta = Meta.generate(version=MetaType.MKM, private_key=private_key, seed=seed)
+        meta = Meta.generate(version=Meta.MKM, private_key=private_key, seed=seed)
         #
         #   Step 3: generate ID with meta
         #
@@ -138,7 +138,7 @@ class Register:
         assert user.is_user, 'user ID error: %s' % user
         doc = BaseVisa(identifier=user)
         # App ID
-        doc.set_property(key='app_id', value='chat.dim.tarsier')
+        doc.set_property(name='app_id', value='chat.dim.tarsier')
         # nickname
         doc.name = name
         # avatar
@@ -158,9 +158,9 @@ class Register:
         assert group.is_group, 'group ID error: %s' % group
         doc = BaseBulletin(identifier=group)
         # App ID
-        doc.set_property(key='app_id', value='chat.dim.tarsier')
+        doc.set_property(name='app_id', value='chat.dim.tarsier')
         # group founder
-        doc.set_property(key='founder', value=str(founder))
+        doc.set_property(name='founder', value=str(founder))
         # group name
         doc.name = name
         # sign it

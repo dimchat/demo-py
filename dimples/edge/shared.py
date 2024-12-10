@@ -28,7 +28,7 @@ import sys
 import time
 from typing import Optional, Tuple
 
-from dimsdk import ID, Station
+from dimsdk import ID
 
 from ..utils import Singleton, Config
 from ..utils import Path
@@ -37,7 +37,7 @@ from ..common import ProviderInfo
 from ..database.redis import RedisConnector
 from ..database import DbInfo
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
-from ..client import ClientSession, ClientFacebook, ClientArchivist
+from ..client import ClientFacebook, ClientArchivist
 
 
 @Singleton
@@ -50,6 +50,26 @@ class GlobalVariable:
         self.mdb: Optional[MessageDBI] = None
         self.sdb: Optional[SessionDBI] = None
         self.facebook: Optional[ClientFacebook] = None
+
+    async def prepare(self, app_name: str, default_config: str):
+        #
+        #  Step 1: load config
+        #
+        config = await create_config(app_name=app_name, default_config=default_config)
+        self.config = config
+        #
+        #  Step 2: create database
+        #
+        adb, mdb, sdb = await create_database(config=config)
+        self.adb = adb
+        self.mdb = mdb
+        self.sdb = sdb
+        #
+        #  Step 3: create facebook
+        #
+        sid = config.station_id
+        facebook = await create_facebook(database=adb, current_user=sid)
+        self.facebook = facebook
 
 
 def show_help(cmd: str, app_name: str, default_config: str):
@@ -160,13 +180,17 @@ async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, Sessi
     return adb, mdb, sdb
 
 
+def create_archivist(database: AccountDBI, facebook: ClientFacebook) -> ClientArchivist:
+    archivist = ClientArchivist(database=database)
+    archivist.facebook = facebook  # Weak Reference
+    return archivist
+
+
 async def create_facebook(database: AccountDBI, current_user: ID) -> ClientFacebook:
     """ Step 3: create facebook """
     facebook = ClientFacebook()
     # create archivist for facebook
-    archivist = ClientArchivist(database=database)
-    archivist.facebook = facebook
-    facebook.archivist = archivist
+    facebook.archivist = create_archivist(database=database, facebook=facebook)
     # make sure private keys exists
     sign_key = await facebook.private_key_for_visa_signature(identifier=current_user)
     msg_keys = await facebook.private_keys_for_decryption(identifier=current_user)
@@ -179,20 +203,8 @@ async def create_facebook(database: AccountDBI, current_user: ID) -> ClientFaceb
     if visa is not None:
         # refresh visa
         now = time.time()
-        visa.set_property(key='time', value=now)
+        visa.set_property(name='time', value=now)
         visa.sign(private_key=sign_key)
         await facebook.save_document(document=visa)
-    facebook.current_user = user
+    await facebook.set_current_user(user=user)
     return facebook
-
-
-def create_session(facebook: ClientFacebook, database: SessionDBI, host: str, port: int) -> ClientSession:
-    # 1. create station with remote host & port
-    station = Station(host=host, port=port)
-    station.data_source = facebook
-    # 2. create session with SessionDB
-    session = ClientSession(station=station, database=database)
-    # 3. set current user
-    user = facebook.current_user
-    session.set_identifier(identifier=user.identifier)
-    return session

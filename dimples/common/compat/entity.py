@@ -30,6 +30,7 @@
 
 from typing import Optional
 
+from dimsdk import EntityType
 from dimsdk import ID, Identifier
 from dimsdk import ANYONE, EVERYONE, FOUNDER
 from dimsdk import Address
@@ -43,9 +44,14 @@ class EntityID(Identifier):
 
     @property  # Override
     def type(self) -> int:
-        network = self.address.type
+        name = self.name
+        if name is None or len(name) == 0:
+            # all ID without 'name' field must be a user
+            # e.g.: BTC address
+            return EntityType.USER.value
         # compatible with MKM 0.9.*
-        return network_to_type(network=network)
+        address = self.address
+        return network_to_type(network=address.type)
 
 
 class EntityIDFactory(GeneralIdentifierFactory):
@@ -56,11 +62,20 @@ class EntityIDFactory(GeneralIdentifierFactory):
 
     # Override
     def _parse(self, identifier: str) -> Optional[ID]:
-        size = len(identifier)
-        if size == 15 and identifier.lower() == 'anyone@anywhere':
-            return ANYONE
-        if size == 19 and identifier.lower() == 'everyone@everywhere':
-            return EVERYONE
-        if size == 13 and identifier.lower() == 'moky@anywhere':
-            return FOUNDER
+        size = 0 if identifier is None else len(identifier)
+        if size < 4 or size > 64:
+            assert False, 'ID error: %s' % identifier
+        elif size == 15:
+            # "anyone@anywhere"
+            if identifier.lower() == 'anyone@anywhere':
+                return ANYONE
+        elif size == 19:
+            # "everyone@everywhere"
+            if identifier.lower() == 'everyone@everywhere':
+                return EVERYONE
+        elif size == 13:
+            # "moky@anywhere"
+            if identifier.lower() == 'moky@anywhere':
+                return FOUNDER
+        # normal ID
         return super()._parse(identifier=identifier)

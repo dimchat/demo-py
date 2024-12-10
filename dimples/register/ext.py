@@ -23,13 +23,14 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, Tuple, List
+from typing import Optional, Any, Tuple, List
 
 from dimsdk import PrivateKey, SignKey
 from dimsdk import ID
 from dimsdk import Meta
 from dimsdk import Document, Visa, Bulletin
 
+from ..common import MetaType
 from ..common import AccountDBI
 from ..database import PrivateKeyStorage
 
@@ -74,7 +75,8 @@ class GroupAccount(BaseAccount):
         return id_key
 
     # Override
-    def generate(self, network: int, version: int, seed: Optional[str]) -> Document:
+    def generate(self, network: int, version: Any, seed: Optional[str]) -> Document:
+        version = MetaType.parse_str(version=version)
         id_pri_key = self.__id_pri_key
         meta = self.generate_meta(version=version, seed=seed, sign_key=id_pri_key)
         assert meta is not None, 'failed to generate meta'
@@ -92,7 +94,7 @@ class GroupAccount(BaseAccount):
         if founder is None:
             founder = self.__founder
             assert founder is not None, 'founder not found'
-            doc.set_property(key='founder', value=str(founder))
+            doc.set_property(name='founder', value=str(founder))
         if doc.sign(private_key=self.__id_pri_key) is None:
             return None
         if not exists:
@@ -162,7 +164,8 @@ class UserAccount(BaseAccount):
         return self.__id_pri_key, self.__msg_pri_keys
 
     # Override
-    def generate(self, network: int, version: int, seed: Optional[str]) -> Visa:
+    def generate(self, network: int, version: Any, seed: Optional[str]) -> Visa:
+        version = MetaType.parse_str(version=version)
         id_pri_key, msg_pri_keys = self.generate_keys()
         meta = self.generate_meta(version=version, seed=seed, sign_key=id_pri_key)
         assert meta is not None, 'failed to generate meta'

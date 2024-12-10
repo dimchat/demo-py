@@ -97,7 +97,7 @@ class CommonGate(StarGate, Logging, Generic[H], ABC):
         conn = await hub.connect(remote=remote, local=local)
         if conn is not None:
             # connected, get docker with this connection
-            return await self._dock(connection=conn, create_porter=True)
+            return await self._dock(connection=conn, new_porter=True)
         assert False, 'failed to get connection: %s -> %s' % (local, remote)
 
     async def send_response(self, payload: bytes, ship: Arrival,

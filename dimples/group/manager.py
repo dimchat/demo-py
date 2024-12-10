@@ -108,7 +108,7 @@ class GroupManager(Logging):
         #
         #   0. get current user
         #
-        user = self.facebook.current_user
+        user = await self.facebook.current_user
         if user is None:
             self.error(msg='failed to get current user')
             return None
@@ -183,7 +183,7 @@ class GroupManager(Logging):
         #
         #   0. get current user
         #
-        user = self.facebook.current_user
+        user = await self.facebook.current_user
         if user is None:
             self.error(msg='failed to get current user')
             return False
@@ -260,7 +260,7 @@ class GroupManager(Logging):
         #
         #   0. get current user
         #
-        user = self.facebook.current_user
+        user = await self.facebook.current_user
         if user is None:
             self.error(msg='failed to get current user')
             return False
@@ -326,7 +326,7 @@ class GroupManager(Logging):
         #
         #   0. get current user
         #
-        user = self.facebook.current_user
+        user = await self.facebook.current_user
         if user is None:
             self.error(msg='failed to get current user')
             return False
@@ -389,7 +389,7 @@ class GroupManager(Logging):
             # assert False, 'params error'
             return False
         # 1. get sender
-        user = self.facebook.current_user
+        user = await self.facebook.current_user
         if user is None:
             self.error(msg='failed to get current user')
             return False

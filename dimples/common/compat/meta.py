@@ -28,134 +28,51 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, Union, Any, Dict
+from typing import Optional
 
-from dimsdk import VerifyKey, SignKey, PrivateKey
+from dimsdk import VerifyKey
 from dimsdk import TransportableData
-from dimsdk import Address
-from dimsdk import MetaType, Meta, MetaFactory, BaseMeta
+from dimsdk import Meta
 from dimsdk import AccountFactoryManager
-
-from ...utils import utf8_encode
-from .btc import BTCAddress
-
-
-"""
-    Default Meta to build ID with 'name@address'
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    version:
-        0x01 - MKM
-
-    algorithm:
-        CT      = fingerprint = sKey.sign(seed);
-        hash    = ripemd160(sha256(CT));
-        code    = sha256(sha256(network + hash)).prefix(4);
-        address = base58_encode(network + hash + code);
-"""
+from dimplugins import DefaultMeta, BTCMeta, ETHMeta
+from dimplugins import GeneralMetaFactory
 
 
-class CompatibleDefaultMeta(BaseMeta):
+class CompatibleMetaFactory(GeneralMetaFactory):
 
-    def __init__(self, meta: Dict[str, Any] = None,
-                 version: int = None, public_key: VerifyKey = None,
-                 seed: Optional[str] = None, fingerprint: Optional[TransportableData] = None):
-        super().__init__(meta=meta, version=version, public_key=public_key, seed=seed, fingerprint=fingerprint)
-        # caches
-        self.__addresses = {}
-
-    # Override
-    def generate_address(self, network: int = None) -> Address:
-        assert self.type == MetaType.MKM, 'meta version error: %d' % self.type
-        # check caches
-        address = self.__addresses.get(network)
-        if address is None:
-            # generate and cache it
-            data = self.fingerprint
-            address = BTCAddress.from_data(data, network=network)
-            self.__addresses[network] = address
-        return address
-
-
-"""
-    Meta to build BTC address for ID
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    version:
-        0x02 - BTC
-        0x03 - ExBTC
-
-    algorithm:
-        CT      = key.data;
-        hash    = ripemd160(sha256(CT));
-        code    = sha256(sha256(network + hash)).prefix(4);
-        address = base58_encode(network + hash + code);
-"""
-
-
-class CompatibleBTCMeta(BaseMeta):
-
-    def __init__(self, meta: Dict[str, Any] = None,
-                 version: int = None, public_key: VerifyKey = None,
-                 seed: Optional[str] = None, fingerprint: Optional[TransportableData] = None):
-        super().__init__(meta=meta, version=version, public_key=public_key, seed=seed, fingerprint=fingerprint)
-        # caches
-        self.__address: Optional[Address] = None
-
-    # Override
-    def generate_address(self, network: int = None) -> Address:
-        assert self.type in [MetaType.BTC, MetaType.ExBTC], 'meta version error: %d' % self.type
-        # assert network == NetworkType.BTC_MAIN, 'BTC address type error: %d' % network
-        if self.__address is None:
-            # TODO: compress public key?
-            key = self.public_key
-            data = key.data
-            # generate and cache it
-            self.__address = BTCAddress.from_data(data, network=network)
-        return self.__address
-
-
-class CompatibleMetaFactory(MetaFactory):
-
-    def __init__(self, version: Union[int, MetaType]):
-        super().__init__()
-        if isinstance(version, MetaType):
-            version = version.value
-        self.__type = version
-
-    # Override
-    def generate_meta(self, private_key: SignKey, seed: Optional[str]) -> Meta:
-        if seed is None or len(seed) == 0:
-            fingerprint = None
-        else:
-            sig = private_key.sign(data=utf8_encode(string=seed))
-            fingerprint = TransportableData.create(data=sig)
-        assert isinstance(private_key, PrivateKey), 'private key error: %s' % private_key
-        public_key = private_key.public_key
-        return self.create_meta(public_key=public_key, seed=seed, fingerprint=fingerprint)
+    def __init__(self, version: str):
+        super().__init__(version=version)
 
     # Override
     def create_meta(self, public_key: VerifyKey, seed: Optional[str], fingerprint: Optional[TransportableData]) -> Meta:
-        if self.__type == MetaType.MKM:
+        version = self.type
+        if version == Meta.MKM:
             # MKM
-            return CompatibleDefaultMeta(version=self.__type, public_key=public_key, seed=seed, fingerprint=fingerprint)
-        elif self.__type == MetaType.BTC:
+            out = DefaultMeta(version='1', public_key=public_key, seed=seed, fingerprint=fingerprint)
+        elif version == Meta.BTC:
             # BTC
-            return CompatibleBTCMeta(version=self.__type, public_key=public_key)
-        elif self.__type == MetaType.ExBTC:
-            # ExBTC
-            return CompatibleBTCMeta(version=self.__type, public_key=public_key, seed=seed, fingerprint=fingerprint)
+            out = BTCMeta(version='2', public_key=public_key)
+        elif version == Meta.ETH:
+            # ETH
+            out = ETHMeta(version='4', public_key=public_key)
+        else:
+            raise TypeError('unknown meta type: %d' % version)
+        assert out.valid, 'meta error: %s' % out
+        return out
 
     # Override
     def parse_meta(self, meta: dict) -> Optional[Meta]:
         gf = AccountFactoryManager.general_factory
-        version = gf.get_meta_type(meta=meta, default=0)
-        if version == MetaType.MKM:
+        version = gf.get_meta_type(meta=meta, default='')
+        if version == 'MKM' or version == 'mkm' or version == '1':
             # MKM
-            out = CompatibleDefaultMeta(meta=meta)
-        elif version == MetaType.BTC or version == MetaType.ExBTC:
-            # BTC, ExBTC
-            out = CompatibleBTCMeta(meta=meta)
+            out = DefaultMeta(meta=meta)
+        elif version == 'BTC' or version == 'btc' or version == '2':
+            # BTC
+            out = BTCMeta(meta=meta)
+        elif version == 'ETH' or version == 'eth' or version == '4':
+            # ETH
+            out = ETHMeta(meta=meta)
         else:
             raise TypeError('unknown meta type: %d' % version)
         if out.valid:

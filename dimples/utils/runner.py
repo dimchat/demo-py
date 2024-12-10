@@ -16,7 +16,7 @@ class PatchRunner(Runner):
 
 
 async def _bg_runner(runner: Runner):
-    await runner.start()
+    # await runner.start()
     await runner.run()
 
 

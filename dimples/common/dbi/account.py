@@ -25,6 +25,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Optional, Union, Any, Dict, List, Tuple
+from typing import Iterable
 
 from dimsdk import PrivateKey, SignKey, DecryptKey
 from dimsdk import ID, Meta, Document
@@ -59,7 +60,7 @@ class PrivateKeyDBI(ABC):
     #
 
     @classmethod
-    def convert_decrypt_keys(cls, keys: List[PrivateKey]) -> List[DecryptKey]:
+    def convert_decrypt_keys(cls, keys: Iterable[PrivateKey]) -> List[DecryptKey]:
         decrypt_keys = []
         for item in keys:
             if isinstance(item, DecryptKey):
@@ -67,7 +68,7 @@ class PrivateKeyDBI(ABC):
         return decrypt_keys
 
     @classmethod
-    def convert_private_keys(cls, keys: List[DecryptKey]) -> List[PrivateKey]:
+    def convert_private_keys(cls, keys: Iterable[DecryptKey]) -> List[PrivateKey]:
         private_keys = []
         for item in keys:
             if isinstance(item, PrivateKey):
@@ -75,7 +76,7 @@ class PrivateKeyDBI(ABC):
         return private_keys
 
     @classmethod
-    def revert_private_keys(cls, keys: List[PrivateKey]) -> List[Dict[str, Any]]:
+    def revert_private_keys(cls, keys: Iterable[PrivateKey]) -> List[Dict[str, Any]]:
         array = []
         for item in keys:
             array.append(item.dictionary)

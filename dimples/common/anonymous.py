@@ -55,13 +55,13 @@ class Anonymous:
 
     @classmethod
     def get_number(cls, address: Address) -> int:
-        if address.is_broadcast:
-            return 0
-        elif isinstance(address, BTCAddress):
+        if isinstance(address, BTCAddress):
             return btc_number(address=str(address))
         elif isinstance(address, ETHAddress):
             return eth_number(address=str(address))
-        assert False, 'address error: %s' % address
+        # TODO: other chain?
+        return 0
+        # assert False, 'address error: %s' % address
 
 
 def entity_name(network: int) -> str:

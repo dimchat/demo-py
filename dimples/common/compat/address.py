@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 #
-#   DIME : DIM Edge
+#   Ming-Ke-Ming : Decentralized User Identity Authentication
 #
-#                                Written in 2022 by Moky <albert.moky@gmail.com>
+#                                Written in 2024 by Moky <albert.moky@gmail.com>
 #
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2022 Albert Moky
+# Copyright (c) 2024 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,48 +28,19 @@
 # SOFTWARE.
 # ==============================================================================
 
-import os
-import sys
-
-path = os.path.abspath(__file__)
-path = os.path.dirname(path)
-path = os.path.dirname(path)
-path = os.path.dirname(path)
-sys.path.insert(0, path)
-
-from dimples.utils import Log, Runner
-
-from dimples.edge.shared import GlobalVariable
-from dimples.edge.octopus import Octopus
+from mkm.types import ConstantString
+from mkm import Address, EntityType
 
 
-#
-# show logs
-#
-Log.LEVEL = Log.DEVELOP
+class UnknownAddress(ConstantString, Address):
+    """
+        Unsupported Address
+        ~~~~~~~~~~~~~~~~~~~
+    """
 
+    def __init__(self, address: str):
+        super().__init__(string=address)
 
-DEFAULT_CONFIG = '/etc/dim/edge.ini'
-
-
-async def async_main():
-    # create global variable
-    shared = GlobalVariable()
-    await shared.prepare(app_name='DIM Network Edge', default_config=DEFAULT_CONFIG)
-    config = shared.config
-    # create & start octopus
-    host = config.station_host
-    port = config.station_port
-    assert host is not None and port > 0, 'station config error: %s' % config
-    octopus = Octopus(shared=shared, local_host=host, local_port=port)
-    await octopus.start()
-    await octopus.run()
-    Log.warning(msg='bot stopped: %s' % octopus)
-
-
-def main():
-    Runner.sync_run(main=async_main())
-
-
-if __name__ == '__main__':
-    main()
+    @property  # Override
+    def type(self) -> int:
+        return EntityType.USER.value

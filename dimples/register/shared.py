@@ -23,6 +23,8 @@
 # SOFTWARE.
 # ==============================================================================
 
+import getopt
+import sys
 from typing import Optional
 
 from dimsdk import EntityType
@@ -31,6 +33,7 @@ from dimsdk import ID, Bulletin
 from ..common.compat import NetworkType, network_to_type
 
 from ..utils import Singleton, Config
+from ..utils import Path
 from ..common import AccountDBI
 from ..database.redis import RedisConnector
 from ..database import DbInfo
@@ -50,6 +53,72 @@ class GlobalVariable:
         self.config: Optional[Config] = None
         self.adb: Optional[AccountDBI] = None
 
+    async def prepare(self, default_config: str):
+        #
+        #  Step 1: load config
+        #
+        config = await create_config(default_config=default_config)
+        self.config = config
+        #
+        #  Step 2: create database
+        #
+        adb = await create_database(config=config)
+        self.adb = adb
+
+
+def show_help(cmd: str, default_config: str):
+    print('')
+    print('    DIM account generate/modify')
+    print('')
+    print('usages:')
+    print('    %s [--config=<FILE>] generate' % cmd)
+    print('    %s [--config=<FILE>] modify <ID>' % cmd)
+    print('    %s [-h|--help]' % cmd)
+    print('')
+    print('actions:')
+    print('    generate        create new ID, meta & document')
+    print('    modify <ID>     edit document with ID')
+    print('')
+    print('optional arguments:')
+    print('    --config        config file path (default: "%s")' % default_config)
+    print('    --help, -h      show this help message and exit')
+    print('')
+
+
+async def create_config(default_config: str) -> Config:
+    """ Step 1: load config """
+    cmd = sys.argv[0]
+    try:
+        opts, args = getopt.getopt(args=sys.argv[1:],
+                                   shortopts='hf:',
+                                   longopts=['help', 'config='])
+    except getopt.GetoptError:
+        show_help(cmd=cmd, default_config=default_config)
+        sys.exit(1)
+    # check options
+    ini_file = None
+    for opt, arg in opts:
+        if opt == '--config':
+            ini_file = arg
+        else:
+            show_help(cmd=cmd, default_config=default_config)
+            sys.exit(0)
+    # check config filepath
+    if ini_file is None:
+        ini_file = default_config
+    if not await Path.exists(path=ini_file):
+        show_help(cmd=cmd, default_config=default_config)
+        print('')
+        print('!!! config file not exists: %s' % ini_file)
+        print('')
+        sys.exit(0)
+    # load config from file
+    config = Config.load(file=ini_file)
+    # initializing
+    print('[DB] init with config: %s => %s' % (ini_file, config))
+    # OK
+    return config
+
 
 def create_redis_connector(config: Config) -> Optional[RedisConnector]:
     redis_enable = config.get_boolean(section='redis', option='enable')
@@ -67,6 +136,7 @@ def create_redis_connector(config: Config) -> Optional[RedisConnector]:
 
 
 async def create_database(config: Config) -> AccountDBI:
+    """ Step 2: create database """
     root = config.database_root
     public = config.database_public
     private = config.database_private
@@ -76,6 +146,12 @@ async def create_database(config: Config) -> AccountDBI:
     adb = AccountDatabase(info=info)
     adb.show_info()
     return adb
+
+
+"""
+    Functions
+    ~~~~~~~~~
+"""
 
 
 def create_account(network: int, database: AccountDBI) -> BaseAccount:

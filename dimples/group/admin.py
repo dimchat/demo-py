@@ -73,7 +73,7 @@ class AdminManager(Logging):
         #
         #   0. get current user
         #
-        user = facebook.current_user
+        user = await facebook.current_user
         if user is None:
             self.error(msg='failed to get current user')
             return False
@@ -95,7 +95,7 @@ class AdminManager(Logging):
             # TODO: create new one?
             self.error(msg='failed to get group document: %s, owner: %s' % (group, me))
             return False
-        doc.set_property(key='administrators', value=ID.revert(array=administrators))
+        doc.set_property(name='administrators', value=ID.revert(array=administrators))
         signature = None if sign_key is None else doc.sign(private_key=sign_key)
         if signature is None:
             self.error(msg='failed to sign document for group: %s, owner: %s' % (group, me))
@@ -120,7 +120,7 @@ class AdminManager(Logging):
         #
         #   0. get current user
         #
-        user = facebook.current_user
+        user = await facebook.current_user
         if user is None:
             self.error(msg='failed to get current user')
             return False

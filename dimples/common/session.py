@@ -91,7 +91,7 @@ class Session(Transmitter, ABC):
         raise NotImplemented
 
     @property
-    def key(self) -> Optional[str]:
+    def session_key(self) -> Optional[str]:
         """ Session Key """
         raise NotImplemented
 
@@ -117,12 +117,16 @@ class Session(Transmitter, ABC):
     # Override
     def __str__(self) -> str:
         clazz = self.__class__.__name__
-        return '<%s:%s %s|%s active=%s />' % (clazz, self.key, self.remote_address, self.identifier, self.active)
+        session_key = self.session_key
+        remote = self.remote_address
+        return '<%s:%s %s|%s active=%s />' % (clazz, session_key, remote, self.identifier, self.active)
 
     # Override
     def __repr__(self) -> str:
         clazz = self.__class__.__name__
-        return '<%s:%s %s|%s active=%s />' % (clazz, self.key, self.remote_address, self.identifier, self.active)
+        session_key = self.session_key
+        remote = self.remote_address
+        return '<%s:%s %s|%s active=%s />' % (clazz, session_key, remote, self.identifier, self.active)
 
     async def queue_message_package(self, msg: ReliableMessage, data: bytes, priority: int = 0) -> bool:
         """

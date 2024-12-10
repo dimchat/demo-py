@@ -82,7 +82,7 @@ class StateMachine(AutoMachine, Context):
     @property
     def session_key(self) -> Optional[str]:
         session = self.session
-        return session.key
+        return session.session_key
 
     @property
     def session_id(self) -> ID:

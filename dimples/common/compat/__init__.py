@@ -28,14 +28,15 @@
 # SOFTWARE.
 # ==============================================================================
 
-from dimsdk import ID, Meta, MetaType
+from dimsdk import ID, Meta
 
+from .algorithm import MetaType
 from .network import NetworkType, network_to_type
 from .entity import EntityID, EntityIDFactory
 
-from .btc import CompatibleBTCAddress
+from .address import UnknownAddress
 
-from .meta import CompatibleDefaultMeta, CompatibleBTCMeta, CompatibleMetaFactory
+from .meta import CompatibleMetaFactory
 
 from .compatible import patch
 # from .compatible import patch_meta, patch_cmd
@@ -51,19 +52,29 @@ def register_compatible_factories():
     # ID
     ID.register(factory=EntityIDFactory())
     # meta
-    Meta.register(version=MetaType.MKM, factory=CompatibleMetaFactory(version=MetaType.MKM))
-    Meta.register(version=MetaType.BTC, factory=CompatibleMetaFactory(version=MetaType.BTC))
-    Meta.register(version=MetaType.ExBTC, factory=CompatibleMetaFactory(version=MetaType.ExBTC))
+    mkm_fact = CompatibleMetaFactory(Meta.MKM)
+    btc_fact = CompatibleMetaFactory(Meta.BTC)
+    eth_fact = CompatibleMetaFactory(Meta.ETH)
+    Meta.register(version='1', factory=mkm_fact)
+    Meta.register(version='2', factory=btc_fact)
+    Meta.register(version='4', factory=eth_fact)
+    Meta.register(version='mkm', factory=mkm_fact)
+    Meta.register(version='btc', factory=btc_fact)
+    Meta.register(version='eth', factory=eth_fact)
+    Meta.register(version='MKM', factory=mkm_fact)
+    Meta.register(version='BTC', factory=btc_fact)
+    Meta.register(version='ETH', factory=eth_fact)
 
 
 __all__ = [
 
+    'MetaType',
     'NetworkType', 'network_to_type',
     'EntityID', 'EntityIDFactory',
 
-    'CompatibleBTCAddress',
+    'UnknownAddress',
 
-    'CompatibleDefaultMeta', 'CompatibleBTCMeta', 'CompatibleMetaFactory',
+    'CompatibleMetaFactory',
 
     'register_compatible_factories',
 

@@ -27,17 +27,47 @@
     Common extensions for MessagePacker
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
-from typing import Optional
+from typing import Optional, List, Dict
 
 from dimsdk import ID
+from dimsdk import ContentType, TextContent, FileContent
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 
 from ..utils import get_msg_sig
+from ..common import CommonFacebook, CommonMessenger
 from ..common import CommonMessagePacker
 from .checkpoint import Checkpoint
 
 
 class ClientMessagePacker(CommonMessagePacker):
+
+    # Override
+    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
+        # TODO:
+        self.warning(msg='TODO: suspend reliable message: %s => %s' % (msg.sender, msg.receiver))
+
+    # Override
+    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
+        # TODO:
+        self.warning(msg='TODO: suspend instant message: %s => %s' % (msg.sender, msg.receiver))
+
+    @property
+    def facebook(self) -> Optional[CommonFacebook]:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'barrack error: %s' % barrack
+        return barrack
+
+    @property
+    def messenger(self) -> Optional[CommonMessenger]:
+        transceiver = super().messenger
+        assert isinstance(transceiver, CommonMessenger), 'transceiver error: %s' % transceiver
+        return transceiver
+
+    # protected
+    async def _get_members(self, group: ID) -> List[ID]:
+        """ for checking whether group's ready """
+        db = self.facebook
+        return await db.get_members(identifier=group)
 
     # Override
     async def _check_receiver(self, msg: InstantMessage) -> bool:
@@ -51,7 +81,7 @@ class ClientMessagePacker(CommonMessagePacker):
         #
         #   check group's meta & members
         #
-        members = await self._members(group=receiver)
+        members = await self._get_members(group=receiver)
         if len(members) == 0:
             # group not ready, suspend message for waiting meta/members
             error = {
@@ -105,7 +135,7 @@ class ClientMessagePacker(CommonMessagePacker):
             return True
         # H, J, K - group message
         #     check for received group message
-        members = await self._members(group=group)
+        members = await self._get_members(group=group)
         if len(members) > 0:
             # group is ready
             return True
@@ -126,11 +156,6 @@ class ClientMessagePacker(CommonMessagePacker):
             return None
         return await super().verify_message(msg=msg)
 
-    # # Override
-    # async def serialize_message(self, msg: ReliableMessage) -> bytes:
-    #     await attach_key_digest(msg=msg, messenger=self.messenger)
-    #     return await super().serialize_message(msg=msg)
-
     # Override
     async def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
         msg = await super().deserialize_message(data=data)
@@ -139,99 +164,77 @@ class ClientMessagePacker(CommonMessagePacker):
         return msg
 
     def _message_duplicated(self, msg: ReliableMessage) -> bool:
-        if g_checkpoint.duplicated(msg=msg):
+        cp = Checkpoint()
+        if cp.duplicated(msg=msg):
             sig = get_msg_sig(msg=msg)
             self.warning(msg='drop duplicated message (%s): %s -> %s' % (sig, msg.sender, msg.receiver))
             return True
 
-    # # Override
-    # async def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
-    #     # make sure visa.key exists before encrypting message
-    #     s_msg = await super().encrypt_message(msg=msg)
-    #     receiver = msg.receiver
-    #     if receiver.is_group:
-    #         # reuse group message keys
-    #         key = await self.messenger.get_cipher_key(sender=msg.sender, receiver=receiver)
-    #         key['reused'] = True
-    #     # TODO: reuse personal message key?
-    #     return s_msg
+    # Override
+    async def decrypt_message(self, msg: SecureMessage) -> Optional[InstantMessage]:
+        try:
+            i_msg = await super().decrypt_message(msg=msg)
+        except AssertionError as error:
+            err_msg = '%s' % error
+            if err_msg.find('failed to decrypt message key') >= 0:
+                # Exception from 'SecureMessagePacker::decrypt_message(msg, receiver)'
+                self.warning(msg='decrypt message error: %s' % err_msg)
+                # visa.key changed?
+                # push my newest visa to the sender
+                i_msg = None
+            elif err_msg.find('receiver error') >= 0:
+                # Exception from 'MessagePacker::decrypt_message(msg)'
+                self.error(msg='decrypt message error: %s' % err_msg)
+                # not for you?
+                # just ignore it
+                return None
+            else:
+                raise error
+        if i_msg is None:
+            # failed to decrypt message, visa.key changed?
+            # 1. push new visa document to this message sender
+            await self._push_visa(receiver=msg.sender)
+            # 2. build 'failed' message
+            i_msg = await self._build_failed_message(msg=msg)
+        else:
+            content = i_msg.content
+            if isinstance(content, FileContent):
+                if content.password is None and content.url is not None:
+                    # now received file content with remote data,
+                    # which must be encrypted before upload to CDN;
+                    # so keep the password here for decrypting after downloaded.
+                    pwd = self.messenger.get_decrypt_key(msg=msg)
+                    content.password = pwd
+        # OK
+        return i_msg
 
-    # # Override
-    # async def decrypt_message(self, msg: SecureMessage) -> Optional[InstantMessage]:
-    #     try:
-    #         await return super().decrypt_message(msg=msg)
-    #     except AssertionError as error:
-    #         err_msg = '%s' % error
-    #         # check exception thrown by DKD: chat.dim.dkd.EncryptedMessage.decrypt()
-    #         if err_msg.find('failed to decrypt key in msg') < 0:
-    #             raise error
-    #         # visa.key expired?
-    #         # push new visa document to this message sender
-    #         facebook = get_facebook(packer=self)
-    #         user = facebook.current_user
-    #         current = user.identifier
-    #         visa = await user.visa
-    #         assert visa is not None and visa.valid, 'user visa error: %s' % current
-    #         command = DocumentCommand.response(document=visa, identifier=current)
-    #         messenger = get_messenger(packer=self)
-    #         await messenger.send_visa(sender=current, receiver=msg.sender, content=command)
+    # protected
+    async def _push_visa(self, receiver: ID) -> bool:
+        # visa.key not updated?
+        user = await self.facebook.current_user
+        visa = await user.visa
+        return await self.messenger.send_visa(visa=visa, receiver=receiver)
 
-
-# def get_facebook(packer: CommonMessagePacker) -> CommonFacebook:
-#     barrack = packer.facebook
-#     assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
-#     return barrack
-#
-#
-# def get_messenger(packer: CommonMessagePacker):
-#     transceiver = packer.messenger
-#     from .messenger import ClientMessenger
-#     assert isinstance(transceiver, ClientMessenger), 'messenger error: %s' % transceiver
-#     return transceiver
-
-
-# async def attach_key_digest(msg: ReliableMessage, messenger: Messenger):
-#     # check message delegate
-#     if msg.delegate is None:
-#         msg.delegate = messenger
-#     # check msg.key
-#     if msg.encrypted_key is not None:
-#         # 'key' exists
-#         return
-#     # check msg.keys
-#     keys = msg.encrypted_keys
-#     if keys is None:
-#         keys = {}
-#     elif 'digest' in keys:
-#         # key digest already exists
-#         return
-#     # get key with direction
-#     sender = msg.sender
-#     group = msg.group
-#     if group is None:
-#         key = await messenger.get_cipher_key(sender=sender, receiver=msg.receiver)
-#     else:
-#         key = await messenger.get_cipher_key(sender=sender, receiver=group)
-#     digest = key_digest(key=key)
-#     if digest is None:
-#         # key error
-#         return
-#     keys['digest'] = digest
-#     msg['keys'] = keys
-#
-#
-# def key_digest(key: SymmetricKey) -> Optional[str]:
-#     """ get partially key data for digest """
-#     data = key.data
-#     if data is None or len(data) < 6:
-#         return None
-#     # get digest for the last 6 bytes of key.data
-#     pos = len(data) - 6
-#     digest = sha256(data[pos:])
-#     base64 = base64_encode(digest)
-#     # get last 8 chars as key digest
-#     pos = len(base64) - 8
-#     return base64[pos:]
-
-
-g_checkpoint = Checkpoint()
+    # protected
+    async def _build_failed_message(self, msg: SecureMessage) -> Optional[InstantMessage]:
+        sender = msg.sender
+        group = msg.group
+        msg_type = msg.type
+        if msg_type == ContentType.COMMAND or type == ContentType.HISTORY:
+            self.warning(msg='ignore message unable to decrypt (type=%s) from "%s"' % (msg_type, sender))
+            return None
+        # create text content
+        content = TextContent.create(text='Failed to decrypt message.')
+        content['template'] = 'Failed to decrypt message (type=${type}) from "${sender}".'
+        content['replacements'] = {
+            'type': msg_type,
+            'sender': str(sender),
+            'group': None if group is None else str(group)
+        }
+        if group is not None:
+            content.group = group
+        # pack instant message
+        info = msg.copy_dictionary(deep_copy=False)
+        info.pop('data', None)
+        info['content'] = content.dictionary
+        return InstantMessage.parse(msg=info)

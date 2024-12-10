@@ -67,14 +67,15 @@ class SigPool:
         add = msg.receiver.address
         tag = '%s:%s' % (sig, add)
         cached = self.__caches.get(tag)
-        if cached is None:
-            # cache not found, create a new one with message time
-            when = msg.time
-            timestamp = 0 if when is None else when.timestamp
-            self.__caches[tag] = timestamp
-            return False
-        else:
+        if cached is not None:
             return True
+        # cache not found, create a new one with message time
+        when = msg.time
+        if when is None:
+            self.__caches[tag] = DateTime.current_timestamp()
+        else:
+            self.__caches[tag] = when.timestamp
+        return False
 
 
 class LockedSigPool(SigPool):

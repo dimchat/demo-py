@@ -38,15 +38,29 @@ from dimsdk import BroadcastHelper
 
 from ..common import CommonFacebook
 
+from .archivist import ClientArchivist
+
 
 class ClientFacebook(CommonFacebook):
+
+    def __init__(self):
+        super().__init__()
+        self.__archivist = None
+
+    @property  # Override
+    def archivist(self) -> Optional[ClientArchivist]:
+        return self.__archivist
+
+    @archivist.setter
+    def archivist(self, db: ClientArchivist):
+        self.__archivist = db
 
     # Override
     async def save_document(self, document: Document) -> bool:
         ok = await super().save_document(document=document)
         if ok and isinstance(document, Bulletin):
             # check administrators
-            array = document.get_property(key='administrators')
+            array = document.get_property(name='administrators')
             if array is not None:
                 group = document.identifier
                 assert group.is_group, 'group ID error: %s' % group
