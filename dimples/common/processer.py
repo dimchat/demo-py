@@ -24,26 +24,41 @@
 # ==============================================================================
 
 import threading
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import List, Dict
 
 from dimsdk import DateTime
 from dimsdk import Content
 from dimsdk import InstantMessage, ReliableMessage
 from dimsdk import MessageProcessor
+from dimsdk import Messenger
+from dimsdk import GeneralContentProcessorFactory
 
 from ..utils import Logging
+
+from .facebook import CommonFacebook
 
 
 # noinspection PyAbstractClass
 class CommonMessageProcessor(MessageProcessor, Logging, ABC):
 
+    # Override
+    def _create_factory(self, facebook: CommonFacebook, messenger: Messenger):
+        creator = self._create_creator(facebook=facebook, messenger=messenger)
+        return GeneralContentProcessorFactory(creator=creator)
+
+    @abstractmethod
+    def _create_creator(self, facebook: CommonFacebook, messenger: Messenger):
+        raise NotImplemented
+
     # private
     # noinspection PyUnusedLocal
     async def _check_visa_time(self, content: Content, r_msg: ReliableMessage) -> bool:
         facebook = self.facebook
-        archivist = facebook.archivist
-        assert archivist is not None, 'should not happen'
+        assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
+        checker = facebook.checker
+        if checker is None:
+            assert False, 'entity checker lost'
         doc_updated = False
         # check sender document time
         last_doc_time = r_msg.get_datetime(key='SDT', default=None)
@@ -53,7 +68,7 @@ class CommonMessageProcessor(MessageProcessor, Logging, ABC):
                 # calibrate the clock
                 last_doc_time = now
             sender = r_msg.sender
-            doc_updated = archivist.set_last_document_time(identifier=sender, last_time=last_doc_time)
+            doc_updated = checker.set_last_document_time(identifier=sender, now=last_doc_time)
             # check whether needs update
             if doc_updated:
                 self.info(msg='checking for new visa: %s' % sender)

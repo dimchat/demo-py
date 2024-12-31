@@ -35,14 +35,12 @@ from dimsdk import InstantMessage, ReliableMessage
 from dimsdk import ForwardContent, FileContent
 from dimsdk import GroupCommand
 
-from ..utils import Logging
-from ..common import CommonFacebook, CommonMessenger
-
+from .delegate import TripletsHelper
 from .delegate import GroupDelegate
 from .packer import GroupPacker
 
 
-class GroupEmitter(Logging):
+class GroupEmitter(TripletsHelper):
 
     #   NOTICE: group assistants (bots) can help the members to redirect messages
     #
@@ -69,29 +67,16 @@ class GroupEmitter(Logging):
     SECRET_GROUP_LIMIT = 16
 
     def __init__(self, delegate: GroupDelegate):
-        super().__init__()
-        self.__delegate = delegate
+        super().__init__(delegate=delegate)
         self.__packer = self._create_packer()
-
-    def _create_packer(self) -> GroupPacker:
-        """ override for customized packer """
-        return GroupPacker(self.delegate)
-
-    @property  # protected
-    def delegate(self) -> GroupDelegate:
-        return self.__delegate
 
     @property  # protected
     def packer(self) -> GroupPacker:
         return self.__packer
 
-    @property  # protected
-    def facebook(self) -> CommonFacebook:
-        return self.delegate.facebook
-
-    @property  # protected
-    def messenger(self) -> CommonMessenger:
-        return self.delegate.messenger
+    def _create_packer(self) -> GroupPacker:
+        """ override for customized packer """
+        return GroupPacker(delegate=self.delegate)
 
     # private
     async def _attach_group_times(self, group: ID, msg: InstantMessage) -> bool:
@@ -99,7 +84,7 @@ class GroupEmitter(Logging):
             # no need to attach times for group command
             return True
         facebook = self.facebook
-        doc = await facebook.get_bulletin(identifier=group)
+        doc = await facebook.get_bulletin(group)
         if doc is None:
             self.error(msg='failed to get bulletin document for group: %s' % group)
             return False
@@ -111,8 +96,8 @@ class GroupEmitter(Logging):
         else:
             msg.set_datetime(key='GDT', value=last_doc_time)
         # attach group history time
-        archivist = facebook.archivist
-        last_his_time = await archivist.get_last_group_history_time(group=group)
+        checker = facebook.checker
+        last_his_time = await checker.get_last_group_history_time(group=group)
         if last_his_time is None:
             self.error(msg='failed to get history time: %s' % group)
             return False
@@ -120,30 +105,34 @@ class GroupEmitter(Logging):
             msg.set_datetime(key='GHT', value=last_his_time)
         return True
 
-    async def send_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
+    async def send_instant_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
         content = msg.content
         group = content.group
+        #
+        #   0. check group
+        #
         if group is None:
             self.error(msg='not a group message')
             return None
+        else:
+            self.info(msg='sending message (type=%d): %s => %s' % (content.type, msg.sender, group))
+            # attach group document & history times
+            # for the receiver to check whether group info synchronized
+            ok = await self._attach_group_times(group=group, msg=msg)
+            if not (ok or isinstance(content, GroupCommand)):
+                self.warning(msg='failed to attach group times: %s => %s' % (group, content))
         assert msg.receiver == group, 'group message error: %s' % msg
-        # attach group document & history times
-        # for the receiver to check whether group info synchronized
-        ok = await self._attach_group_times(group=group, msg=msg)
-        if not ok:
-            self.warning(msg='failed to attach group times: %s => %s' % (group, content))
         # TODO: if it's a file message
         #       please upload the file data first
         #       before calling this
-        assert not isinstance(content, FileContent) or 'data' not in content, 'content error: %s' % content
+        assert not isinstance(content, FileContent) or content.data is None, 'content error: %s' % content
         #
         #   1. check group bots
         #
-        bots = await self.delegate.get_assistants(identifier=group)
-        if len(bots) > 0:
+        prime = await self.delegate.get_fastest_assistant(identifier=group)
+        if prime is not None:
             # group bots found, forward this message to any bot to let it split for me;
             # this can reduce my jobs.
-            prime = bots[0]
             return await self.__forward_message(msg=msg, bot=prime, group=group, priority=priority)
         #
         #   2. check group members
@@ -184,6 +173,13 @@ class GroupEmitter(Logging):
         # but the group bots cannot decrypt it.
         msg.set_string(key='group', value=group)
         #
+        # the group bot can only get the message 'signature',
+        # but cannot know the 'sn' because it cannot decrypt the content,
+        # this is usually not a problem;
+        # but sometimes we want to respond a receipt with original sn,
+        # so I suggest to expose 'sn' too.
+        msg['sn'] = msg.content.sn
+        #
         #   1. pack message
         #
         r_msg = await self.packer.encrypt_sign_message(msg=msg)
@@ -217,14 +213,14 @@ class GroupEmitter(Logging):
 
         sender = msg.sender
         #
-        #   1. pack message
+        #   0. pack message
         #
         r_msg = await self.packer.encrypt_sign_message(msg=msg)
         if r_msg is None:
             self.error(msg='failed to encrypt & sign message: %s => %s' % (sender, group))
             return None
         #
-        #   2. split messages
+        #   1. split messages
         #
         messages = self.packer.split_reliable_message(msg=r_msg, members=members)
         for item in messages:
@@ -232,6 +228,9 @@ class GroupEmitter(Logging):
             if sender == receiver:
                 self.error(msg='cycled message: %s => %s, %s' % (sender, receiver, group))
                 continue
+            #
+            #   2. send message
+            #
             ok = await messenger.send_reliable_message(msg=item, priority=priority)
             if not ok:
                 # assert ok, 'failed to send message: %s => %s, %s' % (sender, receiver, group)

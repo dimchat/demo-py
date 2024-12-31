@@ -29,12 +29,13 @@
 # ==============================================================================
 
 from dimsdk import ReliableMessage
+from dimsdk import FileContent
 from dimsdk import Command, MetaCommand, DocumentCommand
 from dimsdk import ReceiptCommand
 
 from ..protocol import ReportCommand
 
-from .algorithm import MetaType
+from ..protocol import MetaType
 
 
 #
@@ -92,6 +93,21 @@ def fix_meta_version(meta: dict):
         meta['type'] = version
         meta['version'] = version
     return meta
+
+
+def fix_file_content(content: FileContent):
+    pwd = content.get('key')
+    if pwd is not None:
+        # Tarsier version > 1.3.7
+        # DIM SDK version > 1.1.0
+        content['password'] = pwd
+    else:
+        # Tarsier version <= 1.3.7
+        # DIM SDK version <= 1.1.0
+        pwd = content.get('password')
+        if pwd is not None:
+            content['key'] = pwd
+    return content
 
 
 def fix_command(content: Command) -> Command:

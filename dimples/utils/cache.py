@@ -36,8 +36,8 @@ from aiou.mem import CachePool, CacheManager
 from aiou.mem.cache import K, V
 
 from startrek.skywalker import Singleton
+from startrek.skywalker import Runner
 
-from .runner import PatchRunner as Runner
 from .log import Logging
 
 
@@ -48,8 +48,10 @@ class SharedCacheManager(Runner, Logging):
         super().__init__(interval=2.0)
         self.__manager = CacheManager()
         self.__next_time = 0
-        # Runner.async_task(coro=self.start())
-        Runner.thread_run(runner=self)
+        self.start()
+
+    def start(self):
+        Runner.async_task(coro=self.run())
 
     # Override
     async def process(self) -> bool:

@@ -82,8 +82,8 @@ class QueryCommandProcessor(GroupCommandProcessor):
         query_time = content.last_time
         if query_time is not None:
             # check last group history time
-            archivist = self.facebook.archivist
-            last_time = await archivist.get_last_group_history_time(group=group)
+            checker = self.facebook.checker
+            last_time = await checker.get_last_group_history_time(group=group)
             if last_time is None:
                 self.error(msg='group history error: %s' % group)
             elif not last_time.after(query_time):

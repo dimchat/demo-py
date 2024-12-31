@@ -28,53 +28,115 @@
 # SOFTWARE.
 # ==============================================================================
 
-from abc import ABC
+import weakref
 from typing import List, Optional
 
 from dimsdk import DateTime
 from dimsdk import SignKey, DecryptKey, VerifyKey, EncryptKey
-from dimsdk import ID, Document, Meta
-from dimsdk import UserDataSource, GroupDataSource
+from dimsdk import ID, EntityType
+from dimsdk import Document, Meta
+from dimsdk import User, BaseUser, Station, Bot
+from dimsdk import Group, BaseGroup, ServiceProvider
+from dimsdk import Facebook
 from dimsdk import Archivist
+from dimsdk import DocumentUtils
 
 from ..utils import Logging
 
 from .dbi import AccountDBI
 
 
-# noinspection PyAbstractClass
-class CommonArchivist(Archivist, UserDataSource, GroupDataSource, Logging, ABC):
+class CommonArchivist(Archivist, Logging):
 
     # each query will be expired after 10 minutes
     QUERY_EXPIRES = 600.0  # seconds
 
-    def __init__(self, database: AccountDBI):
+    def __init__(self, facebook: Facebook, database: AccountDBI):
         super().__init__(expires=self.QUERY_EXPIRES)
+        self.__barrack = weakref.ref(facebook)
         self.__db = database
+
+    @property
+    def facebook(self) -> Optional[Facebook]:
+        return self.__barrack()
 
     @property
     def database(self) -> AccountDBI:
         return self.__db
 
     # Override
-    async def get_last_group_history_time(self, group: ID) -> Optional[DateTime]:
-        db = self.database
-        array = await db.get_group_histories(group=group)
-        if array is None or len(array) == 0:
-            return None
-        last_time: Optional[DateTime] = None
-        for cmd, _ in array:
-            his_time = cmd.time
-            if his_time is None:
-                assert False, 'group command error: %s' % cmd
-                pass
-            elif last_time is None or last_time.before(his_time):
-                last_time = his_time
-        return last_time
+    async def create_user(self, identifier: ID) -> Optional[User]:
+        assert identifier.is_user, 'user ID error: %s' % identifier
+        # check visa key
+        if not identifier.is_broadcast:
+            key = await self.facebook.public_key_for_encryption(identifier=identifier)
+            if key is None:
+                # assert False, 'visa.key not found: %s' % identifier
+                return None
+            # NOTICE: if visa.key exists, then visa & meta must exist too.
+        network = identifier.type
+        # check user type
+        if network == EntityType.STATION:
+            return Station(identifier=identifier)
+        elif network == EntityType.BOT:
+            return Bot(identifier=identifier)
+        # general user, or 'anyone@anywhere'
+        return BaseUser(identifier=identifier)
 
-    async def local_users(self) -> List[ID]:
-        db = self.database
-        return await db.get_local_users()
+    # Override
+    async def create_group(self, identifier: ID) -> Optional[Group]:
+        assert identifier.is_group, 'group ID error: %s' % identifier
+        # check members
+        if not identifier.is_broadcast:
+            members = await self.facebook.get_members(identifier=identifier)
+            if members is None or len(members) == 0:
+                # assert False, 'group members not found: %s' % identifier
+                return None
+            # NOTICE: if members exist, then owner (founder) must exist,
+            #         and bulletin & meta must exist too.
+        network = identifier.type
+        # check group type
+        if network == EntityType.ISP:
+            return ServiceProvider(identifier=identifier)
+        # general group, or 'everyone@everhwhere'
+        return BaseGroup(identifier=identifier)
+
+    # Override
+    async def get_meta_key(self, identifier: ID) -> Optional[VerifyKey]:
+        meta = await self.facebook.get_meta(identifier=identifier)
+        if meta is not None:
+            return meta.public_key
+
+    # Override
+    async def get_visa_key(self, identifier: ID) -> Optional[EncryptKey]:
+        docs = await self.facebook.get_documents(identifier=identifier)
+        if docs is not None:
+            visa = DocumentUtils.last_visa(documents=docs)
+            if visa is not None:
+                return visa.public_key
+
+    @property  # Override
+    async def local_users(self) -> List[User]:
+        facebook = self.facebook
+        array = await self.database.get_local_users()
+        if facebook is None or array is None or len(array) == 0:
+            return []
+        all_users = []
+        for item in array:
+            # assert await facebook.private_key_for_signature(identifier=item) is not None
+            user = await facebook.get_user(identifier=item)
+            if user is not None:
+                all_users.append(user)
+            else:
+                assert False, 'failed to create user: %s' % item
+        return all_users
+
+
+class _Dep(Logging):
+
+    @property
+    def database(self) -> AccountDBI:
+        raise NotImplemented
 
     # Override
     async def save_meta(self, meta: Meta, identifier: ID) -> bool:

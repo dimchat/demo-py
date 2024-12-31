@@ -33,12 +33,12 @@ from typing import Optional
 from dimsdk import VerifyKey
 from dimsdk import TransportableData
 from dimsdk import Meta
-from dimsdk import AccountFactoryManager
+from dimsdk.plugins import SharedAccountExtensions
 from dimplugins import DefaultMeta, BTCMeta, ETHMeta
-from dimplugins import GeneralMetaFactory
+from dimplugins import BaseMetaFactory
 
 
-class CompatibleMetaFactory(GeneralMetaFactory):
+class CompatibleMetaFactory(BaseMetaFactory):
 
     def __init__(self, version: str):
         super().__init__(version=version)
@@ -56,14 +56,15 @@ class CompatibleMetaFactory(GeneralMetaFactory):
             # ETH
             out = ETHMeta(version='4', public_key=public_key)
         else:
+            # TODO: other types of meta
             raise TypeError('unknown meta type: %d' % version)
         assert out.valid, 'meta error: %s' % out
         return out
 
     # Override
     def parse_meta(self, meta: dict) -> Optional[Meta]:
-        gf = AccountFactoryManager.general_factory
-        version = gf.get_meta_type(meta=meta, default='')
+        ext = SharedAccountExtensions()
+        version = ext.helper.get_meta_type(meta=meta, default='')
         if version == 'MKM' or version == 'mkm' or version == '1':
             # MKM
             out = DefaultMeta(meta=meta)
@@ -74,6 +75,7 @@ class CompatibleMetaFactory(GeneralMetaFactory):
             # ETH
             out = ETHMeta(meta=meta)
         else:
+            # TODO: other types of meta
             raise TypeError('unknown meta type: %d' % version)
         if out.valid:
             return out

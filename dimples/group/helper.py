@@ -34,34 +34,19 @@ from dimsdk import DateTime
 from dimsdk import ID
 from dimsdk import ReliableMessage
 from dimsdk import GroupCommand, ResetCommand, ResignCommand
+from dimsdk import DocumentUtils
 
-from ..utils import Logging
-from ..utils import is_before
-from ..common import AccountDBI
-
-from .delegate import GroupDelegate
+from .delegate import TripletsHelper
 
 
-class GroupCommandHelper(Logging):
-
-    def __init__(self, delegate: GroupDelegate):
-        super().__init__()
-        self.__delegate = delegate
-
-    @property  # protected
-    def delegate(self) -> GroupDelegate:
-        return self.__delegate
-
-    @property  # protected
-    def database(self) -> AccountDBI:
-        return self.delegate.facebook.archivist.database
+class GroupCommandHelper(TripletsHelper):
 
     #
     #   Group History Command
     #
 
     async def save_group_history(self, group: ID, content: GroupCommand, message: ReliableMessage) -> bool:
-        if await self.is_expired(content=content):
+        if await self.is_command_expired(content=content):
             self.warning(msg='drop expired command: %s, %s => %s' % (content.cmd, message.sender, group))
             return False
         # check command time
@@ -71,8 +56,8 @@ class GroupCommandHelper(Logging):
         else:
             # calibrate the clock
             # make sure the command time is not in the far future
-            current = DateTime.now() + 65.0
-            if cmd_time > current:
+            near_future = DateTime.now() + 30 * 60
+            if cmd_time > near_future:
                 self.error(msg='group command time error: %s, %s' % (cmd_time, content))
                 return False
         # update group history
@@ -98,7 +83,7 @@ class GroupCommandHelper(Logging):
         db = self.database
         return await db.clear_group_admin_histories(group=group)
 
-    async def is_expired(self, content: GroupCommand) -> bool:
+    async def is_command_expired(self, content: GroupCommand) -> bool:
         """ check command time
             (all group commands received must after the cached 'reset' command)
         """
@@ -110,13 +95,13 @@ class GroupCommandHelper(Logging):
             if doc is None:
                 self.error(msg='group document not exists: %s' % group)
                 return True
-            return is_before(old_time=doc.time, new_time=content.time)
+            return DocumentUtils.is_before(old_time=doc.time, this_time=content.time)
         # membership command, check with reset command
         cmd, _ = await self.get_reset_command_message(group=group)
         if cmd is None:  # or msg is None:
             self.info(msg='"reset" command not found: %s' % content)
             return False
-        return is_before(old_time=cmd.time, new_time=content.time)
+        return DocumentUtils.is_before(old_time=cmd.time, this_time=content.time)
 
     # noinspection PyMethodMayBeStatic
     def members_from_command(self, content: GroupCommand) -> List[ID]:

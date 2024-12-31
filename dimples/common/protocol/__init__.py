@@ -23,11 +23,6 @@
 # SOFTWARE.
 # ==============================================================================
 
-from dimsdk import Command
-from dimsdk import CommandFactoryBuilder
-from dimsdk import register_all_factories as register_core_factories
-from dimplugins import register_plugins
-
 from .handshake import HandshakeCommand, HandshakeState
 from .login import LoginCommand
 from .report import ReportCommand
@@ -38,24 +33,10 @@ from .block import BlockCommand
 
 from .group import GroupKeyCommand
 
+from .customized import CustomizedContent, AppCustomizedContent
 
-def register_all_factories():
-    # Register core factories
-    register_core_factories()
-
-    # Handshake
-    Command.register(cmd=HandshakeCommand.HANDSHAKE, factory=CommandFactoryBuilder(command_class=HandshakeCommand))
-    # Login
-    Command.register(cmd=LoginCommand.LOGIN, factory=CommandFactoryBuilder(command_class=LoginCommand))
-    # Report
-    Command.register(cmd=ReportCommand.REPORT, factory=CommandFactoryBuilder(command_class=ReportCommand))
-    # ANS
-    Command.register(cmd=AnsCommand.ANS, factory=CommandFactoryBuilder(command_class=AnsCommand))
-
-    # Mute
-    Command.register(cmd=MuteCommand.MUTE, factory=CommandFactoryBuilder(command_class=MuteCommand))
-    # Block
-    Command.register(cmd=BlockCommand.BLOCK, factory=CommandFactoryBuilder(command_class=BlockCommand))
+from .version import MetaType
+from .utils import BroadcastUtils
 
 
 __all__ = [
@@ -70,6 +51,10 @@ __all__ = [
 
     'GroupKeyCommand',
 
-    'register_all_factories',
-    'register_plugins',
+    'CustomizedContent', 'AppCustomizedContent',
+
+    'MetaType',
+
+    'BroadcastUtils',
+
 ]

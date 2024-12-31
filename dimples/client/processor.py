@@ -32,53 +32,54 @@ from typing import List
 
 from dimsdk import DateTime
 from dimsdk import EntityType
-from dimsdk import InstantMessage, SecureMessage, ReliableMessage
+from dimsdk import ReliableMessage
 from dimsdk import Content, TextContent
 from dimsdk import ReceiptCommand
-from dimsdk import ContentProcessorCreator
+from dimsdk import Facebook, Messenger
 
 from ..common import HandshakeCommand
-from ..common import CommonMessenger
 from ..common import CommonMessageProcessor
 
 from .cpu import ClientContentProcessorCreator
 
-from .archivist import ClientArchivist
-
 
 class ClientMessageProcessor(CommonMessageProcessor):
 
-    @property
-    def messenger(self) -> CommonMessenger:
-        transceiver = super().messenger
-        assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
-        return transceiver
-
-    @property
-    def archivist(self) -> ClientArchivist:
-        db = self.facebook.archivist
-        assert isinstance(db, ClientArchivist), 'client archivist error: %s' % db
-        return db
-
-    # Override
-    async def process_secure_message(self, msg: SecureMessage, r_msg: ReliableMessage) -> List[SecureMessage]:
-        try:
-            return await super().process_secure_message(msg=msg, r_msg=r_msg)
-        except Exception as error:
-            self.error(msg='failed to process message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
-            return []
+    # @property
+    # def messenger(self) -> CommonMessenger:
+    #     transceiver = super().messenger
+    #     assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
+    #     return transceiver
+    #
+    # @property
+    # def archivist(self) -> ClientArchivist:
+    #     db = self.facebook.archivist
+    #     assert isinstance(db, ClientArchivist), 'client archivist error: %s' % db
+    #     return db
 
     # Override
-    async def process_instant_message(self, msg: InstantMessage, r_msg: ReliableMessage) -> List[InstantMessage]:
-        responses = await super().process_instant_message(msg=msg, r_msg=r_msg)
-        if not await self._save_instant_message(msg=msg):
-            self.error(msg='failed to save instant message: %s -> %s' % (msg.sender, msg.receiver))
-            return []
-        return responses
+    def _create_creator(self, facebook: Facebook, messenger: Messenger):
+        return ClientContentProcessorCreator(facebook=facebook, messenger=messenger)
 
-    async def _save_instant_message(self, msg: InstantMessage) -> bool:
-        self.info(msg='TODO: saving instant message: %s -> %s' % (msg.sender, msg.receiver))
-        return True
+    # # Override
+    # async def process_secure_message(self, msg: SecureMessage, r_msg: ReliableMessage) -> List[SecureMessage]:
+    #     try:
+    #         return await super().process_secure_message(msg=msg, r_msg=r_msg)
+    #     except Exception as error:
+    #         self.error(msg='failed to process message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
+    #         return []
+    #
+    # # Override
+    # async def process_instant_message(self, msg: InstantMessage, r_msg: ReliableMessage) -> List[InstantMessage]:
+    #     responses = await super().process_instant_message(msg=msg, r_msg=r_msg)
+    #     if not await self._save_instant_message(msg=msg):
+    #         self.error(msg='failed to save instant message: %s -> %s' % (msg.sender, msg.receiver))
+    #         return []
+    #     return responses
+    #
+    # async def _save_instant_message(self, msg: InstantMessage) -> bool:
+    #     self.info(msg='TODO: saving instant message: %s -> %s' % (msg.sender, msg.receiver))
+    #     return True
 
     # private
     async def _check_group_times(self, content: Content, r_msg: ReliableMessage) -> bool:
@@ -87,7 +88,7 @@ class ClientMessageProcessor(CommonMessageProcessor):
             return False
         else:
             facebook = self.facebook
-            archivist = self.archivist
+            checker = facebook.checker
         now = DateTime.now()
         doc_updated = False
         mem_updated = False
@@ -97,7 +98,7 @@ class ClientMessageProcessor(CommonMessageProcessor):
             if last_doc_time.after(now):
                 # calibrate the clock
                 last_doc_time = now
-            doc_updated = archivist.set_last_document_time(identifier=group, last_time=last_doc_time)
+            doc_updated = checker.set_last_document_time(identifier=group, last_time=last_doc_time)
             # check whether needs update
             if doc_updated:
                 self.info(msg='checking for new bulletin: %s' % group)
@@ -108,10 +109,10 @@ class ClientMessageProcessor(CommonMessageProcessor):
             if last_his_time.after(now):
                 # calibrate the clock
                 last_his_time = now
-            mem_updated = archivist.set_last_group_history_time(group=group, last_time=last_his_time)
+            mem_updated = checker.set_last_group_history_time(group=group, last_time=last_his_time)
             # check whether needs update
             if mem_updated:
-                archivist.set_last_active_member(member=r_msg.sender, group=group)
+                checker.set_last_active_member(member=r_msg.sender, group=group)
                 self.info(msg='checking for group members: %s' % group)
                 await facebook.get_members(identifier=group)
         # OK
@@ -158,7 +159,3 @@ class ClientMessageProcessor(CommonMessageProcessor):
             await messenger.send_content(sender=receiver, receiver=sender, content=res, priority=1)
         # DON'T respond to station directly
         return []
-
-    # Override
-    def _create_creator(self) -> ContentProcessorCreator:
-        return ClientContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)

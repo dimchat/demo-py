@@ -34,12 +34,26 @@ from dimsdk import ContentType, TextContent, FileContent
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 
 from ..utils import get_msg_sig
-from ..common import CommonFacebook, CommonMessenger
+from ..common import CommonFacebook
 from ..common import CommonMessagePacker
+
 from .checkpoint import Checkpoint
+from .archivist import ClientArchivist
 
 
 class ClientMessagePacker(CommonMessagePacker):
+
+    @property
+    def facebook(self) -> Optional[CommonFacebook]:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'barrack error: %s' % barrack
+        return barrack
+
+    @property
+    def archivist(self) -> Optional[ClientArchivist]:
+        db = self.facebook.archivist
+        assert isinstance(db, ClientArchivist), 'archivist error: %s' % db
+        return db
 
     # Override
     def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
@@ -50,18 +64,6 @@ class ClientMessagePacker(CommonMessagePacker):
     def suspend_instant_message(self, msg: InstantMessage, error: Dict):
         # TODO:
         self.warning(msg='TODO: suspend instant message: %s => %s' % (msg.sender, msg.receiver))
-
-    @property
-    def facebook(self) -> Optional[CommonFacebook]:
-        barrack = super().facebook
-        assert isinstance(barrack, CommonFacebook), 'barrack error: %s' % barrack
-        return barrack
-
-    @property
-    def messenger(self) -> Optional[CommonMessenger]:
-        transceiver = super().messenger
-        assert isinstance(transceiver, CommonMessenger), 'transceiver error: %s' % transceiver
-        return transceiver
 
     # protected
     async def _get_members(self, group: ID) -> List[ID]:
@@ -210,10 +212,12 @@ class ClientMessagePacker(CommonMessagePacker):
 
     # protected
     async def _push_visa(self, receiver: ID) -> bool:
+        facebook = self.facebook
+        archivist = self.archivist
         # visa.key not updated?
-        user = await self.facebook.current_user
+        user = await facebook.current_user
         visa = await user.visa
-        return await self.messenger.send_visa(visa=visa, receiver=receiver)
+        return await archivist.send_visa(visa=visa, receiver=receiver)
 
     # protected
     async def _build_failed_message(self, msg: SecureMessage) -> Optional[InstantMessage]:

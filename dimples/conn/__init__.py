@@ -42,7 +42,7 @@
 
 from startrek import Hub, Channel
 from startrek import Connection, ConnectionDelegate, ConnectionState
-from startrek import BaseChannel, ChannelReader, ChannelWriter
+from startrek import BaseChannel
 from startrek import BaseHub, BaseConnection, ActiveConnection
 
 from startrek import Ship, Arrival, Departure, DeparturePriority
@@ -77,7 +77,7 @@ __all__ = [
     #
     'Hub', 'Channel',
     'Connection', 'ConnectionDelegate', 'ConnectionState',
-    'BaseChannel', 'ChannelReader', 'ChannelWriter',
+    'BaseChannel',
     'BaseHub', 'BaseConnection', 'ActiveConnection',
 
     'Ship', 'Arrival', 'Departure', 'DeparturePriority',
@@ -113,4 +113,5 @@ __all__ = [
     # 'GateKeeper',
     'MessageWrapper', 'MessageQueue',
     'BaseSession',
+
 ]

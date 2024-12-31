@@ -35,13 +35,13 @@
     Transform and send message
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Optional, Union, Tuple
 
 from dimsdk import SymmetricKey
-from dimsdk import ID, Visa
+from dimsdk import ID
 from dimsdk import Content, Envelope
-from dimsdk import Command
+from dimsdk import FileContent, Command
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import EntityDelegate, CipherKeyDelegate
 from dimsdk import Messenger, Packer, Processor
@@ -53,7 +53,7 @@ from .dbi import MessageDBI
 from .facebook import CommonFacebook
 from .session import Transmitter, Session
 
-from .compat import fix_command
+from .compat import fix_command, fix_file_content
 
 
 class CommonMessenger(Messenger, Transmitter, Logging, ABC):
@@ -137,6 +137,8 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     async def serialize_content(self, content: Content, key: SymmetricKey, msg: InstantMessage) -> bytes:
         if isinstance(content, Command):
             content = fix_command(content=content)
+        elif isinstance(content, FileContent):
+            content = fix_file_content(content=content)
         return await super().serialize_content(content=content, key=key, msg=msg)
 
     # Override
@@ -144,11 +146,9 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         content = await super().deserialize_content(data=data, key=key, msg=msg)
         if isinstance(content, Command):
             content = fix_command(content=content)
+        elif isinstance(content, FileContent):
+            content = fix_file_content(content=content)
         return content
-
-    @abstractmethod
-    async def send_visa(self, visa: Visa, receiver: ID, updated: bool = False) -> bool:
-        raise NotImplemented
 
     #
     #   Interfaces for Transmitting Message
@@ -172,7 +172,7 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         if isinstance(msg.content, Command):
             # no need to attach times for command
             return False
-        doc = await self.facebook.get_visa(identifier=sender)
+        doc = await self.facebook.get_visa(sender)
         if doc is None:
             self.error(msg='failed to get visa document for sender: %s' % sender)
             return False

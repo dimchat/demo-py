@@ -34,26 +34,37 @@ from typing import Optional, List
 
 from dimsdk import EntityType
 from dimsdk import ID, Document, Bulletin
-from dimsdk import BroadcastHelper
+from dimsdk import User
 
+from ..utils import Runner
+from ..common import BroadcastUtils
 from ..common import CommonFacebook
 
-from .archivist import ClientArchivist
 
-
+# noinspection PyAbstractClass
 class ClientFacebook(CommonFacebook):
 
-    def __init__(self):
-        super().__init__()
-        self.__archivist = None
-
-    @property  # Override
-    def archivist(self) -> Optional[ClientArchivist]:
-        return self.__archivist
-
-    @archivist.setter
-    def archivist(self, db: ClientArchivist):
-        self.__archivist = db
+    # Override
+    async def select_user(self, receiver: ID) -> Optional[User]:
+        if receiver.is_user:
+            return await super().select_user(receiver=receiver)
+        # group message(recipient not designated)
+        assert receiver.is_group, 'receiver error: %s' % receiver
+        # the messenger will check group info before decrypting message,
+        # so we can trust that the group's meta & members MUST exist here.
+        users = await self.archivist.local_users
+        if users is None or len(users) == 0:
+            self.error(msg='local users should not be empty')
+            return None
+        elif receiver.is_broadcast:
+            # broadcast message can decrypt by anyone, so just return current user
+            return users[0]
+        members = await self.get_members(identifier=receiver)
+        # assert len(members) > 0, 'members not found: %s' % receiver
+        for item in users:
+            if item.identifier in members:
+                # DISCUSS: set this item to be current user?
+                return item
 
     # Override
     async def save_document(self, document: Document) -> bool:
@@ -69,23 +80,24 @@ class ClientFacebook(CommonFacebook):
         return ok
 
     #
-    #   GroupDataSource
+    #   Group DataSource
     #
 
     # Override
     async def get_founder(self, identifier: ID) -> Optional[ID]:
+        assert identifier.is_group, 'group ID error: %s' % identifier
         # check broadcast group
         if identifier.is_broadcast:
             # founder of broadcast group
-            return BroadcastHelper.broadcast_founder(group=identifier)
+            return BroadcastUtils.broadcast_founder(group=identifier)
         # check bulletin document
-        doc = await self.get_bulletin(identifier=identifier)
+        doc = await self.get_bulletin(group=identifier)
         if doc is None:
             # the owner(founder) should be set in the bulletin document of group
             return None
-        db = self.archivist
+        db = self.database
         # check local storage
-        user = await db.get_founder(identifier=identifier)
+        user = await db.get_founder(group=identifier)
         if user is not None:
             # got from local storage
             return user
@@ -97,25 +109,26 @@ class ClientFacebook(CommonFacebook):
 
     # Override
     async def get_owner(self, identifier: ID) -> Optional[ID]:
+        assert identifier.is_group, 'group ID error: %s' % identifier
         # check broadcast group
         if identifier.is_broadcast:
             # owner of broadcast group
-            return BroadcastHelper.broadcast_owner(group=identifier)
+            return BroadcastUtils.broadcast_owner(group=identifier)
         # check bulletin document
-        doc = await self.get_bulletin(identifier=identifier)
+        doc = await self.get_bulletin(group=identifier)
         if doc is None:
             # the owner(founder) should be set in the bulletin document of group
             return None
-        db = self.archivist
+        db = self.database
         # check local storage
-        user = await db.get_owner(identifier=identifier)
+        user = await db.get_owner(group=identifier)
         if user is not None:
             # got from local storage
             return user
         # check group type
         if identifier.type == EntityType.GROUP:
             # Polylogue's owner is its founder
-            user = await db.get_founder(identifier=identifier)
+            user = await db.get_founder(group=identifier)
             if user is None:
                 user = doc.founder
         if user is None:
@@ -124,14 +137,24 @@ class ClientFacebook(CommonFacebook):
 
     # Override
     async def get_members(self, identifier: ID) -> List[ID]:
+        assert identifier.is_group, 'group ID error: %s' % identifier
+        # check broadcast group
+        if identifier.is_broadcast:
+            # members of broadcast group
+            return BroadcastUtils.broadcast_members(group=identifier)
+        # check group owner
         owner = await self.get_owner(identifier=identifier)
         if owner is None:
             self.error(msg='group empty: %s' % identifier)
             return []
-        db = self.archivist
+        db = self.database
         # check local storage
-        users = await db.get_members(identifier=identifier)
-        await db.check_members(group=identifier, members=users)
+        users = await db.get_members(group=identifier)
+        checker = self.checker
+        if checker is not None:
+            coro = checker.check_members(group=identifier, members=users)
+            Runner.async_task(coro=coro)
+        # OK
         if len(users) == 0:
             users = [owner]
         else:
@@ -140,14 +163,15 @@ class ClientFacebook(CommonFacebook):
 
     # Override
     async def get_assistants(self, identifier: ID) -> List[ID]:
+        assert identifier.is_group, 'group ID error: %s' % identifier
         # check bulletin document
-        doc = await self.get_bulletin(identifier=identifier)
+        doc = await self.get_bulletin(group=identifier)
         if doc is None:
             # the assistants should be set in the bulletin document of group
             return []
-        db = self.archivist
+        db = self.database
         # check local storage
-        bots = await db.get_assistants(identifier=identifier)
+        bots = await db.get_assistants(group=identifier)
         if len(bots) > 0:
             # got from local storage
             return bots
@@ -159,27 +183,29 @@ class ClientFacebook(CommonFacebook):
     #   Organizational Structure
     #
 
+    # Override
     async def get_administrators(self, group: ID) -> List[ID]:
+        assert group.is_group, 'group ID error: %s' % group
         # check bulletin document
-        doc = await self.get_bulletin(identifier=group)
+        doc = await self.get_bulletin(group=group)
+        # the administrators should be set in the bulletin document
         if doc is None:
-            # the administrators should be set in the bulletin document
             return []
-        db = self.archivist
         # the 'administrators' should be saved into local storage
         # when the newest bulletin document received,
         # so we must get them from the local storage only,
         # not from the bulletin document.
+        db = self.database
         return await db.get_administrators(group=group)
 
     # protected
     async def save_administrators(self, administrators: List[ID], group: ID) -> bool:
-        db = self.archivist
+        db = self.database
         return await db.save_administrators(administrators, group=group)
 
     # protected
     async def save_members(self, members: List[ID], group: ID) -> bool:
-        db = self.archivist
+        db = self.database
         return await db.save_members(members, group=group)
 
 

@@ -28,6 +28,9 @@
 # SOFTWARE.
 # ==============================================================================
 
+from .delegate import TripletsHelper
+# from .delegate import GroupBotsManager
+
 from .delegate import GroupDelegate
 from .packer import GroupPacker
 from .emitter import GroupEmitter
@@ -38,8 +41,13 @@ from .builder import GroupHistoryBuilder
 from .manager import GroupManager
 from .admin import AdminManager
 
+from .shared import SharedGroupManager
+
 
 __all__ = [
+
+    'TripletsHelper',
+    # 'GroupBotsManager',
 
     'GroupDelegate',
     'GroupPacker',
@@ -50,5 +58,7 @@ __all__ = [
 
     'GroupManager',
     'AdminManager',
+
+    'SharedGroupManager',
 
 ]

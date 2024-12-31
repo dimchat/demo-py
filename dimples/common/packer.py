@@ -30,7 +30,8 @@ from dimsdk import EncryptKey
 from dimsdk import ID
 from dimsdk import ReceiptCommand, DocumentCommand
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
-from dimsdk import MessagePacker, MessageHelper
+from dimsdk import MessagePacker
+from dimsdk import MessageUtils
 
 from ..utils import Logging
 
@@ -77,7 +78,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
         sender = msg.sender
         assert sender.is_user, 'sender error: %s' % sender
         # check sender's meta & document
-        visa = MessageHelper.get_visa(msg=msg)
+        visa = MessageUtils.get_visa(msg=msg)
         if visa is not None:
             # first handshake?
             matched = visa.identifier == sender
@@ -128,8 +129,10 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
     async def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
         # 1. check contact info
         # 2. check group members info
-        if not await self._check_receiver(msg=msg):
-            # receiver not ready
+        if await self._check_receiver(msg=msg):
+            # receiver is ready
+            pass
+        else:
             self.warning(msg='receiver not ready: %s' % msg.receiver)
             return None
         content = msg.content
@@ -155,8 +158,10 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
     async def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
         # 1. check receiver/group with local user
         # 2. check sender's meta
-        if not await self._check_sender(msg=msg):
-            # sender not ready
+        if await self._check_sender(msg=msg):
+            # sender is ready
+            pass
+        else:
             self.warning(msg='sender not ready: %s' % msg.sender)
             return None
         return await super().verify_message(msg=msg)

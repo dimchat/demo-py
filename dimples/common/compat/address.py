@@ -28,8 +28,59 @@
 # SOFTWARE.
 # ==============================================================================
 
-from mkm.types import ConstantString
-from mkm import Address, EntityType
+from typing import Optional
+
+from dimsdk.core import thanos
+from dimsdk import ConstantString
+from dimsdk import EntityType
+from dimsdk import Address, ANYWHERE, EVERYWHERE
+from dimplugins import BTCAddress, ETHAddress
+from dimplugins import BaseAddressFactory
+
+
+class CompatibleAddressFactory(BaseAddressFactory):
+
+    def reduce_memory(self) -> int:
+        """
+        Call it when received 'UIApplicationDidReceiveMemoryWarningNotification',
+        this will remove 50% of cached objects
+
+        :return: number of survivors
+        """
+        finger = 0
+        finger = thanos(self._addresses, finger)
+        return finger >> 1
+
+    # Override
+    def _parse(self, address: str) -> Optional[Address]:
+        size = len(address)
+        if size == 0:
+            assert False, 'address should not be empty'
+        elif size == 8:
+            # "anywhere"
+            if address.lower() == 'anywhere':
+                return ANYWHERE
+        elif size == 10:
+            # "everywhere"
+            if address.lower() == 'everywhere':
+                return EVERYWHERE
+        #
+        #  checking normal address
+        #
+        if 26 <= size <= 35:
+            res = BTCAddress.from_str(address=address)
+        elif size == 42:
+            res = ETHAddress.from_str(address=address)
+        else:
+            # assert False, 'invalid address: %s' % address
+            res = None
+        #
+        #  TODO: other types of address
+        #
+        if res is None and 4 <= size <= 64:
+            res = UnknownAddress(address=address)
+        assert res is not None, 'invalid address: %s' % address
+        return res
 
 
 class UnknownAddress(ConstantString, Address):
@@ -42,5 +93,5 @@ class UnknownAddress(ConstantString, Address):
         super().__init__(string=address)
 
     @property  # Override
-    def type(self) -> int:
+    def network(self) -> int:
         return EntityType.USER.value

@@ -30,6 +30,7 @@
 
 from typing import Optional
 
+from dimsdk.core import thanos
 from dimsdk import EntityType
 from dimsdk import ID, Identifier
 from dimsdk import ANYONE, EVERYONE, FOUNDER
@@ -40,24 +41,22 @@ from dimplugins import GeneralIdentifierFactory
 from .network import network_to_type
 
 
-class EntityID(Identifier):
-
-    @property  # Override
-    def type(self) -> int:
-        name = self.name
-        if name is None or len(name) == 0:
-            # all ID without 'name' field must be a user
-            # e.g.: BTC address
-            return EntityType.USER.value
-        # compatible with MKM 0.9.*
-        address = self.address
-        return network_to_type(network=address.type)
-
-
 class EntityIDFactory(GeneralIdentifierFactory):
+
+    def reduce_memory(self) -> int:
+        """
+        Call it when received 'UIApplicationDidReceiveMemoryWarningNotification',
+        this will remove 50% of cached objects
+
+        :return: number of survivors
+        """
+        finger = 0
+        finger = thanos(self._identifiers, finger)
+        return finger >> 1
 
     # Override
     def _new_id(self, identifier: str, name: Optional[str], address: Address, terminal: Optional[str]):
+        # override for customized ID
         return EntityID(identifier=identifier, name=name, address=address, terminal=terminal)
 
     # Override
@@ -71,6 +70,7 @@ class EntityIDFactory(GeneralIdentifierFactory):
                 return ANYONE
         elif size == 19:
             # "everyone@everywhere"
+            # "stations@everywhere"
             if identifier.lower() == 'everyone@everywhere':
                 return EVERYONE
         elif size == 13:
@@ -79,3 +79,17 @@ class EntityIDFactory(GeneralIdentifierFactory):
                 return FOUNDER
         # normal ID
         return super()._parse(identifier=identifier)
+
+
+class EntityID(Identifier):
+
+    @property  # Override
+    def type(self) -> int:
+        name = self.name
+        if name is None or len(name) == 0:
+            # all ID without 'name' field must be a user
+            # e.g.: BTC address
+            return EntityType.USER.value
+        # compatible with MKM 0.9.*
+        address = self.address
+        return network_to_type(network=address.network)

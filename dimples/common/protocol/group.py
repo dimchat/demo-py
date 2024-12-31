@@ -32,7 +32,8 @@ from typing import Optional, List, Dict
 
 from dimsdk import DateTime
 from dimsdk import ID
-from dimsdk import CustomizedContent
+
+from .customized import CustomizedContent
 
 
 class GroupKeyCommand:

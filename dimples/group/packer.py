@@ -33,26 +33,11 @@ from typing import Optional, List
 from dimsdk import ID, ANYONE
 from dimsdk import Content, Envelope
 from dimsdk import InstantMessage, ReliableMessage
-from dimsdk import Messenger
 
-from ..utils import Logging
-
-from .delegate import GroupDelegate
+from .delegate import TripletsHelper
 
 
-class GroupPacker(Logging):
-
-    def __init__(self, delegate: GroupDelegate):
-        super().__init__()
-        self.__delegate = delegate
-
-    @property  # protected
-    def delegate(self) -> GroupDelegate:
-        return self.__delegate
-
-    @property  # protected
-    def messenger(self) -> Messenger:
-        return self.delegate.messenger
+class GroupPacker(TripletsHelper):
 
     async def pack_message(self, content: Content, sender: ID) -> Optional[ReliableMessage]:
         """ Pack as broadcast message """
@@ -73,6 +58,7 @@ class GroupPacker(Logging):
         if r_msg is None:
             self.error(msg='failed to sign message: %s => %s, %s' % (msg.sender, msg.receiver, msg.get('group')))
             return None
+        # OK
         return r_msg
 
     def split_instant_message(self, msg: InstantMessage, members: List[ID]) -> List[InstantMessage]:
@@ -85,6 +71,10 @@ class GroupPacker(Logging):
             else:
                 self.info(msg='split group message for member: %s' % receiver)
             info = msg.copy_dictionary(deep_copy=False)
+            # Copy the content to avoid conflicts caused by modifications
+            # by different processes.
+            # Notice: there is no need to use deep copying here.
+            info['content'] = msg.content.copy_dictionary(deep_copy=False)
             # replace 'receiver' with member ID
             info['receiver'] = str(receiver)
             item = InstantMessage.parse(msg=info)

@@ -33,6 +33,8 @@ import weakref
 from abc import ABC
 from typing import Optional, Tuple
 
+from startrek.types import SocketAddress
+
 from dimsdk import ID, Content
 from dimsdk import InstantMessage, ReliableMessage
 
@@ -44,7 +46,7 @@ from .gatekeeper import GateKeeper
 
 class BaseSession(GateKeeper, Session, ABC):
 
-    def __init__(self, remote: Tuple[str, int], sock: Optional[socket.socket], database: SessionDBI):
+    def __init__(self, remote: SocketAddress, sock: Optional[socket.socket], database: SessionDBI):
         super().__init__(remote=remote, sock=sock)
         self.__database = database
         self.__identifier: Optional[ID] = None

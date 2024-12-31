@@ -35,41 +35,26 @@ from dimsdk import ID, Document
 from dimsdk import InstantMessage, ReliableMessage
 from dimsdk import Envelope, Content, DocumentCommand
 from dimsdk import GroupCommand, ResetCommand, ResignCommand
+from dimsdk import DocumentUtils
 
-from ..utils import Logging
-from ..utils import is_before
-from ..common import CommonFacebook, CommonMessenger
-
+from .delegate import TripletsHelper
 from .delegate import GroupDelegate
 from .helper import GroupCommandHelper
 
 
-class GroupHistoryBuilder(Logging):
+class GroupHistoryBuilder(TripletsHelper):
 
     def __init__(self, delegate: GroupDelegate):
-        super().__init__()
-        self.__delegate = delegate
+        super().__init__(delegate=delegate)
         self.__helper = self._create_helper()
-
-    def _create_helper(self) -> GroupCommandHelper:
-        """ override for customized helper """
-        return GroupCommandHelper(self.delegate)
-
-    @property  # protected
-    def delegate(self) -> GroupDelegate:
-        return self.__delegate
 
     @property  # protected
     def helper(self) -> GroupCommandHelper:
         return self.__helper
 
-    @property  # protected
-    def facebook(self) -> CommonFacebook:
-        return self.delegate.facebook
-
-    @property  # protected
-    def messenger(self) -> CommonMessenger:
-        return self.delegate.messenger
+    def _create_helper(self) -> GroupCommandHelper:
+        """ override for customized helper """
+        return GroupCommandHelper(delegate=self.delegate)
 
     async def build_group_histories(self, group: ID) -> List[ReliableMessage]:
         """ build command list for group history:
@@ -100,9 +85,7 @@ class GroupHistoryBuilder(Logging):
         #  2. append other group commands
         #
         history = await self.helper.get_group_histories(group=group)
-        for pair in history:
-            cmd = pair[0]
-            msg = pair[1]
+        for cmd, msg in history:
             if isinstance(cmd, ResetCommand):
                 # 'reset' command already add to the front
                 # assert len(messages) == 2, 'group history error: %d, %s' % (len(history), group)
@@ -110,12 +93,12 @@ class GroupHistoryBuilder(Logging):
                 continue
             elif isinstance(cmd, ResignCommand):
                 # 'resign' command, comparing it with document time
-                if is_before(old_time=doc.time, new_time=cmd.time):
+                if DocumentUtils.is_before(old_time=doc.time, this_time=cmd.time):
                     self.warning(msg='expired "%s" command in group: %s, sender: %s' % (cmd.cmd, group, msg.sender))
                     continue
             else:
                 # other commands('invite', 'join', 'quit'), comparing with 'reset' time
-                if is_before(old_time=reset.time, new_time=cmd.time):
+                if DocumentUtils.is_before(old_time=reset.time, this_time=cmd.time):
                     self.warning('expired "%s" command in group: %s, sender: %s' % (cmd.cmd, group, msg.sender))
                     continue
             messages.append(msg)

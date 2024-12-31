@@ -42,6 +42,9 @@ from .grp_resign import ResignCommandProcessor
 from .handshake import HandshakeCommandProcessor
 from .commands import LoginCommandProcessor
 
+from .customized import CustomizedContentProcessor
+from .customized import CustomizedContentHandler
+
 from .creator import ClientContentProcessorCreator
 
 __all__ = [
@@ -57,5 +60,8 @@ __all__ = [
     'LoginCommandProcessor',
 
     'ClientContentProcessorCreator',
+
+    'CustomizedContentProcessor',
+    'CustomizedContentHandler',
 
 ]

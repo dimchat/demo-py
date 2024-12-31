@@ -28,19 +28,17 @@
 # SOFTWARE.
 # ==============================================================================
 
-from dimsdk import ID, Meta
-
-from .algorithm import MetaType
 from .network import NetworkType, network_to_type
-from .entity import EntityID, EntityIDFactory
-
-from .address import UnknownAddress
-
+from .entity import EntityIDFactory
+from .address import CompatibleAddressFactory
 from .meta import CompatibleMetaFactory
+
+from .loader import CommonLoader, CommonPluginLoader
 
 from .compatible import patch
 # from .compatible import patch_meta, patch_cmd
 from .compatible import fix_meta_attachment, fix_meta_version
+from .compatible import fix_file_content
 from .compatible import fix_cmd, fix_command
 from .compatible import fix_receipt_command, fix_document_command, fix_report_command
 
@@ -48,37 +46,17 @@ from .compatible import fix_receipt_command, fix_document_command, fix_report_co
 patch()
 
 
-def register_compatible_factories():
-    # ID
-    ID.register(factory=EntityIDFactory())
-    # meta
-    mkm_fact = CompatibleMetaFactory(Meta.MKM)
-    btc_fact = CompatibleMetaFactory(Meta.BTC)
-    eth_fact = CompatibleMetaFactory(Meta.ETH)
-    Meta.register(version='1', factory=mkm_fact)
-    Meta.register(version='2', factory=btc_fact)
-    Meta.register(version='4', factory=eth_fact)
-    Meta.register(version='mkm', factory=mkm_fact)
-    Meta.register(version='btc', factory=btc_fact)
-    Meta.register(version='eth', factory=eth_fact)
-    Meta.register(version='MKM', factory=mkm_fact)
-    Meta.register(version='BTC', factory=btc_fact)
-    Meta.register(version='ETH', factory=eth_fact)
-
-
 __all__ = [
 
-    'MetaType',
     'NetworkType', 'network_to_type',
-    'EntityID', 'EntityIDFactory',
-
-    'UnknownAddress',
-
+    'EntityIDFactory',
+    'CompatibleAddressFactory',
     'CompatibleMetaFactory',
 
-    'register_compatible_factories',
+    'CommonLoader', 'CommonPluginLoader',
 
     'fix_meta_version', 'fix_meta_attachment',
+    'fix_file_content',
     'fix_cmd', 'fix_command',
     'fix_receipt_command', 'fix_document_command', 'fix_report_command',
 

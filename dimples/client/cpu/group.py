@@ -165,7 +165,7 @@ class GroupCommandProcessor(HistoryCommandProcessor):
     async def _check_expired(self, content: GroupCommand, r_msg: ReliableMessage) -> Tuple[Optional[ID], List[Content]]:
         group = content.group
         assert group is not None, 'group command error: %s' % content
-        expired = await self.helper.is_expired(content=content)
+        expired = await self.helper.is_command_expired(content=content)
         if expired:
             text = 'Command expired.'
             errors = self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={

@@ -41,23 +41,23 @@ from dimsdk import hex_encode, hex_decode
 from dimsdk import utf8_encode, utf8_decode
 from dimsdk import json_encode, json_decode
 
-from dimsdk import FrequencyChecker, RecentTimeChecker
-
 from dimsdk import Converter
 from dimsdk import DateTime
 from dimsdk import ReliableMessage
-from dimsdk import DocumentHelper
+from dimsdk import DocumentUtils
 
 from dimplugins.crypto.aes import random_bytes
 
 from startrek.skywalker import Singleton
-from startrek.skywalker import Runnable, Daemon
+from startrek.skywalker import Runnable, Runner, Daemon
 from startrek.fsm import Delegate as StateDelegate
 from startrek.net.socket import get_remote_address, get_local_address
 
 from aiou import Path, File, TextFile, JSONFile
 
-from .runner import PatchRunner as Runner
+from .checker import FrequencyChecker
+from .checker import RecentTimeChecker
+
 from .log import Log, Logging
 from .cache import CachePool, SharedCacheManager
 
@@ -66,7 +66,7 @@ from .config import Config
 
 def is_before(old_time: Optional[DateTime], new_time: Optional[DateTime]) -> bool:
     """ check whether new time is before old time """
-    return DocumentHelper.is_before(old_time, new_time)
+    return DocumentUtils.is_before(old_time, new_time)
 
 
 def get_msg_sig(msg: ReliableMessage) -> str:

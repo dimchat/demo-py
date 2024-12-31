@@ -37,8 +37,8 @@ from dimsdk import Document, Visa
 from dimsdk import Station
 from dimsdk import Envelope, InstantMessage, ReliableMessage
 from dimsdk import ContentType, Command
-from dimsdk import ReceiptCommand, DocumentCommand
-from dimsdk import MessageHelper
+from dimsdk import ReceiptCommand
+from dimsdk import MessageUtils
 
 from ..common import HandshakeCommand, ReportCommand, LoginCommand
 from ..common import CommonMessenger
@@ -164,8 +164,8 @@ class ClientMessenger(CommonMessenger):
             visa = await user.visa
             # create instant message with meta & visa
             i_msg = InstantMessage.create(head=env, body=cmd)
-            MessageHelper.set_meta(meta=meta, msg=i_msg)
-            MessageHelper.set_visa(visa=visa, msg=i_msg)
+            MessageUtils.set_meta(meta=meta, msg=i_msg)
+            MessageUtils.set_visa(visa=visa, msg=i_msg)
             await self.send_instant_message(msg=i_msg, priority=-1)
         else:
             # handshake again
@@ -222,29 +222,14 @@ class ClientMessenger(CommonMessenger):
         #
         #  send to all contacts
         #
+        checker = facebook.checker
         contacts = await facebook.get_contacts(identifier=me)
         for item in contacts:
-            await self.send_visa(visa=visa, receiver=item, updated=updated)
+            await checker.send_visa(visa=visa, receiver=item, updated=updated)
         #
         #  broadcast to everyone@everywhere
         #
-        await self.send_visa(visa=visa, receiver=EVERYONE, updated=updated)
-
-    # Override
-    async def send_visa(self, visa: Visa, receiver: ID, updated: bool = False) -> bool:
-        me = visa.identifier
-        if me == receiver:
-            self.warning(msg='skip cycled message: %s, %s' % (receiver, visa))
-            return False
-        db = self.archivist
-        if not db.is_documents_respond_expired(identifier=receiver, force=updated):
-            # response not expired yet
-            self.debug(msg='visa response not expired yet: %s' % receiver)
-            return False
-        self.info(msg='push visa document: %s => %s' % (me, receiver))
-        content = DocumentCommand.response(document=visa, identifier=me)
-        i_msg, r_msg = await self.send_content(content=content, sender=me, receiver=receiver, priority=1)
-        return r_msg is not None
+        await checker.send_visa(visa=visa, receiver=EVERYONE, updated=updated)
 
     async def broadcast_login(self, sender: ID, user_agent: str):
         """ send login command to keep roaming """

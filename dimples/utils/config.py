@@ -24,7 +24,9 @@
 # ==============================================================================
 
 from configparser import ConfigParser
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, Dict, List
+
+from startrek.types import SocketAddress
 
 from dimsdk import Dictionary
 from dimsdk import ID
@@ -65,7 +67,7 @@ class Node(Dictionary):
         return self.get('port')
 
 
-def get_socket_address(value: str) -> Tuple[str, int]:
+def get_socket_address(value: str) -> SocketAddress:
     pair = value.split(':')
     if len(pair) == 2:
         return pair[0].strip(), int(pair[1])

@@ -93,11 +93,15 @@ class MetaType(IntEnum):
         elif isinstance(version, str):
             # fixed values
             if version == 'MKM' or version == 'mkm':
-                return 1
+                return cls.MKM.value
             elif version == 'BTC' or version == 'btc':
-                return 2
+                return cls.BTC.value
+            elif version == 'ExBTC':
+                return cls.ExBTC.value
             elif version == 'ETH' or version == 'eth':
-                return 4
+                return cls.ETH.value
+            elif version == 'ExETH':
+                return cls.ExETH.value
             # TODO: other algorithms
         elif isinstance(version, MetaType):
             # enum

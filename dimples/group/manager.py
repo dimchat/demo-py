@@ -36,41 +36,22 @@ from dimsdk import MetaCommand, DocumentCommand
 from dimsdk import GroupCommand
 from dimsdk import Station
 
-from ..utils import Logging
-from ..common import AccountDBI
-from ..common import CommonFacebook, CommonMessenger
 from ..common import Register
 
+from .delegate import TripletsHelper
 from .delegate import GroupDelegate
 from .packer import GroupPacker
 from .helper import GroupCommandHelper
 from .builder import GroupHistoryBuilder
 
 
-class GroupManager(Logging):
+class GroupManager(TripletsHelper):
 
     def __init__(self, delegate: GroupDelegate):
-        super().__init__()
-        self.__delegate = delegate
+        super().__init__(delegate=delegate)
         self.__packer = self._create_packer()
         self.__helper = self._create_helper()
         self.__builder = self._create_builder()
-
-    def _create_packer(self) -> GroupPacker:
-        """ override for customized packer """
-        return GroupPacker(self.__delegate)
-
-    def _create_helper(self) -> GroupCommandHelper:
-        """ override for customized helper """
-        return GroupCommandHelper(self.__delegate)
-
-    def _create_builder(self) -> GroupHistoryBuilder:
-        """ override for customized builder """
-        return GroupHistoryBuilder(self.__delegate)
-
-    @property  # protected
-    def delegate(self) -> GroupDelegate:
-        return self.__delegate
 
     @property  # protected
     def packer(self) -> GroupPacker:
@@ -84,17 +65,17 @@ class GroupManager(Logging):
     def builder(self) -> GroupHistoryBuilder:
         return self.__builder
 
-    @property  # protected
-    def facebook(self) -> CommonFacebook:
-        return self.__delegate.facebook
+    def _create_packer(self) -> GroupPacker:
+        """ override for customized packer """
+        return GroupPacker(self.__delegate)
 
-    @property  # protected
-    def messenger(self) -> CommonMessenger:
-        return self.__delegate.messenger
+    def _create_helper(self) -> GroupCommandHelper:
+        """ override for customized helper """
+        return GroupCommandHelper(self.__delegate)
 
-    @property  # protected
-    def database(self) -> AccountDBI:
-        return self.__delegate.facebook.archivist.database
+    def _create_builder(self) -> GroupHistoryBuilder:
+        """ override for customized builder """
+        return GroupHistoryBuilder(self.__delegate)
 
     async def create_group(self, members: List[ID]) -> Optional[ID]:
         """

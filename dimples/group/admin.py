@@ -30,33 +30,14 @@
 
 from typing import List
 
-from dimsdk import ID, Bulletin
+from dimsdk import ID, Document, Bulletin
 from dimsdk import Station
 from dimsdk import DocumentCommand
 
-from ..utils import Logging
-from ..common import CommonFacebook, CommonMessenger
-
-from .delegate import GroupDelegate
+from .delegate import TripletsHelper
 
 
-class AdminManager(Logging):
-
-    def __init__(self, delegate: GroupDelegate):
-        super().__init__()
-        self.__delegate = delegate
-
-    @property  # protected
-    def delegate(self) -> GroupDelegate:
-        return self.__delegate
-
-    @property  # protected
-    def facebook(self) -> CommonFacebook:
-        return self.delegate.facebook
-
-    @property  # protected
-    def messenger(self) -> CommonMessenger:
-        return self.delegate.messenger
+class AdminManager(TripletsHelper):
 
     async def update_administrators(self, administrators: List[ID], group: ID) -> bool:
         """
@@ -95,6 +76,14 @@ class AdminManager(Logging):
             # TODO: create new one?
             self.error(msg='failed to get group document: %s, owner: %s' % (group, me))
             return False
+        else:
+            # clone for modifying
+            clone = Document.parse(document=doc.copy_dictionary())
+            if isinstance(clone, Bulletin):
+                doc = clone
+            else:
+                assert False, 'bulletin error: %s, %s' % (group, doc)
+        # update new bulletin document
         doc.set_property(name='administrators', value=ID.revert(array=administrators))
         signature = None if sign_key is None else doc.sign(private_key=sign_key)
         if signature is None:

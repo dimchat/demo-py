@@ -31,6 +31,8 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
+from startrek.types import SocketAddress
+
 from dimsdk import DateTime
 from dimsdk import ID
 from dimsdk import Content
@@ -86,7 +88,7 @@ class Session(Transmitter, ABC):
         raise NotImplemented
 
     @property
-    def remote_address(self) -> Tuple[str, int]:
+    def remote_address(self) -> SocketAddress:
         """ Remote (host, port) """
         raise NotImplemented
 
