@@ -38,6 +38,7 @@ from dimsdk import User
 
 from ..utils import Runner
 from ..common import BroadcastUtils
+from ..common import AddressNameServer
 from ..common import CommonFacebook
 
 
@@ -208,5 +209,7 @@ class ClientFacebook(CommonFacebook):
         db = self.database
         return await db.save_members(members, group=group)
 
-
-# TODO: ANS?
+    #
+    #   Address Name Service
+    #
+    ans: Optional[AddressNameServer] = None

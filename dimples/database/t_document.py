@@ -28,7 +28,7 @@ from typing import List, Optional
 
 from aiou.mem import CachePool
 
-from dimsdk import ID, Document, DocumentHelper
+from dimsdk import ID, Document, DocumentUtils
 
 from ..utils import SharedCacheManager
 from ..common import DocumentDBI
@@ -112,11 +112,11 @@ class DocumentTable(DocumentDBI):
         #  check old documents
         #
         all_documents = await self.get_documents(identifier=identifier)
-        old = DocumentHelper.last_document(all_documents, doc_type)
+        old = DocumentUtils.last_document(all_documents, doc_type)
         if old is None and doc_type == Document.VISA:
-            old = DocumentHelper.last_document(all_documents, 'profile')
+            old = DocumentUtils.last_document(all_documents, 'profile')
         if old is not None:
-            if DocumentHelper.is_expired(document, old):
+            if DocumentUtils.is_expired(document, old):
                 # self.warning(msg='drop expired document: %s' % identifier)
                 return False
             all_documents.remove(old)

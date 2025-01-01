@@ -25,19 +25,23 @@
 
 import getopt
 import sys
-import time
 from typing import Optional, Tuple
 
-from dimsdk import ID
+from dimsdk import ID, Document
 
 from ..utils import Singleton, Config
 from ..utils import Path
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..common import ProviderInfo
+
 from ..database.redis import RedisConnector
 from ..database import DbInfo
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
-from ..client import ClientFacebook, ClientArchivist
+
+from ..group import SharedGroupManager
+
+from ..client.compat import ClientLoader
+from ..client import ClientFacebook, ClientArchivist, ClientChecker
 
 
 @Singleton
@@ -67,9 +71,26 @@ class GlobalVariable:
         #
         #  Step 3: create facebook
         #
-        sid = config.station_id
-        facebook = await create_facebook(database=adb, current_user=sid)
+        facebook = await create_facebook(database=adb)
         self.facebook = facebook
+
+    async def login(self, current_user: ID):
+        facebook = self.facebook
+        # make sure private keys exists
+        sign_key = await facebook.private_key_for_visa_signature(identifier=current_user)
+        msg_keys = await facebook.private_keys_for_decryption(identifier=current_user)
+        assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
+        assert len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
+        print('set current user: %s' % current_user)
+        user = await facebook.get_user(identifier=current_user)
+        assert user is not None, 'failed to get current user: %s' % current_user
+        visa = await user.visa
+        if visa is not None:
+            # refresh visa
+            visa = Document.parse(document=visa.copy_dictionary())
+            visa.sign(private_key=sign_key)
+            await facebook.save_document(document=visa)
+        await facebook.set_current_user(user=user)
 
 
 def show_help(cmd: str, app_name: str, default_config: str):
@@ -113,9 +134,12 @@ async def create_config(app_name: str, default_config: str) -> Config:
         print('!!! config file not exists: %s' % ini_file)
         print('')
         sys.exit(0)
+    # load extensions
+    ClientLoader().run()
     # load config from file
     config = Config.load(file=ini_file)
     print('>>> config loaded: %s => %s' % (ini_file, config))
+    # TODO: get common assistants
     # OK
     return config
 
@@ -180,31 +204,12 @@ async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, Sessi
     return adb, mdb, sdb
 
 
-def create_archivist(database: AccountDBI, facebook: ClientFacebook) -> ClientArchivist:
-    archivist = ClientArchivist(database=database)
-    archivist.facebook = facebook  # Weak Reference
-    return archivist
-
-
-async def create_facebook(database: AccountDBI, current_user: ID) -> ClientFacebook:
+async def create_facebook(database: AccountDBI) -> ClientFacebook:
     """ Step 3: create facebook """
-    facebook = ClientFacebook()
-    # create archivist for facebook
-    facebook.archivist = create_archivist(database=database, facebook=facebook)
-    # make sure private keys exists
-    sign_key = await facebook.private_key_for_visa_signature(identifier=current_user)
-    msg_keys = await facebook.private_keys_for_decryption(identifier=current_user)
-    assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
-    assert len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
-    print('set current user: %s' % current_user)
-    user = await facebook.get_user(identifier=current_user)
-    assert user is not None, 'failed to get current user: %s' % current_user
-    visa = await user.visa
-    if visa is not None:
-        # refresh visa
-        now = time.time()
-        visa.set_property(name='time', value=now)
-        visa.sign(private_key=sign_key)
-        await facebook.save_document(document=visa)
-    await facebook.set_current_user(user=user)
+    facebook = ClientFacebook(database=database)
+    facebook.archivist = ClientArchivist(facebook=facebook, database=database)
+    facebook.checker = ClientChecker(facebook=facebook, database=database)
+    # set for group manager
+    man = SharedGroupManager()
+    man.facebook = facebook
     return facebook

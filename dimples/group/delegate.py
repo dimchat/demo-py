@@ -42,7 +42,7 @@ from dimsdk import GroupDataSource
 from dimsdk import MetaUtils
 from dimsdk import TwinsHelper
 
-from ..utils import Logging
+from ..utils import Logging, Singleton
 from ..utils import Runner
 from ..common import CommonFacebook, CommonMessenger
 from ..common import CommonArchivist, AccountDBI
@@ -52,7 +52,8 @@ class GroupDelegate(TwinsHelper, GroupDataSource, Logging):
 
     def __init__(self, facebook: CommonFacebook, messenger: CommonMessenger):
         super().__init__(facebook=facebook, messenger=messenger)
-        shared_bots_manager.messenger = messenger
+        shared = SharedBotsManager()
+        shared.set_messenger(messenger=messenger)
 
     @property  # Override
     def facebook(self) -> CommonFacebook:
@@ -132,20 +133,24 @@ class GroupDelegate(TwinsHelper, GroupDataSource, Logging):
     # Override
     async def get_assistants(self, identifier: ID) -> List[ID]:
         assert identifier.is_group, 'group ID error: %s' % identifier
-        return await shared_bots_manager.get_assistants(identifier)
+        man = SharedBotsManager()
+        return await man.group_bots_manager.get_assistants(identifier)
 
     # noinspection PyMethodMayBeStatic
     async def get_fastest_assistant(self, identifier: ID) -> Optional[ID]:
         assert identifier.is_group, 'group ID error: %s' % identifier
-        return await shared_bots_manager.get_fastest_assistant(identifier)
+        man = SharedBotsManager()
+        return await man.group_bots_manager.get_fastest_assistant(identifier)
 
     # noinspection PyMethodMayBeStatic
     def set_common_assistants(self, bots: List[ID]) -> Optional[ID]:
-        return shared_bots_manager.set_common_assistants(bots=bots)
+        man = SharedBotsManager()
+        return man.group_bots_manager.set_common_assistants(bots=bots)
 
     # noinspection PyMethodMayBeStatic
     def update_respond_time(self, content: ReceiptCommand, envelope: Envelope) -> bool:
-        return shared_bots_manager.update_respond_time(content=content, envelope=envelope)
+        man = SharedBotsManager()
+        return man.group_bots_manager.update_respond_time(content=content, envelope=envelope)
 
     #
     #   Administrators
@@ -311,7 +316,10 @@ class GroupBotsManager(Runner, Logging):
 
     async def get_assistants(self, group: ID) -> List[ID]:
         facebook = self.facebook
-        bots = await facebook.get_assistants(identifier=group)
+        if facebook is None:
+            bots = None
+        else:
+            bots = await facebook.get_assistants(identifier=group)
         if bots is None or len(bots) == 0:
             return self.__common_assistants
         for item in bots:
@@ -399,5 +407,18 @@ class GroupBotsManager(Runner, Logging):
                 self.error(msg='failed to query assistant: %s, %s' % (item, error))
 
 
-shared_bots_manager = GroupBotsManager()
-shared_bots_manager.start()
+@Singleton
+class SharedBotsManager:
+
+    def __init__(self):
+        super().__init__()
+        man = GroupBotsManager()
+        man.start()
+        self.__bots_manager = man
+
+    @property
+    def group_bots_manager(self) -> GroupBotsManager:
+        return self.__bots_manager
+
+    def set_messenger(self, messenger: CommonMessenger):
+        self.__bots_manager.messenger = messenger

@@ -61,6 +61,7 @@ class CommonFacebook(Facebook, Logging, ABC):
         super().__init__()
         self.__database = database
         self.__archivist: Optional[CommonArchivist] = None
+        self.__checker: Optional[EntityChecker] = None
         self.__current: Optional[User] = None
 
     @property
@@ -76,9 +77,12 @@ class CommonFacebook(Facebook, Logging, ABC):
         self.__archivist = delegate
 
     @property
-    @abstractmethod
     def checker(self) -> Optional[EntityChecker]:
-        raise NotImplemented
+        return self.__checker
+
+    @checker.setter
+    def checker(self, ec: EntityChecker):
+        self.__checker = ec
 
     #
     #   Current User

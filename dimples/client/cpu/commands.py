@@ -30,25 +30,70 @@
     login protocol
 """
 
-from typing import List
+from typing import Optional, List
 
 from dimsdk import ReliableMessage
 from dimsdk import Content
+from dimsdk import ReceiptCommand
 
 from dimsdk.cpu import BaseCommandProcessor
 
+from ...utils import Logging
+from ...common import SessionDBI
+from ...common import AnsCommand
 from ...common import LoginCommand
+from ...common import CommonMessenger
+
+from ...group import SharedGroupManager
+
+from ..facebook import ClientFacebook
 
 
-class LoginCommandProcessor(BaseCommandProcessor):
+class AnsCommandProcessor(BaseCommandProcessor, Logging):
+
+    # Override
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, AnsCommand), 'ans command error: %s' % content
+        records = content.records
+        if records is None:
+            self.info(msg='ANS: querying %s' % content.names)
+        else:
+            ans = ClientFacebook.ans
+            if ans is None:
+                count = -1
+            else:
+                count = ans.fix(records=records)
+            self.info(msg='ANS: update %d record(s): %s' % (count, records))
+        return []
+
+
+class LoginCommandProcessor(BaseCommandProcessor, Logging):
+
+    @property
+    def database(self) -> Optional[SessionDBI]:
+        messenger = self.messenger
+        if isinstance(messenger, CommonMessenger):
+            return messenger.session.database
 
     # Override
     async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, LoginCommand), 'login command error: %s' % content
-        # return ReceiptCommand.new(message='Login received')
+        sender = content.identifier
+        assert sender == r_msg.sender, 'sender not match: %s, %s' % (sender, r_msg.sender)
+        # save login command to session db
+        db = self.database
+        if await db.save_login_command_message(user=sender, content=content, msg=r_msg):
+            self.info(msg='save login command for user: %s' % sender)
+        else:
+            self.error(msg='failed to save login command: %s, %s' % (sender, content))
         return []
 
 
-# TODO: AnsCommandProcessor
+class ReceiptCommandProcessor(BaseCommandProcessor):
 
-# TODO: ReceiptCommandProcessor
+    # Override
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, ReceiptCommand), 'receipt command error: %s' % content
+        man = SharedGroupManager()
+        man.delegate.update_respond_time(content=content, envelope=r_msg.envelope)
+        return []

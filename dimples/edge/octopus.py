@@ -63,7 +63,7 @@ class InnerClient(Terminal):
     def _create_messenger(self, facebook: ClientFacebook, session: ClientSession):
         shared = GlobalVariable()
         messenger = InnerMessenger(session=session, facebook=facebook, database=shared.mdb)
-        messenger.terminal = self # Weak Reference
+        messenger.terminal = self  # Weak Reference
         return messenger
 
 

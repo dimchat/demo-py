@@ -213,11 +213,11 @@ class ClientMessagePacker(CommonMessagePacker):
     # protected
     async def _push_visa(self, receiver: ID) -> bool:
         facebook = self.facebook
-        archivist = self.archivist
+        checker = facebook.checker
         # visa.key not updated?
         user = await facebook.current_user
         visa = await user.visa
-        return await archivist.send_visa(visa=visa, receiver=receiver)
+        return await checker.send_visa(visa=visa, receiver=receiver)
 
     # protected
     async def _build_failed_message(self, msg: SecureMessage) -> Optional[InstantMessage]:

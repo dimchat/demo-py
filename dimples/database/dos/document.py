@@ -26,7 +26,7 @@
 from typing import Optional, List
 
 from dimsdk import TransportableData
-from dimsdk import ID, Document, DocumentHelper
+from dimsdk import ID, Document, DocumentUtils
 
 from ...utils import template_replace
 from ...common import DocumentDBI
@@ -88,11 +88,11 @@ class DocumentStorage(Storage, DocumentDBI):
         doc_type = document.type
         # check old documents
         all_documents = await self.get_documents(identifier=identifier)
-        old = DocumentHelper.last_document(all_documents, doc_type)
+        old = DocumentUtils.last_document(all_documents, doc_type)
         if old is None and doc_type == Document.VISA:
-            old = DocumentHelper.last_document(all_documents, 'profile')
+            old = DocumentUtils.last_document(all_documents, 'profile')
         if old is not None:
-            if DocumentHelper.is_expired(document, old):
+            if DocumentUtils.is_expired(document, old):
                 self.warning(msg='drop expired document: %s' % identifier)
                 return False
             all_documents.remove(old)

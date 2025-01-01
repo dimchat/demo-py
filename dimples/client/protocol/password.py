@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2019 Albert Moky
+# Copyright (c) 2024 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,51 +23,47 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    Client Module
-    ~~~~~~~~~~~~~
-
-"""
-
-from .protocol import Password
-from .protocol import SearchCommand
-
-from .network import ClientSession
-from .network import SessionState
-
-from .archivist import ClientArchivist
-from .checkpoint import Checkpoint
-from .client_checker import ClientChecker
-
-from .facebook import ClientFacebook
-from .messenger import ClientMessenger
-from .packer import ClientMessagePacker
-from .processor import ClientMessageProcessor
-from .processor import ClientContentProcessorCreator
-
-from .terminal import Terminal
+from dimsdk import utf8_encode, base64_encode
+from dimsdk import sha256
+from dimsdk import SymmetricKey
+from dimplugins import PlainKey
 
 
-__all__ = [
+class Password:
 
-    'Password',
-    'SearchCommand',
+    KEY_SIZE = 32
 
-    #
-    #   Network
-    #
-    'ClientSession', 'SessionState',
+    BLOCK_SIZE = 16
 
-    'ClientArchivist',
-    'Checkpoint',
-    'ClientChecker',
+    @classmethod
+    def generate(cls, passphrase: str) -> SymmetricKey:
+        data = utf8_encode(string=passphrase)
+        digest = sha256(data=data)
+        # AES key data
+        filling = cls.KEY_SIZE - len(data)
+        if filling > 0:
+            # format: {digest_prefix}+{pwd_data}
+            data = digest[0:filling] + data
+        elif filling < 0:
+            if cls.KEY_SIZE == len(digest):
+                data = digest
+            else:
+                # FIXME: what about KEY_SIZE > len(digest)?
+                data = digest[0:cls.KEY_SIZE]
+        # pos = len(digest) - cls.BLOCK_SIZE
+        # iv = digest[pos:]
+        info = {
+            'algorithm': SymmetricKey.AES,
+            'data': base64_encode(data=data),
+            # 'iv': base64_encode(iv),
+        }
+        return SymmetricKey.parse(key=info)
 
-    'ClientFacebook',
-    'ClientMessenger',
-    'ClientMessagePacker',
-    'ClientMessageProcessor',
-    'ClientContentProcessorCreator',
+    """
+        Plain Key
+        ~~~~~~~~~
+    """
 
-    'Terminal',
+    PLAIN = PlainKey.PLAIN
 
-]
+    kPlainKey = PlainKey()

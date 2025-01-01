@@ -57,6 +57,9 @@ async def async_main():
     shared = GlobalVariable()
     await shared.prepare(app_name='DIM Network Edge', default_config=DEFAULT_CONFIG)
     config = shared.config
+    # login
+    sid = config.station_id
+    await shared.login(current_user=sid)
     # create & start octopus
     host = config.station_host
     port = config.station_port

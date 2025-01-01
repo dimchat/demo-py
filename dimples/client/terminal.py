@@ -98,37 +98,47 @@ class Terminal(Runner, DeviceMixin, Logging, StateDelegate, ABC):
     #
 
     async def connect(self, host: str, port: int) -> ClientMessenger:
-        # check old session
+        #
+        #  0. check old session
+        #
         old = self.messenger
         if old is not None:
             session = old.session
-            if session.running:
-                # current session is running
+            if session.active:
+                # current session is active
                 station = session.station
                 if station.port == port and station.host == host:
                     # same target
                     self.warning(msg='active session connected to %s:%d .' % (host, port))
                     return old
-                await session.stop()
+            await session.stop()
             self.__messenger = None
         self.info(msg='connecting to %s:%d ...' % (host, port))
         facebook = self.facebook
-        database = self.database
-        # create new messenger with session
+        #
+        #  1. create new session with station
+        #
         station = self._create_station(host=host, port=port)
-        session = self._create_session(station=station, database=database)
-        # login with current user
+        session = self._create_session(station=station)
+        #
+        #  2. create new messenger with session
+        #
+        messenger = self._create_messenger(facebook=facebook, session=session)
+        self.__messenger = messenger
+        # set weak reference to messenger
+        session.messenger = messenger  # weak reference
+        #
+        #  3. create packer, processor for messenger
+        #     they have weak references to facebook & messenger
+        #
+        messenger.packer = self._create_packer(facebook=facebook, messenger=messenger)
+        messenger.processor = self._create_processor(facebook=facebook, messenger=messenger)
+        #
+        #  4. login with current user
+        #
         user = await self.facebook.current_user
         assert user is not None, 'failed to get current user'
         session.set_identifier(identifier=user.identifier)
-        # create new messenger with session
-        messenger = self._create_messenger(facebook=facebook, session=session)
-        session.messenger = messenger  # weak reference
-        self.__messenger = messenger
-        # create packer, processor for messenger
-        # they have weak references to facebook & messenger
-        messenger.packer = self._create_packer(facebook=facebook, messenger=messenger)
-        messenger.processor = self._create_processor(facebook=facebook, messenger=messenger)
         return messenger
 
     def _create_station(self, host: str, port: int) -> Station:
@@ -136,8 +146,8 @@ class Terminal(Runner, DeviceMixin, Logging, StateDelegate, ABC):
         station.data_source = self.facebook
         return station
 
-    def _create_session(self, station: Station, database: SessionDBI) -> ClientSession:
-        session = ClientSession(station=station, database=database)
+    def _create_session(self, station: Station) -> ClientSession:
+        session = ClientSession(station=station, database=self.database)
         session.start(delegate=self)
         return session
 
@@ -174,8 +184,9 @@ class Terminal(Runner, DeviceMixin, Logging, StateDelegate, ABC):
         # stop session in messenger
         messenger = self.messenger
         if messenger is not None:
-            await messenger.session.stop()
             self.__messenger = None
+            session = messenger.session
+            await session.stop()
         # stop the terminal
         await super().finish()
 

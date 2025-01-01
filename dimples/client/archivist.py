@@ -29,12 +29,12 @@
 # ==============================================================================
 
 from abc import ABC
-from typing import Optional
+from typing import Optional, List
 
 from dimsdk import ID
-from dimsdk import Group
+from dimsdk import User, Group
 
-from ..common import CommonArchivist
+from ..common import CommonArchivist, CommonFacebook
 
 from ..group import SharedGroupManager
 
@@ -51,73 +51,15 @@ class ClientArchivist(CommonArchivist, ABC):
                 group.data_source = SharedGroupManager()
         return group
 
-    #
-    # # each respond will be expired after 10 minutes
-    # RESPOND_EXPIRES = 600.0  # seconds
-    #
-    # def __init__(self,, facebook: Facebook, database: AccountDBI):
-    #     super().__init__(facebook=facebook, database=database)
-    #     self.__document_responses = FrequencyChecker(expires=self.RESPOND_EXPIRES)
-    #     self.__last_active_members: Dict[ID, ID] = {}  # group => member
-    #     # twins
-    #     self.__facebook = None
-    #     self.__messenger = None
-    #
-    # @property
-    # def facebook(self) -> Optional[CommonFacebook]:
-    #     ref = self.__facebook
-    #     if ref is not None:
-    #         return ref()
-    #
-    # @property
-    # def messenger(self) -> Optional[CommonMessenger]:
-    #     ref = self.__messenger
-    #     if ref is not None:
-    #         return ref()
-    #
-    # @facebook.setter
-    # def facebook(self, barrack: CommonFacebook):
-    #     self.__facebook = weakref.ref(barrack)
-    #
-    # @messenger.setter
-    # def messenger(self, transceiver: CommonMessenger):
-    #     self.__messenger = weakref.ref(transceiver)
-    #
-    # # protected
-    # def is_documents_respond_expired(self, identifier: ID, force: bool) -> bool:
-    #     return self.__document_responses.is_expired(key=identifier, force=force)
-    #
-    # def set_last_active_member(self, member: ID, group: ID):
-    #     self.__last_active_members[group] = member
-    #
-    # # Override
-    # async def check_meta(self, identifier: ID, meta: Optional[Meta]) -> bool:
-    #     if identifier.is_broadcast:
-    #         # broadcast entity has no meta to query
-    #         return False
-    #     else:
-    #         return await super().check_meta(identifier=identifier, meta=meta)
-    #
-    # # Override
-    # async def check_documents(self, identifier: ID, documents: List[Document]) -> bool:
-    #     if identifier.is_broadcast:
-    #         # broadcast entity has no document to update
-    #         return False
-    #     else:
-    #         return await super().check_documents(identifier=identifier, documents=documents)
-    #
-    # # Override
-    # async def check_members(self, group: ID, members: List[ID]) -> bool:
-    #     if group.is_broadcast:
-    #         # broadcast entity has no members to update
-    #         return False
-    #     else:
-    #         return await super().check_members(group=group, members=members)
-    #
-    # def _check_session_ready(self) -> bool:
-    #     messenger = self.messenger
-    #     if messenger is None:
-    #         return False
-    #     session = messenger.session
-    #     return isinstance(session, ClientSession) and session.ready
-
+    @property  # Override
+    async def local_users(self) -> List[User]:
+        users = await super().local_users
+        if len(users) > 0:
+            return users
+        facebook = self.facebook
+        if isinstance(facebook, CommonFacebook):
+            current = await facebook.current_user
+            if current is not None:
+                return [current]
+        self.error(msg='failed to get local users')
+        return []

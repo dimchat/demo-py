@@ -40,15 +40,20 @@ from .meta import CompatibleMetaFactory
 
 
 class CommonLoader(ExtensionLoader):
+    """ Extensions Loader """
 
-    def __init__(self, plugin_loader: PluginLoader):
+    def __init__(self):
         super().__init__()
-        self.__plugin_loader = plugin_loader
+        self.__plugins = self._create_plugin_loader()
+
+    # noinspection PyMethodMayBeStatic
+    def _create_plugin_loader(self) -> PluginLoader:
+        return CommonPluginLoader()
 
     # Override
     def run(self):
         super().run()
-        self.__plugin_loader.run()
+        self.__plugins.run()
 
     def _register_customized_factories(self):
         self._set_content_factory(msg_type=ContentType.APPLICATION, content_class=AppCustomizedContent)

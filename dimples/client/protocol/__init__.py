@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2019 Albert Moky
+# Copyright (c) 2020 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,51 +23,15 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    Client Module
-    ~~~~~~~~~~~~~
+from .password import Password
 
-"""
-
-from .protocol import Password
-from .protocol import SearchCommand
-
-from .network import ClientSession
-from .network import SessionState
-
-from .archivist import ClientArchivist
-from .checkpoint import Checkpoint
-from .client_checker import ClientChecker
-
-from .facebook import ClientFacebook
-from .messenger import ClientMessenger
-from .packer import ClientMessagePacker
-from .processor import ClientMessageProcessor
-from .processor import ClientContentProcessorCreator
-
-from .terminal import Terminal
+from .search import SearchCommand
 
 
 __all__ = [
 
     'Password',
+
     'SearchCommand',
-
-    #
-    #   Network
-    #
-    'ClientSession', 'SessionState',
-
-    'ClientArchivist',
-    'Checkpoint',
-    'ClientChecker',
-
-    'ClientFacebook',
-    'ClientMessenger',
-    'ClientMessagePacker',
-    'ClientMessageProcessor',
-    'ClientContentProcessorCreator',
-
-    'Terminal',
 
 ]

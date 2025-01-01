@@ -38,11 +38,10 @@ from dimsdk import ID, User
 from dimsdk import Envelope, Content, TextContent, FileContent
 from dimsdk import InstantMessage, ReliableMessage
 
-from dimplugins import PlainKey
-
 from ..utils import Logging
 from ..common import Transmitter
 from ..group import SharedGroupManager
+from ..client import Password
 
 
 class Emitter(Logging, ABC):
@@ -165,7 +164,7 @@ class Emitter(Logging, ABC):
         :return:
         """
         # create video content
-        content = FileContent.video(filename=filename, url=url, password=PlainKey())
+        content = FileContent.video(filename=filename, url=url, password=Password.kPlainKey)
         # set extra params
         if snapshot is not None:
             content.snapshot = snapshot

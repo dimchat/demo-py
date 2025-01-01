@@ -48,11 +48,8 @@ from .dbi import AccountDBI
 
 class CommonArchivist(Archivist, Logging):
 
-    # each query will be expired after 10 minutes
-    QUERY_EXPIRES = 600.0  # seconds
-
     def __init__(self, facebook: Facebook, database: AccountDBI):
-        super().__init__(expires=self.QUERY_EXPIRES)
+        super().__init__()
         self.__barrack = weakref.ref(facebook)
         self.__db = database
 
