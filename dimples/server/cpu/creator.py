@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2019 Albert Moky
+# Copyright (c) 2021 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,11 +24,19 @@
 # ==============================================================================
 
 """
-    Command Processing Unites
-    ~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    Processors for commands
+    Server extensions for MessageProcessor
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
+
+from typing import Optional, Union
+
+from dimsdk import ContentType, Command
+from dimsdk import ContentProcessor
+
+from dimsdk.cpu import BaseContentProcessorCreator
+
+from ...common import HandshakeCommand, LoginCommand
+from ...common import ReportCommand, AnsCommand
 
 from .handshake import HandshakeCommandProcessor
 from .login import LoginCommandProcessor
@@ -37,18 +45,25 @@ from .ans import AnsCommandProcessor
 
 from .document import DocumentCommandProcessor
 
-from .creator import ServerContentProcessorCreator
 
+class ServerContentProcessorCreator(BaseContentProcessorCreator):
 
-__all__ = [
-
-    'HandshakeCommandProcessor',
-    'LoginCommandProcessor',
-    'ReportCommandProcessor',
-    'AnsCommandProcessor',
-
-    'DocumentCommandProcessor',
-
-    'ServerContentProcessorCreator',
-
-]
+    # Override
+    def create_command_processor(self, msg_type: Union[int, ContentType], cmd: str) -> Optional[ContentProcessor]:
+        # document
+        if cmd == Command.DOCUMENT:
+            return DocumentCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        # handshake
+        if cmd == HandshakeCommand.HANDSHAKE:
+            return HandshakeCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        # login
+        if cmd == LoginCommand.LOGIN:
+            return LoginCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        # report
+        if cmd == ReportCommand.REPORT:
+            return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        # ans
+        if cmd == AnsCommand.ANS:
+            return AnsCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        # others
+        return super().create_command_processor(msg_type=msg_type, cmd=cmd)

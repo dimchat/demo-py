@@ -2,12 +2,12 @@
 #
 #   DIM-SDK : Decentralized Instant Messaging Software Development Kit
 #
-#                                Written in 2023 by Moky <albert.moky@gmail.com>
+#                                Written in 2024 by Moky <albert.moky@gmail.com>
 #
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2023 Albert Moky
+# Copyright (c) 2024 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,36 +29,21 @@
 # ==============================================================================
 
 import threading
-from abc import ABC
-from typing import Dict, List, Set
+import weakref
+from typing import Optional, Set, List
 
 from dimsdk import DateTime
-from dimsdk import FrequencyChecker
-from dimsdk import EntityType, ID, Document
-from dimsdk import Envelope, InstantMessage
+from dimsdk import EntityType
+from dimsdk import ID, Document, Visa
 from dimsdk import Command, MetaCommand, DocumentCommand
+from dimsdk import Envelope, InstantMessage
 from dimsdk import Station
 
+from ..utils import Logging
 from ..common import AccountDBI
-from ..common import CommonArchivist
-from ..common import CommonFacebook, CommonMessenger
 from ..common import StationInfo
-
-from .session_center import SessionCenter
-
-
-def get_facebook(archivist: CommonArchivist):
-    facebook = archivist.facebook
-    if facebook is not None:
-        assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
-    return facebook
-
-
-def get_messenger(archivist: CommonArchivist):
-    messenger = archivist.messenger
-    if messenger is not None:
-        assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
-    return messenger
+from ..common import EntityChecker
+from ..common import CommonFacebook, CommonMessenger
 
 
 def get_dispatcher():
@@ -66,19 +51,40 @@ def get_dispatcher():
     return Dispatcher()
 
 
-class ServerArchivist(CommonArchivist, ABC):
+def session_database():
+    dispatcher = get_dispatcher()
+    return dispatcher.sdb
 
-    # each respond will be expired after 10 minutes
-    RESPOND_EXPIRES = 600.0  # seconds
 
-    def __init__(self, database: AccountDBI):
+def session_center():
+    from .session_center import SessionCenter
+    return SessionCenter()
+
+
+class ServerChecker(EntityChecker, Logging):
+
+    def __init__(self, database: AccountDBI, facebook: CommonFacebook):
         super().__init__(database=database)
-        self.__document_responses = FrequencyChecker(expires=self.RESPOND_EXPIRES)
-        self.__last_active_members: Dict[ID, ID] = {}  # group => member
+        self.__barrack = weakref.ref(facebook)
+        self.__transceiver = None
         # neighbor stations
         self.__neighbors = set()
         self.__lock = threading.Lock()
         self.__expires = 0
+
+    @property
+    def facebook(self) -> Optional[CommonFacebook]:
+        return self.__barrack()
+
+    @property
+    def messenger(self) -> Optional[CommonMessenger]:
+        ref = self.__transceiver
+        if ref is not None:
+            return ref()
+
+    @messenger.setter
+    def messenger(self, transceiver: CommonMessenger):
+        self.__transceiver = None if transceiver is None else weakref.ref(transceiver)
 
     @property
     def active_stations(self) -> Set[ID]:
@@ -87,7 +93,7 @@ class ServerArchivist(CommonArchivist, ABC):
         with self.__lock:
             if self.__expires < now.timestamp:
                 neighbors = set()
-                center = SessionCenter()
+                center = session_center()
                 all_users = center.all_users()
                 for item in all_users:
                     if item.type == EntityType.STATION:
@@ -99,9 +105,8 @@ class ServerArchivist(CommonArchivist, ABC):
     @property
     async def all_stations(self) -> List[StationInfo]:
         """ get stations from database """
-        dispatcher = get_dispatcher()
-        db = dispatcher.sdb
         # TODO: get chosen provider
+        db = session_database()
         providers = await db.all_providers()
         assert len(providers) > 0, 'service provider not found'
         gsp = providers[0].identifier
@@ -128,12 +133,13 @@ class ServerArchivist(CommonArchivist, ABC):
         return neighbors
 
     async def _broadcast_command(self, command: Command) -> bool:
-        facebook = get_facebook(archivist=self)
-        messenger = get_messenger(archivist=self)
+        facebook = self.facebook
+        messenger = self.messenger
         if facebook is None or messenger is None:
-            self.error(msg='twins not ready yet: %s, %s' % (facebook, messenger))
+            self.error(msg='facebook messenger not ready yet: %s, %s' % (facebook, messenger))
             return False
-        sid = facebook.current_user.identifier
+        user = await facebook.current_user
+        sid = user.identifier
         env = Envelope.create(sender=sid, receiver=Station.EVERY)
         i_msg = InstantMessage.create(head=env, body=command)
         # pack & deliver message
@@ -152,13 +158,6 @@ class ServerArchivist(CommonArchivist, ABC):
             await dispatcher.deliver_message(msg=r_msg, receiver=receiver)
         return len(neighbors) > 0
 
-    # protected
-    def is_documents_respond_expired(self, identifier: ID, force: bool) -> bool:
-        return self.__document_responses.is_expired(key=identifier, force=force)
-
-    def set_last_active_member(self, member: ID, group: ID):
-        self.__last_active_members[group] = member
-
     # Override
     async def query_meta(self, identifier: ID) -> bool:
         if not self.is_meta_query_expired(identifier=identifier):
@@ -171,11 +170,11 @@ class ServerArchivist(CommonArchivist, ABC):
 
     # Override
     async def query_documents(self, identifier: ID, documents: List[Document]) -> bool:
-        if not self.is_documents_query_expired(identifier=identifier):
+        if not self.is_document_query_expired(identifier=identifier):
             # query not expired yet
             self.info(msg='document query not expired yet: %s' % identifier)
             return False
-        last_time = await self.get_last_document_time(identifier=identifier, documents=documents)
+        last_time = self.get_last_document_time(identifier=identifier, documents=documents)
         self.info(msg='querying document for: %s, last time: %s' % (identifier, last_time))
         command = DocumentCommand.query(identifier=identifier, last_time=last_time)
         return await self._broadcast_command(command=command)
@@ -185,3 +184,22 @@ class ServerArchivist(CommonArchivist, ABC):
         # station will never process group info
         self.error(msg='DON\'t call me!')
         return False
+
+    # Override
+    async def send_visa(self, visa: Visa, receiver: ID, updated: bool = False) -> bool:
+        me = visa.identifier
+        if me == receiver:
+            self.warning(msg='skip cycled message: %s, %s' % (receiver, visa))
+            return False
+        messenger = self.messenger
+        if messenger is None:
+            self.error(msg='messenger not ready yet')
+            return False
+        elif not self.is_document_response_expired(identifier=receiver, force=updated):
+            # response not expired yet
+            self.debug(msg='visa response not expired yet: %s' % receiver)
+            return False
+        self.info(msg='push visa document: %s => %s' % (me, receiver))
+        content = DocumentCommand.response(document=visa, identifier=me)
+        _, r_msg = await messenger.send_content(content=content, sender=me, receiver=receiver, priority=1)
+        return r_msg is not None

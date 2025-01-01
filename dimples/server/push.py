@@ -124,8 +124,8 @@ class PushCenter(Runner, Logging):
         self.__queue = MessageQueue()
         self.__keeper = BadgeKeeper()
         self.__service: Optional[PushService] = None
-        # Runner.async_task(coro=self.start())
-        Runner.thread_run(runner=self)
+        # auto start
+        self.start()
 
     @property
     def service(self) -> Optional[PushService]:
@@ -148,6 +148,11 @@ class PushCenter(Runner, Logging):
         """ Push notification for msg receiver """
         queue = self.__queue
         queue.add_message(msg=msg)
+
+    def start(self):
+        thr = Runner.async_thread(coro=self.run())
+        thr.start()
+        # Runner.async_task(coro=self.run())
 
     # Override
     async def process(self) -> bool:

@@ -35,10 +35,11 @@ from typing import List
 from dimsdk import ID
 from dimsdk import Station
 from dimsdk import ReliableMessage
-from dimsdk import MessageHelper
+from dimsdk import MessageUtils
 
-from ..common import CommonMessenger, CommonMessagePacker
+from ..common import CommonMessenger
 
+from .packer import ServerMessagePacker
 from .dispatcher import Dispatcher
 
 
@@ -55,7 +56,7 @@ class ServerMessenger(CommonMessenger):
 
     async def _resume_reliable_messages(self):
         packer = self.packer
-        assert isinstance(packer, CommonMessagePacker), 'message packer error: %s' % packer
+        assert isinstance(packer, ServerMessagePacker), 'message packer error: %s' % packer
         messages = packer.resume_reliable_messages()
         for msg in messages:
             msg.pop('error', None)
@@ -70,7 +71,7 @@ class ServerMessenger(CommonMessenger):
     # Override
     async def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         session = self.session
-        current = self.facebook.current_user
+        current = await self.facebook.current_user
         sid = current.identifier
         receiver = msg.receiver
         # call super
@@ -85,8 +86,8 @@ class ServerMessenger(CommonMessenger):
             for res in responses:
                 if res.sender == sid:
                     # let the first responding message to carry the station's meta & visa
-                    MessageHelper.set_meta(meta=meta, msg=res)
-                    MessageHelper.set_visa(visa=visa, msg=res)
+                    MessageUtils.set_meta(meta=meta, msg=res)
+                    MessageUtils.set_visa(visa=visa, msg=res)
                     break
         elif session.identifier == sid:
             # station bridge

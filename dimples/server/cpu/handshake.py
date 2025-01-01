@@ -72,16 +72,16 @@ class HandshakeCommandProcessor(BaseCommandProcessor):
         sender = r_msg.sender
         if sess_id is not None:
             assert sess_id == sender, 'sender error: %s, %s' % (sender, sess_id)
-        if session.key == content.session:
+        if session.session_key == content.session:
             # session key match
-            Log.info(msg='handshake accepted: %s, session: %s' % (sender, session.key))
+            Log.info(msg='handshake accepted: %s, session: %s' % (sender, session.session_key))
             # verified success
             await handshake_accepted(identifier=sender, when=content.time, session=session, messenger=messenger)
-            res = HandshakeCommand.success(session=session.key)
+            res = HandshakeCommand.success(session=session.session_key)
         else:
             # session key not match
             # ask client to sign it with the new session key
-            res = HandshakeCommand.again(session=session.key)
+            res = HandshakeCommand.again(session=session.session_key)
         res['remote_address'] = session.remote_address
         return [res]
 
@@ -94,4 +94,6 @@ async def handshake_accepted(identifier: ID, when: Optional[DateTime], session: 
     # 2. update session flag
     session.set_active(active=True, when=when)
     # 3. callback
+    from ..messenger import ServerMessenger
+    assert isinstance(messenger, ServerMessenger)
     await messenger.handshake_success()

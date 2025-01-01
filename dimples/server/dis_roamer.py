@@ -60,6 +60,8 @@ class Roamer(Runner, Logging):
         # roaming (user id => station id)
         self.__queue: List[RoamingInfo] = []
         self.__lock = threading.Lock()
+        # auto start
+        self.start()
 
     @property
     def database(self) -> MessageDBI:
@@ -89,6 +91,10 @@ class Roamer(Runner, Logging):
         info = RoamingInfo(user=user, station=station)
         self.__append(info=info)
         return True
+
+    def start(self):
+        thr = Runner.async_thread(coro=self.run())
+        thr.start()
 
     # Override
     async def process(self) -> bool:

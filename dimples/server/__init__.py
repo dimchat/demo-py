@@ -44,10 +44,11 @@ from .trace import TraceManager
 
 from .packer import BlockFilter, MuteFilter, FilterManager
 
-from .packer import ServerMessagePacker
-from .processor import ServerMessageProcessor, ServerContentProcessorCreator
+from .checker import ServerChecker
+from .facebook import ServerFacebook
 from .messenger import ServerMessenger
-from .archivist import ServerArchivist
+from .processor import ServerMessageProcessor, ServerContentProcessorCreator
+from .packer import ServerMessagePacker
 
 
 __all__ = [
@@ -71,8 +72,10 @@ __all__ = [
     # Filter
     'BlockFilter', 'MuteFilter', 'FilterManager',
 
-    'ServerMessagePacker',
-    'ServerMessageProcessor', 'ServerContentProcessorCreator',
+    'ServerChecker',
+    'ServerFacebook',
     'ServerMessenger',
-    'ServerArchivist',
+    'ServerMessageProcessor', 'ServerContentProcessorCreator',
+    'ServerMessagePacker',
+
 ]

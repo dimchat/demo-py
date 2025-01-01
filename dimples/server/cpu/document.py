@@ -64,7 +64,7 @@ class DocumentCommandProcessor(SuperCommandProcessor):
             # this is a request, check DocumentCommand & LoginCommand
             if has_document(contents=responses):
                 db = self.session.database
-                current = self.facebook.current_user
+                current = await self.facebook.current_user
                 sid = current.identifier
                 assert db is not None, 'session DB not found'
                 assert sid is not None, 'current station not found: %s' % current

@@ -41,8 +41,8 @@ from ..utils import Singleton, Logging
 from ..common import CommonFacebook
 from ..common import MessageDBI, SessionDBI
 
+from .checker import ServerChecker
 from .push import PushCenter
-from .archivist import ServerArchivist
 from .deliver import MessageDeliver, session_push
 from .dis_roamer import Roamer
 
@@ -172,9 +172,9 @@ class Dispatcher(Logging):
         if receiver == Station.EVERY or receiver == EVERYONE:
             # broadcast message to neighbor stations
             # e.g.: 'stations@everywhere', 'everyone@everywhere'
-            archivist = self.facebook.archivist
-            assert isinstance(archivist, ServerArchivist)
-            candidates = await archivist.all_neighbors
+            checker = self.facebook.checker
+            assert isinstance(checker, ServerChecker), 'entity checker error: %s' % checker
+            candidates = await checker.all_neighbors
             if len(candidates) == 0:
                 self.warning(msg='failed to get neighbors: %s' % receiver)
                 return []
@@ -187,7 +187,7 @@ class Dispatcher(Logging):
             return [res]
 
     async def __broadcast_message(self, msg: ReliableMessage, receiver: ID, neighbors: Set[ID]) -> List[Content]:
-        current = self.facebook.current_user
+        current = await self.facebook.current_user
         assert current is not None, 'failed to get current station'
         current = current.identifier
         #

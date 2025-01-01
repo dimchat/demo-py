@@ -25,27 +25,30 @@
 
 import getopt
 import sys
-import time
 from typing import Optional, Tuple
 
-from dimsdk import ID
+from dimsdk import ID, Document
 
 from ..utils import Singleton, Config
-from ..utils import Runner
 from ..utils import Path
-from ..common import AddressNameServer, ANSFactory
-from ..common import CommonFacebook, CommonMessenger
+
+from ..common import CommonArchivist
+from ..common import CommonFacebook
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..common import ProviderInfo
+from ..common.compat import CommonLoader
 from ..database.redis import RedisConnector
 from ..database import DbInfo
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
-from ..server import ServerArchivist
+from ..group import SharedGroupManager
+
 from ..server import ServerSession
+from ..server import ServerFacebook
 from ..server import ServerMessenger
 from ..server import ServerMessagePacker
 from ..server import ServerMessageProcessor
 from ..server import Dispatcher, MessageDeliver, Roamer
+from ..server import ServerChecker
 
 
 @Singleton
@@ -53,12 +56,81 @@ class GlobalVariable:
 
     def __init__(self):
         super().__init__()
-        self.config: Optional[Config] = None
-        self.adb: Optional[AccountDBI] = None
-        self.mdb: Optional[MessageDBI] = None
-        self.sdb: Optional[SessionDBI] = None
-        self.facebook: Optional[CommonFacebook] = None
-        self.messenger: Optional[CommonMessenger] = None  # only for archivist
+        self.__config: Optional[Config] = None
+        self.__adb: Optional[AccountDBI] = None
+        self.__mdb: Optional[MessageDBI] = None
+        self.__sdb: Optional[SessionDBI] = None
+        self.__facebook: Optional[ServerFacebook] = None
+        self.__messenger: Optional[ServerMessenger] = None  # only for entity checker
+
+    @property
+    def config(self) -> Config:
+        return self.__config
+
+    @property
+    def adb(self) -> AccountDBI:
+        return self.__adb
+
+    @property
+    def mdb(self) -> MessageDBI:
+        return self.__mdb
+
+    @property
+    def sdb(self) -> SessionDBI:
+        return self.__sdb
+
+    @property
+    def facebook(self) -> ServerFacebook:
+        return self.__facebook
+
+    @property
+    def messenger(self) -> ServerMessenger:
+        return self.__messenger
+
+    @messenger.setter
+    def messenger(self, transceiver: ServerMessenger):
+        self.__messenger = transceiver
+        # set for entity checker
+        checker = self.facebook.checker
+        if isinstance(checker, ServerChecker):
+            checker.messenger = transceiver
+
+    async def prepare(self, app_name: str, default_config: str):
+        #
+        #  Step 1: load config
+        #
+        config = await create_config(app_name=app_name, default_config=default_config)
+        self.__config = config
+        #
+        #  Step 2: create database
+        #
+        adb, mdb, sdb = await create_database(config=config)
+        self.__adb = adb
+        self.__mdb = mdb
+        self.__sdb = sdb
+        #
+        #  Step 3: create facebook
+        #
+        facebook = await create_facebook(database=adb)
+        self.__facebook = facebook
+
+    async def login(self, current_user: ID):
+        facebook = self.facebook
+        # make sure private keys exists
+        sign_key = await facebook.private_key_for_visa_signature(identifier=current_user)
+        msg_keys = await facebook.private_keys_for_decryption(identifier=current_user)
+        assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
+        assert len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
+        print('set current user: %s' % current_user)
+        user = await facebook.get_user(identifier=current_user)
+        assert user is not None, 'failed to get current user: %s' % current_user
+        visa = await user.visa
+        if visa is not None:
+            # refresh visa
+            visa = Document.parse(document=visa.copy_dictionary())
+            visa.sign(private_key=sign_key)
+            await facebook.save_document(document=visa)
+        await facebook.set_current_user(user=user)
 
 
 def show_help(cmd: str, app_name: str, default_config: str):
@@ -102,9 +174,16 @@ async def create_config(app_name: str, default_config: str) -> Config:
         print('!!! config file not exists: %s' % ini_file)
         print('')
         sys.exit(0)
+    # load extensions
+    CommonLoader().run()
     # load config from file
     config = Config.load(file=ini_file)
     print('>>> config loaded: %s => %s' % (ini_file, config))
+    # load ANS records from 'config.ini'
+    ans_records = config.ans_records
+    if ans_records is not None:
+        CommonFacebook.ans.fix(records=ans_records)
+    # OK
     return config
 
 
@@ -168,36 +247,18 @@ async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, Sessi
     return adb, mdb, sdb
 
 
-async def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
+async def create_facebook(database: AccountDBI) -> ServerFacebook:
     """ Step 3: create facebook """
-    facebook = CommonFacebook()
-    # create archivist for facebook
-    shared = GlobalVariable()
-    shared.messenger = create_messenger(facebook=facebook, database=shared.mdb, session=None)
-    archivist = ServerArchivist(database=database)
-    archivist.messenger = shared.messenger
-    archivist.facebook = facebook
-    facebook.archivist = archivist
-    # make sure private keys exists
-    sign_key = await facebook.private_key_for_visa_signature(identifier=current_user)
-    msg_keys = await facebook.private_keys_for_decryption(identifier=current_user)
-    assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
-    assert len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
-    print('set current user: %s' % current_user)
-    user = await facebook.get_user(identifier=current_user)
-    assert user is not None, 'failed to get current user: %s' % current_user
-    visa = await user.visa
-    if visa is not None:
-        # refresh visa
-        now = time.time()
-        visa.set_property(key='time', value=now)
-        visa.sign(private_key=sign_key)
-        await facebook.save_document(document=visa)
-    facebook.current_user = user
+    facebook = ServerFacebook(database=database)
+    facebook.archivist = CommonArchivist(facebook=facebook, database=database)
+    facebook.checker = ServerChecker(facebook=facebook, database=database)
+    # set for group manager
+    man = SharedGroupManager()
+    man.facebook = facebook
     return facebook
 
 
-def create_messenger(facebook: CommonFacebook, database: MessageDBI,
+def create_messenger(facebook: ServerFacebook, database: MessageDBI,
                      session: Optional[ServerSession]) -> ServerMessenger:
     # 1. create messenger with session and MessageDB
     messenger = ServerMessenger(session=session, facebook=facebook, database=database)
@@ -217,25 +278,10 @@ def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
     sdb = shared.sdb
     facebook = shared.facebook
     deliver = MessageDeliver(database=sdb, facebook=facebook)
-    roamer = Roamer(database=mdb, deliver=deliver)
-    Runner.thread_run(runner=roamer)
-    # Runner.async_task(coro=roamer.start())
     dispatcher = Dispatcher()
     dispatcher.mdb = mdb
     dispatcher.sdb = sdb
     dispatcher.facebook = facebook
     dispatcher.deliver = deliver
-    dispatcher.roamer = roamer
+    dispatcher.roamer = Roamer(database=mdb, deliver=deliver)
     return dispatcher
-
-
-def create_ans(config: Config) -> AddressNameServer:
-    """ Step 5: create ANS """
-    ans = AddressNameServer()
-    factory = ID.factory()
-    ID.register(factory=ANSFactory(factory=factory, ans=ans))
-    # load ANS records from 'config.ini'
-    ans_records = config.ans_records
-    if ans_records is not None:
-        ans.fix(records=ans_records)
-    return ans

@@ -95,7 +95,8 @@ class MessageDeliver(Logging):
         assert neighbor is None or neighbor.type == EntityType.STATION, 'neighbor station ID error: %s' % neighbor
         self.info(msg='redirect message %s => %s to neighbor station: %s' % (msg.sender, msg.receiver, neighbor))
         # 0. check current station
-        current = self.facebook.current_user.identifier
+        current = await self.facebook.current_user
+        current = current.identifier
         assert current.type == EntityType.STATION, 'current station ID error: %s' % current
         if neighbor == current:
             self.debug(msg='same destination: %s, msg %s => %s' % (neighbor, msg.sender, msg.receiver))

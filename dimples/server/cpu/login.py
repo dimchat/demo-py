@@ -73,7 +73,7 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         if not await db.save_login_command_message(user=sender, content=content, msg=r_msg):
             self.error(msg='login command error/expired: %s' % content)
             return []
-        current = self.facebook.current_user
+        current = await self.facebook.current_user
         roaming = ID.parse(identifier=station.get('ID'))
         # assert isinstance(roaming, ID), 'login command error: %s' % content
         if not isinstance(roaming, ID):

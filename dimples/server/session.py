@@ -38,11 +38,12 @@
 import socket
 import threading
 import traceback
-from typing import Optional, List, Tuple
+from typing import Optional, List
 
 from dimsdk import ID, EntityType
 from dimsdk import ReliableMessage
 
+from startrek.types import SocketAddress
 from startrek import Porter, PorterStatus
 from startrek import Arrival, Departure
 
@@ -82,13 +83,13 @@ class ServerSession(BaseSession):
                 Only push message when it's True.
     """
 
-    def __init__(self, remote: Tuple[str, int], sock: socket.socket, database: SessionDBI):
+    def __init__(self, remote: SocketAddress, sock: socket.socket, database: SessionDBI):
         super().__init__(remote=remote, sock=sock, database=database)
         self.__key = generate_session_key()
         self.__loader = OfflineMessageLoader()
 
     @property
-    def key(self) -> str:
+    def session_key(self) -> str:
         return self.__key
 
     @property  # Override

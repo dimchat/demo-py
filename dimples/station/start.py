@@ -42,9 +42,7 @@ sys.path.insert(0, path)
 from dimples.utils import Log, Runner
 
 from dimples.station.shared import GlobalVariable
-from dimples.station.shared import create_config, create_database, create_facebook
 from dimples.station.shared import create_dispatcher
-from dimples.station.shared import create_ans
 from dimples.station.handler import RequestHandler
 
 
@@ -60,23 +58,13 @@ DEFAULT_CONFIG = '/etc/dim/station.ini'
 async def async_main():
     # create global variable
     shared = GlobalVariable()
-    # Step 1: load config
-    config = await create_config(app_name='DIM Network Station', default_config=DEFAULT_CONFIG)
-    shared.config = config
-    # Step 2: create database
-    adb, mdb, sdb = await create_database(config=config)
-    shared.adb = adb
-    shared.mdb = mdb
-    shared.sdb = sdb
-    # Step 3: create facebook
+    await shared.prepare(app_name='DIM Network Station', default_config=DEFAULT_CONFIG)
+    config = shared.config
+    # login
     sid = config.station_id
-    assert sid is not None, 'current station ID not set: %s' % config
-    facebook = await create_facebook(database=adb, current_user=sid)
-    shared.facebook = facebook
-    # Step 4: create dispatcher
+    await shared.login(current_user=sid)
+    # create dispatcher
     create_dispatcher(shared=shared)
-    # Step 5: create ANS
-    create_ans(config=config)
     # check bind host & port
     host = config.station_host
     port = config.station_port

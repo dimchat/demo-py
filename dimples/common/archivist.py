@@ -31,10 +31,8 @@
 import weakref
 from typing import List, Optional
 
-from dimsdk import DateTime
-from dimsdk import SignKey, DecryptKey, VerifyKey, EncryptKey
+from dimsdk import VerifyKey, EncryptKey
 from dimsdk import ID, EntityType
-from dimsdk import Document, Meta
 from dimsdk import User, BaseUser, Station, Bot
 from dimsdk import Group, BaseGroup, ServiceProvider
 from dimsdk import Facebook
@@ -141,117 +139,3 @@ class CommonArchivist(Archivist, Logging):
             else:
                 self.error(msg='failed to get local users')
         return all_users
-
-
-class _Dep(Logging):
-
-    @property
-    def database(self) -> AccountDBI:
-        raise NotImplemented
-
-    # Override
-    async def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        db = self.database
-        return await db.save_meta(meta=meta, identifier=identifier)
-
-    # Override
-    async def save_document(self, document: Document) -> bool:
-        doc_time = document.time
-        if doc_time is None:
-            # assert False, 'document error: %s' % doc
-            self.warning(msg='document without time: %s' % document.identifier)
-        else:
-            # calibrate the clock
-            # make sure the document time is not in the far future
-            current = DateTime.now() + 65.0
-            if doc_time > current:
-                # assert False, 'document time error: %s, %s' % (doc_time, document)
-                return False
-        db = self.database
-        return await db.save_document(document=document)
-
-    #
-    #   EntityDataSource
-    #
-
-    # Override
-    async def get_meta(self, identifier: ID) -> Optional[Meta]:
-        db = self.database
-        return await db.get_meta(identifier=identifier)
-
-    # Override
-    async def get_documents(self, identifier: ID) -> List[Document]:
-        db = self.database
-        return await db.get_documents(identifier=identifier)
-
-    #
-    #   UserDataSource
-    #
-
-    # Override
-    async def get_contacts(self, identifier: ID) -> List[ID]:
-        db = self.database
-        return await db.get_contacts(user=identifier)
-
-    # Override
-    async def public_key_for_encryption(self, identifier: ID) -> Optional[EncryptKey]:
-        raise AssertionError('DON\'T call me!')
-
-    # Override
-    async def public_keys_for_verification(self, identifier: ID) -> List[VerifyKey]:
-        raise AssertionError('DON\'T call me!')
-
-    # Override
-    async def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
-        db = self.database
-        return await db.private_keys_for_decryption(user=identifier)
-
-    # Override
-    async def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
-        db = self.database
-        return await db.private_key_for_signature(user=identifier)
-
-    # Override
-    async def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
-        db = self.database
-        return await db.private_key_for_visa_signature(user=identifier)
-
-    #
-    #   GroupDataSource
-    #
-
-    # Override
-    async def get_founder(self, identifier: ID) -> Optional[ID]:
-        db = self.database
-        return await db.get_founder(group=identifier)
-
-    # Override
-    async def get_owner(self, identifier: ID) -> Optional[ID]:
-        db = self.database
-        return await db.get_owner(group=identifier)
-
-    # Override
-    async def get_members(self, identifier: ID) -> List[ID]:
-        db = self.database
-        return await db.get_members(group=identifier)
-
-    # Override
-    async def get_assistants(self, identifier: ID) -> List[ID]:
-        db = self.database
-        return await db.get_assistants(group=identifier)
-
-    #
-    #   Organization Structure
-    #
-
-    async def get_administrators(self, group: ID) -> List[ID]:
-        db = self.database
-        return await db.get_administrators(group=group)
-
-    async def save_administrators(self, administrators: List[ID], group: ID) -> bool:
-        db = self.database
-        return await db.save_administrators(administrators=administrators, group=group)
-
-    async def save_members(self, members: List[ID], group: ID) -> bool:
-        db = self.database
-        return await db.save_members(members=members, group=group)
