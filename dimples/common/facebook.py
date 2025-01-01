@@ -50,6 +50,7 @@ from ..utils import Runner
 
 from .dbi import AccountDBI
 
+from .ans import AddressNameServer
 from .checker import EntityChecker
 from .archivist import CommonArchivist
 from .anonymous import Anonymous
@@ -291,3 +292,8 @@ class CommonFacebook(Facebook, Logging, ABC):
     @abstractmethod
     async def save_members(self, members: List[ID], group: ID) -> bool:
         raise NotImplemented
+
+    #
+    #   Address Name Service
+    #
+    ans: Optional[AddressNameServer] = None

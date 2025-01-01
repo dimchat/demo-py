@@ -35,7 +35,7 @@ from ..common.compat import NetworkType, network_to_type
 from ..utils import Singleton, Config
 from ..utils import Path
 from ..common import AccountDBI
-from ..common import CommonLoader
+from ..common.compat import CommonLoader
 from ..database.redis import RedisConnector
 from ..database import DbInfo
 from ..database import AccountDatabase
@@ -51,20 +51,28 @@ class GlobalVariable:
 
     def __init__(self):
         super().__init__()
-        self.config: Optional[Config] = None
-        self.adb: Optional[AccountDBI] = None
+        self.__config: Optional[Config] = None
+        self.__adb: Optional[AccountDBI] = None
+
+    @property
+    def config(self) -> Config:
+        return self.__config
+
+    @property
+    def adb(self) -> AccountDBI:
+        return self.__adb
 
     async def prepare(self, default_config: str):
         #
         #  Step 1: load config
         #
         config = await create_config(default_config=default_config)
-        self.config = config
+        self.__config = config
         #
         #  Step 2: create database
         #
         adb = await create_database(config=config)
-        self.adb = adb
+        self.__adb = adb
 
 
 def show_help(cmd: str, default_config: str):

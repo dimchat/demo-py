@@ -136,7 +136,7 @@ class AddressNameServer(AddressNameService):
 
 class ANSFactory(IDFactory):
 
-    def __init__(self, factory: IDFactory, ans: AddressNameServer):
+    def __init__(self, factory: IDFactory, ans: AddressNameService):
         super().__init__()
         self.__origin = factory
         self.__ans = ans

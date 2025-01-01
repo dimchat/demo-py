@@ -88,7 +88,7 @@ class ClientChecker(EntityChecker, Logging):
             # query not expired yet
             self.info(msg='document query not expired yet: %s' % identifier)
             return False
-        last_time = await self.get_last_document_time(identifier=identifier, documents=documents)
+        last_time = self.get_last_document_time(identifier=identifier, documents=documents)
         self.info(msg='querying document for: %s, last time: %s' % (identifier, last_time))
         content = DocumentCommand.query(identifier=identifier, last_time=last_time)
         _, r_msg = await messenger.send_content(content=content, sender=None, receiver=Station.ANY, priority=1)

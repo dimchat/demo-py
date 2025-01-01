@@ -34,6 +34,8 @@ from ..utils import Path
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..common import ProviderInfo
 from ..common import CommonArchivist
+from ..common import CommonFacebook
+from ..common.compat import CommonLoader
 
 from ..database.redis import RedisConnector
 from ..database import DbInfo
@@ -41,8 +43,8 @@ from ..database import AccountDatabase, MessageDatabase, SessionDatabase
 
 from ..group import SharedGroupManager
 
-from ..client.compat import ClientLoader
-from ..client import ClientFacebook, ClientChecker
+from ..client import ClientChecker
+from ..client import ClientFacebook, ClientMessenger
 
 
 @Singleton
@@ -50,30 +52,63 @@ class GlobalVariable:
 
     def __init__(self):
         super().__init__()
-        self.config: Optional[Config] = None
-        self.adb: Optional[AccountDBI] = None
-        self.mdb: Optional[MessageDBI] = None
-        self.sdb: Optional[SessionDBI] = None
-        self.facebook: Optional[ClientFacebook] = None
+        self.__config: Optional[Config] = None
+        self.__adb: Optional[AccountDBI] = None
+        self.__mdb: Optional[MessageDBI] = None
+        self.__sdb: Optional[SessionDBI] = None
+        self.__facebook: Optional[ClientFacebook] = None
+        self.__messenger: Optional[ClientMessenger] = None
+
+    @property
+    def config(self) -> Config:
+        return self.__config
+
+    @property
+    def adb(self) -> AccountDBI:
+        return self.__adb
+
+    @property
+    def mdb(self) -> MessageDBI:
+        return self.__mdb
+
+    @property
+    def sdb(self) -> SessionDBI:
+        return self.__sdb
+
+    @property
+    def facebook(self) -> ClientFacebook:
+        return self.__facebook
+
+    @property
+    def messenger(self) -> ClientMessenger:
+        return self.__messenger
+
+    @messenger.setter
+    def messenger(self, transceiver: ClientMessenger):
+        self.__messenger = transceiver
+        # set for entity checker
+        checker = self.facebook.checker
+        assert isinstance(checker, ClientChecker), 'entity checker error: %s' % checker
+        checker.messenger = transceiver
 
     async def prepare(self, app_name: str, default_config: str):
         #
         #  Step 1: load config
         #
         config = await create_config(app_name=app_name, default_config=default_config)
-        self.config = config
+        self.__config = config
         #
         #  Step 2: create database
         #
         adb, mdb, sdb = await create_database(config=config)
-        self.adb = adb
-        self.mdb = mdb
-        self.sdb = sdb
+        self.__adb = adb
+        self.__mdb = mdb
+        self.__sdb = sdb
         #
         #  Step 3: create facebook
         #
         facebook = await create_facebook(database=adb)
-        self.facebook = facebook
+        self.__facebook = facebook
 
     async def login(self, current_user: ID):
         facebook = self.facebook
@@ -136,10 +171,14 @@ async def create_config(app_name: str, default_config: str) -> Config:
         print('')
         sys.exit(0)
     # load extensions
-    ClientLoader().run()
+    CommonLoader().run()
     # load config from file
     config = Config.load(file=ini_file)
     print('>>> config loaded: %s => %s' % (ini_file, config))
+    # load ANS records from 'config.ini'
+    ans_records = config.ans_records
+    if ans_records is not None:
+        CommonFacebook.ans.fix(records=ans_records)
     # TODO: get common assistants
     # OK
     return config

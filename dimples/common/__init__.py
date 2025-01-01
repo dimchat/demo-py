@@ -45,8 +45,6 @@ from .processer import CommonMessageProcessor
 from .processer import Vestibule
 from .session import Transmitter, Session
 
-from .compat import CommonLoader, CommonPluginLoader
-
 
 __all__ = [
 
@@ -100,7 +98,5 @@ __all__ = [
 
     'Transmitter',
     'Session',
-
-    'CommonLoader', 'CommonPluginLoader',
 
 ]

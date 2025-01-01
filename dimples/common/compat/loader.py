@@ -34,6 +34,9 @@ from ..protocol import ReportCommand
 from ..protocol import AnsCommand
 from ..protocol import MuteCommand, BlockCommand
 
+from ..ans import AddressNameServer, ANSFactory
+from ..facebook import CommonFacebook
+
 from .entity import EntityIDFactory
 from .address import CompatibleAddressFactory
 from .meta import CompatibleMetaFactory
@@ -86,7 +89,10 @@ class CommonPluginLoader(PluginLoader):
 
     # Override
     def _register_id_factory(self):
-        ID.set_factory(factory=EntityIDFactory())
+        ans = AddressNameServer()
+        factory = EntityIDFactory()
+        ID.set_factory(factory=ANSFactory(factory=factory, ans=ans))
+        CommonFacebook.ans = ans
 
     # Override
     def _register_address_factory(self):

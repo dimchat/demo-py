@@ -38,12 +38,10 @@ from dimsdk import User, Group
 
 from ..utils import Runner
 from ..common import BroadcastUtils
-from ..common import AddressNameServer
 from ..common import CommonFacebook
 from ..group import SharedGroupManager
 
 
-# noinspection PyAbstractClass
 class ClientFacebook(CommonFacebook):
 
     # Override
@@ -205,17 +203,12 @@ class ClientFacebook(CommonFacebook):
         db = self.database
         return await db.get_administrators(group=group)
 
-    # protected
+    # Override
     async def save_administrators(self, administrators: List[ID], group: ID) -> bool:
         db = self.database
         return await db.save_administrators(administrators, group=group)
 
-    # protected
+    # Override
     async def save_members(self, members: List[ID], group: ID) -> bool:
         db = self.database
         return await db.save_members(members, group=group)
-
-    #
-    #   Address Name Service
-    #
-    ans: Optional[AddressNameServer] = None
