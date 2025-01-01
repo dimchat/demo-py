@@ -29,6 +29,7 @@ from dimsdk import GroupCommand, ResetCommand
 from dimsdk import PrivateKey, DecryptKey, SignKey
 from dimsdk import ID, Meta, Document, Bulletin
 from dimsdk import ReliableMessage
+from dimsdk import MetaUtils
 
 from ..common import AccountDBI
 
@@ -91,7 +92,7 @@ class AccountDatabase(AccountDBI):
     # Override
     async def save_meta(self, meta: Meta, identifier: ID) -> bool:
         # check meta with ID
-        if not meta.match_identifier(identifier=identifier):
+        if not MetaUtils.match_identifier(identifier=identifier, meta=meta):
             raise ValueError('meta not match: %s => %s' % (identifier, meta))
         return await self._meta_table.save_meta(meta=meta, identifier=identifier)
 

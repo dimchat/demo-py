@@ -35,7 +35,7 @@ from dimsdk import EntityType
 from dimsdk import ReliableMessage
 from dimsdk import Content, TextContent
 from dimsdk import ReceiptCommand
-from dimsdk import Facebook, Messenger
+from dimsdk import ContentProcessorCreator
 
 from ..common import HandshakeCommand
 from ..common import CommonFacebook, CommonMessenger
@@ -49,7 +49,7 @@ class ClientMessageProcessor(CommonMessageProcessor):
     @property
     def facebook(self) -> Optional[CommonFacebook]:
         barrack = super().facebook
-        assert isinstance(barrack, CommonFacebook), 'barrack error: %s' % barrack
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
         return barrack
 
     @property
@@ -59,7 +59,7 @@ class ClientMessageProcessor(CommonMessageProcessor):
         return transceiver
 
     # Override
-    def _create_creator(self, facebook: Facebook, messenger: Messenger):
+    def _create_creator(self, facebook: CommonFacebook, messenger: CommonMessenger) -> ContentProcessorCreator:
         return ClientContentProcessorCreator(facebook=facebook, messenger=messenger)
 
     # private

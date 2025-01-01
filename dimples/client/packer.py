@@ -38,7 +38,6 @@ from ..common import CommonFacebook
 from ..common import CommonMessagePacker
 
 from .checkpoint import Checkpoint
-from .archivist import ClientArchivist
 
 
 class ClientMessagePacker(CommonMessagePacker):
@@ -48,12 +47,6 @@ class ClientMessagePacker(CommonMessagePacker):
         barrack = super().facebook
         assert isinstance(barrack, CommonFacebook), 'barrack error: %s' % barrack
         return barrack
-
-    @property
-    def archivist(self) -> Optional[ClientArchivist]:
-        db = self.facebook.archivist
-        assert isinstance(db, ClientArchivist), 'archivist error: %s' % db
-        return db
 
     # Override
     def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):

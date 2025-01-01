@@ -35,6 +35,7 @@ from ..common.compat import NetworkType, network_to_type
 from ..utils import Singleton, Config
 from ..utils import Path
 from ..common import AccountDBI
+from ..common import CommonLoader
 from ..database.redis import RedisConnector
 from ..database import DbInfo
 from ..database import AccountDatabase
@@ -112,6 +113,8 @@ async def create_config(default_config: str) -> Config:
         print('!!! config file not exists: %s' % ini_file)
         print('')
         sys.exit(0)
+    # load extensions
+    CommonLoader().run()
     # load config from file
     config = Config.load(file=ini_file)
     # initializing

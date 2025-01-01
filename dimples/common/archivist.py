@@ -51,7 +51,8 @@ class CommonArchivist(Archivist, Logging):
     def __init__(self, facebook: Facebook, database: AccountDBI):
         super().__init__()
         self.__barrack = weakref.ref(facebook)
-        self.__db = database
+        self.__database = database
+        self.__current: Optional[User] = None
 
     @property
     def facebook(self) -> Optional[Facebook]:
@@ -59,7 +60,15 @@ class CommonArchivist(Archivist, Logging):
 
     @property
     def database(self) -> AccountDBI:
-        return self.__db
+        return self.__database
+
+    @property
+    def current_user(self) -> Optional[User]:
+        return self.__current
+
+    @current_user.setter
+    def current_user(self, user: User):
+        self.__current = user
 
     # Override
     async def create_user(self, identifier: ID) -> Optional[User]:
@@ -114,18 +123,23 @@ class CommonArchivist(Archivist, Logging):
 
     @property  # Override
     async def local_users(self) -> List[User]:
+        all_users = []
         facebook = self.facebook
         array = await self.database.get_local_users()
-        if facebook is None or array is None or len(array) == 0:
-            return []
-        all_users = []
-        for item in array:
-            # assert await facebook.private_key_for_signature(identifier=item) is not None
-            user = await facebook.get_user(identifier=item)
-            if user is not None:
-                all_users.append(user)
+        if facebook is not None and array is not None:
+            for item in array:
+                # assert await facebook.private_key_for_signature(identifier=item) is not None
+                user = await facebook.get_user(identifier=item)
+                if user is not None:
+                    all_users.append(user)
+                else:
+                    assert False, 'failed to create user: %s' % item
+        if len(all_users) == 0:
+            current = self.__current
+            if current is not None:
+                all_users.append(current)
             else:
-                assert False, 'failed to create user: %s' % item
+                self.error(msg='failed to get local users')
         return all_users
 
 

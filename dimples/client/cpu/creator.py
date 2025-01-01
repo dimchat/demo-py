@@ -37,7 +37,6 @@ from dimsdk import ContentProcessor
 from dimsdk.cpu import BaseContentProcessorCreator
 
 from ...common import HandshakeCommand, LoginCommand, AnsCommand
-from ...common import CommonFacebook, CommonMessenger
 
 from .handshake import HandshakeCommandProcessor
 from .commands import AnsCommandProcessor, LoginCommandProcessor, ReceiptCommandProcessor
@@ -54,18 +53,6 @@ from .customized import CustomizedContentProcessor
 
 
 class ClientContentProcessorCreator(BaseContentProcessorCreator):
-
-    @property
-    def facebook(self) -> CommonFacebook:
-        barrack = super().facebook
-        assert isinstance(barrack, CommonFacebook), 'barrack error: %s' % barrack
-        return barrack
-
-    @property
-    def messenger(self) -> CommonMessenger:
-        transceiver = super().messenger
-        assert isinstance(transceiver, CommonMessenger), 'transceiver error: %s' % transceiver
-        return transceiver
 
     # Override
     def create_content_processor(self, msg_type: Union[int, ContentType]) -> Optional[ContentProcessor]:

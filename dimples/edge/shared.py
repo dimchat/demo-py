@@ -33,6 +33,7 @@ from ..utils import Singleton, Config
 from ..utils import Path
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..common import ProviderInfo
+from ..common import CommonArchivist
 
 from ..database.redis import RedisConnector
 from ..database import DbInfo
@@ -41,7 +42,7 @@ from ..database import AccountDatabase, MessageDatabase, SessionDatabase
 from ..group import SharedGroupManager
 
 from ..client.compat import ClientLoader
-from ..client import ClientFacebook, ClientArchivist, ClientChecker
+from ..client import ClientFacebook, ClientChecker
 
 
 @Singleton
@@ -207,7 +208,7 @@ async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, Sessi
 async def create_facebook(database: AccountDBI) -> ClientFacebook:
     """ Step 3: create facebook """
     facebook = ClientFacebook(database=database)
-    facebook.archivist = ClientArchivist(facebook=facebook, database=database)
+    facebook.archivist = CommonArchivist(facebook=facebook, database=database)
     facebook.checker = ClientChecker(facebook=facebook, database=database)
     # set for group manager
     man = SharedGroupManager()

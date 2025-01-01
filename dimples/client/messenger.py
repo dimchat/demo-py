@@ -44,7 +44,6 @@ from ..common import HandshakeCommand, ReportCommand, LoginCommand
 from ..common import CommonMessenger
 
 from .network import ClientSession
-from .archivist import ClientArchivist
 
 
 class ClientMessenger(CommonMessenger):
@@ -54,12 +53,6 @@ class ClientMessenger(CommonMessenger):
         sess = super().session
         assert isinstance(sess, ClientSession), 'session error: %s' % sess
         return sess
-
-    @property  # protected
-    def archivist(self) -> ClientArchivist:
-        db = self.facebook.archivist
-        assert isinstance(db, ClientArchivist), 'archivist error: %s' % db
-        return db
 
     # Override
     async def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:

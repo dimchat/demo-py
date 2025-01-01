@@ -35,9 +35,8 @@ from .protocol import SearchCommand
 from .network import ClientSession
 from .network import SessionState
 
-from .archivist import ClientArchivist
 from .checkpoint import Checkpoint
-from .client_checker import ClientChecker
+from .checker import ClientChecker
 
 from .facebook import ClientFacebook
 from .messenger import ClientMessenger
@@ -58,7 +57,6 @@ __all__ = [
     #
     'ClientSession', 'SessionState',
 
-    'ClientArchivist',
     'Checkpoint',
     'ClientChecker',
 

@@ -50,7 +50,7 @@ from ..utils import Runner
 
 from .dbi import AccountDBI
 
-from .entity_checker import EntityChecker
+from .checker import EntityChecker
 from .archivist import CommonArchivist
 from .anonymous import Anonymous
 
@@ -62,7 +62,6 @@ class CommonFacebook(Facebook, Logging, ABC):
         self.__database = database
         self.__archivist: Optional[CommonArchivist] = None
         self.__checker: Optional[EntityChecker] = None
-        self.__current: Optional[User] = None
 
     @property
     def database(self) -> AccountDBI:
@@ -91,18 +90,19 @@ class CommonFacebook(Facebook, Logging, ABC):
     @property
     async def current_user(self) -> Optional[User]:
         """ Get current user (for signing and sending message) """
-        user = self.__current
+        archivist = self.archivist
+        user = archivist.current_user
         if user is None:
-            all_users = await self.archivist.local_users
+            all_users = await archivist.local_users
             if len(all_users) > 0:
                 user = all_users[0]
-                self.__current = user
+                archivist.current_user = user
         return user
 
     async def set_current_user(self, user: User):
         if user.data_source is None:
             user.data_source = self
-        self.__current = user
+        self.archivist.current_user = user
 
     #
     #   Documents

@@ -32,6 +32,7 @@ from dimsdk import Content
 from dimsdk import InstantMessage, ReliableMessage
 from dimsdk import MessageProcessor
 from dimsdk import Messenger
+from dimsdk import ContentProcessorCreator
 from dimsdk import GeneralContentProcessorFactory
 
 from ..utils import Logging
@@ -48,7 +49,7 @@ class CommonMessageProcessor(MessageProcessor, Logging, ABC):
         return GeneralContentProcessorFactory(creator=creator)
 
     @abstractmethod
-    def _create_creator(self, facebook: CommonFacebook, messenger: Messenger):
+    def _create_creator(self, facebook: CommonFacebook, messenger: Messenger) -> ContentProcessorCreator:
         raise NotImplemented
 
     # private

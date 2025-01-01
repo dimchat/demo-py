@@ -34,16 +34,22 @@ from typing import Optional, List
 
 from dimsdk import EntityType
 from dimsdk import ID, Document, Bulletin
-from dimsdk import User
+from dimsdk import User, Group
 
 from ..utils import Runner
 from ..common import BroadcastUtils
 from ..common import AddressNameServer
 from ..common import CommonFacebook
+from ..group import SharedGroupManager
 
 
 # noinspection PyAbstractClass
 class ClientFacebook(CommonFacebook):
+
+    # Override
+    def cache_group(self, group: Group):
+        group.data_source = SharedGroupManager()
+        super().cache_group(group=group)
 
     # Override
     async def select_user(self, receiver: ID) -> Optional[User]:

@@ -40,7 +40,7 @@ from dimsdk import ID
 from dimsdk import ReliableMessage
 from dimsdk import Content, ForwardContent
 from dimsdk import Command, GroupCommand
-
+from dimsdk import Facebook, Messenger
 from dimsdk.cpu import BaseCommandProcessor
 
 
@@ -53,7 +53,7 @@ from ...group import GroupHistoryBuilder
 
 class HistoryCommandProcessor(BaseCommandProcessor, Logging):
 
-    def __init__(self, facebook: CommonFacebook, messenger: CommonMessenger):
+    def __init__(self, facebook: Facebook, messenger: Messenger):
         super().__init__(facebook=facebook, messenger=messenger)
         # lazy
         self.__delegate = None

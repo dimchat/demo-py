@@ -36,7 +36,7 @@ from .anonymous import Anonymous
 from .register import Register
 from .ans import AddressNameServer, ANSFactory
 
-from .entity_checker import EntityChecker
+from .checker import EntityChecker
 from .archivist import CommonArchivist
 from .facebook import CommonFacebook
 from .messenger import CommonMessenger

@@ -65,13 +65,13 @@ class ClientChecker(EntityChecker, Logging):
 
     # Override
     async def query_meta(self, identifier: ID) -> bool:
-        if not self.is_meta_query_expired(identifier=identifier):
-            # query not expired yet
-            self.info(msg='meta query not expired yet: %s' % identifier)
-            return False
         messenger = self.messenger
         if messenger is None:
             self.warning(msg='messenger not ready yet')
+            return False
+        elif not self.is_meta_query_expired(identifier=identifier):
+            # query not expired yet
+            self.info(msg='meta query not expired yet: %s' % identifier)
             return False
         self.info(msg='querying meta for: %s' % identifier)
         content = MetaCommand.query(identifier=identifier)
@@ -80,13 +80,13 @@ class ClientChecker(EntityChecker, Logging):
 
     # Override
     async def query_documents(self, identifier: ID, documents: List[Document]) -> bool:
-        if not self.is_document_query_expired(identifier=identifier):
-            # query not expired yet
-            self.info(msg='document query not expired yet: %s' % identifier)
-            return False
         messenger = self.messenger
         if messenger is None:
             self.warning(msg='messenger not ready yet')
+            return False
+        elif not self.is_document_query_expired(identifier=identifier):
+            # query not expired yet
+            self.info(msg='document query not expired yet: %s' % identifier)
             return False
         last_time = await self.get_last_document_time(identifier=identifier, documents=documents)
         self.info(msg='querying document for: %s, last time: %s' % (identifier, last_time))
@@ -96,14 +96,14 @@ class ClientChecker(EntityChecker, Logging):
 
     # Override
     async def query_members(self, group: ID, members: List[ID]) -> bool:
-        if not self.is_members_query_expired(identifier=group):
-            # query not expired yet
-            self.info('members query not expired yet: %s' % group)
-            return False
         facebook = self.facebook
         messenger = self.messenger
         if facebook is None or messenger is None:
             self.warning(msg='facebook messenger not ready yet')
+            return False
+        elif not self.is_members_query_expired(identifier=group):
+            # query not expired yet
+            self.info('members query not expired yet: %s' % group)
             return False
         user = await facebook.current_user
         if user is None:
@@ -237,13 +237,13 @@ class ClientChecker(EntityChecker, Logging):
         if me == receiver:
             self.warning(msg='skip cycled message: %s, %s' % (receiver, visa))
             return False
-        if not self.is_document_response_expired(identifier=receiver, force=updated):
-            # response not expired yet
-            self.debug(msg='visa response not expired yet: %s' % receiver)
-            return False
         messenger = self.messenger
         if messenger is None:
             self.warning(msg='messenger not ready yet')
+            return False
+        elif not self.is_document_response_expired(identifier=receiver, force=updated):
+            # response not expired yet
+            self.debug(msg='visa response not expired yet: %s' % receiver)
             return False
         self.info(msg='push visa document: %s => %s' % (me, receiver))
         content = DocumentCommand.response(document=visa, identifier=me)
