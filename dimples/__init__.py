@@ -33,6 +33,8 @@ from dimsdk.cpu import *
 from dimplugins import *
 
 from .common import *
+from .conn import *
+from .database import *
 from .group import *
 
 name = 'DIMPLES'
@@ -42,12 +44,11 @@ __author__ = 'Albert Moky'
 
 __all__ = [
 
-    #
-    #   Types
-    #
+    'Singleton',
 
     'URI', 'DateTime',
-    'Converter',
+
+    'Converter', 'Copier',
     'Wrapper', 'Stringer', 'Mapper',
     'ConstantString',  # 'String',
     'Dictionary',
@@ -56,18 +57,20 @@ __all__ = [
     #   Data Format
     #
 
-    'DataCoder', 'Hex', 'Base64', 'Base58',
-    'ObjectCoder', 'JSON', 'MapCoder', 'JSONMap', 'ListCoder', 'JSONList',
+    'DataCoder', 'Hex', 'Base58', 'Base64',
+    'ObjectCoder', 'JSON',
+    'MapCoder', 'JSONMap',
+    'ListCoder', 'JSONList',
     'StringCoder', 'UTF8',
 
     'hex_encode', 'hex_decode',
-    'base64_encode', 'base64_decode', 'base58_encode', 'base58_decode',
+    'base58_encode', 'base58_decode',
+    'base64_encode', 'base64_decode',
     'json_encode', 'json_decode',
     'utf8_encode', 'utf8_decode',
 
     'TransportableData', 'TransportableDataFactory',
     'PortableNetworkFile', 'PortableNetworkFileFactory',
-    'FormatGeneralFactory', 'FormatFactoryManager',
 
     #
     #   Data Digest
@@ -81,45 +84,12 @@ __all__ = [
     #   Crypto Keys
     #
 
-    'CryptographyKey', 'EncryptKey', 'DecryptKey',
-    'AsymmetricKey', 'SignKey', 'VerifyKey',
-    'SymmetricKey', 'SymmetricKeyFactory',
-    'PublicKey', 'PublicKeyFactory',
-    'PrivateKey', 'PrivateKeyFactory',
+    'CryptographyKey',
+    'EncryptKey', 'DecryptKey', 'SignKey', 'VerifyKey',
+    'SymmetricKey', 'AsymmetricKey',
+    'PrivateKey', 'PublicKey',
 
-    'CryptographyKeyGeneralFactory', 'CryptographyKeyFactoryManager',
-
-    #
-    #   MingKeMing
-    #
-
-    'EntityType', 'MetaType',
-    'Address', 'AddressFactory',
-    'ID', 'IDFactory',
-    'Meta', 'MetaFactory',
-    # 'TAI',
-    'Document', 'DocumentFactory',
-    'Visa', 'Bulletin',
-
-    'BroadcastAddress', 'Identifier',
-    'AccountGeneralFactory', 'AccountFactoryManager',
-    'ANYWHERE', 'EVERYWHERE', 'ANYONE', 'EVERYONE', 'FOUNDER',
-
-    #
-    #   DaoKeDao
-    #
-
-    'ContentType', 'Content', 'ContentFactory',
-    'Envelope', 'EnvelopeFactory',
-    'Message', 'InstantMessage', 'SecureMessage', 'ReliableMessage',
-    'InstantMessageFactory', 'SecureMessageFactory', 'ReliableMessageFactory',
-
-    'InstantMessageDelegate', 'SecureMessageDelegate', 'ReliableMessageDelegate',
-    'MessageGeneralFactory', 'MessageFactoryManager',
-
-    #
-    #   Crypto core
-    #
+    'SymmetricKeyFactory', 'PrivateKeyFactory', 'PublicKeyFactory',
 
     'BaseKey', 'BaseSymmetricKey',
     'BaseAsymmetricKey', 'BasePublicKey', 'BasePrivateKey',
@@ -128,78 +98,127 @@ __all__ = [
     'BaseFileWrapper',
 
     #
-    #   MingKeMing core
+    #   MingKeMing
     #
 
-    'BaseMeta', 'MetaHelper',
-    'BaseDocument', 'BaseVisa', 'BaseBulletin', 'DocumentHelper',
+    'EntityType',
+    'Address',
+    'ID',
+    'Meta',
+    'Document', 'Visa', 'Bulletin',
 
-    'EntityDelegate',
-    'Entity', 'EntityDataSource', 'BaseEntity',
-    'User', 'UserDataSource', 'BaseUser',
-    'Group', 'GroupDataSource', 'BaseGroup',
+    'AddressFactory',
+    'IDFactory',
+    'MetaFactory',
+    'DocumentFactory',
+
+    'Identifier',
+    'ANYONE', 'EVERYONE', 'FOUNDER',
+    'ANYWHERE', 'EVERYWHERE',
+    # 'BroadcastAddress',
+
+    'BaseMeta',
+    'BaseDocument', 'BaseVisa', 'BaseBulletin',
 
     #
-    #   Protocol core
+    #   DaoKeDao
     #
 
+    'ContentType',
+    'Content',
+    'Envelope',
+    'Message',
+    'InstantMessage', 'SecureMessage', 'ReliableMessage',
+
+    # contents
     'TextContent', 'ArrayContent', 'ForwardContent',
     'PageContent', 'NameCard',
     'FileContent', 'ImageContent', 'AudioContent', 'VideoContent',
     'MoneyContent', 'TransferContent',
-    'CustomizedContent',
+    'QuoteContent', 'CombineContent',
 
-    'Command', 'CommandFactory',
+    # commands
+    'Command',
     'MetaCommand', 'DocumentCommand',
     'ReceiptCommand',
 
+    # group history
     'HistoryCommand', 'GroupCommand',
     'InviteCommand', 'ExpelCommand', 'JoinCommand', 'QuitCommand', 'QueryCommand', 'ResetCommand',
     'HireCommand', 'FireCommand', 'ResignCommand',
 
-    #
-    #   DaoKeDao core
-    #
-
+    # extend contents
     'BaseContent',
     'BaseTextContent', 'ListContent', 'SecretContent',
     'WebPageContent', 'NameCardContent',
     'BaseFileContent', 'ImageFileContent', 'AudioFileContent', 'VideoFileContent',
     'BaseMoneyContent', 'TransferMoneyContent',
-    'AppCustomizedContent',
+    'BaseQuoteContent', 'CombineForwardContent',
 
+    # extend commands
     'BaseCommand',
     'BaseMetaCommand', 'BaseDocumentCommand',
     'BaseReceiptCommand',
 
+    # extend group history
     'BaseHistoryCommand', 'BaseGroupCommand',
     'InviteGroupCommand', 'ExpelGroupCommand', 'JoinGroupCommand',
     'QuitGroupCommand', 'QueryGroupCommand', 'ResetGroupCommand',
     'HireGroupCommand', 'FireGroupCommand', 'ResignGroupCommand',
 
-    'CommandGeneralFactory', 'CommandFactoryManager',
+    #
+    #   Message
+    #
 
-    'MessageEnvelope', 'BaseMessage',
+    'MessageEnvelope',
+    'BaseMessage',
     'PlainMessage', 'EncryptedMessage', 'NetworkMessage',
+
+    # factories
+    'ContentFactory', 'CommandFactory',
+    'EnvelopeFactory',
+    'InstantMessageFactory', 'SecureMessageFactory', 'ReliableMessageFactory',
+
+    # delegates
+    'InstantMessageDelegate', 'SecureMessageDelegate', 'ReliableMessageDelegate',
 
     #
     #   Core
     #
 
     'Barrack', 'Transceiver', 'Packer', 'Processor',
+    'CipherKeyDelegate',
 
     #
     #   MingKeMing extends
     #
 
+    'EntityDelegate',
+    'Entity', 'EntityDataSource', 'BaseEntity',
+    'User', 'UserDataSource', 'BaseUser',
+    'Group', 'GroupDataSource', 'BaseGroup',
+
     'ServiceProvider', 'Station', 'Bot',
+
+    'MemberType',
+
+    'MetaUtils', 'DocumentUtils',
 
     #
     #   DaoKeDao extends
     #
 
+    'ContentProcessor',
+    'ContentProcessorCreator',
+    'ContentProcessorFactory',
+    'GeneralContentProcessorFactory',
+
+    'GeneralCommandFactory',
+    'HistoryCommandFactory',
+    'GroupCommandFactory',
+
     'InstantMessagePacker', 'SecureMessagePacker', 'ReliableMessagePacker',
-    'MessageFactory',
+    'MessageFactory', 'MessageUtils',
 
     #
     #   Core extends
@@ -207,20 +226,7 @@ __all__ = [
 
     'TwinsHelper',
 
-    'ContentProcessor', 'ContentProcessorCreator', 'ContentProcessorFactory',
-    'GeneralContentProcessorFactory',
-
-    'ContentFactoryBuilder', 'CommandFactoryBuilder',
-    'GeneralCommandFactory', 'HistoryCommandFactory', 'GroupCommandFactory',
-
-    'register_content_factories', 'register_command_factories',
-    'register_message_factories', 'register_all_factories',
-
-    #
-    #   Extends
-    #
-
-    'AddressNameService', 'CipherKeyDelegate',
+    'AddressNameService',
     'Archivist',
     'Facebook', 'Messenger',
     'MessageProcessor', 'MessagePacker',
@@ -231,19 +237,19 @@ __all__ = [
     #
     ####################################
 
-    'ContentProcessor', 'ContentProcessorCreator', 'ContentProcessorFactory',
+    'ContentProcessor',
+    'ContentProcessorCreator',
+    'ContentProcessorFactory',
     'GeneralContentProcessorFactory',
 
-    'BaseContentProcessor', 'BaseCommandProcessor',
+    'BaseContentProcessor',
+    'BaseCommandProcessor',
 
-    'ForwardContentProcessor',
     'ArrayContentProcessor',
+    'ForwardContentProcessor',
 
     'MetaCommandProcessor',
     'DocumentCommandProcessor',
-
-    'CustomizedContentProcessor',
-    'CustomizedContentHandler',
 
     'BaseContentProcessorCreator',
 
@@ -253,10 +259,18 @@ __all__ = [
     #
     ####################################
 
+    'Base64Coder', 'Base58Coder', 'HexCoder',
+    'JSONCoder', 'UTF8Coder',
+
     'Base64Data', 'Base64DataFactory',
     'BaseNetworkFile', 'BaseNetworkFileFactory',
 
-    'register_data_coders',
+    #
+    #   Digest
+    #
+
+    'MD5Digester', 'SHA1Digester', 'SHA256Digester',
+    'Keccak256Digester', 'RipeMD160Digester',
 
     #
     #   Crypto
@@ -271,32 +285,25 @@ __all__ = [
     'ECCPublicKey', 'ECCPublicKeyFactory',
     'ECCPrivateKey', 'ECCPrivateKeyFactory',
 
-    'register_data_digesters',
-    'register_symmetric_key_factories',
-    'register_asymmetric_key_factories',
-
     #
     #   MingKeMing
     #
 
     'BTCAddress', 'ETHAddress',
-    'DefaultMeta', 'BTCMeta', 'ETHMeta',
+    'BaseAddressFactory',
 
-    'BaseAddressFactory', 'GeneralAddressFactory',
     'GeneralIdentifierFactory',
-    'GeneralMetaFactory',
+
+    'DefaultMeta', 'BTCMeta', 'ETHMeta',
+    'BaseMetaFactory',
+
     'GeneralDocumentFactory',
 
-    'register_address_factory',
-    'register_identifier_factory',
-    'register_meta_factories',
-    'register_document_factories',
-
     #
-    #   Register
+    #   Loader
     #
 
-    'register_plugins',
+    'PluginLoader',
 
     ####################################
     #
@@ -304,19 +311,33 @@ __all__ = [
     #
     ####################################
 
+    'MetaType',
+    'Password',
+    'BroadcastUtils',
+
+    #
+    #   protocol
+    #
+
+    'AnsCommand',
+
     'HandshakeCommand', 'HandshakeState',
     'LoginCommand',
-    'ReportCommand',
-    'AnsCommand',
 
     'BlockCommand',
     'MuteCommand',
 
+    'ReportCommand',
+    'SearchCommand',
+
     'GroupKeyCommand',
+
+    'CustomizedContent', 'AppCustomizedContent',
 
     #
     #   Database Interface
     #
+
     'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
     'UserDBI', 'ContactDBI', 'GroupDBI', 'GroupHistoryDBI',
     'AccountDBI',
@@ -324,20 +345,136 @@ __all__ = [
     'ReliableMessageDBI', 'CipherKeyDBI', 'GroupKeysDBI',
     'MessageDBI',
 
-    'LoginDBI', 'ProviderDBI', 'StationDBI',
+    'ProviderDBI', 'StationDBI', 'LoginDBI',
     'SessionDBI',
+
     'ProviderInfo', 'StationInfo',
 
     #
     #   common
     #
-    'Anonymous', 'Register',
+
+    'Anonymous',
     'AddressNameServer', 'ANSFactory',
+
+    'EntityChecker',
     'CommonArchivist',
-    'CommonFacebook', 'CommonMessenger',
-    'CommonMessagePacker', 'CommonMessageProcessor',
+    'CommonFacebook',
+
+    'CommonMessenger',
+    'CommonMessagePacker',
+    'CommonMessageProcessor',
+    'Vestibule',
+
     'Transmitter',
     'Session',
+
+    'Register',
+
+    ####################################
+    #
+    #   Connection
+    #
+    ####################################
+
+    'Hub', 'Channel',
+    'Connection', 'ConnectionDelegate', 'ConnectionState',
+    'BaseChannel',
+    'BaseHub', 'BaseConnection', 'ActiveConnection',
+
+    'Ship', 'Arrival', 'Departure', 'DeparturePriority',
+    'Porter', 'PorterStatus', 'PorterDelegate', 'Gate',
+    'ArrivalShip', 'ArrivalHall', 'DepartureShip', 'DepartureHall',
+    'Dock', 'LockedDock', 'StarPorter', 'StarGate',
+
+    #
+    #   TCP
+    #
+    'PlainArrival', 'PlainDeparture', 'PlainPorter',
+    'StreamChannel', 'StreamHub', 'TCPServerHub', 'TCPClientHub',
+
+    #
+    #   UDP
+    #
+    'PackageArrival', 'PackageDeparture', 'PackagePorter',
+    'PacketChannel', 'PacketHub', 'UDPServerHub', 'UDPClientHub',
+
+    #
+    #   Protocol
+    #
+    'WebSocket', 'NetMsg', 'NetMsgHead', 'NetMsgSeq',
+
+    #
+    #   Network
+    #
+    'WSArrival', 'WSDeparture', 'WSPorter',
+    'MarsStreamArrival', 'MarsStreamDeparture', 'MarsStreamPorter',
+    'MTPStreamArrival', 'MTPStreamDeparture', 'MTPStreamPorter',
+    'FlexiblePorter',
+    'CommonGate', 'TCPServerGate', 'TCPClientGate', 'UDPServerGate', 'UDPClientGate',
+    # 'GateKeeper',
+    'MessageWrapper', 'MessageQueue',
+    'BaseSession',
+
+    ####################################
+    #
+    #   Database
+    #
+    ####################################
+
+    'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
+    'UserDBI', 'ContactDBI', 'GroupDBI', 'GroupHistoryDBI',
+    'AccountDBI',
+
+    'ReliableMessageDBI', 'CipherKeyDBI', 'GroupKeysDBI',
+    'MessageDBI',
+
+    'ProviderDBI', 'StationDBI', 'LoginDBI',
+    'SessionDBI',
+    'ProviderInfo', 'StationInfo',
+
+    #
+    #   DOS
+    #
+
+    'Storage',
+    'PrivateKeyStorage', 'MetaStorage', 'DocumentStorage',
+    'UserStorage', 'GroupStorage', 'GroupHistoryStorage',
+    'GroupKeysStorage',
+    'LoginStorage',
+    'StationStorage',
+
+    #
+    #   Redis
+    #
+
+    'RedisConnector', 'RedisCache',
+
+    'MetaCache', 'DocumentCache',
+    'UserCache', 'LoginCache',
+    'GroupCache', 'GroupHistoryCache', 'GroupKeysCache',
+    'MessageCache',
+    'StationCache',
+
+    #
+    #   Table
+    #
+
+    'DbInfo', 'DbTask',
+
+    'PrivateKeyTable', 'MetaTable', 'DocumentTable',
+    'UserTable', 'GroupTable', 'GroupHistoryTable',
+    'GroupKeysTable',
+    'ReliableMessageTable', 'CipherKeyTable',
+    'LoginTable', 'StationTable',
+
+    #
+    #   Database
+    #
+
+    'AccountDatabase',
+    'MessageDatabase',
+    'SessionDatabase',
 
     ####################################
     #
@@ -345,8 +482,19 @@ __all__ = [
     #
     ####################################
 
-    'GroupDelegate', 'GroupPacker', 'GroupEmitter',
-    'GroupCommandHelper', 'GroupHistoryBuilder',
-    'GroupManager', 'AdminManager',
+    'TripletsHelper',
+    # 'GroupBotsManager',
+
+    'GroupDelegate',
+    'GroupPacker',
+    'GroupEmitter',
+
+    'GroupCommandHelper',
+    'GroupHistoryBuilder',
+
+    'GroupManager',
+    'AdminManager',
+
+    'SharedGroupManager',
 
 ]

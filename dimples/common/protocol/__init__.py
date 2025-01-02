@@ -23,38 +23,49 @@
 # SOFTWARE.
 # ==============================================================================
 
+from .version import MetaType
+from .password import Password
+from .utils import BroadcastUtils
+
+from .ans import AnsCommand
+
 from .handshake import HandshakeCommand, HandshakeState
 from .login import LoginCommand
-from .report import ReportCommand
-from .ans import AnsCommand
 
 from .mute import MuteCommand
 from .block import BlockCommand
+
+from .report import ReportCommand
+from .search import SearchCommand
 
 from .group import GroupKeyCommand
 
 from .customized import CustomizedContent, AppCustomizedContent
 
-from .version import MetaType
-from .utils import BroadcastUtils
-
 
 __all__ = [
 
+    'MetaType',
+    'Password',
+    'BroadcastUtils',
+
+    #
+    #   Commands
+    #
+
+    'AnsCommand',
+
     'HandshakeCommand', 'HandshakeState',
     'LoginCommand',
-    'ReportCommand',
-    'AnsCommand',
 
     'BlockCommand',
     'MuteCommand',
 
+    'ReportCommand',
+    'SearchCommand',
+
     'GroupKeyCommand',
 
     'CustomizedContent', 'AppCustomizedContent',
-
-    'MetaType',
-
-    'BroadcastUtils',
 
 ]

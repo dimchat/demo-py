@@ -49,19 +49,23 @@ from .session import Transmitter, Session
 __all__ = [
 
     'MetaType',
-
+    'Password',
     'BroadcastUtils',
 
     #
     #   protocol
     #
+
+    'AnsCommand',
+
     'HandshakeCommand', 'HandshakeState',
     'LoginCommand',
-    'ReportCommand',
-    'AnsCommand',
 
     'BlockCommand',
     'MuteCommand',
+
+    'ReportCommand',
+    'SearchCommand',
 
     'GroupKeyCommand',
 
@@ -70,6 +74,7 @@ __all__ = [
     #
     #   Database Interface
     #
+
     'PrivateKeyDBI', 'MetaDBI', 'DocumentDBI',
     'UserDBI', 'ContactDBI', 'GroupDBI', 'GroupHistoryDBI',
     'AccountDBI',
@@ -77,14 +82,16 @@ __all__ = [
     'ReliableMessageDBI', 'CipherKeyDBI', 'GroupKeysDBI',
     'MessageDBI',
 
-    'LoginDBI', 'ProviderDBI', 'StationDBI',
+    'ProviderDBI', 'StationDBI', 'LoginDBI',
     'SessionDBI',
+
     'ProviderInfo', 'StationInfo',
 
     #
     #   common
     #
-    'Anonymous', 'Register',
+
+    'Anonymous',
     'AddressNameServer', 'ANSFactory',
 
     'EntityChecker',
@@ -98,5 +105,7 @@ __all__ = [
 
     'Transmitter',
     'Session',
+
+    'Register',
 
 ]

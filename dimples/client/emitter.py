@@ -39,9 +39,9 @@ from dimsdk import Envelope, Content, TextContent, FileContent
 from dimsdk import InstantMessage, ReliableMessage
 
 from ..utils import Logging
+from ..common import Password
 from ..common import Transmitter
 from ..group import SharedGroupManager
-from ..client import Password
 
 
 class Emitter(Logging, ABC):

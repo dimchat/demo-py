@@ -41,8 +41,6 @@ from ..common import HandshakeCommand
 from ..common import CommonFacebook, CommonMessenger
 from ..common import CommonMessageProcessor
 
-from .cpu import ClientContentProcessorCreator
-
 
 class ClientMessageProcessor(CommonMessageProcessor):
 
@@ -60,6 +58,7 @@ class ClientMessageProcessor(CommonMessageProcessor):
 
     # Override
     def _create_creator(self, facebook: CommonFacebook, messenger: CommonMessenger) -> ContentProcessorCreator:
+        from .cpu import ClientContentProcessorCreator
         return ClientContentProcessorCreator(facebook=facebook, messenger=messenger)
 
     # private

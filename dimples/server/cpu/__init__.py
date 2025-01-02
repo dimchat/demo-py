@@ -31,9 +31,10 @@
 """
 
 from .handshake import HandshakeCommandProcessor
+
+from .ans import AnsCommandProcessor
 from .login import LoginCommandProcessor
 from .report import ReportCommandProcessor
-from .ans import AnsCommandProcessor
 
 from .document import DocumentCommandProcessor
 
@@ -43,9 +44,10 @@ from .creator import ServerContentProcessorCreator
 __all__ = [
 
     'HandshakeCommandProcessor',
+
+    'AnsCommandProcessor',
     'LoginCommandProcessor',
     'ReportCommandProcessor',
-    'AnsCommandProcessor',
 
     'DocumentCommandProcessor',
 

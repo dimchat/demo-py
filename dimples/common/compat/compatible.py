@@ -43,36 +43,6 @@ from ..protocol import MetaType
 #
 
 
-def patch():
-    # patch_meta()
-    # patch_cmd()
-    pass
-
-
-# def patch_meta():
-#     from mkm.factory import AccountFactoryManager
-#     AccountFactoryManager.general_factory.get_meta_type = get_meta_type
-#
-#
-# def patch_cmd():
-#     from dimp.dkd.factory import CommandFactoryManager
-#     CommandFactoryManager.general_factory.get_cmd = get_cmd
-#
-#
-# def get_meta_type(meta: Dict[str, Any], default: Optional[int]) -> Optional[int]:
-#     """ get meta type(version) """
-#     fix_meta_version(meta=meta)
-#     value = meta.get('type')
-#     return Converter.get_int(value=value, default=default)
-#
-#
-# def get_cmd(content: Dict[str, Any], default: Optional[str]) -> Optional[str]:
-#     """ get command name(cmd) """
-#     fix_cmd(content=content)
-#     value = content.get('cmd')
-#     return Converter.get_str(value=value, default=default)
-
-
 def fix_meta_attachment(msg: ReliableMessage):
     meta = msg.get('meta')
     if meta is not None:

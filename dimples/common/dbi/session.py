@@ -34,21 +34,6 @@ from dimsdk import ReliableMessage
 from ..protocol import LoginCommand
 
 
-class LoginDBI(ABC):
-    """ Login Command Table """
-
-    #
-    #   login command message
-    #
-    @abstractmethod
-    async def get_login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
-        raise NotImplemented
-
-    @abstractmethod
-    async def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
-        raise NotImplemented
-
-
 #
 #   Service Provider
 #
@@ -232,7 +217,22 @@ class StationDBI(ABC):
         raise NotImplemented
 
 
+class LoginDBI(ABC):
+    """ Login Command Table """
+
+    #
+    #   login command message
+    #
+    @abstractmethod
+    async def get_login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
+        raise NotImplemented
+
+    @abstractmethod
+    async def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
+        raise NotImplemented
+
+
 # noinspection PyAbstractClass
-class SessionDBI(LoginDBI, ProviderDBI, StationDBI, ABC):
+class SessionDBI(ProviderDBI, StationDBI, LoginDBI, ABC):
     """ Session Database """
     pass

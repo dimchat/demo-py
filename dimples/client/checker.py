@@ -67,7 +67,7 @@ class ClientChecker(EntityChecker, Logging):
     async def query_meta(self, identifier: ID) -> bool:
         messenger = self.messenger
         if messenger is None:
-            self.warning(msg='messenger not ready yet')
+            self.error(msg='messenger not ready yet')
             return False
         elif not self.is_meta_query_expired(identifier=identifier):
             # query not expired yet
@@ -82,7 +82,7 @@ class ClientChecker(EntityChecker, Logging):
     async def query_documents(self, identifier: ID, documents: List[Document]) -> bool:
         messenger = self.messenger
         if messenger is None:
-            self.warning(msg='messenger not ready yet')
+            self.error(msg='messenger not ready yet')
             return False
         elif not self.is_document_query_expired(identifier=identifier):
             # query not expired yet
@@ -99,7 +99,7 @@ class ClientChecker(EntityChecker, Logging):
         facebook = self.facebook
         messenger = self.messenger
         if facebook is None or messenger is None:
-            self.warning(msg='facebook messenger not ready yet')
+            self.error(msg='facebook messenger not ready yet')
             return False
         elif not self.is_members_query_expired(identifier=group):
             # query not expired yet
@@ -141,7 +141,7 @@ class ClientChecker(EntityChecker, Logging):
         facebook = self.facebook
         messenger = self.messenger
         if facebook is None or messenger is None:
-            self.warning(msg='facebook messenger not ready yet')
+            self.error(msg='facebook messenger not ready yet')
             return False
         bots = await facebook.get_assistants(group)
         if bots is None or len(bots) == 0:
@@ -174,7 +174,7 @@ class ClientChecker(EntityChecker, Logging):
         facebook = self.facebook
         messenger = self.messenger
         if facebook is None or messenger is None:
-            self.warning(msg='facebook messenger not ready yet')
+            self.error(msg='facebook messenger not ready yet')
             return False
         admins = await facebook.get_administrators(group)
         if len(admins) == 0:
@@ -207,7 +207,7 @@ class ClientChecker(EntityChecker, Logging):
         facebook = self.facebook
         messenger = self.messenger
         if facebook is None or messenger is None:
-            self.warning(msg='facebook messenger not ready yet')
+            self.error(msg='facebook messenger not ready yet')
             return False
         owner = await facebook.get_owner(group)
         if owner is None:
@@ -239,7 +239,7 @@ class ClientChecker(EntityChecker, Logging):
             return False
         messenger = self.messenger
         if messenger is None:
-            self.warning(msg='messenger not ready yet')
+            self.error(msg='messenger not ready yet')
             return False
         elif not self.is_document_response_expired(identifier=receiver, force=updated):
             # response not expired yet

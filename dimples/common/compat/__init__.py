@@ -29,31 +29,38 @@
 # ==============================================================================
 
 from .network import NetworkType, network_to_type
+
 from .entity import EntityIDFactory
+from .entity import EntityID
+
 from .address import CompatibleAddressFactory
+from .address import UnknownAddress
+
 from .meta import CompatibleMetaFactory
 
-from .loader import CommonLoader, CommonPluginLoader
+from .loader import CommonLoader
+from .loader import CommonPluginLoader
 
-from .compatible import patch
-# from .compatible import patch_meta, patch_cmd
 from .compatible import fix_meta_attachment, fix_meta_version
 from .compatible import fix_file_content
 from .compatible import fix_cmd, fix_command
 from .compatible import fix_receipt_command, fix_document_command, fix_report_command
 
 
-patch()
-
-
 __all__ = [
 
     'NetworkType', 'network_to_type',
+
     'EntityIDFactory',
+    'EntityID',
+
     'CompatibleAddressFactory',
+    'UnknownAddress',
+
     'CompatibleMetaFactory',
 
-    'CommonLoader', 'CommonPluginLoader',
+    'CommonLoader',
+    'CommonPluginLoader',
 
     'fix_meta_version', 'fix_meta_attachment',
     'fix_file_content',

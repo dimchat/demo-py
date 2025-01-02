@@ -29,9 +29,6 @@
 
 """
 
-from .protocol import Password
-from .protocol import SearchCommand
-
 from .network import ClientSession
 from .network import SessionState
 
@@ -42,20 +39,23 @@ from .facebook import ClientFacebook
 from .messenger import ClientMessenger
 from .packer import ClientMessagePacker
 from .processor import ClientMessageProcessor
-from .processor import ClientContentProcessorCreator
 
 from .terminal import Terminal
+
+from .emitter import Emitter
 
 
 __all__ = [
 
-    'Password',
-    'SearchCommand',
-
     #
     #   Network
     #
+
     'ClientSession', 'SessionState',
+
+    #
+    #   Client
+    #
 
     'Checkpoint',
     'ClientChecker',
@@ -64,8 +64,9 @@ __all__ = [
     'ClientMessenger',
     'ClientMessagePacker',
     'ClientMessageProcessor',
-    'ClientContentProcessorCreator',
 
     'Terminal',
+
+    'Emitter',
 
 ]

@@ -42,7 +42,6 @@ from ..common import CommonFacebook, CommonMessenger
 from ..common import CommonMessageProcessor
 
 from .cpu import AnsCommandProcessor
-from .cpu import ServerContentProcessorCreator
 
 from .dispatcher import Dispatcher
 
@@ -63,6 +62,7 @@ class ServerMessageProcessor(CommonMessageProcessor):
 
     # Override
     def _create_creator(self, facebook: CommonFacebook, messenger: CommonMessenger) -> ContentProcessorCreator:
+        from .cpu import ServerContentProcessorCreator
         return ServerContentProcessorCreator(facebook=facebook, messenger=messenger)
 
     # Override

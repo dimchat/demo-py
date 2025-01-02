@@ -28,9 +28,9 @@ from typing import Optional
 
 from dimsdk import DateTime
 from dimsdk import ID, SymmetricKey
-from dimplugins import PlainKey
 
 from ..utils import SharedCacheManager
+from ..common import Password
 from ..common import CipherKeyDBI
 
 from .t_base import DbInfo
@@ -59,7 +59,7 @@ class CipherKeyTable(CipherKeyDBI):
     # Override
     async def get_cipher_key(self, sender: ID, receiver: ID, generate: bool = False) -> Optional[SymmetricKey]:
         if receiver.is_broadcast:
-            return PlainKey()
+            return Password.kPlainKey
         now = DateTime.now()
         direction = (sender, receiver)
         cache_pool = self._cache
