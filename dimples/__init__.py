@@ -37,12 +37,23 @@ from .conn import *
 from .database import *
 from .group import *
 
+from .emitter import Emitter
+
+
 name = 'DIMPLES'
 
 __author__ = 'Albert Moky'
 
 
 __all__ = [
+
+    'Emitter',
+
+    ####################################
+    #
+    #   SDK
+    #
+    ####################################
 
     'Singleton',
 
@@ -328,7 +339,6 @@ __all__ = [
     'MuteCommand',
 
     'ReportCommand',
-    'SearchCommand',
 
     'GroupKeyCommand',
 

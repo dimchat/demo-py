@@ -33,8 +33,6 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from startrek.skywalker import Daemon
-
 from dimsdk import DateTime
 from dimsdk import EntityType
 from dimsdk import Station
@@ -73,7 +71,6 @@ class Terminal(Runner, DeviceMixin, Logging, StateDelegate, ABC):
         self.__messenger = None
         # default online time
         self.__last_time = 0
-        self.__daemon = Daemon(target=self)
 
     @property
     def database(self) -> SessionDBI:
@@ -163,21 +160,9 @@ class Terminal(Runner, DeviceMixin, Logging, StateDelegate, ABC):
     def _create_messenger(self, facebook: ClientFacebook, session: ClientSession) -> ClientMessenger:
         raise NotImplemented
 
-    #
-    #   Threading
-    #
-
-    async def start(self):
-        if self.running:
-            await self.stop()
-            # await self._idle()
-        # start an async task in background
-        self.__daemon.start()
-
-    # @property  # Override
-    # def running(self) -> bool:
-    #     if super().running:
-    #         return self.session.running
+    def start(self):
+        thr = Runner.async_thread(coro=self.run())
+        thr.start()
 
     # Override
     async def finish(self):

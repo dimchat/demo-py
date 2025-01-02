@@ -42,8 +42,6 @@ from .processor import ClientMessageProcessor
 
 from .terminal import Terminal
 
-from .emitter import Emitter
-
 
 __all__ = [
 
@@ -66,7 +64,5 @@ __all__ = [
     'ClientMessageProcessor',
 
     'Terminal',
-
-    'Emitter',
 
 ]

@@ -57,7 +57,7 @@ class ClientContentProcessorCreator(BaseContentProcessorCreator):
     # Override
     def create_content_processor(self, msg_type: Union[int, ContentType]) -> Optional[ContentProcessor]:
         # application customized
-        if msg_type == ContentType.APPLICATION or msg_type == ContentType.CUSTOMIZED:
+        if msg_type == ContentType.APPLICATION.value or msg_type == ContentType.CUSTOMIZED.value:
             return CustomizedContentProcessor(facebook=self.facebook, messenger=self.messenger)
         # history
         if msg_type == ContentType.HISTORY.value:

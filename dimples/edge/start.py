@@ -65,9 +65,8 @@ async def async_main():
     port = config.station_port
     assert host is not None and port > 0, 'station config error: %s' % config
     octopus = Octopus(shared=shared, local_host=host, local_port=port)
-    await octopus.start()
     await octopus.run()
-    Log.warning(msg='bot stopped: %s' % octopus)
+    Log.warning(msg='octopus stopped: %s' % octopus)
 
 
 def main():

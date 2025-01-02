@@ -100,7 +100,7 @@ class CommonFacebook(Facebook, Logging, ABC):
                 archivist.current_user = user
         return user
 
-    async def set_current_user(self, user: User):
+    def set_current_user(self, user: User):
         if user.data_source is None:
             user.data_source = self
         self.archivist.current_user = user

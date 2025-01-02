@@ -41,7 +41,7 @@ from dimsdk import ReliableMessage
 from dimsdk import Station
 
 from ..utils import Log, Logging
-from ..utils import Runner, Daemon
+from ..utils import Runner
 from ..utils import get_msg_sig
 from ..common import ProviderInfo
 from ..common import MessageDBI, SessionDBI
@@ -93,7 +93,6 @@ class Octopus(Runner, Logging):
         self.__outers: Set[Terminal] = set()
         self.__outer_map = weakref.WeakValueDictionary()
         self.__outer_lock = threading.Lock()
-        self.__daemon = Daemon(target=self)
 
     @property
     def shared(self) -> GlobalVariable:
@@ -129,7 +128,7 @@ class Octopus(Runner, Logging):
         assert isinstance(messenger, OctopusMessenger)
         messenger.octopus = self
         # start an async task in background
-        await terminal.start()
+        terminal.start()
         return terminal
 
     async def create_outer_terminal(self, host: str, port: int) -> Terminal:
@@ -139,7 +138,7 @@ class Octopus(Runner, Logging):
         assert isinstance(messenger, OctopusMessenger)
         messenger.octopus = self
         # start an async task in background
-        await terminal.start()
+        terminal.start()
         return terminal
 
     def add_index(self, identifier: ID, terminal: Terminal):
@@ -163,12 +162,6 @@ class Octopus(Runner, Logging):
             terminal = await self.create_outer_terminal(host=host, port=port)
             self.__outers.add(terminal)
             return terminal
-
-    async def start(self):
-        if self.running:
-            await self.stop()
-        # start an async task in background
-        self.__daemon.start()
 
     # Override
     async def stop(self):

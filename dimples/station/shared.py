@@ -130,7 +130,7 @@ class GlobalVariable:
             visa = Document.parse(document=visa.copy_dictionary())
             visa.sign(private_key=sign_key)
             await facebook.save_document(document=visa)
-        await facebook.set_current_user(user=user)
+        facebook.set_current_user(user=user)
 
 
 def show_help(cmd: str, app_name: str, default_config: str):
