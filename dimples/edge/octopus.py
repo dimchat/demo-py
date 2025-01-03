@@ -35,57 +35,23 @@ import weakref
 from abc import ABC, abstractmethod
 from typing import Optional, List, Set
 
-from dimsdk import ContentType
-from dimsdk import EntityType, ID
+from dimsdk import ID
 from dimsdk import ReliableMessage
-from dimsdk import Station
 
-from ..utils import Log, Logging
+from ..utils import Logging
 from ..utils import Runner
 from ..utils import get_msg_sig
-from ..common import ProviderInfo
-from ..common import MessageDBI, SessionDBI
-from ..common import HandshakeCommand
+from ..common import SessionDBI
 
-from ..client import ClientSession
-from ..client import ClientFacebook
 from ..client import ClientMessenger
-from ..client import ClientMessagePacker
-from ..client import ClientMessageProcessor
 from ..client import Terminal
 
-from .shared import GlobalVariable
 
+class Octopus(Runner, Logging, ABC):
 
-class InnerClient(Terminal):
-
-    # Override
-    def _create_messenger(self, facebook: ClientFacebook, session: ClientSession):
-        shared = GlobalVariable()
-        messenger = InnerMessenger(session=session, facebook=facebook, database=shared.mdb)
-        messenger.terminal = self  # Weak Reference
-        shared.messenger = messenger
-        return messenger
-
-
-class OuterClient(Terminal):
-
-    # Override
-    def _create_messenger(self, facebook: ClientFacebook, session: ClientSession):
-        shared = GlobalVariable()
-        archivist = shared.facebook.archivist
-        assert archivist is not None, 'archivist not found'
-        messenger = OuterMessenger(session=session, facebook=facebook, database=shared.mdb)
-        messenger.terminal = self
-        archivist.messenger = messenger  # Weak Reference
-        return messenger
-
-
-class Octopus(Runner, Logging):
-
-    def __init__(self, shared: GlobalVariable, local_host: str = '127.0.0.1', local_port: int = 9394):
+    def __init__(self, database: SessionDBI, local_host: str = '127.0.0.1', local_port: int = 9394):
         super().__init__(interval=60)
-        self.__shared = shared
+        self.__database = database
         self.__host = local_host
         self.__port = local_port
         self.__inner: Optional[Terminal] = None
@@ -95,16 +61,8 @@ class Octopus(Runner, Logging):
         self.__outer_lock = threading.Lock()
 
     @property
-    def shared(self) -> GlobalVariable:
-        return self.__shared
-
-    @property
-    def facebook(self) -> ClientFacebook:
-        return self.__shared.facebook
-
-    @property
     def database(self) -> SessionDBI:
-        return self.__shared.sdb
+        return self.__database
 
     @property
     async def inner_messenger(self) -> ClientMessenger:
@@ -121,25 +79,13 @@ class Octopus(Runner, Logging):
         if terminal is not None:
             return terminal.messenger
 
+    @abstractmethod
     async def create_inner_terminal(self, host: str, port: int) -> Terminal:
-        terminal = InnerClient(facebook=self.facebook, database=self.database)
-        messenger = await terminal.connect(host=host, port=port)
-        # set octopus
-        assert isinstance(messenger, OctopusMessenger)
-        messenger.octopus = self
-        # start an async task in background
-        terminal.start()
-        return terminal
+        raise NotImplemented
 
+    @abstractmethod
     async def create_outer_terminal(self, host: str, port: int) -> Terminal:
-        terminal = OuterClient(facebook=self.facebook, database=self.database)
-        messenger = await terminal.connect(host=host, port=port)
-        # set octopus
-        assert isinstance(messenger, OctopusMessenger)
-        messenger.octopus = self
-        # start an async task in background
-        terminal.start()
-        return terminal
+        raise NotImplemented
 
     def add_index(self, identifier: ID, terminal: Terminal):
         with self.__outer_lock:
@@ -178,6 +124,12 @@ class Octopus(Runner, Logging):
         await super().stop()
 
     # Override
+    async def setup(self):
+        await super().setup()
+        self.debug(msg='connecting inner station ...')
+        await self.inner_messenger
+
+    # Override
     async def process(self) -> bool:
         # get all neighbor stations
         db = self.database
@@ -185,7 +137,9 @@ class Octopus(Runner, Logging):
         assert len(providers) > 0, 'service provider not found'
         gsp = providers[0].identifier
         neighbors = await db.all_stations(provider=gsp)
-        if neighbors is not None:
+        if neighbors is None:
+            neighbors = []
+        else:
             neighbors = neighbors.copy()
         # get all outer terminals
         with self.__outer_lock:
@@ -282,148 +236,3 @@ class Octopus(Runner, Logging):
         if len(failed_neighbors) > 0:
             self.error(msg='failed to redirect msg (%s) for receiver (%s): %s' % (sig, receiver, failed_neighbors))
         return []
-
-
-class OctopusMessenger(ClientMessenger, ABC):
-    """ Messenger for processing message from remote station """
-
-    def __init__(self, session: ClientSession, facebook: ClientFacebook, database: MessageDBI):
-        super().__init__(session=session, facebook=facebook, database=database)
-        self.__terminal: Optional[weakref.ReferenceType] = None
-        self.__octopus: Optional[weakref.ReferenceType] = None
-
-    @property
-    def terminal(self) -> Terminal:
-        return self.__terminal()
-
-    @terminal.setter
-    def terminal(self, client: Terminal):
-        self.__terminal = weakref.ref(client)
-
-    @property
-    def octopus(self) -> Optional[Octopus]:
-        ref = self.__octopus
-        bot = None if ref is None else ref()
-        assert isinstance(bot, Octopus), 'octopus error: %s' % bot
-        return bot
-
-    @octopus.setter
-    def octopus(self, bot: Octopus):
-        self.__octopus = weakref.ref(bot)
-
-    @property
-    async def local_station(self) -> ID:
-        facebook = self.facebook
-        current = await facebook.current_user
-        return current.identifier
-
-    async def __is_handshaking(self, msg: ReliableMessage) -> bool:
-        """ check HandshakeCommand sent to this station """
-        local_station = await self.local_station
-        receiver = msg.receiver
-        if receiver.type != EntityType.STATION or receiver != local_station:
-            # not for this station
-            return False
-        if msg.type != ContentType.COMMAND:
-            # not a command
-            return False
-        i_msg = await self.decrypt_message(msg=msg)
-        if i_msg is not None:
-            return isinstance(i_msg.content, HandshakeCommand)
-
-    # Override
-    async def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
-        # check for HandshakeCommand
-        if await self.__is_handshaking(msg=msg):
-            self.info(msg='receive handshaking: %s' % msg.sender)
-            return await super().process_reliable_message(msg=msg)
-        # check for cycled message
-        if msg.receiver == msg.sender:
-            self.error(msg='drop cycled msg(type=%d): %s -> %s | from %s, traces: %s'
-                       % (msg.type, msg.sender, msg.receiver, get_remote_station(messenger=self), msg.get('traces')))
-            return []
-        # handshake accepted, redirecting message
-        sig = get_msg_sig(msg=msg)
-        self.info(msg='redirect msg(type=%d, sig=%s): %s -> %s | from %s, traces: %s'
-                  % (msg.type, sig, msg.sender, msg.receiver, get_remote_station(messenger=self), msg.get('traces')))
-        return await self._deliver_message(msg=msg)
-
-    @abstractmethod
-    async def _deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
-        """ call octopus to redirect message """
-        return []
-
-
-def get_remote_station(messenger: ClientMessenger) -> ID:
-    session = messenger.session
-    station = session.station
-    return station.identifier
-
-
-class InnerMessenger(OctopusMessenger):
-    """ Messenger for local station """
-
-    # Override
-    async def _deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
-        priority = 0  # NORMAL
-        if msg.receiver.is_broadcast:
-            priority = 1  # SLOWER
-        octopus = self.octopus
-        return await octopus.outgo_message(msg=msg, priority=priority)
-
-
-class OuterMessenger(OctopusMessenger):
-    """ Messenger for remote station """
-
-    # Override
-    async def _deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
-        priority = 0  # NORMAL
-        if msg.receiver.is_broadcast:
-            priority = 1  # SLOWER
-        octopus = self.octopus
-        return await octopus.income_message(msg=msg, priority=priority)
-
-    # Override
-    async def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
-        local_station = await self.local_station
-        if msg.sender == local_station:
-            self.error(msg='cycled message from this station: %s => %s' % (msg.sender, msg.receiver))
-            return []
-        return await super().process_reliable_message(msg=msg)
-
-    # Override
-    async def handshake_success(self):
-        await super().handshake_success()
-        station = self.session.station
-        await update_station(station=station, database=self.octopus.database)
-        octopus = self.octopus
-        octopus.add_index(identifier=station.identifier, terminal=self.terminal)
-
-
-def create_messenger(facebook: ClientFacebook, database: MessageDBI,
-                     session: ClientSession, messenger_class) -> OctopusMessenger:
-    assert issubclass(messenger_class, OctopusMessenger), 'messenger class error: %s' % messenger_class
-    # 1. create messenger with session and MessageDB
-    messenger = messenger_class(session=session, facebook=facebook, database=database)
-    # 2. create packer, processor for messenger
-    #    they have weak references to facebook & messenger
-    messenger.packer = ClientMessagePacker(facebook=facebook, messenger=messenger)
-    messenger.processor = ClientMessageProcessor(facebook=facebook, messenger=messenger)
-    # 3. set weak reference to messenger
-    session.messenger = messenger
-    return messenger
-
-
-async def update_station(station: Station, database: SessionDBI):
-    Log.info(msg='update station: %s' % station)
-    # SP ID
-    provider = station.provider
-    if provider is None:
-        provider = ProviderInfo.GSP
-    # new info
-    sid = station.identifier
-    host = station.host
-    port = station.port
-    assert not sid.is_broadcast, 'station ID error: %s' % sid
-    assert host is not None and port > 0, 'station error: %s, %d' % (host, port)
-    await database.update_station(identifier=sid, host=host, port=port, provider=provider, chosen=0)

@@ -46,14 +46,17 @@
     \\===========//           \\===========//
 """
 
-from .octopus import OctopusMessenger
-from .octopus import InnerMessenger, OuterMessenger
 from .octopus import Octopus
+
+from .messenger import OctopusMessenger
+from .messenger import InnerMessenger, OuterMessenger
 
 
 __all__ = [
 
+    'Octopus',
+
     'OctopusMessenger',
     'InnerMessenger', 'OuterMessenger',
-    'Octopus',
+
 ]
