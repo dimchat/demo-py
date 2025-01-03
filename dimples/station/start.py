@@ -42,7 +42,7 @@ sys.path.insert(0, path)
 from dimples.utils import Log, Runner
 
 from dimples.station.shared import GlobalVariable
-from dimples.station.shared import create_dispatcher
+from dimples.station.shared import create_config
 from dimples.station.handler import RequestHandler
 
 
@@ -58,20 +58,23 @@ DEFAULT_CONFIG = '/etc/dim/station.ini'
 async def async_main():
     # create global variable
     shared = GlobalVariable()
-    await shared.prepare(app_name='DIM Network Station', default_config=DEFAULT_CONFIG)
-    config = shared.config
-    # login
+    config = await create_config(app_name='DIM Network Station', default_config=DEFAULT_CONFIG)
+    await shared.prepare(config=config)
+    #
+    #  Login
+    #
     sid = config.station_id
     await shared.login(current_user=sid)
-    # create dispatcher
-    create_dispatcher(shared=shared)
-    # check bind host & port
+    #
+    #  Station host & port
+    #
     host = config.station_host
     port = config.station_port
     assert host is not None and port > 0, 'station config error: %s' % config
     server_address = (host, port)
-
-    # start TCP server
+    #
+    #  Start TCP server
+    #
     try:
         # ThreadingTCPServer.allow_reuse_address = True
         server = ThreadingTCPServer(server_address=server_address,

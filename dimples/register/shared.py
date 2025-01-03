@@ -32,8 +32,8 @@ from dimsdk import ID, Bulletin
 
 from ..common.compat import NetworkType, network_to_type
 
-from ..utils import Singleton, Config
-from ..utils import Path
+from ..utils import Singleton
+from ..utils import Path, Config
 from ..common import AccountDBI
 from ..common.compat import CommonLoader
 from ..database.redis import RedisConnector
@@ -62,11 +62,11 @@ class GlobalVariable:
     def adb(self) -> AccountDBI:
         return self.__adb
 
-    async def prepare(self, default_config: str):
+    async def prepare(self, config: Config):
         #
-        #  Step 1: load config
+        #  Step 1: load extensions
         #
-        config = await create_config(default_config=default_config)
+        CommonLoader().run()
         self.__config = config
         #
         #  Step 2: create database
@@ -75,7 +75,36 @@ class GlobalVariable:
         self.__adb = adb
 
 
-def show_help(cmd: str, default_config: str):
+def create_redis_connector(config: Config) -> Optional[RedisConnector]:
+    redis_enable = config.get_boolean(section='redis', option='enable')
+    if redis_enable:
+        # create redis connector
+        host = config.get_string(section='redis', option='host')
+        if host is None:
+            host = 'localhost'
+        port = config.get_integer(section='redis', option='port')
+        if port is None or port <= 0:
+            port = 6379
+        username = config.get_string(section='redis', option='username')
+        password = config.get_string(section='redis', option='password')
+        return RedisConnector(host=host, port=port, username=username, password=password)
+
+
+async def create_database(config: Config) -> AccountDBI:
+    """ create database with directories """
+    root = config.database_root
+    public = config.database_public
+    private = config.database_private
+    redis_conn = create_redis_connector(config=config)
+    info = DbInfo(redis_connector=redis_conn, root_dir=root, public_dir=public, private_dir=private)
+    # create database
+    adb = AccountDatabase(info=info)
+    adb.show_info()
+    return adb
+
+
+def show_help(default_config: str):
+    cmd = sys.argv[0]
     print('')
     print('    DIM account generate/modify')
     print('')
@@ -95,14 +124,13 @@ def show_help(cmd: str, default_config: str):
 
 
 async def create_config(default_config: str) -> Config:
-    """ Step 1: load config """
-    cmd = sys.argv[0]
+    """ load config """
     try:
         opts, args = getopt.getopt(args=sys.argv[1:],
                                    shortopts='hf:',
                                    longopts=['help', 'config='])
     except getopt.GetoptError:
-        show_help(cmd=cmd, default_config=default_config)
+        show_help(default_config=default_config)
         sys.exit(1)
     # check options
     ini_file = None
@@ -110,53 +138,21 @@ async def create_config(default_config: str) -> Config:
         if opt == '--config':
             ini_file = arg
         else:
-            show_help(cmd=cmd, default_config=default_config)
+            show_help(default_config=default_config)
             sys.exit(0)
     # check config filepath
     if ini_file is None:
         ini_file = default_config
     if not await Path.exists(path=ini_file):
-        show_help(cmd=cmd, default_config=default_config)
+        show_help(default_config=default_config)
         print('')
         print('!!! config file not exists: %s' % ini_file)
         print('')
         sys.exit(0)
-    # load extensions
-    CommonLoader().run()
-    # load config from file
+    # loading config
     config = Config.load(file=ini_file)
-    # initializing
     print('[DB] init with config: %s => %s' % (ini_file, config))
-    # OK
     return config
-
-
-def create_redis_connector(config: Config) -> Optional[RedisConnector]:
-    redis_enable = config.get_boolean(section='redis', option='enable')
-    if redis_enable:
-        # create redis connector
-        host = config.get_string(section='redis', option='host')
-        if host is None:
-            host = 'localhost'
-        port = config.get_integer(section='redis', option='port')
-        if port is None or port <= 0:
-            port = 6379
-        username = config.get_string(section='redis', option='username')
-        password = config.get_string(section='redis', option='password')
-        return RedisConnector(host=host, port=port, username=username, password=password)
-
-
-async def create_database(config: Config) -> AccountDBI:
-    """ Step 2: create database """
-    root = config.database_root
-    public = config.database_public
-    private = config.database_private
-    redis_conn = create_redis_connector(config=config)
-    info = DbInfo(redis_connector=redis_conn, root_dir=root, public_dir=public, private_dir=private)
-    # create database
-    adb = AccountDatabase(info=info)
-    adb.show_info()
-    return adb
 
 
 """

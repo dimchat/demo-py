@@ -91,11 +91,15 @@ class GlobalVariable:
         assert isinstance(checker, ClientChecker), 'entity checker error: %s' % checker
         checker.messenger = transceiver
 
-    async def prepare(self, app_name: str, default_config: str):
+    async def prepare(self, config: Config):
         #
-        #  Step 1: load config
+        #  Step 1: load extensions
         #
-        config = await create_config(app_name=app_name, default_config=default_config)
+        CommonLoader().run()
+        ans_records = config.ans_records
+        if ans_records is not None:
+            # load ANS records from 'config.ini'
+            CommonFacebook.ans.fix(records=ans_records)
         self.__config = config
         #
         #  Step 2: create database
@@ -129,61 +133,6 @@ class GlobalVariable:
         facebook.set_current_user(user=user)
 
 
-def show_help(cmd: str, app_name: str, default_config: str):
-    print('')
-    print('    %s' % app_name)
-    print('')
-    print('usages:')
-    print('    %s [--config=<FILE>]' % cmd)
-    print('    %s [-h|--help]' % cmd)
-    print('')
-    print('optional arguments:')
-    print('    --config        config file path (default: "%s")' % default_config)
-    print('    --help, -h      show this help message and exit')
-    print('')
-
-
-async def create_config(app_name: str, default_config: str) -> Config:
-    """ Step 1: load config """
-    cmd = sys.argv[0]
-    try:
-        opts, args = getopt.getopt(args=sys.argv[1:],
-                                   shortopts='hf:',
-                                   longopts=['help', 'config='])
-    except getopt.GetoptError:
-        show_help(cmd=cmd, app_name=app_name, default_config=default_config)
-        sys.exit(1)
-    # check options
-    ini_file = None
-    for opt, arg in opts:
-        if opt == '--config':
-            ini_file = arg
-        else:
-            show_help(cmd=cmd, app_name=app_name, default_config=default_config)
-            sys.exit(0)
-    # check config filepath
-    if ini_file is None:
-        ini_file = default_config
-    if not await Path.exists(path=ini_file):
-        show_help(cmd=cmd, app_name=app_name, default_config=default_config)
-        print('')
-        print('!!! config file not exists: %s' % ini_file)
-        print('')
-        sys.exit(0)
-    # load extensions
-    CommonLoader().run()
-    # load config from file
-    config = Config.load(file=ini_file)
-    print('>>> config loaded: %s => %s' % (ini_file, config))
-    # load ANS records from 'config.ini'
-    ans_records = config.ans_records
-    if ans_records is not None:
-        CommonFacebook.ans.fix(records=ans_records)
-    # TODO: get common assistants
-    # OK
-    return config
-
-
 def create_redis_connector(config: Config) -> Optional[RedisConnector]:
     redis_enable = config.get_boolean(section='redis', option='enable')
     if redis_enable:
@@ -200,7 +149,7 @@ def create_redis_connector(config: Config) -> Optional[RedisConnector]:
 
 
 async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, SessionDBI]:
-    """ Step 2: create database """
+    """ create database with directories """
     root = config.database_root
     public = config.database_public
     private = config.database_private
@@ -245,7 +194,7 @@ async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, Sessi
 
 
 async def create_facebook(database: AccountDBI) -> ClientFacebook:
-    """ Step 3: create facebook """
+    """ create facebook """
     facebook = ClientFacebook(database=database)
     facebook.archivist = CommonArchivist(facebook=facebook, database=database)
     facebook.checker = ClientChecker(facebook=facebook, database=database)
@@ -253,3 +202,50 @@ async def create_facebook(database: AccountDBI) -> ClientFacebook:
     man = SharedGroupManager()
     man.facebook = facebook
     return facebook
+
+
+def show_help(app_name: str, default_config: str):
+    cmd = sys.argv[0]
+    print('')
+    print('    %s' % app_name)
+    print('')
+    print('usages:')
+    print('    %s [--config=<FILE>]' % cmd)
+    print('    %s [-h|--help]' % cmd)
+    print('')
+    print('optional arguments:')
+    print('    --config        config file path (default: "%s")' % default_config)
+    print('    --help, -h      show this help message and exit')
+    print('')
+
+
+async def create_config(app_name: str, default_config: str) -> Config:
+    """ load config """
+    try:
+        opts, args = getopt.getopt(args=sys.argv[1:],
+                                   shortopts='hf:',
+                                   longopts=['help', 'config='])
+    except getopt.GetoptError:
+        show_help(app_name=app_name, default_config=default_config)
+        sys.exit(1)
+    # check options
+    ini_file = None
+    for opt, arg in opts:
+        if opt == '--config':
+            ini_file = arg
+        else:
+            show_help(app_name=app_name, default_config=default_config)
+            sys.exit(0)
+    # check config filepath
+    if ini_file is None:
+        ini_file = default_config
+    if not await Path.exists(path=ini_file):
+        show_help(app_name=app_name, default_config=default_config)
+        print('')
+        print('!!! config file not exists: %s' % ini_file)
+        print('')
+        sys.exit(0)
+    # load config from file
+    config = Config.load(file=ini_file)
+    print('>>> config loaded: %s => %s' % (ini_file, config))
+    return config

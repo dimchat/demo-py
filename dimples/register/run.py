@@ -40,7 +40,8 @@ from dimples.utils import Log
 from dimples.utils import Runner
 
 from dimples.register.shared import GlobalVariable
-from dimples.register.shared import show_help, generate, modify
+from dimples.register.shared import create_config, show_help
+from dimples.register.shared import generate, modify
 
 
 #
@@ -53,18 +54,20 @@ DEFAULT_CONFIG = '/etc/dim/config.ini'
 
 
 async def async_main():
-    cmd = sys.argv[0]
+    # create global variable
+    shared = GlobalVariable()
+    config = await create_config(default_config=DEFAULT_CONFIG)
+    await shared.prepare(config=config)
     try:
         opts, args = getopt.getopt(args=sys.argv[1:],
                                    shortopts='hf:',
                                    longopts=['help', 'config='])
     except getopt.GetoptError:
-        show_help(cmd=cmd, default_config=DEFAULT_CONFIG)
+        show_help(default_config=DEFAULT_CONFIG)
         sys.exit(1)
-    # create global variable
-    shared = GlobalVariable()
-    await shared.prepare(default_config=DEFAULT_CONFIG)
-    # check actions
+    #
+    #  Check Actions
+    #
     if len(args) == 1 and args[0] == 'generate':
         await generate(database=shared.adb)
     elif len(args) == 2 and args[0] == 'modify':
@@ -72,7 +75,7 @@ async def async_main():
         assert identifier is not None, 'ID error: %s' % args[1]
         await modify(identifier=identifier, database=shared.adb)
     else:
-        show_help(cmd=cmd, default_config=DEFAULT_CONFIG)
+        show_help(default_config=DEFAULT_CONFIG)
 
 
 def main():
