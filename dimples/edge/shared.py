@@ -86,6 +86,9 @@ class GlobalVariable:
     @messenger.setter
     def messenger(self, transceiver: ClientMessenger):
         self.__messenger = transceiver
+        # set for group manager
+        man = SharedGroupManager()
+        man.messenger = transceiver
         # set for entity checker
         checker = self.facebook.checker
         assert isinstance(checker, ClientChecker), 'entity checker error: %s' % checker
@@ -130,7 +133,7 @@ class GlobalVariable:
             visa = Document.parse(document=visa.copy_dictionary())
             visa.sign(private_key=sign_key)
             await facebook.save_document(document=visa)
-        facebook.set_current_user(user=user)
+        await facebook.set_current_user(user=user)
 
 
 def create_redis_connector(config: Config) -> Optional[RedisConnector]:
@@ -178,7 +181,7 @@ async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, Sessi
                     found = True
                     break
             if not found:
-                print('removing neighbor station: %s' % old)
+                print('removing neighbor station: %s, %s' % (old, provider))
                 await sdb.remove_station(host=old.host, port=old.port, provider=provider)
         # 2. add new neighbors
         for node in neighbors:
@@ -188,8 +191,9 @@ async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, Sessi
                     found = True
                     break
             if not found:
-                print('adding neighbor node: %s' % node)
+                print('adding neighbor node: %s -> %s' % (node, provider))
                 await sdb.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
+    # OK
     return adb, mdb, sdb
 
 
