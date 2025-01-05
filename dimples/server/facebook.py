@@ -34,6 +34,7 @@ from typing import Optional, List
 
 from dimsdk import ID, User
 
+from ..common import BroadcastUtils
 from ..common import CommonFacebook
 
 
@@ -67,16 +68,31 @@ class ServerFacebook(CommonFacebook):
 
     # Override
     async def get_founder(self, identifier: ID) -> Optional[ID]:
+        assert identifier.is_group, 'group ID error: %s' % identifier
+        # check broadcast group
+        if identifier.is_broadcast:
+            # founder of broadcast group
+            return BroadcastUtils.broadcast_founder(group=identifier)
         self.error(msg='DO NOT CALL ME: %s' % identifier)
         return None
 
     # Override
     async def get_owner(self, identifier: ID) -> Optional[ID]:
+        assert identifier.is_group, 'group ID error: %s' % identifier
+        # check broadcast group
+        if identifier.is_broadcast:
+            # owner of broadcast group
+            return BroadcastUtils.broadcast_owner(group=identifier)
         self.error(msg='DO NOT CALL ME: %s' % identifier)
         return None
 
     # Override
     async def get_members(self, identifier: ID) -> List[ID]:
+        assert identifier.is_group, 'group ID error: %s' % identifier
+        # check broadcast group
+        if identifier.is_broadcast:
+            # members of broadcast group
+            return BroadcastUtils.broadcast_members(group=identifier)
         self.error(msg='DO NOT CALL ME: %s' % identifier)
         return []
 

@@ -131,6 +131,12 @@ class GlobalVariable:
         dispatcher.facebook = facebook
         dispatcher.deliver = deliver
         dispatcher.roamer = roamer
+        # this messenger is only for encryption, so don't need a session
+        messenger = create_messenger(facebook=facebook, database=mdb, session=None)
+        self.__messenger = messenger
+        checker = facebook.checker
+        assert isinstance(checker, ServerChecker), 'entity checker error: %s' % checker
+        checker.messenger = messenger
 
     async def login(self, current_user: ID):
         facebook = self.facebook
