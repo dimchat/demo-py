@@ -35,7 +35,7 @@ from typing import Optional, List, Tuple
 from startrek.types import SocketAddress
 from startrek.skywalker import Runner
 from startrek import Arrival, Departure
-from startrek import ArrivalShip, DepartureShip, DeparturePriority
+from startrek import ArrivalShip, DepartureShip
 from startrek import BaseConnection, BaseChannel
 
 from tcp import PlainPorter
@@ -50,6 +50,18 @@ class WSArrival(ArrivalShip):
         super().__init__()
         self.__package = package
         self.__payload = payload
+
+    # Override
+    def __str__(self) -> str:
+        clazz = self.__class__.__name__
+        size = len(self.__package)
+        return '<%s size=%d />' % (clazz, size)
+
+    # Override
+    def __repr__(self) -> str:
+        clazz = self.__class__.__name__
+        size = len(self.__package)
+        return '<%s size=%d />' % (clazz, size)
 
     @property
     def package(self) -> bytes:
@@ -79,6 +91,18 @@ class WSDeparture(DepartureShip):
         self.__package = package
         self.__payload = payload
         self.__important = important
+
+    # Override
+    def __str__(self) -> str:
+        clazz = self.__class__.__name__
+        size = len(self.__package)
+        return '<%s size=%d />' % (clazz, size)
+
+    # Override
+    def __repr__(self) -> str:
+        clazz = self.__class__.__name__
+        size = len(self.__package)
+        return '<%s size=%d />' % (clazz, size)
 
     @property
     def package(self) -> bytes:
@@ -241,8 +265,7 @@ class WSPorter(PlainPorter, DeparturePacker):
         elif body_len == 4:
             if body == PING:
                 # 'PING' -> 'PONG'
-                ship = self.pack(payload=PONG, priority=DeparturePriority.SLOWER)
-                await self.send_ship(ship=ship)
+                await self.respond(payload=PONG)
                 return None
             elif body == PONG or body == NOOP:
                 # ignore
@@ -265,9 +288,13 @@ class WSPorter(PlainPorter, DeparturePacker):
         pass
 
     # Override
-    def pack(self, payload: bytes, priority: int = 0) -> Optional[Departure]:
+    def _create_departure(self, payload: bytes, priority: int, needs_respond: bool) -> Departure:
+        return self.pack(payload=payload, priority=priority, needs_respond=needs_respond)
+
+    # Override
+    def pack(self, payload: bytes, priority: int, needs_respond: bool) -> Optional[Departure]:
         req_pack = WebSocket.pack(payload=payload)
-        important = self.__ack_enable
+        important = needs_respond and self.__ack_enable
         return WSDeparture(package=req_pack, payload=payload, priority=priority, important=important)
 
     @classmethod

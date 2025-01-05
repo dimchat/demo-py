@@ -261,7 +261,7 @@ class GateKeeper(Runner, PorterDelegate, Logging):
     async def _porter_pack(self, payload: bytes, priority: int = 0) -> Optional[Departure]:
         docker = await self.gate.fetch_porter(remote=self.remote_address, local=None)
         assert isinstance(docker, DeparturePacker), 'departure packer error: %s' % docker
-        return docker.pack(payload=payload, priority=priority)
+        return docker.pack(payload=payload, priority=priority, needs_respond=True)
 
     def _queue_append(self, msg: ReliableMessage, ship: Departure) -> bool:
         return self.__queue.append(msg=msg, ship=ship)

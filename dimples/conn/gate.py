@@ -116,7 +116,7 @@ class CommonGate(StarGate, Logging, Generic[H], ABC):
             ship = MarsStreamPorter.create_departure(mars=mars)
             return await worker.send_ship(ship=ship)
         elif isinstance(worker, WSPorter):
-            ship = worker.pack(payload=payload)
+            ship = worker.pack(payload=payload, priority=1, needs_respond=False)
             return await worker.send_ship(ship=ship)
         else:
             raise LookupError('docker error (%s, %s): %s' % (remote, local, worker))

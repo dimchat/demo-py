@@ -292,7 +292,7 @@ class MarsStreamPorter(PlainPorter, DeparturePacker):
         pass
 
     # Override
-    def pack(self, payload: bytes, priority: int = 0) -> Optional[Departure]:
+    def pack(self, payload: bytes, priority: int, needs_respond: bool) -> Optional[Departure]:
         mars = MarsHelper.create_push(payload=payload)
         return self.create_departure(mars=mars, priority=priority)
 

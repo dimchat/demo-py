@@ -28,7 +28,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, Union, List
+from typing import Optional, List
 
 from startrek.types import SocketAddress
 from startrek.skywalker import Runner
@@ -140,13 +140,13 @@ class FlexiblePorter(StarPorter, DeparturePacker, Logging):
             return await docker.process()
 
     # Override
-    async def send_data(self, payload: Union[bytes, bytearray]) -> bool:
+    async def send_data(self, payload: bytes) -> bool:
         docker = self.__porter
         if docker is None:
             self.error(msg='docker not ready, failed to send payload: %s' % payload)
             return False
         elif isinstance(docker, WSPorter):
-            ship = docker.pack(payload=payload)
+            ship = docker.pack(payload=payload, priority=0, needs_respond=True)
             return await docker.send_ship(ship=ship)
         elif isinstance(docker, MTPStreamPorter):
             # sn = TransactionID.from_data(data=ship.sn)
@@ -170,11 +170,11 @@ class FlexiblePorter(StarPorter, DeparturePacker, Logging):
             await docker.heartbeat()
 
     # Override
-    def pack(self, payload: bytes, priority: int = 0) -> Optional[Departure]:
+    def pack(self, payload: bytes, priority: int, needs_respond: bool) -> Optional[Departure]:
         docker = self.__porter
         if docker is None:
             self.error(msg='docker not ready, failed to pack: %s' % payload)
             return None
         else:
             assert isinstance(docker, DeparturePacker), 'docker error: %s' % docker
-        return docker.pack(payload=payload, priority=priority)
+        return docker.pack(payload=payload, priority=priority, needs_respond=needs_respond)

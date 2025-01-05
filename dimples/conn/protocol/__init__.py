@@ -40,7 +40,7 @@ from .mars import NetMsg, NetMsgHead, NetMsgSeq
 class DeparturePacker(ABC):
 
     @abstractmethod
-    def pack(self, payload: bytes, priority: int = 0) -> Optional[Departure]:
+    def pack(self, payload: bytes, priority: int, needs_respond: bool) -> Optional[Departure]:
         raise NotImplemented
 
 
