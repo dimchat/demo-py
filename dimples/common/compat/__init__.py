@@ -41,10 +41,7 @@ from .meta import CompatibleMetaFactory
 from .loader import CommonLoader
 from .loader import CommonPluginLoader
 
-from .compatible import fix_meta_attachment, fix_meta_version
-from .compatible import fix_file_content
-from .compatible import fix_cmd, fix_command
-from .compatible import fix_receipt_command, fix_document_command, fix_report_command
+from .compatible import Compatible
 
 
 __all__ = [
@@ -62,9 +59,6 @@ __all__ = [
     'CommonLoader',
     'CommonPluginLoader',
 
-    'fix_meta_version', 'fix_meta_attachment',
-    'fix_file_content',
-    'fix_cmd', 'fix_command',
-    'fix_receipt_command', 'fix_document_command', 'fix_report_command',
+    'Compatible',
 
 ]

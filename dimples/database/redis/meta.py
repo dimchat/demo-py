@@ -28,11 +28,13 @@ from typing import Optional
 from dimsdk import ID, Meta
 
 from ...utils import json_encode, json_decode, utf8_encode, utf8_decode
+from ...utils import Logging
+from ...common.compat import Compatible
 
 from .base import Cache
 
 
-class MetaCache(Cache):
+class MetaCache(Cache, Logging):
 
     # meta cached in Redis will be removed after 10 hours, after that
     # it will be reloaded from local storage if it's still need.
@@ -58,12 +60,19 @@ class MetaCache(Cache):
     async def get_meta(self, identifier: ID) -> Optional[Meta]:
         key = self.__cache_name(identifier=identifier)
         value = await self.get(name=key)
-        if value is not None:
+        if value is None:
+            # cache not found
+            return None
+        else:
             js = utf8_decode(data=value)
             assert js is not None, 'failed to decode string: %s' % value
             info = json_decode(string=js)
             assert info is not None, 'meta error: %s' % value
+            Compatible.fix_meta_version(meta=info)
+        try:
             return Meta.parse(meta=info)
+        except Exception as error:
+            self.error(msg='meta error: %s, %s' % (error, info))
 
     async def save_meta(self, meta: Meta, identifier: ID) -> bool:
         dictionary = meta.dictionary

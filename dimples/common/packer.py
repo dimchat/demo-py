@@ -28,16 +28,13 @@ from typing import Optional, Dict
 
 from dimsdk import EncryptKey
 from dimsdk import ID
-from dimsdk import ReceiptCommand, DocumentCommand
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import MessagePacker
 from dimsdk import MessageUtils
 
 from ..utils import Logging
 
-from .compat import fix_meta_attachment
-from .compat import fix_receipt_command
-from .compat import fix_document_command
+from .compat import Compatible
 
 
 class CommonMessagePacker(MessagePacker, Logging, ABC):
@@ -135,24 +132,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
         else:
             self.warning(msg='receiver not ready: %s' % msg.receiver)
             return None
-        content = msg.content
-        if isinstance(content, ReceiptCommand):
-            # compatible with v1.0
-            fix_receipt_command(content=content)
         return await super().encrypt_message(msg=msg)
-
-    # Override
-    async def decrypt_message(self, msg: SecureMessage) -> Optional[InstantMessage]:
-        i_msg = await super().decrypt_message(msg=msg)
-        if i_msg is not None:
-            content = i_msg.content
-            if isinstance(content, ReceiptCommand):
-                # compatible with v1.0
-                fix_receipt_command(content=content)
-            elif isinstance(content, DocumentCommand):
-                # compatible with v1.0
-                fix_document_command(content=content)
-        return i_msg
 
     # Override
     async def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
@@ -183,10 +163,10 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
         #     return None
         msg = await super().deserialize_message(data=data)
         if msg is not None:
-            fix_meta_attachment(msg=msg)
+            Compatible.fix_meta_attachment(msg=msg)
         return msg
 
     # Override
     async def serialize_message(self, msg: ReliableMessage) -> bytes:
-        fix_meta_attachment(msg=msg)
+        Compatible.fix_meta_attachment(msg=msg)
         return await super().serialize_message(msg=msg)

@@ -41,15 +41,32 @@ from ..protocol import MetaType
 #
 #  Compatible with old versions
 #
+class Compatible:
+
+    @classmethod
+    def fix_meta_attachment(cls, msg: ReliableMessage):
+        return _fix_meta_attachment(msg=msg)
+
+    @classmethod
+    def fix_meta_version(cls, meta: dict):
+        return _fix_meta_version(meta=meta)
+
+    @classmethod
+    def fix_file_content(cls, content: FileContent):
+        return _fix_file_content(content=content)
+
+    @classmethod
+    def fix_command(cls, content: Command) -> Command:
+        return _fix_command(content=content)
 
 
-def fix_meta_attachment(msg: ReliableMessage):
+def _fix_meta_attachment(msg: ReliableMessage):
     meta = msg.get('meta')
     if meta is not None:
-        fix_meta_version(meta=meta)
+        return _fix_meta_version(meta=meta)
 
 
-def fix_meta_version(meta: dict):
+def _fix_meta_version(meta: dict):
     version = meta.get('type')
     if version is None:
         version = meta.get('version')  # compatible with MKM 0.9.*
@@ -65,7 +82,7 @@ def fix_meta_version(meta: dict):
     return meta
 
 
-def fix_file_content(content: FileContent):
+def _fix_file_content(content: FileContent):
     pwd = content.get('key')
     if pwd is not None:
         # Tarsier version > 1.3.7
@@ -80,21 +97,29 @@ def fix_file_content(content: FileContent):
     return content
 
 
-def fix_command(content: Command) -> Command:
+def _fix_command(content: Command) -> Command:
     # 1. fix 'cmd'
-    content = fix_cmd(content=content)
+    content = _fix_cmd(content=content)
     # 2. fix other commands
     if isinstance(content, ReceiptCommand):
-        fix_receipt_command(content=content)
+        # receipt
+        _fix_receipt_command(content=content)
+    elif isinstance(content, ReportCommand):
+        # report
+        _fix_report_command(content=content)
+    elif isinstance(content, DocumentCommand):
+        # document
+        _fix_document_command(content=content)
     elif isinstance(content, MetaCommand):
+        # meta
         meta = content.get('meta')
         if meta is not None:
-            fix_meta_version(meta=meta)
+            _fix_meta_version(meta=meta)
     # OK
     return content
 
 
-def fix_cmd(content: Command):
+def _fix_cmd(content: Command):
     cmd = content.get('cmd')
     if cmd is None:
         cmd = content.get('command')
@@ -105,7 +130,7 @@ def fix_cmd(content: Command):
     return content
 
 
-def copy_receipt_values(content: ReceiptCommand, env: dict):
+def _copy_receipt_values(content: ReceiptCommand, env: dict):
     for key in ['sender', 'receiver', 'sn', 'signature']:
         value = env.get(key)
         if value is not None:
@@ -113,14 +138,14 @@ def copy_receipt_values(content: ReceiptCommand, env: dict):
 
 
 # TODO: remove after all server/client upgraded
-def fix_receipt_command(content: ReceiptCommand):
+def _fix_receipt_command(content: ReceiptCommand):
     origin = content.get('origin')
     if origin is not None:
         # (v2.0)
         # compatible with v1.0
         content['envelope'] = origin
         # compatible with older version
-        copy_receipt_values(content=content, env=origin)
+        _copy_receipt_values(content=content, env=origin)
         return content
     # check for old version
     env = content.get('envelope')
@@ -129,7 +154,7 @@ def fix_receipt_command(content: ReceiptCommand):
         # compatible with v2.0
         content['origin'] = env
         # compatible with older version
-        copy_receipt_values(content=content, env=env)
+        _copy_receipt_values(content=content, env=env)
         return content
     # check for older version
     if 'sender' in content:  # and 'receiver' in content:
@@ -147,7 +172,7 @@ def fix_receipt_command(content: ReceiptCommand):
 
 
 # TODO: remove after all server/client upgraded
-def fix_document_command(content: DocumentCommand):
+def _fix_document_command(content: DocumentCommand):
     info = content.get('document')
     if info is not None:
         # (v2.0)
@@ -186,7 +211,7 @@ def fix_document_command(content: DocumentCommand):
     return content
 
 
-def fix_report_command(content: ReportCommand):
+def _fix_report_command(content: ReportCommand):
     # check state for oldest version
     state = content.get('state')
     if state == 'background':

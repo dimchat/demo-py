@@ -53,7 +53,7 @@ from .dbi import MessageDBI
 from .facebook import CommonFacebook
 from .session import Transmitter, Session
 
-from .compat import fix_command, fix_file_content
+from .compat import Compatible
 
 
 class CommonMessenger(Messenger, Transmitter, Logging, ABC):
@@ -136,18 +136,18 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     # Override
     async def serialize_content(self, content: Content, key: SymmetricKey, msg: InstantMessage) -> bytes:
         if isinstance(content, Command):
-            content = fix_command(content=content)
+            content = Compatible.fix_command(content=content)
         elif isinstance(content, FileContent):
-            content = fix_file_content(content=content)
+            content = Compatible.fix_file_content(content=content)
         return await super().serialize_content(content=content, key=key, msg=msg)
 
     # Override
     async def deserialize_content(self, data: bytes, key: SymmetricKey, msg: SecureMessage) -> Optional[Content]:
         content = await super().deserialize_content(data=data, key=key, msg=msg)
         if isinstance(content, Command):
-            content = fix_command(content=content)
+            content = Compatible.fix_command(content=content)
         elif isinstance(content, FileContent):
-            content = fix_file_content(content=content)
+            content = Compatible.fix_file_content(content=content)
         return content
 
     #

@@ -172,7 +172,7 @@ class WebSocket:
                 mask = None
             # 4. get payload
             if stream_len < pos + msg_len:
-                Log.info(msg='incomplete ws package for payload: %d, msg len: %d' % (stream_len, msg_len))
+                # Log.info(msg='incomplete ws package for payload: %d, msg len: %d' % (stream_len, msg_len))
                 return None, stream
             payload = stream[pos:pos+msg_len]
             pos += msg_len
@@ -212,7 +212,7 @@ class WebSocket:
                 # cut the received package(s) and return the remaining
                 stream = stream[pos:]
                 break
-        Log.info(msg='received ws payload len: %d, left: %d' % (len(data), len(stream)))
+        # Log.info(msg='received ws payload len: %d, left: %d' % (len(data), len(stream)))
         return data, stream
 
     @classmethod

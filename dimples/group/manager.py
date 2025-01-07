@@ -67,15 +67,15 @@ class GroupManager(TripletsHelper):
 
     def _create_packer(self) -> GroupPacker:
         """ override for customized packer """
-        return GroupPacker(self.__delegate)
+        return GroupPacker(self.delegate)
 
     def _create_helper(self) -> GroupCommandHelper:
         """ override for customized helper """
-        return GroupCommandHelper(self.__delegate)
+        return GroupCommandHelper(self.delegate)
 
     def _create_builder(self) -> GroupHistoryBuilder:
         """ override for customized builder """
-        return GroupHistoryBuilder(self.__delegate)
+        return GroupHistoryBuilder(self.delegate)
 
     async def create_group(self, members: List[ID]) -> Optional[ID]:
         """
@@ -231,7 +231,6 @@ class GroupManager(TripletsHelper):
     async def invite_members(self, members: List[ID], group: ID) -> bool:
         """
         Invite new members to this group
-
 
         :param members: inviting member list
         :param group:   group ID

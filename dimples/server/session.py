@@ -275,6 +275,6 @@ async def remove_reliable_message(msg: ReliableMessage, receiver: ID, database: 
         #     return False
         receiver = msg.receiver
     info = get_msg_info(msg=msg)
-    Log.info(msg='message sent for %s, remove from db: %s' % (receiver, info))
+    Log.info(msg='message sent, remove it: %s' % info)
     # remove sent message from database
     return await database.remove_reliable_message(msg=msg, receiver=receiver)

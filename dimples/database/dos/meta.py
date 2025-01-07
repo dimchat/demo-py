@@ -28,12 +28,14 @@ from typing import Optional
 from dimsdk import ID, Meta
 
 from ...utils import template_replace
+from ...utils import Logging
+from ...common.compat import Compatible
 from ...common import MetaDBI
 
 from .base import Storage
 
 
-class MetaStorage(Storage, MetaDBI):
+class MetaStorage(Storage, Logging, MetaDBI):
     """
         Meta for Entities (User/Group)
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -69,5 +71,10 @@ class MetaStorage(Storage, MetaDBI):
         if info is None:
             # file not found
             self.warning(msg='meta file not found: %s' % path)
+            return None
         else:
+            Compatible.fix_meta_version(meta=info)
+        try:
             return Meta.parse(meta=info)
+        except Exception as error:
+            self.error(msg='meta error: %s, %s' % (error, info))

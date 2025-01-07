@@ -22,16 +22,16 @@
         # 'pycryptodome',  # 3.14.1
         # 'base58',  # 1.0.3
         # 'ecdsa',   # 0.16.1
-        'dimplugins>=2.2.1',
+        'dimplugins>=2.2.2',
 
-        'dimsdk>=2.2.1',
-        # 'dimp>=2.2.1',
-        # 'dkd>=2.2.1',
-        # 'mkm>=2.2.1',
+        'dimsdk>=2.2.2',
+        # 'dimp>=2.2.2',
+        # 'dkd>=2.2.2',
+        # 'mkm>=2.2.2',
 
-        'startrek>=2.2.1',
-        'tcp>=2.2.1',
-        'udp>=2.2.1',
+        'startrek>=2.2.2',
+        'tcp>=2.2.2',
+        'udp>=2.2.2',
 
         'aiou>=0.3.0',
     ]
