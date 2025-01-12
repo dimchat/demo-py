@@ -26,15 +26,14 @@
 from typing import Optional, List
 
 from dimsdk import TransportableData
-from dimsdk import ID, Document, DocumentUtils
+from dimsdk import ID, Document
 
 from ...utils import template_replace
-from ...common import DocumentDBI
 
 from .base import Storage
 
 
-class DocumentStorage(Storage, DocumentDBI):
+class DocumentStorage(Storage):
     """
         Document for Entities (User/Group)
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -72,39 +71,10 @@ class DocumentStorage(Storage, DocumentDBI):
         documents = []
         for info in array:
             doc = parse_document(dictionary=info, identifier=identifier)
-            assert doc is not None, 'document error: %s, %s' % (identifier, info)
-            documents.append(doc)
+            if doc is not None:
+                documents.append(doc)
         self.info(msg='Loaded %d documents from: %s' % (len(documents), path))
         return documents
-
-    #
-    #   Document DBI
-    #
-
-    # Override
-    async def save_document(self, document: Document) -> bool:
-        """ save document into file """
-        identifier = document.identifier
-        doc_type = document.type
-        # check old documents
-        all_documents = await self.get_documents(identifier=identifier)
-        old = DocumentUtils.last_document(all_documents, doc_type)
-        if old is None and doc_type == Document.VISA:
-            old = DocumentUtils.last_document(all_documents, 'profile')
-        if old is not None:
-            if DocumentUtils.is_expired(document, old):
-                self.warning(msg='drop expired document: %s' % identifier)
-                return False
-            all_documents.remove(old)
-        # append it
-        all_documents.append(document)
-        return await self.save_documents(documents=all_documents, identifier=identifier)
-
-    # Override
-    async def get_documents(self, identifier: ID) -> List[Document]:
-        """ load documents from file """
-        docs = await self.load_documents(identifier=identifier)
-        return [] if docs is None else docs
 
 
 def parse_document(dictionary: dict, identifier: ID = None, doc_type: str = '*') -> Optional[Document]:

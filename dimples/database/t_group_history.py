@@ -75,7 +75,7 @@ class HisTask(DbTask):
     async def _load_local_storage(self) -> Optional[List[Tuple[GroupCommand, ReliableMessage]]]:
         # 1. the local storage will return an empty array, when no history in this group
         # 2. return empty array as a placeholder for the memory cache
-        return await self._dos.get_group_histories(group=self._group)
+        return await self._dos.load_group_histories(group=self._group)
 
     # Override
     async def _save_local_storage(self, value: List[Tuple[GroupCommand, ReliableMessage]]) -> bool:
@@ -101,14 +101,14 @@ class GroupHistoryTable(GroupHistoryDBI):
                        cache_pool=self._cache, redis=self._redis, storage=self._dos,
                        mutex_lock=self._lock)
 
-    async def load_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
+    async def _load_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
         task = self._new_task(group=group)
         histories = await task.load()
         if histories is None:
             histories = []
         return histories
 
-    async def save_group_histories(self, group: ID, histories: List[Tuple[GroupCommand, ReliableMessage]]) -> bool:
+    async def _save_group_histories(self, group: ID, histories: List[Tuple[GroupCommand, ReliableMessage]]) -> bool:
         task = self._new_task(group=group)
         return await task.save(value=histories)
 
@@ -119,17 +119,17 @@ class GroupHistoryTable(GroupHistoryDBI):
     # Override
     async def save_group_history(self, group: ID, content: GroupCommand, message: ReliableMessage) -> bool:
         item = (content, message)
-        histories = await self.load_group_histories(group=group)
+        histories = await self._load_group_histories(group=group)
         histories.append(item)
-        return await self.save_group_histories(group=group, histories=histories)
+        return await self._save_group_histories(group=group, histories=histories)
 
     # Override
     async def get_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
-        return await self.load_group_histories(group=group)
+        return await self._load_group_histories(group=group)
 
     # Override
     async def get_reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
-        histories = await self.load_group_histories(group=group)
+        histories = await self._load_group_histories(group=group)
         pos = len(histories)
         while pos > 0:
             pos -= 1
@@ -142,7 +142,7 @@ class GroupHistoryTable(GroupHistoryDBI):
 
     # Override
     async def clear_group_member_histories(self, group: ID) -> bool:
-        histories = await self.load_group_histories(group=group)
+        histories = await self._load_group_histories(group=group)
         if len(histories) == 0:
             # history empty
             return True
@@ -157,11 +157,11 @@ class GroupHistoryTable(GroupHistoryDBI):
                 removed += 1
         # if nothing changed, return True
         # else, save new histories
-        return removed == 0 or await self.save_group_histories(group=group, histories=array)
+        return removed == 0 or await self._save_group_histories(group=group, histories=array)
 
     # Override
     async def clear_group_admin_histories(self, group: ID) -> bool:
-        histories = await self.load_group_histories(group=group)
+        histories = await self._load_group_histories(group=group)
         if len(histories) == 0:
             # history empty
             return True
@@ -176,4 +176,4 @@ class GroupHistoryTable(GroupHistoryDBI):
                 array.append(his)
         # if nothing changed, return True
         # else, save new histories
-        return removed == 0 or await self.save_group_histories(group=group, histories=array)
+        return removed == 0 or await self._save_group_histories(group=group, histories=array)

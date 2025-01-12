@@ -56,7 +56,17 @@ class DocumentCache(Cache):
     def __cache_name(self, identifier: ID) -> str:
         return '%s.%s.%s' % (self.db_name, self.tbl_name, identifier)
 
-    async def get_documents(self, identifier: ID) -> Optional[List[Document]]:
+    async def save_documents(self, documents: List[Document], identifier: ID) -> bool:
+        array = []
+        for doc in documents:
+            assert doc.identifier == identifier, 'document ID not matched: %s, %s' % (identifier, doc)
+            array.append(doc.dictionary)
+        js = json_encode(obj=array)
+        value = utf8_encode(string=js)
+        name = self.__cache_name(identifier=identifier)
+        return await self.set(name=name, value=value, expires=self.EXPIRES)
+
+    async def load_documents(self, identifier: ID) -> Optional[List[Document]]:
         name = self.__cache_name(identifier=identifier)
         value = await self.get(name=name)
         if value is None:
@@ -79,13 +89,3 @@ class DocumentCache(Cache):
         else:
             assert info is None, 'document error: %s' % value
         return array
-
-    async def save_documents(self, documents: List[Document], identifier: ID) -> bool:
-        array = []
-        for doc in documents:
-            assert doc.identifier == identifier, 'document ID not matched: %s, %s' % (identifier, doc)
-            array.append(doc.dictionary)
-        js = json_encode(obj=array)
-        value = utf8_encode(string=js)
-        name = self.__cache_name(identifier=identifier)
-        return await self.set(name=name, value=value, expires=self.EXPIRES)

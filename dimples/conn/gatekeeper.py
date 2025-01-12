@@ -130,7 +130,7 @@ def reset_send_buffer_size(conn: Connection = None, sock: socket.socket = None) 
             return False
         channel = conn.channel
         if not isinstance(channel, BaseChannel):
-            print('[SOCKET] channel error: %s, %s' % (channel, conn))
+            print('[SOCKET] channel error: %s, %s' % (channel, conn.remote_address))
             return False
         sock = channel.sock
         if sock is None:

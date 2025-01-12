@@ -240,14 +240,25 @@ class Terminal(Runner, DeviceMixin, Logging, StateDelegate, ABC):
     async def enter_state(self, state: SessionState, ctx: StateMachine, now: float):
         # called before state changed
         session = self.session
-        station = session.station
-        self.info(msg='enter state: %s, %s => %s' % (state, session.identifier, station.identifier))
+        if session is None:
+            sess_id = None
+            srv_id = None
+        else:
+            sess_id = session.identifier
+            station = session.station
+            if station is None:
+                srv_id = None
+            else:
+                srv_id = station.identifier
+        self.info(msg='enter state: %s, %s => %s' % (state, sess_id, srv_id))
 
     # Override
     async def exit_state(self, state: SessionState, ctx: StateMachine, now: float):
         # called after state changed
         current = ctx.current_state
-        self.info(msg='server state changed: %s -> %s, %s' % (state, current, self.session.station))
+        session = self.session
+        remote = None if session is None else session.remote_address
+        self.info(msg='server state changed: %s -> %s, %s' % (state, current, remote))
         index = current.index if isinstance(current, SessionState) else -1
         if index == -1 or index == StateOrder.ERROR:
             self.__last_time = 0
@@ -259,8 +270,6 @@ class Terminal(Runner, DeviceMixin, Logging, StateDelegate, ABC):
                 self.warning(msg='current user not set')
                 return
             self.info(msg='connect for user: %s' % user)
-            session = self.session
-            remote = None if session is None else session.remote_address
             if remote is None:
                 self.warning(msg='failed to get remote address: %s' % session)
                 return

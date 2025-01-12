@@ -71,7 +71,7 @@ class ClientChecker(EntityChecker, Logging):
             return False
         elif not self.is_meta_query_expired(identifier=identifier):
             # query not expired yet
-            self.info(msg='meta query not expired yet: %s' % identifier)
+            self.debug(msg='meta query not expired yet: %s' % identifier)
             return False
         self.info(msg='querying meta for: %s' % identifier)
         content = MetaCommand.query(identifier=identifier)
@@ -86,7 +86,7 @@ class ClientChecker(EntityChecker, Logging):
             return False
         elif not self.is_document_query_expired(identifier=identifier):
             # query not expired yet
-            self.info(msg='document query not expired yet: %s' % identifier)
+            self.debug(msg='document query not expired yet: %s' % identifier)
             return False
         last_time = self.get_last_document_time(identifier=identifier, documents=documents)
         self.info(msg='querying document for: %s, last time: %s' % (identifier, last_time))
@@ -103,7 +103,7 @@ class ClientChecker(EntityChecker, Logging):
             return False
         elif not self.is_members_query_expired(identifier=group):
             # query not expired yet
-            self.info('members query not expired yet: %s' % group)
+            self.debug('members query not expired yet: %s' % group)
             return False
         user = await facebook.current_user
         if user is None:

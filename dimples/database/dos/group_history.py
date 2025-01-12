@@ -23,20 +23,18 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, Tuple, List
+from typing import Tuple, List
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
 from dimsdk import Command, GroupCommand
-from dimsdk import ResetCommand, ResignCommand
 
 from ...utils import template_replace
-from ...common import GroupHistoryDBI
 
 from .base import Storage
 
 
-class GroupHistoryStorage(Storage, GroupHistoryDBI):
+class GroupHistoryStorage(Storage):
     """
         Group History Command Storage
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -89,69 +87,3 @@ class GroupHistoryStorage(Storage, GroupHistoryDBI):
         path = self.__history_path(group=group)
         self.info(msg='Saving %d group history(ies) into: %s' % (len(histories), path))
         return await self.write_json(container=array, path=path)
-
-    #
-    #   Group History DBI
-    #
-
-    # Override
-    async def save_group_history(self, group: ID, content: GroupCommand, message: ReliableMessage) -> bool:
-        histories = await self.load_group_histories(group=group)
-        item = (content, message)
-        histories.append(item)
-        return await self.save_group_histories(group=group, histories=histories)
-
-    # Override
-    async def get_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
-        return await self.load_group_histories(group=group)
-
-    # Override
-    async def get_reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
-        histories = await self.load_group_histories(group=group)
-        pos = len(histories)
-        while pos > 0:
-            pos -= 1
-            his = histories[pos]
-            cmd = his[0]
-            msg = his[1]
-            if isinstance(cmd, ResetCommand):
-                return cmd, msg
-        return None, None
-
-    # Override
-    async def clear_group_member_histories(self, group: ID) -> bool:
-        histories = await self.load_group_histories(group=group)
-        if len(histories) == 0:
-            # history empty
-            return True
-        array = []
-        removed = 0
-        for his in histories:
-            if isinstance(his[0], ResignCommand):
-                # keep 'resign' command messages
-                array.append(his)
-            else:
-                # remove other command messages
-                removed += 1
-        # if nothing changed, return True
-        # else, save new histories
-        return removed == 0 or await self.save_group_histories(group=group, histories=array)
-
-    # Override
-    async def clear_group_admin_histories(self, group: ID) -> bool:
-        histories = await self.load_group_histories(group=group)
-        if len(histories) == 0:
-            # history empty
-            return True
-        array = []
-        removed = 0
-        for his in histories:
-            if isinstance(his[0], ResignCommand):
-                # remove 'resign' command messages
-                removed += 1
-            else:
-                # keep other command messages
-                array.append(his)
-        # if nothing changed, return True
-        # else, save new histories
-        return removed == 0 or await self.save_group_histories(group=group, histories=array)

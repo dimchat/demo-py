@@ -40,6 +40,7 @@ sys.path.insert(0, path)
 from dimples.utils import Log, Runner
 
 from dimples.client import ClientFacebook
+from dimples.client import ClientMessenger
 from dimples.client import ClientSession
 from dimples.client import Terminal
 
@@ -52,7 +53,7 @@ from dimples.edge.messenger import InnerMessenger, OuterMessenger
 class InnerClient(Terminal):
 
     # Override
-    def _create_messenger(self, facebook: ClientFacebook, session: ClientSession):
+    def _create_messenger(self, facebook: ClientFacebook, session: ClientSession) -> ClientMessenger:
         shared = GlobalVariable()
         messenger = InnerMessenger(session=session, facebook=facebook, database=shared.mdb)
         messenger.terminal = self  # Weak Reference
@@ -63,7 +64,7 @@ class InnerClient(Terminal):
 class OuterClient(Terminal):
 
     # Override
-    def _create_messenger(self, facebook: ClientFacebook, session: ClientSession):
+    def _create_messenger(self, facebook: ClientFacebook, session: ClientSession) -> ClientMessenger:
         shared = GlobalVariable()
         messenger = OuterMessenger(session=session, facebook=facebook, database=shared.mdb)
         messenger.terminal = self
