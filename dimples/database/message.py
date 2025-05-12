@@ -29,9 +29,9 @@ from dimsdk import SymmetricKey
 from dimsdk import ID
 from dimsdk import ReliableMessage
 
+from ..utils import Config
 from ..common import MessageDBI
 
-from .t_base import DbInfo
 from .t_group_keys import GroupKeysTable
 from .t_cipherkey import CipherKeyTable
 from .t_message import ReliableMessageTable
@@ -43,11 +43,11 @@ class MessageDatabase(MessageDBI):
         ~~~~~~~~~~~~~~~~~~~~~
     """
 
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
-        self._group_keys_table = GroupKeysTable(info=info)
-        self._cipher_table = CipherKeyTable(info=info)
-        self._msg_table = ReliableMessageTable(info=info)
+        self._group_keys_table = GroupKeysTable(config=config)
+        self._cipher_table = CipherKeyTable(config=config)
+        self._msg_table = ReliableMessageTable(config=config)
 
     def show_info(self):
         self._group_keys_table.show_info()

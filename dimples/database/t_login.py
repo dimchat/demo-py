@@ -31,6 +31,7 @@ from aiou.mem import CachePool
 from dimsdk import ID
 from dimsdk import ReliableMessage
 
+from ..utils import Config
 from ..utils import SharedCacheManager
 from ..utils import is_before
 from ..common import LoginDBI, LoginCommand
@@ -38,7 +39,7 @@ from ..common import LoginDBI, LoginCommand
 from .dos import LoginStorage
 from .redis import LoginCache
 
-from .t_base import DbInfo, DbTask
+from .t_base import DbTask
 
 
 class CmdTask(DbTask):
@@ -89,12 +90,12 @@ class CmdTask(DbTask):
 class LoginTable(LoginDBI):
     """ Implementations of LoginDBI """
 
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='login')  # ID => (LoginCommand, ReliableMessage)
-        self._redis = LoginCache(connector=info.redis_connector)
-        self._dos = LoginStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._redis = LoginCache(connector=config.redis_connector)
+        self._dos = LoginStorage(config=config)
         self._lock = threading.Lock()
 
     def show_info(self):

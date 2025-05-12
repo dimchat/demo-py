@@ -30,13 +30,14 @@ from aiou.mem import CachePool
 
 from dimsdk import ID, Meta
 
+from ..utils import Config
 from ..utils import SharedCacheManager
 from ..common import MetaDBI
 
 from .dos import MetaStorage
 from .redis import MetaCache
 
-from .t_base import DbInfo, DbTask
+from .t_base import DbTask
 
 
 class TaiTask(DbTask):
@@ -79,12 +80,12 @@ class TaiTask(DbTask):
 class MetaTable(MetaDBI):
     """ Implementations of MetaDBI """
 
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='meta')  # ID => Meta
-        self._redis = MetaCache(connector=info.redis_connector)
-        self._dos = MetaStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._redis = MetaCache(connector=config.redis_connector)
+        self._dos = MetaStorage(config=config)
         self._lock = threading.Lock()
 
     def show_info(self):

@@ -30,6 +30,7 @@ from typing import Optional, Tuple
 from dimsdk import ID, Document
 
 from ..utils import Singleton, Config
+from ..utils import Log
 from ..utils import Path
 
 from ..common import CommonArchivist
@@ -37,8 +38,6 @@ from ..common import CommonFacebook
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..common import ProviderInfo
 from ..common.compat import CommonLoader
-from ..database.redis import RedisConnector
-from ..database import DbInfo
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
 from ..group import SharedGroupManager
 
@@ -62,6 +61,8 @@ class GlobalVariable:
         self.__sdb: Optional[SessionDBI] = None
         self.__facebook: Optional[ServerFacebook] = None
         self.__messenger: Optional[ServerMessenger] = None  # only for entity checker
+        # load extensions
+        CommonLoader().run()
 
     @property
     def config(self) -> Config:
@@ -100,9 +101,8 @@ class GlobalVariable:
 
     async def prepare(self, config: Config):
         #
-        #  Step 0: load extensions
+        #  Step 0: load ANS
         #
-        CommonLoader().run()
         ans_records = config.ans_records
         if ans_records is not None:
             # load ANS records from 'config.ini'
@@ -145,7 +145,7 @@ class GlobalVariable:
         msg_keys = await facebook.private_keys_for_decryption(identifier=current_user)
         assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
         assert len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
-        print('set current user: %s' % current_user)
+        Log.info(msg='set current user: %s' % current_user)
         user = await facebook.get_user(identifier=current_user)
         assert user is not None, 'failed to get current user: %s' % current_user
         visa = await user.visa
@@ -157,32 +157,11 @@ class GlobalVariable:
         await facebook.set_current_user(user=user)
 
 
-def create_redis_connector(config: Config) -> Optional[RedisConnector]:
-    redis_enable = config.get_boolean(section='redis', option='enable')
-    if redis_enable:
-        # create redis connector
-        host = config.get_string(section='redis', option='host')
-        if host is None:
-            host = 'localhost'
-        port = config.get_integer(section='redis', option='port')
-        if port is None or port <= 0:
-            port = 6379
-        username = config.get_string(section='redis', option='username')
-        password = config.get_string(section='redis', option='password')
-        return RedisConnector(host=host, port=port, username=username, password=password)
-
-
 async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, SessionDBI]:
     """ create database with directories """
-    root = config.database_root
-    public = config.database_public
-    private = config.database_private
-    redis_conn = create_redis_connector(config=config)
-    info = DbInfo(redis_connector=redis_conn, root_dir=root, public_dir=public, private_dir=private)
-    # create database
-    adb = AccountDatabase(info=info)
-    mdb = MessageDatabase(info=info)
-    sdb = SessionDatabase(info=info)
+    adb = AccountDatabase(config=config)
+    mdb = MessageDatabase(config=config)
+    sdb = SessionDatabase(config=config)
     adb.show_info()
     mdb.show_info()
     sdb.show_info()
@@ -192,6 +171,7 @@ async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, Sessi
     provider = ProviderInfo.GSP
     neighbors = config.neighbors
     if len(neighbors) > 0:
+        Log.info(msg='[DB] checking %d neighbor(s): %s' % (len(neighbors), provider))
         # await sdb.remove_stations(provider=provider)
         # 1. remove vanished neighbors
         old_stations = await sdb.all_stations(provider=provider)
@@ -202,7 +182,7 @@ async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, Sessi
                     found = True
                     break
             if not found:
-                print('removing neighbor station: %s' % old)
+                Log.warning(msg='[DB] removing neighbor station: %s' % old)
                 await sdb.remove_station(host=old.host, port=old.port, provider=provider)
         # 2. add new neighbors
         for node in neighbors:
@@ -211,8 +191,10 @@ async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, Sessi
                 if old.port == node.port and old.host == node.host:
                     found = True
                     break
-            if not found:
-                print('adding neighbor node: %s' % node)
+            if found:
+                Log.info(msg='[DB] neighbor node exists: %s' % node)
+            else:
+                Log.info(msg='[DB] adding neighbor node: %s' % node)
                 await sdb.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
     # OK
     return adb, mdb, sdb
@@ -285,6 +267,6 @@ async def create_config(app_name: str, default_config: str) -> Config:
         print('')
         sys.exit(0)
     # load config from file
-    config = Config.load(file=ini_file)
+    config = await Config().load(file=ini_file)
     print('>>> config loaded: %s => %s' % (ini_file, config))
     return config

@@ -31,34 +31,6 @@ from typing import Optional
 
 from aiou.mem.cache import K, V
 from aiou.mem import CachePool
-from aiou import RedisConnector
-
-
-class DbInfo:
-
-    def __init__(self, redis_connector: Optional[RedisConnector],
-                 root_dir: Optional[str], public_dir: Optional[str], private_dir: Optional[str]):
-        super().__init__()
-        self.__connector = redis_connector
-        self.__root = root_dir
-        self.__public = public_dir
-        self.__private = private_dir
-
-    @property
-    def redis_connector(self) -> Optional[RedisConnector]:
-        return self.__connector
-
-    @property
-    def root_dir(self) -> Optional[str]:
-        return self.__root
-
-    @property
-    def public_dir(self) -> Optional[str]:
-        return self.__public
-
-    @property
-    def private_dir(self) -> Optional[str]:
-        return self.__private
 
 
 class DbTask(Generic[K, V], ABC):

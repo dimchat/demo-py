@@ -30,13 +30,14 @@ from aiou.mem import CachePool
 
 from dimsdk import ID, Document, DocumentUtils
 
+from ..utils import Config
 from ..utils import SharedCacheManager
 from ..common import DocumentDBI
 
 from .dos import DocumentStorage
 from .redis import DocumentCache
 
-from .t_base import DbInfo, DbTask
+from .t_base import DbTask
 
 
 class DocTask(DbTask):
@@ -83,12 +84,12 @@ class DocTask(DbTask):
 class DocumentTable(DocumentDBI):
     """ Implementations of DocumentDBI """
 
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='documents')  # ID => List[Document]
-        self._redis = DocumentCache(connector=info.redis_connector)
-        self._dos = DocumentStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._redis = DocumentCache(connector=config.redis_connector)
+        self._dos = DocumentStorage(config=config)
         self._lock = threading.Lock()
 
     def show_info(self):

@@ -32,12 +32,13 @@ from dimsdk import DateTime
 from dimsdk import PrivateKey, DecryptKey, SignKey
 from dimsdk import ID
 
+from ..utils import Config
 from ..utils import SharedCacheManager
 from ..common import PrivateKeyDBI
 
 from .dos import PrivateKeyStorage
 
-from .t_base import DbInfo, DbTask
+from .t_base import DbTask
 
 
 class PriKeyTask(DbTask):
@@ -93,12 +94,12 @@ class MsgKeyTask(PriKeyTask):
 class PrivateKeyTable(PrivateKeyDBI):
     """ Implementations of PrivateKeyDBI """
 
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
         man = SharedCacheManager()
         self._id_key_cache = man.get_pool(name='private_id_key')      # ID => PrivateKey
         self._msg_keys_cache = man.get_pool(name='private_msg_keys')  # ID => List[PrivateKey]
-        self._dos = PrivateKeyStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._dos = PrivateKeyStorage(config=config)
         self._lock = threading.Lock()
 
     def show_info(self):

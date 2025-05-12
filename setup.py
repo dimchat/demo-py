@@ -14,7 +14,7 @@ import io
 
 from setuptools import setup, find_packages
 
-__version__ = '1.3.5'
+__version__ = '1.4.0'
 __author__ = 'Albert Moky'
 __contact__ = 'albert.moky@gmail.com'
 
@@ -48,6 +48,8 @@ setup(
         ]
     },
     install_requires=[
+        'requests',  # 2.21.0
+
         # 'pycryptodome',  # 3.14.1
         # 'base58',  # 1.0.3
         # 'ecdsa',   # 0.16.1
@@ -62,6 +64,6 @@ setup(
         'tcp>=2.2.2',
         'udp>=2.2.2',
 
-        'aiou>=1.0.0',
+        'aiou>=1.1.0',
     ]
 )

@@ -30,13 +30,14 @@ from aiou.mem import CachePool
 
 from dimsdk import ID
 
+from ..utils import Config
 from ..utils import SharedCacheManager
 from ..common import UserDBI, ContactDBI
 
 from .dos import UserStorage
 from .redis import UserCache
 
-from .t_base import DbInfo, DbTask
+from .t_base import DbTask
 
 
 class UsrTask(DbTask):
@@ -79,12 +80,12 @@ class UsrTask(DbTask):
 class UserTable(UserDBI, ContactDBI):
     """ Implementations of UserDBI """
 
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='contacts')  # ID => List[ID]
-        self._redis = UserCache(connector=info.redis_connector)
-        self._dos = UserStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._redis = UserCache(connector=config.redis_connector)
+        self._dos = UserStorage(config=config)
         self._lock = threading.Lock()
 
     def show_info(self):

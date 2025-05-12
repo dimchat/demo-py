@@ -38,33 +38,33 @@ class GroupStorage(Storage, GroupDBI):
         Group Storage
         ~~~~~~~~~~~~~
 
-        file path: '.dim/private/{ADDRESS}/members.js'
-        file path: '.dim/private/{ADDRESS}/assistants.js'
-        file path: '.dim/private/{ADDRESS}/administrators.js'
+        file path: '.dim/protected/{ADDRESS}/members.js'
+        file path: '.dim/protected/{ADDRESS}/assistants.js'
+        file path: '.dim/protected/{ADDRESS}/administrators.js'
     """
 
-    members_path = '{PRIVATE}/{ADDRESS}/members.js'
-    assistants_path = '{PRIVATE}/{ADDRESS}/assistants.js'
-    administrators_path = '{PRIVATE}/{ADDRESS}/administrators.js'
+    members_path = '{PROTECTED}/{ADDRESS}/members.js'
+    assistants_path = '{PROTECTED}/{ADDRESS}/assistants.js'
+    administrators_path = '{PROTECTED}/{ADDRESS}/administrators.js'
 
     def show_info(self):
-        path1 = self.private_path(self.members_path)
-        path2 = self.private_path(self.assistants_path)
-        path3 = self.private_path(self.administrators_path)
+        path1 = self.protected_path(self.members_path)
+        path2 = self.protected_path(self.assistants_path)
+        path3 = self.protected_path(self.administrators_path)
         print('!!!        members path: %s' % path1)
         print('!!!     assistants path: %s' % path2)
         print('!!! administrators path: %s' % path3)
 
     def __members_path(self, identifier: ID) -> str:
-        path = self.private_path(self.members_path)
+        path = self.protected_path(self.members_path)
         return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
     def __assistants_path(self, identifier: ID) -> str:
-        path = self.private_path(self.assistants_path)
+        path = self.protected_path(self.assistants_path)
         return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
     def __administrators_path(self, identifier: ID) -> str:
-        path = self.private_path(self.administrators_path)
+        path = self.protected_path(self.administrators_path)
         return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
     #

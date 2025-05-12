@@ -52,7 +52,7 @@ from dimples.station.handler import RequestHandler
 Log.LEVEL = Log.DEVELOP
 
 
-DEFAULT_CONFIG = '/etc/dim/station.ini'
+DEFAULT_CONFIG = '/etc/dim/config.ini'
 
 
 async def async_main():
@@ -71,6 +71,7 @@ async def async_main():
     host = config.station_host
     port = config.station_port
     assert host is not None and port > 0, 'station config error: %s' % config
+    host = '0.0.0.0'
     server_address = (host, port)
     #
     #  Start TCP server

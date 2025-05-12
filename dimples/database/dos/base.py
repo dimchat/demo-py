@@ -29,16 +29,7 @@ from ...utils import template_replace
 from ...utils import Log
 from ...utils import Path
 from ...utils import TextFile, JSONFile
-
-
-"""
-    Root Directory
-    ~~~~~~~~~~~~~~
-    Directory for MKM database
-"""
-root_dir = '/var/.dim'
-pub_dir = '{ROOT}/public'
-pri_dir = '{ROOT}/private'
+from ...utils import Config
 
 
 class Storage:
@@ -47,42 +38,76 @@ class Storage:
         ~~~~~~~~~~~
     """
 
-    def __init__(self, root: str = None, public: str = None, private: str = None):
+    def __init__(self, config: Config):
         super().__init__()
-        if root is None:
-            root = root_dir
-        if public is None:
-            public = template_replace(pub_dir, 'ROOT', root)
-        if private is None:
-            private = template_replace(pri_dir, 'ROOT', root)
-        self._public = public
-        self._private = private
+        self.__config = config
+
+    @property
+    def root_dir(self) -> str:
+        path = self.__config.database_root
+        if path is None:
+            path = '/var/.dim'
+        return path
+
+    @property
+    def public_dir(self) -> str:
+        path = self.__config.database_public
+        if path is None:
+            path = Path.join(self.root_dir, 'public')
+        return path
+
+    @property
+    def protected_dir(self) -> str:
+        path = self.__config.database_protected
+        if path is None:
+            path = Path.join(self.root_dir, 'protected')
+        return path
+
+    @property
+    def private_dir(self) -> str:
+        path = self.__config.database_private
+        if path is None:
+            path = Path.join(self.root_dir, 'private')
+        return path
 
     def public_path(self, template: str):
         """ replace '{PUBLIC}' with public directory """
         tag = '{PUBLIC}'
         if template.startswith(tag):
             # replace with tag
-            return template_replace(template=template, key='PUBLIC', value=self._public)
+            return template_replace(template=template, key='PUBLIC', value=self.public_dir)
         elif template.startswith('/') or template.find(':') > 0:
             # absolute path
             return template
         else:
             # relative path
-            return Path.join(self._public, template)
+            return Path.join(self.public_dir, template)
+
+    def protected_path(self, template: str):
+        """ replace '{PROTECTED}' with protected directory """
+        tag = '{PROTECTED}'
+        if template.startswith(tag):
+            # replace with tag
+            return template_replace(template=template, key='PROTECTED', value=self.protected_dir)
+        elif template.startswith('/') or template.find(':') > 0:
+            # absolute path
+            return template
+        else:
+            # relative path
+            return Path.join(self.protected_dir, template)
 
     def private_path(self, template: str):
         """ replace '{PRIVATE}' with private directory """
         tag = '{PRIVATE}'
         if template.startswith(tag):
             # replace with tag
-            return template_replace(template=template, key='PRIVATE', value=self._private)
+            return template_replace(template=template, key='PRIVATE', value=self.private_dir)
         elif template.startswith('/') or template.find(':') > 0:
             # absolute path
             return template
         else:
             # relative path
-            return Path.join(self._public, template)
+            return Path.join(self.private_dir, template)
 
     @classmethod
     async def read_text(cls, path: str) -> Optional[str]:

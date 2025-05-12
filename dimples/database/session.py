@@ -28,10 +28,10 @@ from typing import Optional, List, Tuple
 from dimsdk import ID
 from dimsdk import ReliableMessage
 
+from ..utils import Config
 from ..common import ProviderInfo, StationInfo
 from ..common import SessionDBI, LoginCommand
 
-from .t_base import DbInfo
 from .t_login import LoginTable
 from .t_station import StationTable
 
@@ -42,10 +42,10 @@ class SessionDatabase(SessionDBI):
         ~~~~~~~~~~~~~~~~~~~~
     """
 
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
-        self._login_table = LoginTable(info=info)
-        self._station_table = StationTable(info=info)
+        self._login_table = LoginTable(config=config)
+        self._station_table = StationTable(config=config)
 
     def show_info(self):
         self._login_table.show_info()

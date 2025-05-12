@@ -29,11 +29,10 @@ from typing import Optional
 from dimsdk import DateTime
 from dimsdk import ID, SymmetricKey
 
+from ..utils import Config
 from ..utils import SharedCacheManager
 from ..common import Password
 from ..common import CipherKeyDBI
-
-from .t_base import DbInfo
 
 
 class CipherKeyTable(CipherKeyDBI):
@@ -42,7 +41,7 @@ class CipherKeyTable(CipherKeyDBI):
     CACHE_EXPIRES = 3600*24*7  # seconds
 
     # noinspection PyUnusedLocal
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='cipher_keys')  # (ID, ID) => SymmetricKey

@@ -30,6 +30,7 @@ from aiou.mem import CachePool
 
 from dimsdk import ID
 
+from ..utils import Config
 from ..utils import SharedCacheManager
 from ..common import ProviderInfo, StationInfo
 from ..common import ProviderDBI, StationDBI
@@ -37,7 +38,7 @@ from ..common import ProviderDBI, StationDBI
 from .dos import StationStorage
 from .redis import StationCache
 
-from .t_base import DbInfo, DbTask
+from .t_base import DbTask
 
 
 class SpTask(DbTask):
@@ -129,13 +130,13 @@ class SrvTask(DbTask):
 class StationTable(ProviderDBI, StationDBI):
     """ Implementations of ProviderDBI """
 
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
         man = SharedCacheManager()
         self._dim_cache = man.get_pool(name='dim')            # 'providers' => List[ProviderInfo]
         self._stations_cache = man.get_pool(name='stations')  # SP_ID => List[StationInfo]
-        self._redis = StationCache(connector=info.redis_connector)
-        self._dos = StationStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._redis = StationCache(connector=config.redis_connector)
+        self._dos = StationStorage(config=config)
         self._lock = threading.Lock()
 
     def show_info(self):

@@ -104,7 +104,7 @@ class OctopusClient(Octopus):
 Log.LEVEL = Log.DEVELOP
 
 
-DEFAULT_CONFIG = '/etc/dim/edge.ini'
+DEFAULT_CONFIG = '/etc/dim/config.ini'
 
 
 async def async_main():
@@ -123,6 +123,7 @@ async def async_main():
     host = config.station_host
     port = config.station_port
     assert host is not None and port > 0, 'station config error: %s' % config
+    host = '127.0.0.1'
     #
     #  Start Octopus Client
     #

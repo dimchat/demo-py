@@ -32,13 +32,14 @@ from dimsdk import ID
 from dimsdk import ReliableMessage
 from dimsdk import GroupCommand, ResetCommand, ResignCommand
 
+from ..utils import Config
 from ..utils import SharedCacheManager
 from ..common import GroupHistoryDBI
 
 from .dos import GroupHistoryStorage
 from .redis import GroupHistoryCache
 
-from .t_base import DbInfo, DbTask
+from .t_base import DbTask
 
 
 class HisTask(DbTask):
@@ -85,12 +86,12 @@ class HisTask(DbTask):
 class GroupHistoryTable(GroupHistoryDBI):
     """ Implementations of GroupHistoryDBI """
 
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='group.history')  # ID => List
-        self._redis = GroupHistoryCache(connector=info.redis_connector)
-        self._dos = GroupHistoryStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._redis = GroupHistoryCache(connector=config.redis_connector)
+        self._dos = GroupHistoryStorage(config=config)
         self._lock = threading.Lock()
 
     def show_info(self):

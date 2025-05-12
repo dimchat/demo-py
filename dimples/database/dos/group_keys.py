@@ -38,17 +38,17 @@ class GroupKeysStorage(Storage, GroupKeysDBI):
         Group Keys Storage
         ~~~~~~~~~~~~~~~~~~
 
-        file path: '.dim/private/{GROUP_ADDRESS}/{SENDER_ADDRESS}.keys.js'
+        file path: '.dim/protected/{GROUP_ADDRESS}/{SENDER_ADDRESS}.keys.js'
     """
 
-    keys_path = '{PRIVATE}/{GROUP_ADDRESS}/{SENDER_ADDRESS}.keys.js'
+    keys_path = '{PROTECTED}/{GROUP_ADDRESS}/{SENDER_ADDRESS}.keys.js'
 
     def show_info(self):
-        path = self.private_path(self.keys_path)
+        path = self.protected_path(self.keys_path)
         print('!!!     group keys path: %s' % path)
 
     def __keys_path(self, group: ID, sender: ID) -> str:
-        path = self.private_path(self.keys_path)
+        path = self.protected_path(self.keys_path)
         path = template_replace(path, key='SENDER_ADDRESS', value=str(sender.address))
         return template_replace(path, key='GROUP_ADDRESS', value=str(group.address))
 

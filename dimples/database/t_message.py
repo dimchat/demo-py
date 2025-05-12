@@ -31,12 +31,13 @@ from aiou.mem import CachePool
 from dimsdk import ID
 from dimsdk import ReliableMessage
 
+from ..utils import Config
 from ..utils import SharedCacheManager
 from ..common import ReliableMessageDBI
 
 from .redis import MessageCache
 
-from .t_base import DbInfo, DbTask
+from .t_base import DbTask
 
 
 class MsgTask(DbTask):
@@ -79,11 +80,11 @@ class MsgTask(DbTask):
 class ReliableMessageTable(ReliableMessageDBI):
     """ Implementations of ReliableMessageDBI """
 
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='reliable_messages')  # ID => List[ReliableMessages]
-        self._redis = MessageCache(connector=info.redis_connector)
+        self._redis = MessageCache(connector=config.redis_connector)
         self._lock = threading.Lock()
 
     # noinspection PyMethodMayBeStatic

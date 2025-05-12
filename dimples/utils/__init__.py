@@ -61,6 +61,8 @@ from .checker import RecentTimeChecker
 from .log import Log, Logging
 from .cache import CachePool, SharedCacheManager
 
+from .http import HttpSession, HttpClient
+
 from .config import Config
 
 
@@ -133,6 +135,8 @@ __all__ = [
     'Log', 'Logging',
     'Path', 'File', 'TextFile', 'JSONFile',
     'CachePool', 'SharedCacheManager',
+
+    'HttpSession', 'HttpClient',
 
     'FrequencyChecker', 'RecentTimeChecker',
 

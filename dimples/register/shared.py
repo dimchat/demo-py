@@ -36,8 +36,6 @@ from ..utils import Singleton
 from ..utils import Path, Config
 from ..common import AccountDBI
 from ..common.compat import CommonLoader
-from ..database.redis import RedisConnector
-from ..database import DbInfo
 from ..database import AccountDatabase
 
 
@@ -53,6 +51,8 @@ class GlobalVariable:
         super().__init__()
         self.__config: Optional[Config] = None
         self.__adb: Optional[AccountDBI] = None
+        # load extensions
+        CommonLoader().run()
 
     @property
     def config(self) -> Config:
@@ -63,42 +63,13 @@ class GlobalVariable:
         return self.__adb
 
     async def prepare(self, config: Config):
-        #
-        #  Step 1: load extensions
-        #
-        CommonLoader().run()
         self.__config = config
-        #
-        #  Step 2: create database
-        #
-        adb = await create_database(config=config)
-        self.__adb = adb
-
-
-def create_redis_connector(config: Config) -> Optional[RedisConnector]:
-    redis_enable = config.get_boolean(section='redis', option='enable')
-    if redis_enable:
-        # create redis connector
-        host = config.get_string(section='redis', option='host')
-        if host is None:
-            host = 'localhost'
-        port = config.get_integer(section='redis', option='port')
-        if port is None or port <= 0:
-            port = 6379
-        username = config.get_string(section='redis', option='username')
-        password = config.get_string(section='redis', option='password')
-        return RedisConnector(host=host, port=port, username=username, password=password)
+        self.__adb = await create_database(config=config)
 
 
 async def create_database(config: Config) -> AccountDBI:
     """ create database with directories """
-    root = config.database_root
-    public = config.database_public
-    private = config.database_private
-    redis_conn = create_redis_connector(config=config)
-    info = DbInfo(redis_connector=redis_conn, root_dir=root, public_dir=public, private_dir=private)
-    # create database
-    adb = AccountDatabase(info=info)
+    adb = AccountDatabase(config=config)
     adb.show_info()
     return adb
 
@@ -150,7 +121,7 @@ async def create_config(default_config: str) -> Config:
         print('')
         sys.exit(0)
     # loading config
-    config = Config.load(file=ini_file)
+    config = await Config().load(file=ini_file)
     print('[DB] init with config: %s => %s' % (ini_file, config))
     return config
 

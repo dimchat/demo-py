@@ -30,13 +30,14 @@ from aiou.mem import CachePool
 
 from dimsdk import ID
 
+from ..utils import Config
 from ..utils import SharedCacheManager
 from ..common import GroupKeysDBI
 
 from .dos import GroupKeysStorage
 from .redis import GroupKeysCache
 
-from .t_base import DbInfo, DbTask
+from .t_base import DbTask
 
 
 class PwdTask(DbTask):
@@ -87,12 +88,12 @@ class PwdTask(DbTask):
 class GroupKeysTable(GroupKeysDBI):
     """ Implementations of GroupKeysDBI """
 
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='group.keys')  # (ID, ID) => Dict
-        self._redis = GroupKeysCache(connector=info.redis_connector)
-        self._dos = GroupKeysStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._redis = GroupKeysCache(connector=config.redis_connector)
+        self._dos = GroupKeysStorage(config=config)
         self._lock = threading.Lock()
 
     def show_info(self):

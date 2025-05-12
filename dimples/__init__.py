@@ -470,7 +470,7 @@ __all__ = [
     #   Table
     #
 
-    'DbInfo', 'DbTask',
+    'DbTask',
 
     'PrivateKeyTable', 'MetaTable', 'DocumentTable',
     'UserTable', 'GroupTable', 'GroupHistoryTable',

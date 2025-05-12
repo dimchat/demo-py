@@ -24,104 +24,166 @@
 # ==============================================================================
 
 from configparser import ConfigParser
-from typing import Optional, Dict, List
+from typing import Optional, Any, Dict, List
+from typing import Iterable
 
-from startrek.types import SocketAddress
+from aiou import JSONFile
+from aiou import RedisConnector
 
+from dimsdk import JSON
 from dimsdk import Dictionary
 from dimsdk import ID
+
+from .log import Log, Logging
+from .http import HttpClient
 
 
 class Node(Dictionary):
     """ DIM Network Node """
 
-    def __init__(self, name: str = None, host: str = None, port: int = 0):
-        super().__init__()
-        if name is not None:
-            self['name'] = name
-        if host is not None:
-            self['host'] = host
-        if port > 0:
-            self['port'] = port
-
     # Override
     def __str__(self) -> str:
         clazz = self.__class__.__name__
-        return '<%s host="%s" port=%d name="%s" />' % (clazz, self.host, self.port, self.name)
+        return '<%s host="%s" port=%d id="%s" />' % (clazz, self.host, self.port, self.identifier)
 
     # Override
     def __repr__(self) -> str:
         clazz = self.__class__.__name__
-        return '<%s host="%s" port=%d name="%s" />' % (clazz, self.host, self.port, self.name)
+        return '<%s host="%s" port=%d id="%s" />' % (clazz, self.host, self.port, self.identifier)
 
     @property
-    def name(self) -> str:
-        return self.get('name')
+    def identifier(self) -> Optional[ID]:
+        string = self.get(key='ID')
+        if string is None:
+            string = self.get(key='id')
+        return ID.parse(identifier=string)
 
     @property
     def host(self) -> str:
-        return self.get('host')
+        return self.get(key='host', default='')
 
     @property
     def port(self) -> int:
-        return self.get('port')
+        return self.get(key='port', default=0)
+
+    @classmethod
+    def parse(cls, node: Any):
+        if node is None:
+            return None
+        elif isinstance(node, Node):
+            return node
+        elif isinstance(node, Dictionary):
+            node = node.dictionary
+        host = node.get('host')
+        port = node.get('port')
+        if host is not None and port is not None and port > 0:
+            return cls(dictionary=node)
+
+    @classmethod
+    def convert(cls, stations: Iterable[Any]):
+        array = []
+        for node in stations:
+            item = cls.parse(node=node)
+            if item is not None:
+                array.append(item)
+        return array
+
+    @classmethod
+    def revert(cls, stations: Iterable) -> List[Dict]:
+        array = []
+        for node in stations:
+            assert isinstance(node, Node), 'station node error: %s' % node
+            array.append(node.dictionary)
+        return array
 
 
-def get_socket_address(value: str) -> SocketAddress:
-    pair = value.split(':')
-    if len(pair) == 2:
-        return pair[0].strip(), int(pair[1])
-    else:
-        return pair[0].strip(), 9394
-
-
-def parse_nodes(nodes: Dict[str, str]) -> List[Node]:
-    """ parse lines with 'name = host:port, ID' format """
-    stations = []
-    for name in nodes:
-        value = nodes[name]
-        pair = value.split(',')
-        host, port = get_socket_address(value=pair[0])
-        node = Node(name=name, host=host, port=port)
-        stations.append(node)
-    return stations
-
-
-def str_to_bool(value: Optional[str]) -> bool:
-    if value is None or len(value) == 0:
-        return False
-    lower = value.lower()
-    if lower not in ConfigParser.BOOLEAN_STATES:
-        raise ValueError('Not a boolean: %s' % value)
-    return ConfigParser.BOOLEAN_STATES[lower]
-
-
-class Config(Dictionary):
+# @Singleton
+class Config(Logging):
     """ Config info from ini file """
 
-    def get_identifier(self, section: str, option: str) -> Optional[ID]:
-        sub = self.get(section)
-        if sub is not None:
-            return ID.parse(identifier=sub.get(option))
+    def __init__(self):
+        super().__init__()
+        self.__parser: Optional[ConfigParser] = None
+        self.__info: Optional[Dict] = None
+        self.__path: Optional[str] = None
+        self.__redis: Optional[RedisConnector] = None
+        self.__stations: List[Node] = []
 
-    def get_string(self, section: str, option: str) -> Optional[str]:
-        sub = self.get(section)
-        if sub is not None:
-            return sub.get(option)
+    async def load(self, file: str = None):
+        if file is None:
+            file = self.__path
+            assert file is not None, 'config file path not set yet'
+            self.info(msg='reloading config: %s' % file)
+        else:
+            self.__path = file
+            self.info(msg='loading config: %s' % file)
+        parser = ConfigParser()
+        parser.read(file)
+        self.__parser = parser
+        self.__info = None
+        self.__stations = None
+        # load neighbor stations
+        try:
+            loader = NeighborLoader()
+            self.__stations = await loader.load_stations(config=self)
+        except Exception as error:
+            self.error(msg='failed to load stations: %s, %s' % (error, parser))
+        return self
+
+    @property
+    def dictionary(self) -> Optional[Dict]:
+        info = self.__info
+        if info is None:
+            parser = self.__parser
+            if parser is not None:
+                info = _config_sections(parser=parser)
+                self.__info = info
+        return info
+
+    # Override
+    def __str__(self) -> str:
+        return 'Config: %s' % self.dictionary
+
+    # Override
+    def __repr__(self) -> str:
+        return 'Config: %s' % self.dictionary
+
+    def get_section(self, section: str) -> Optional[Dict]:
+        parser = self.__parser
+        if parser is not None:
+            return _section_options(parser=parser, section=section)
 
     def get_integer(self, section: str, option: str) -> int:
-        sub = self.get(section)
-        if sub is not None:
-            val = sub.get(option)
-            if val is not None:
-                return int(val)
-        return 0
+        parser = self.__parser
+        if parser is None:
+            return 0
+        try:
+            return parser.getint(section=section, option=option)
+        except Exception as error:
+            self.error(msg='failed to get integer: %s, %s, %s' % (section, option, error))
+            return 0
 
     def get_boolean(self, section: str, option: str) -> bool:
-        sub = self.get(section)
-        if sub is not None:
-            val = sub.get(option)
-            return str_to_bool(value=val)
+        parser = self.__parser
+        if parser is None:
+            return False
+        try:
+            return parser.getboolean(section=section, option=option)
+        except Exception as error:
+            self.error(msg='failed to get boolean: %s, %s, %s' % (section, option, error))
+
+    def get_string(self, section: str, option: str) -> Optional[str]:
+        parser = self.__parser
+        if parser is None:
+            return None
+        try:
+            return parser.get(section=section, option=option)
+        except Exception as error:
+            self.error(msg='failed to get string : %s, %s, %s' % (section, option, error))
+
+    def get_identifier(self, section: str, option: str) -> Optional[ID]:
+        value = self.get_string(section=section, option=option)
+        return ID.parse(identifier=value)
 
     def get_list(self, section: str, option: str, separator: str = ',') -> List[str]:
         """ get str and separate to a list """
@@ -152,7 +214,15 @@ class Config(Dictionary):
     def database_public(self) -> str:
         path = self.get_string(section='database', option='public')
         if path is None:
-            return '%s/public' % self.database_root   # /var/.dim/public
+            return '%s/public' % self.database_root     # /var/.dim/public
+        else:
+            return path
+
+    @property
+    def database_protected(self) -> str:
+        path = self.get_string(section='database', option='protected')
+        if path is None:
+            return '%s/protected' % self.database_root  # /var/.dim/protected
         else:
             return path
 
@@ -160,27 +230,51 @@ class Config(Dictionary):
     def database_private(self) -> str:
         path = self.get_string(section='database', option='private')
         if path is None:
-            return '%s/private' % self.database_root  # /var/.dim/private
+            return '%s/private' % self.database_root    # /var/.dim/private
         else:
             return path
+
+    #
+    #   memory cache
+    #
+
+    @property
+    def redis_connector(self) -> Optional[RedisConnector]:
+        redis_enable = self.get_boolean(section='redis', option='enable')
+        if not redis_enable:
+            self.warning(msg='redis disabled')
+            return None
+        redis = self.__redis
+        if redis is None:
+            # create redis connector
+            host = self.get_string(section='redis', option='host')
+            if host is None:
+                host = 'localhost'
+            port = self.get_integer(section='redis', option='port')
+            if port is None or port <= 0:
+                port = 6379
+            username = self.get_string(section='redis', option='username')
+            password = self.get_string(section='redis', option='password')
+            self.info(msg='enable redis://%s:%s@%s:%d' % (username, password, host, port))
+            redis = RedisConnector(host=host, port=port, username=username, password=password)
+            self.__redis = redis
+        return redis
 
     #
     #   station
     #
 
     @property
-    def station_id(self) -> ID:
+    def station_id(self) -> Optional[ID]:
         return self.get_identifier(section='station', option='id')
 
     @property
-    def station_host(self) -> str:
-        ip = self.get_string(section='station', option='host')
-        return '127.0.0.1' if ip is None else ip
+    def station_host(self) -> Optional[str]:
+        return self.get_string(section='station', option='host')
 
     @property
-    def station_port(self) -> int:
-        num = self.get_integer(section='station', option='port')
-        return num if num > 0 else 9394
+    def station_port(self) -> Optional[int]:
+        return self.get_integer(section='station', option='port')
 
     #
     #   ans
@@ -188,39 +282,114 @@ class Config(Dictionary):
 
     @property
     def ans_records(self) -> Optional[Dict[str, str]]:
-        return self.get('ans')
+        return self.get_section(section='ans')
 
     #
     #   neighbor stations
     #
     @property
     def neighbors(self) -> List[Node]:
-        nodes = self.get('neighbors')
-        if nodes is None:
+        all_stations = self.__stations
+        if all_stations is None:
             return []
-        return parse_nodes(nodes=nodes)
+        else:
+            host = self.station_host
+            port = self.station_port
+            sid = self.station_id
+        # remove myself
+        nei_stations = []
+        for station in all_stations:
+            if station.identifier == sid:
+                continue
+            elif station.port == port and station.host == host:
+                continue
+            nei_stations.append(station)
+        return nei_stations
 
-    @classmethod
-    def load(cls, file: str):
-        info = load_ini(file=file)
-        return cls(dictionary=info)
+
+class NeighborLoader(Logging):
+
+    def __init__(self):
+        super().__init__()
+        self.__http = HttpClient()
+
+    async def load_stations(self, config: Config) -> Optional[List[Node]]:
+        # check remote URL
+        source = config.get_string(section='neighbors', option='source')
+        if source is None:
+            stations = None
+        else:
+            stations = await self._download_stations(url=source)
+        # check local path
+        output = config.get_string(section='neighbors', option='output')
+        if output is None:
+            self.warning(msg='neighbors path not set')
+        elif stations is None:
+            stations = await self._load_stations(path=output)
+        else:
+            await self._save_stations(stations=stations, path=output)
+        # OK
+        return stations
+
+    async def _download_stations(self, url: str) -> Optional[List[Node]]:
+        self.info(msg='downloading stations: %s' % url)
+        http = self.__http
+        try:
+            text = http.cache_get(url=url)
+            if text is None:
+                return None
+            else:
+                stations = JSON.decode(string=text)
+        except Exception as error:
+            self.error(msg='failed to download stations: %s, %s' % (error, url))
+            return None
+        if isinstance(stations, Dict):
+            stations = stations.get('stations')
+        if isinstance(stations, List):
+            return Node.convert(stations=stations)
+
+    async def _load_stations(self, path: str) -> Optional[List[Node]]:
+        self.info(msg='loading stations: %s' % path)
+        try:
+            stations = await JSONFile(path=path).read()
+        except Exception as error:
+            self.error(msg='failed to load stations: %s, %s' % (error, path))
+            return None
+        if isinstance(stations, Dict):
+            stations = stations.get('stations')
+        if isinstance(stations, List):
+            return Node.convert(stations=stations)
+
+    async def _save_stations(self, stations: List[Node], path: str) -> bool:
+        info = Node.revert(stations=stations)
+        self.info(msg='saving %d station(s): %s' % (len(stations), path))
+        try:
+            return await JSONFile(path=path).write(info)
+        except Exception as error:
+            self.error(msg='failed to save stations: %s, %s' % (error, path))
 
 
-def load_ini(file: str) -> dict:
-    parser = ConfigParser()
-    parser.read(file)
-    # parse all sections
+def _config_sections(parser: ConfigParser) -> Dict:
     info = {}
     sections = parser.sections()
-    for sec in sections:
-        array = parser.items(section=sec)
-        if array is None or len(array) == 0:
-            # options empty
-            continue
-        lines = {}
-        for item in array:
-            name = item[0]
-            value = item[1]
-            lines[name] = value
-        info[sec] = lines
+    for name in sections:
+        options = _section_options(parser=parser, section=name)
+        if options is None:
+            options = {}
+        info[name] = options
     return info
+
+
+def _section_options(parser: ConfigParser, section: str) -> Optional[Dict]:
+    try:
+        array = parser.items(section=section)
+    except Exception as error:
+        Log.error(msg='failed to get section: %s, %s' % (section, error))
+        return None
+    # convert to dict
+    options = {}
+    for item in array:
+        name = item[0]
+        value = item[1]
+        options[name] = value
+    return options

@@ -31,13 +31,14 @@ from aiou.mem import CachePool
 
 from dimsdk import ID
 
+from ..utils import Config
 from ..utils import SharedCacheManager
 from ..common import GroupDBI
 
 from .dos import GroupStorage
 from .redis import GroupCache
 
-from .t_base import DbInfo, DbTask
+from .t_base import DbTask
 
 
 # noinspection PyAbstractClass
@@ -134,14 +135,14 @@ class AdminTask(GrpTask):
 class GroupTable(GroupDBI):
     """ Implementations of GroupDBI """
 
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
         man = SharedCacheManager()
         self._member_cache = man.get_pool(name='group.members')        # ID => List[ID]
         self._bot_cache = man.get_pool(name='group.assistants')        # ID => List[ID]
         self._admin_cache = man.get_pool(name='group.administrators')  # ID => List[ID]
-        self._redis = GroupCache(connector=info.redis_connector)
-        self._dos = GroupStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._redis = GroupCache(connector=config.redis_connector)
+        self._dos = GroupStorage(config=config)
         self._lock = threading.Lock()
 
     def show_info(self):

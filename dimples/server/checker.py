@@ -89,9 +89,9 @@ class ServerChecker(EntityChecker, Logging):
     @property
     def active_stations(self) -> Set[ID]:
         """ get neighbor stations connected to current station """
-        now = DateTime.now()
+        now = DateTime.current_timestamp()
         with self.__lock:
-            if self.__expires < now.timestamp:
+            if self.__expires < now:
                 neighbors = set()
                 center = session_center()
                 all_users = center.all_users()
@@ -99,7 +99,7 @@ class ServerChecker(EntityChecker, Logging):
                     if item.type == EntityType.STATION:
                         neighbors.add(item)
                 self.__neighbors = neighbors
-                self.__expires = now.timestamp + 128
+                self.__expires = now + 128
             return self.__neighbors
 
     @property

@@ -39,17 +39,17 @@ class GroupHistoryStorage(Storage):
         Group History Command Storage
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        file path: '.dim/private/{ADDRESS}/group_history.js'
+        file path: '.dim/protected/{ADDRESS}/group_history.js'
     """
 
-    history_path = '{PRIVATE}/{ADDRESS}/group_history.js'
+    history_path = '{PROTECTED}/{ADDRESS}/group_history.js'
 
     def show_info(self):
-        path = self.private_path(self.history_path)
+        path = self.protected_path(self.history_path)
         print('!!!  group history path: %s' % path)
 
     def __history_path(self, group: ID) -> str:
-        path = self.private_path(self.history_path)
+        path = self.protected_path(self.history_path)
         return template_replace(path, key='ADDRESS', value=str(group.address))
 
     async def load_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
