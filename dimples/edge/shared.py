@@ -98,7 +98,7 @@ class GlobalVariable:
 
     async def prepare(self, config: Config):
         #
-        #  Step 1: load ANS
+        #  Step 0: load ANS
         #
         ans_records = config.ans_records
         if ans_records is not None:
@@ -106,14 +106,15 @@ class GlobalVariable:
             CommonFacebook.ans.fix(records=ans_records)
         self.__config = config
         #
-        #  Step 2: create database
+        #  Step 1: create database
         #
         adb, mdb, sdb = await create_database(config=config)
         self.__adb = adb
         self.__mdb = mdb
         self.__sdb = sdb
+        await refresh_neighbors(config=config, database=sdb)
         #
-        #  Step 3: create facebook
+        #  Step 2: create facebook
         #
         facebook = await create_facebook(database=adb)
         self.__facebook = facebook
@@ -145,38 +146,6 @@ async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, Sessi
     adb.show_info()
     mdb.show_info()
     sdb.show_info()
-    #
-    #  Update neighbor stations (default provider)
-    #
-    provider = ProviderInfo.GSP
-    neighbors = config.neighbors
-    if len(neighbors) > 0:
-        Log.info(msg='[DB] adding %d neighbor(s): %s' % (len(neighbors), provider))
-        # await sdb.remove_stations(provider=provider)
-        # 1. remove vanished neighbors
-        old_stations = await sdb.all_stations(provider=provider)
-        for old in old_stations:
-            found = False
-            for item in neighbors:
-                if item.port == old.port and item.host == old.host:
-                    found = True
-                    break
-            if not found:
-                Log.warning(msg='[DB] removing neighbor station: %s, %s' % (old, provider))
-                await sdb.remove_station(host=old.host, port=old.port, provider=provider)
-        # 2. add new neighbors
-        for node in neighbors:
-            found = False
-            for old in old_stations:
-                if old.port == node.port and old.host == node.host:
-                    found = True
-                    break
-            if found:
-                Log.info(msg='[DB] neighbor node exists: %s' % node)
-            else:
-                Log.info(msg='[DB] adding neighbor node: %s -> %s' % (node, provider))
-                await sdb.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
-    # OK
     return adb, mdb, sdb
 
 
@@ -233,6 +202,41 @@ async def create_config(app_name: str, default_config: str) -> Config:
         print('')
         sys.exit(0)
     # load config from file
-    config = await Config().load(file=ini_file)
+    config = Config()
+    await config.load(path=ini_file)
     print('>>> config loaded: %s => %s' % (ini_file, config))
     return config
+
+
+async def refresh_neighbors(config: Config, database: SessionDBI):
+    """ Update neighbor stations (default provider) """
+    provider = ProviderInfo.GSP
+    neighbors = config.neighbors
+    if len(neighbors) > 0:
+        Log.info(msg='[DB] checking %d neighbor(s): %s' % (len(neighbors), provider))
+        # await sdb.remove_stations(provider=provider)
+        # 1. remove vanished neighbors
+        old_stations = await database.all_stations(provider=provider)
+        for old in old_stations:
+            found = False
+            for item in neighbors:
+                if item.port == old.port and item.host == old.host:
+                    found = True
+                    break
+            if not found:
+                Log.warning(msg='[DB] removing neighbor station: %s' % old)
+                await database.remove_station(host=old.host, port=old.port, provider=provider)
+        # 2. add new neighbors
+        for node in neighbors:
+            found = False
+            for old in old_stations:
+                if old.port == node.port and old.host == node.host:
+                    found = True
+                    break
+            if found:
+                Log.info(msg='[DB] neighbor node exists: %s' % node)
+            else:
+                Log.info(msg='[DB] adding neighbor node: %s' % node)
+                await database.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
+    # OK
+    return neighbors

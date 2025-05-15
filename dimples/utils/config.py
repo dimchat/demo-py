@@ -38,7 +38,7 @@ from .log import Log, Logging
 from .http import HttpClient
 
 
-class Node(Dictionary):
+class MessageTransferAgent(Dictionary):
     """ DIM Network Node """
 
     # Override
@@ -70,7 +70,7 @@ class Node(Dictionary):
     def parse(cls, node: Any):
         if node is None:
             return None
-        elif isinstance(node, Node):
+        elif isinstance(node, MessageTransferAgent):
             return node
         elif isinstance(node, Dictionary):
             node = node.dictionary
@@ -92,7 +92,7 @@ class Node(Dictionary):
     def revert(cls, stations: Iterable) -> List[Dict]:
         array = []
         for node in stations:
-            assert isinstance(node, Node), 'station node error: %s' % node
+            assert isinstance(node, MessageTransferAgent), 'station node error: %s' % node
             array.append(node.dictionary)
         return array
 
@@ -107,18 +107,18 @@ class Config(Logging):
         self.__info: Optional[Dict] = None
         self.__path: Optional[str] = None
         self.__redis: Optional[RedisConnector] = None
-        self.__stations: List[Node] = []
+        self.__stations: List[MessageTransferAgent] = []
 
-    async def load(self, file: str = None):
-        if file is None:
-            file = self.__path
-            assert file is not None, 'config file path not set yet'
-            self.info(msg='reloading config: %s' % file)
+    async def load(self, path: str = None):
+        if path is None:
+            path = self.__path
+            assert path is not None, 'config file path not set yet'
+            self.info(msg='reloading config: %s' % path)
         else:
-            self.__path = file
-            self.info(msg='loading config: %s' % file)
+            self.__path = path
+            self.info(msg='loading config: %s' % path)
         parser = ConfigParser()
-        parser.read(file)
+        parser.read(path)
         self.__parser = parser
         self.__info = None
         self.__stations = None
@@ -288,7 +288,7 @@ class Config(Logging):
     #   neighbor stations
     #
     @property
-    def neighbors(self) -> List[Node]:
+    def neighbors(self) -> List[MessageTransferAgent]:
         all_stations = self.__stations
         if all_stations is None:
             return []
@@ -297,14 +297,14 @@ class Config(Logging):
             port = self.station_port
             sid = self.station_id
         # remove myself
-        nei_stations = []
+        neighbor_stations = []
         for station in all_stations:
             if station.identifier == sid:
                 continue
             elif station.port == port and station.host == host:
                 continue
-            nei_stations.append(station)
-        return nei_stations
+            neighbor_stations.append(station)
+        return neighbor_stations
 
 
 class NeighborLoader(Logging):
@@ -313,7 +313,7 @@ class NeighborLoader(Logging):
         super().__init__()
         self.__http = HttpClient()
 
-    async def load_stations(self, config: Config) -> Optional[List[Node]]:
+    async def load_stations(self, config: Config) -> Optional[List[MessageTransferAgent]]:
         # check remote URL
         source = config.get_string(section='neighbors', option='source')
         if source is None:
@@ -331,7 +331,7 @@ class NeighborLoader(Logging):
         # OK
         return stations
 
-    async def _download_stations(self, url: str) -> Optional[List[Node]]:
+    async def _download_stations(self, url: str) -> Optional[List[MessageTransferAgent]]:
         self.info(msg='downloading stations: %s' % url)
         http = self.__http
         try:
@@ -346,9 +346,9 @@ class NeighborLoader(Logging):
         if isinstance(stations, Dict):
             stations = stations.get('stations')
         if isinstance(stations, List):
-            return Node.convert(stations=stations)
+            return MessageTransferAgent.convert(stations=stations)
 
-    async def _load_stations(self, path: str) -> Optional[List[Node]]:
+    async def _load_stations(self, path: str) -> Optional[List[MessageTransferAgent]]:
         self.info(msg='loading stations: %s' % path)
         try:
             stations = await JSONFile(path=path).read()
@@ -358,10 +358,10 @@ class NeighborLoader(Logging):
         if isinstance(stations, Dict):
             stations = stations.get('stations')
         if isinstance(stations, List):
-            return Node.convert(stations=stations)
+            return MessageTransferAgent.convert(stations=stations)
 
-    async def _save_stations(self, stations: List[Node], path: str) -> bool:
-        info = Node.revert(stations=stations)
+    async def _save_stations(self, stations: List[MessageTransferAgent], path: str) -> bool:
+        info = MessageTransferAgent.revert(stations=stations)
         self.info(msg='saving %d station(s): %s' % (len(stations), path))
         try:
             return await JSONFile(path=path).write(info)
