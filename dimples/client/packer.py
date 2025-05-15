@@ -27,7 +27,7 @@
     Common extensions for MessagePacker
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
-from typing import Optional, List, Dict
+from typing import Optional, List
 
 from dimsdk import ID
 from dimsdk import ContentType, TextContent, FileContent
@@ -47,16 +47,6 @@ class ClientMessagePacker(CommonMessagePacker):
         barrack = super().facebook
         assert isinstance(barrack, CommonFacebook), 'barrack error: %s' % barrack
         return barrack
-
-    # Override
-    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
-        # TODO:
-        self.warning(msg='TODO: suspend reliable message: %s => %s' % (msg.sender, msg.receiver))
-
-    # Override
-    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
-        # TODO:
-        self.warning(msg='TODO: suspend instant message: %s => %s' % (msg.sender, msg.receiver))
 
     # protected
     async def _get_members(self, group: ID) -> List[ID]:
@@ -83,7 +73,7 @@ class ClientMessagePacker(CommonMessagePacker):
                 'message': 'group not ready',
                 'group': str(receiver),
             }
-            self.suspend_instant_message(msg=msg, error=error)
+            self.messenger.suspend_instant_message(msg=msg, error=error)
             return False
         #
         #   check group members' visa key
@@ -102,7 +92,7 @@ class ClientMessagePacker(CommonMessagePacker):
             'group': str(receiver),
             'members': ID.revert(array=waiting),
         }
-        self.suspend_instant_message(msg=msg, error=error)
+        self.messenger.suspend_instant_message(msg=msg, error=error)
         # perhaps some members have already disappeared,
         # although the packer will query document when the member's visa key is not found,
         # but the station will never respond with the right document,
@@ -139,7 +129,7 @@ class ClientMessagePacker(CommonMessagePacker):
             'message': 'group not ready',
             'group': str(receiver),
         }
-        self.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
+        self.messenger.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
         return False
 
     # Override

@@ -42,8 +42,6 @@ from .dispatcher import Dispatcher
 from .trace import TraceNode, TraceList
 from .trace import TraceManager
 
-from .packer import BlockFilter, MuteFilter, FilterManager
-
 from .checker import ServerChecker
 from .facebook import ServerFacebook
 from .messenger import ServerMessenger
@@ -68,9 +66,6 @@ __all__ = [
     # Trace
     'TraceNode', 'TraceList',
     'TraceManager',
-
-    # Filter
-    'BlockFilter', 'MuteFilter', 'FilterManager',
 
     #
     #   Server

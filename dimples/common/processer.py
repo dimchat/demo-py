@@ -23,13 +23,12 @@
 # SOFTWARE.
 # ==============================================================================
 
-import threading
 from abc import ABC, abstractmethod
-from typing import List, Dict
+from typing import List
 
 from dimsdk import DateTime
 from dimsdk import Content
-from dimsdk import InstantMessage, ReliableMessage
+from dimsdk import ReliableMessage
 from dimsdk import MessageProcessor
 from dimsdk import Facebook, Messenger
 from dimsdk import ContentProcessorCreator
@@ -83,58 +82,3 @@ class CommonMessageProcessor(MessageProcessor, Logging, ABC):
         # to make sure the user info synchronized
         await self._check_visa_time(content=content, r_msg=r_msg)
         return responses
-
-
-class Vestibule(Logging):
-    """
-        Message Waiting List
-        ~~~~~~~~~~~~~~~~~~~~
-    """
-
-    def __init__(self, capacity: int = 32):
-        super().__init__()
-        self.__capacity = capacity
-        # suspended messages
-        self.__suspend_lock = threading.Lock()
-        self.__incoming_messages: List[ReliableMessage] = []
-        self.__outgoing_messages: List[InstantMessage] = []
-
-    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
-        """
-        Add income message in a queue for waiting sender's visa
-
-        :param msg:   incoming message
-        :param error: error info
-        """
-        self.warning(msg='suspend message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
-        msg['error'] = error
-        with self.__suspend_lock:
-            if len(self.__incoming_messages) > self.__capacity:
-                self.__incoming_messages.pop(0)
-            self.__incoming_messages.append(msg)
-
-    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
-        """
-        Add outgo message in a queue for waiting receiver's visa
-
-        :param msg:   outgo message
-        :param error: error info
-        """
-        self.warning(msg='suspend message: %s -> %s, %s' % (msg.sender, msg.receiver, error))
-        msg['error'] = error
-        with self.__suspend_lock:
-            if len(self.__outgoing_messages) > self.__capacity:
-                self.__outgoing_messages.pop(0)
-            self.__outgoing_messages.append(msg)
-
-    def resume_reliable_messages(self) -> List[ReliableMessage]:
-        with self.__suspend_lock:
-            messages = self.__incoming_messages
-            self.__incoming_messages = []
-            return messages
-
-    def resume_instant_messages(self) -> List[InstantMessage]:
-        with self.__suspend_lock:
-            messages = self.__outgoing_messages
-            self.__outgoing_messages = []
-            return messages

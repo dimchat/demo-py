@@ -374,7 +374,7 @@ __all__ = [
     'CommonMessenger',
     'CommonMessagePacker',
     'CommonMessageProcessor',
-    'Vestibule',
+    'SuspendedMessageQueue',
 
     'Transmitter',
     'Session',

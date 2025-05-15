@@ -36,7 +36,7 @@
 """
 
 from abc import ABC
-from typing import Optional, Union, Tuple
+from typing import Optional, Union, Tuple, List, Dict
 
 from dimsdk import SymmetricKey
 from dimsdk import ID
@@ -53,6 +53,8 @@ from .dbi import MessageDBI
 from .facebook import CommonFacebook
 from .session import Transmitter, Session
 
+from .queue import SuspendedMessageQueue
+
 from .compat import Compatible
 
 
@@ -65,6 +67,7 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         self.__database = database
         self.__packer: Optional[Packer] = None
         self.__processor: Optional[Processor] = None
+        self.__queue = SuspendedMessageQueue()
 
     @property  # Override
     def packer(self) -> Packer:
@@ -101,6 +104,18 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     @property
     def session(self) -> Session:
         return self.__session
+
+    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
+        self.__queue.suspend_reliable_message(msg=msg, error=error)
+
+    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
+        self.__queue.suspend_instant_message(msg=msg, error=error)
+
+    def resume_reliable_messages(self) -> List[ReliableMessage]:
+        return self.__queue.resume_reliable_messages()
+
+    def resume_instant_messages(self) -> List[InstantMessage]:
+        return self.__queue.resume_instant_messages()
 
     # Override
     async def encrypt_key(self, data: bytes, receiver: ID, msg: InstantMessage) -> Optional[bytes]:

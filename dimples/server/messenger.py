@@ -39,7 +39,6 @@ from dimsdk import MessageUtils
 
 from ..common import CommonMessenger
 
-from .packer import ServerMessagePacker
 from .dispatcher import Dispatcher
 
 
@@ -52,12 +51,10 @@ class ServerMessenger(CommonMessenger):
         remote_address = session.remote_address
         self.warning(msg='user login: %s, socket: %s' % (identifier, remote_address))
         # process suspended messages
-        await self._resume_reliable_messages()
+        await self._process_suspend_messages()
 
-    async def _resume_reliable_messages(self):
-        packer = self.packer
-        assert isinstance(packer, ServerMessagePacker), 'message packer error: %s' % packer
-        messages = packer.resume_reliable_messages()
+    async def _process_suspend_messages(self):
+        messages = self.resume_reliable_messages()
         for msg in messages:
             msg.pop('error', None)
             self.info(msg='processing suspended message: %s -> %s' % (msg.sender, msg.receiver))

@@ -42,7 +42,7 @@ from .facebook import CommonFacebook
 from .messenger import CommonMessenger
 from .packer import CommonMessagePacker
 from .processer import CommonMessageProcessor
-from .processer import Vestibule
+from .queue import SuspendedMessageQueue
 from .session import Transmitter, Session
 
 
@@ -100,7 +100,7 @@ __all__ = [
     'CommonMessenger',
     'CommonMessagePacker',
     'CommonMessageProcessor',
-    'Vestibule',
+    'SuspendedMessageQueue',
 
     'Transmitter',
     'Session',

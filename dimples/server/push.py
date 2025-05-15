@@ -42,7 +42,7 @@ from ..utils import Runner
 from ..utils import Singleton, Logging
 
 
-class MessageQueue(Logging):
+class PushQueue(Logging):
 
     def __init__(self):
         super().__init__()
@@ -111,7 +111,7 @@ class BadgeKeeper:
 class PushService(ABC):
 
     @abstractmethod
-    async def process(self, messages: List[ReliableMessage]) -> bool:
+    async def process(self, messages: List[ReliableMessage], badge_keeper: BadgeKeeper) -> bool:
         """ build and push notification for a batch of messages """
         raise NotImplemented
 
@@ -121,7 +121,7 @@ class PushCenter(Runner, Logging):
 
     def __init__(self):
         super().__init__(interval=Runner.INTERVAL_SLOW)
-        self.__queue = MessageQueue()
+        self.__queue = PushQueue()
         self.__keeper = BadgeKeeper()
         self.__service: Optional[PushService] = None
         # auto start
@@ -168,4 +168,4 @@ class PushCenter(Runner, Logging):
             self.error(msg='push service not found')
             return False
         # 3. process
-        return await service.process(messages=messages)
+        return await service.process(messages=messages, badge_keeper=self.badge_keeper)

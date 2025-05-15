@@ -23,8 +23,8 @@
 # SOFTWARE.
 # ==============================================================================
 
-from abc import ABC, abstractmethod
-from typing import Optional, Dict
+from abc import ABC
+from typing import Optional
 
 from dimsdk import EncryptKey
 from dimsdk import ID
@@ -34,30 +34,17 @@ from dimsdk import MessageUtils
 
 from ..utils import Logging
 
+from .messenger import CommonMessenger
 from .compat import Compatible
 
 
 class CommonMessagePacker(MessagePacker, Logging, ABC):
 
-    @abstractmethod  # protected
-    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
-        """
-        Add income message in a queue for waiting sender's visa
-
-        :param msg:   incoming message
-        :param error: error info
-        """
-        raise NotImplemented
-
-    @abstractmethod  # protected
-    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
-        """
-        Add outgo message in a queue for waiting receiver's visa
-
-        :param msg:   outgo message
-        :param error: error info
-        """
-        raise NotImplemented
+    @property
+    def messenger(self) -> Optional[CommonMessenger]:
+        transceiver = super().messenger
+        assert isinstance(transceiver, CommonMessenger), 'transceiver error: %s' % transceiver
+        return transceiver
 
     #
     #   Checking
@@ -90,7 +77,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
             'message': 'verify key not found',
             'user': str(sender),
         }
-        self.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
+        self.messenger.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
         return False
 
     # protected
@@ -115,7 +102,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
             'message': 'encrypt key not found',
             'user': str(receiver),
         }
-        self.suspend_instant_message(msg=msg, error=error)  # msg['error'] = error
+        self.messenger.suspend_instant_message(msg=msg, error=error)  # msg['error'] = error
         return False
 
     #
