@@ -30,10 +30,10 @@ from dimsdk import ID, ReliableMessage
 from ...utils import json_encode, json_decode, utf8_encode, utf8_decode
 from ...common import LoginCommand
 
-from .base import Cache
+from .base import RedisCache
 
 
-class LoginCache(Cache):
+class LoginCache(RedisCache):
 
     # login info cached in Redis will be expired after 30 minutes, after that
     # it will be reloaded from local storage if it's still need.

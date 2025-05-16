@@ -30,10 +30,10 @@ from dimsdk import ID
 from ...utils import utf8_encode, utf8_decode, json_encode, json_decode
 from ...common import ProviderInfo, StationInfo
 
-from .base import Cache
+from .base import RedisCache
 
 
-class StationCache(Cache):
+class StationCache(RedisCache):
 
     # provider info cached in Redis will be removed after 30 minutes, after that
     # it should be reloaded from local storage

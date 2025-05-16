@@ -84,7 +84,7 @@ class MetaTable(MetaDBI):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='meta')  # ID => Meta
-        self._redis = MetaCache(connector=config.redis_connector)
+        self._redis = MetaCache(config=config)
         self._dos = MetaStorage(config=config)
         self._lock = threading.Lock()
 

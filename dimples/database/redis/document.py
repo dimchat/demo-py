@@ -30,10 +30,10 @@ from dimsdk import ID, Document
 from ...utils import utf8_encode, utf8_decode, json_encode, json_decode
 from ..dos.document import parse_document
 
-from .base import Cache
+from .base import RedisCache
 
 
-class DocumentCache(Cache):
+class DocumentCache(RedisCache):
 
     # document cached in Redis will be removed after 30 minutes, after that
     # it will be reloaded from local storage if it's still need.

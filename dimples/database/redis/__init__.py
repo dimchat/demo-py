@@ -30,7 +30,7 @@
 """
 
 from .base import RedisConnector
-from .base import Cache as RedisCache
+from .base import RedisCache
 
 from .meta import MetaCache
 from .document import DocumentCache

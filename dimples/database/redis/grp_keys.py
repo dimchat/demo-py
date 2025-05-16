@@ -29,10 +29,10 @@ from dimsdk import ID
 
 from ...utils import json_encode, json_decode, utf8_encode, utf8_decode
 
-from .base import Cache
+from .base import RedisCache
 
 
-class GroupKeysCache(Cache):
+class GroupKeysCache(RedisCache):
 
     # group keys cached in Redis will be removed after 30 minutes, after that
     # it will be reloaded from local storage if it's still need.

@@ -92,7 +92,7 @@ class GroupKeysTable(GroupKeysDBI):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='group.keys')  # (ID, ID) => Dict
-        self._redis = GroupKeysCache(connector=config.redis_connector)
+        self._redis = GroupKeysCache(config=config)
         self._dos = GroupKeysStorage(config=config)
         self._lock = threading.Lock()
 

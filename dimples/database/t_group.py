@@ -141,7 +141,7 @@ class GroupTable(GroupDBI):
         self._member_cache = man.get_pool(name='group.members')        # ID => List[ID]
         self._bot_cache = man.get_pool(name='group.assistants')        # ID => List[ID]
         self._admin_cache = man.get_pool(name='group.administrators')  # ID => List[ID]
-        self._redis = GroupCache(connector=config.redis_connector)
+        self._redis = GroupCache(config=config)
         self._dos = GroupStorage(config=config)
         self._lock = threading.Lock()
 

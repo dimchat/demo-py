@@ -30,8 +30,19 @@ from aiou import Redis
 from aiou import RedisClient
 from aiou import RedisConnector
 
+from ...utils import Config
 
-class Cache(RedisClient, ABC):
+
+class RedisCache(RedisClient, ABC):
+
+    def __init__(self, config: Config):
+        super().__init__()
+        self.__config = config
+
+    @property  # Override
+    def connector(self) -> Optional[RedisConnector]:
+        """ connection pool """
+        return self.__config.redis_connector
 
     @property
     @abstractmethod

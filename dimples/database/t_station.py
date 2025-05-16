@@ -135,7 +135,7 @@ class StationTable(ProviderDBI, StationDBI):
         man = SharedCacheManager()
         self._dim_cache = man.get_pool(name='dim')            # 'providers' => List[ProviderInfo]
         self._stations_cache = man.get_pool(name='stations')  # SP_ID => List[StationInfo]
-        self._redis = StationCache(connector=config.redis_connector)
+        self._redis = StationCache(config=config)
         self._dos = StationStorage(config=config)
         self._lock = threading.Lock()
 

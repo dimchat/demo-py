@@ -90,7 +90,7 @@ class GroupHistoryTable(GroupHistoryDBI):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='group.history')  # ID => List
-        self._redis = GroupHistoryCache(connector=config.redis_connector)
+        self._redis = GroupHistoryCache(config=config)
         self._dos = GroupHistoryStorage(config=config)
         self._lock = threading.Lock()
 

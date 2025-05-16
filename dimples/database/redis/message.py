@@ -32,10 +32,10 @@ from dimsdk import ReliableMessage
 from ...utils import utf8_encode, utf8_decode, json_encode, json_decode
 from ...utils import get_msg_sig
 
-from .base import Cache
+from .base import RedisCache
 
 
-class MessageCache(Cache):
+class MessageCache(RedisCache):
 
     # only relay cached messages within 7 days
     EXPIRES = 3600 * 24 * 7  # seconds

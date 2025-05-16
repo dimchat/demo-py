@@ -94,7 +94,7 @@ class LoginTable(LoginDBI):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='login')  # ID => (LoginCommand, ReliableMessage)
-        self._redis = LoginCache(connector=config.redis_connector)
+        self._redis = LoginCache(config=config)
         self._dos = LoginStorage(config=config)
         self._lock = threading.Lock()
 

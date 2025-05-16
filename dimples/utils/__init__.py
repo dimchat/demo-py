@@ -124,6 +124,7 @@ __all__ = [
     'random_bytes',
 
     'Converter',
+    'DateTime',
 
     'Runnable', 'Runner', 'Daemon',
     'StateDelegate',

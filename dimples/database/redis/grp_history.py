@@ -31,10 +31,10 @@ from dimsdk import Command, GroupCommand
 from ...utils import json_encode, json_decode, utf8_encode, utf8_decode
 from ...utils import Logging
 
-from .base import Cache
+from .base import RedisCache
 
 
-class GroupHistoryCache(Cache, Logging):
+class GroupHistoryCache(RedisCache, Logging):
 
     # history command cached in Redis will be expired after 30 minutes, after that
     # it will be reloaded from local storage if it's still need.

@@ -84,7 +84,7 @@ class UserTable(UserDBI, ContactDBI):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='contacts')  # ID => List[ID]
-        self._redis = UserCache(connector=config.redis_connector)
+        self._redis = UserCache(config=config)
         self._dos = UserStorage(config=config)
         self._lock = threading.Lock()
 

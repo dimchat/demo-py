@@ -31,10 +31,10 @@ from ...utils import json_encode, json_decode, utf8_encode, utf8_decode
 from ...utils import Logging
 from ...common.compat import Compatible
 
-from .base import Cache
+from .base import RedisCache
 
 
-class MetaCache(Cache, Logging):
+class MetaCache(RedisCache, Logging):
 
     # meta cached in Redis will be removed after 10 hours, after that
     # it will be reloaded from local storage if it's still need.

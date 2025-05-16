@@ -84,7 +84,7 @@ class ReliableMessageTable(ReliableMessageDBI):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='reliable_messages')  # ID => List[ReliableMessages]
-        self._redis = MessageCache(connector=config.redis_connector)
+        self._redis = MessageCache(config=config)
         self._lock = threading.Lock()
 
     # noinspection PyMethodMayBeStatic

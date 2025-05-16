@@ -121,7 +121,8 @@ async def create_config(default_config: str) -> Config:
         print('')
         sys.exit(0)
     # loading config
-    config = await Config().load(file=ini_file)
+    config = Config()
+    await config.load(path=ini_file)
     print('[DB] init with config: %s => %s' % (ini_file, config))
     return config
 
