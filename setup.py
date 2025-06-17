@@ -14,7 +14,7 @@ import io
 
 from setuptools import setup, find_packages
 
-__version__ = '1.4.0'
+__version__ = '1.4.1'
 __author__ = 'Albert Moky'
 __contact__ = 'albert.moky@gmail.com'
 
@@ -67,3 +67,19 @@ setup(
         'aiou>=1.1.0',
     ]
 )
+
+
+"""
+
+    python3 setup.py sdist bdist_wheel
+    
+    twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+    pip3 install -i https://test.pypi.org/simple/ dimples
+    
+    rm -rf build/ dist/ dimples.egg-info/
+    
+    
+    twine upload dist/*
+    pip3 install dimples
+
+"""

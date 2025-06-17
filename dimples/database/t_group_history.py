@@ -33,81 +33,73 @@ from dimsdk import ReliableMessage
 from dimsdk import GroupCommand, ResetCommand, ResignCommand
 
 from ..utils import Config
-from ..utils import SharedCacheManager
 from ..common import GroupHistoryDBI
 
 from .dos import GroupHistoryStorage
 from .redis import GroupHistoryCache
 
-from .t_base import DbTask
+from .t_base import DbTask, DataCache
 
 
-class HisTask(DbTask):
-
-    MEM_CACHE_EXPIRES = 300  # seconds
-    MEM_CACHE_REFRESH = 32   # seconds
+class HisTask(DbTask[ID, List[Tuple[GroupCommand, ReliableMessage]]]):
 
     def __init__(self, group: ID,
-                 cache_pool: CachePool, redis: GroupHistoryCache, storage: GroupHistoryStorage,
-                 mutex_lock: threading.Lock):
-        super().__init__(cache_pool=cache_pool,
-                         cache_expires=self.MEM_CACHE_EXPIRES,
-                         cache_refresh=self.MEM_CACHE_REFRESH,
-                         mutex_lock=mutex_lock)
+                 redis: GroupHistoryCache, storage: GroupHistoryStorage,
+                 mutex_lock: threading.Lock, cache_pool: CachePool):
+        super().__init__(mutex_lock=mutex_lock, cache_pool=cache_pool)
         self._group = group
         self._redis = redis
         self._dos = storage
 
-    # Override
+    @property  # Override
     def cache_key(self) -> ID:
         return self._group
 
     # Override
-    async def _load_redis_cache(self) -> Optional[List[Tuple[GroupCommand, ReliableMessage]]]:
+    async def _read_data(self) -> Optional[List[Tuple[GroupCommand, ReliableMessage]]]:
         # 1. the redis server will return None when cache not found
         # 2. when redis server return an empty array, no need to check local storage again
-        return await self._redis.load_group_histories(group=self._group)
+        array = await self._redis.load_group_histories(group=self._group)
+        if array is not None:
+            return array
+        # 3. the local storage will return an empty array, when no history in this group
+        array = await self._dos.load_group_histories(group=self._group)
+        if array is None:
+            # 4. return empty array as a placeholder for the memory cache
+            array = []
+        # 5. update redis server
+        await self._dos.save_group_histories(group=self._group, histories=array)
+        return array
 
     # Override
-    async def _save_redis_cache(self, value: List[Tuple[GroupCommand, ReliableMessage]]) -> bool:
-        return await self._redis.save_group_histories(group=self._group, histories=value)
-
-    # Override
-    async def _load_local_storage(self) -> Optional[List[Tuple[GroupCommand, ReliableMessage]]]:
-        # 1. the local storage will return an empty array, when no history in this group
-        # 2. return empty array as a placeholder for the memory cache
-        return await self._dos.load_group_histories(group=self._group)
-
-    # Override
-    async def _save_local_storage(self, value: List[Tuple[GroupCommand, ReliableMessage]]) -> bool:
-        return await self._dos.save_group_histories(group=self._group, histories=value)
+    async def _write_data(self, value: List[Tuple[GroupCommand, ReliableMessage]]) -> bool:
+        # 1. store into redis server
+        ok1 = await self._redis.save_group_histories(group=self._group, histories=value)
+        # 2. save into local storage
+        ok2 = await self._dos.save_group_histories(group=self._group, histories=value)
+        return ok1 or ok2
 
 
-class GroupHistoryTable(GroupHistoryDBI):
+class GroupHistoryTable(DataCache, GroupHistoryDBI):
     """ Implementations of GroupHistoryDBI """
 
     def __init__(self, config: Config):
-        super().__init__()
-        man = SharedCacheManager()
-        self._cache = man.get_pool(name='group.history')  # ID => List
+        super().__init__(pool_name='history')  # ID => List
         self._redis = GroupHistoryCache(config=config)
         self._dos = GroupHistoryStorage(config=config)
-        self._lock = threading.Lock()
 
     def show_info(self):
         self._dos.show_info()
 
     def _new_task(self, group: ID) -> HisTask:
         return HisTask(group=group,
-                       cache_pool=self._cache, redis=self._redis, storage=self._dos,
-                       mutex_lock=self._lock)
+                       redis=self._redis, storage=self._dos,
+                       mutex_lock=self._mutex_lock, cache_pool=self._cache_pool)
 
     async def _load_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
         task = self._new_task(group=group)
         histories = await task.load()
-        if histories is None:
-            histories = []
-        return histories
+        return [] if histories is None else histories
 
     async def _save_group_histories(self, group: ID, histories: List[Tuple[GroupCommand, ReliableMessage]]) -> bool:
         task = self._new_task(group=group)

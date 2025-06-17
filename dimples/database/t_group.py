@@ -42,23 +42,17 @@ from .t_base import DbTask
 
 
 # noinspection PyAbstractClass
-class GrpTask(DbTask, ABC):
-
-    MEM_CACHE_EXPIRES = 300  # seconds
-    MEM_CACHE_REFRESH = 32   # seconds
+class GrpTask(DbTask[ID, List[ID]], ABC):
 
     def __init__(self, group: ID,
-                 cache_pool: CachePool, redis: GroupCache, storage: GroupStorage,
-                 mutex_lock: threading.Lock):
-        super().__init__(cache_pool=cache_pool,
-                         cache_expires=self.MEM_CACHE_EXPIRES,
-                         cache_refresh=self.MEM_CACHE_REFRESH,
-                         mutex_lock=mutex_lock)
+                 redis: GroupCache, storage: GroupStorage,
+                 mutex_lock: threading.Lock, cache_pool: CachePool):
+        super().__init__(mutex_lock=mutex_lock, cache_pool=cache_pool)
         self._group = group
         self._redis = redis
         self._dos = storage
 
-    # Override
+    @property  # Override
     def cache_key(self) -> ID:
         return self._group
 
@@ -66,70 +60,82 @@ class GrpTask(DbTask, ABC):
 class MemberTask(GrpTask):
 
     # Override
-    async def _load_redis_cache(self) -> Optional[List[ID]]:
+    async def _read_data(self) -> Optional[List[ID]]:
         # 1. the redis server will return None when cache not found
         # 2. when redis server return an empty array, no need to check local storage again
-        return await self._redis.get_members(group=self._group)
+        members = await self._redis.get_members(group=self._group)
+        if members is not None:
+            return members
+        # 3. the local storage will return an empty array, when no member in this group
+        members = await self._dos.get_members(group=self._group)
+        if members is None:
+            # 4. return empty array as a placeholder for the memory cache
+            members = []
+        # 5. update redis server
+        await self._dos.save_members(members=members, group=self._group)
+        return members
 
     # Override
-    async def _save_redis_cache(self, value: List[ID]) -> bool:
-        return await self._redis.save_members(members=value, group=self._group)
-
-    # Override
-    async def _load_local_storage(self) -> Optional[List[ID]]:
-        # 1. the local storage will return an empty array, when no member in this group
-        # 2. return empty array as a placeholder for the memory cache
-        return await self._dos.get_members(group=self._group)
-
-    # Override
-    async def _save_local_storage(self, value: List[ID]) -> bool:
-        return await self._dos.save_members(members=value, group=self._group)
+    async def _write_data(self, value: List[ID]) -> bool:
+        # 1. store into redis server
+        ok1 = await self._redis.save_members(members=value, group=self._group)
+        # 2. save into local storage
+        ok2 = await self._dos.save_members(members=value, group=self._group)
+        return ok1 or ok2
 
 
 class BotTask(GrpTask):
 
     # Override
-    async def _load_redis_cache(self) -> Optional[List[ID]]:
+    async def _read_data(self) -> Optional[List[ID]]:
         # 1. the redis server will return None when cache not found
         # 2. when redis server return an empty array, no need to check local storage again
-        return await self._redis.get_assistants(group=self._group)
+        bots = await self._redis.get_assistants(group=self._group)
+        if bots is not None:
+            return bots
+        # 3. the local storage will return an empty array, when no bot for this group
+        bots = await self._dos.get_assistants(group=self._group)
+        if bots is None:
+            # 4. return empty array as a placeholder for the memory cache
+            bots = []
+        # 5. update redis server
+        await self._dos.save_assistants(assistants=bots, group=self._group)
+        return bots
 
     # Override
-    async def _save_redis_cache(self, value: List[ID]) -> bool:
-        return await self._redis.save_assistants(assistants=value, group=self._group)
-
-    # Override
-    async def _load_local_storage(self) -> Optional[List[ID]]:
-        # 1. the local storage will return an empty array, when no bot for this group
-        # 2. return empty array as a placeholder for the memory cache
-        return await self._dos.get_assistants(group=self._group)
-
-    # Override
-    async def _save_local_storage(self, value: List[ID]) -> bool:
-        return await self._dos.save_assistants(assistants=value, group=self._group)
+    async def _write_data(self, value: List[ID]) -> bool:
+        # 1. store into redis server
+        ok1 = await self._redis.save_assistants(assistants=value, group=self._group)
+        # 2. save into local storage
+        ok2 = await self._dos.save_assistants(assistants=value, group=self._group)
+        return ok1 or ok2
 
 
 class AdminTask(GrpTask):
 
     # Override
-    async def _load_redis_cache(self) -> Optional[List[ID]]:
+    async def _read_data(self) -> Optional[List[ID]]:
         # 1. the redis server will return None when cache not found
         # 2. when redis server return an empty array, no need to check local storage again
-        return await self._redis.get_administrators(group=self._group)
+        admins = await self._redis.get_administrators(group=self._group)
+        if admins is not None:
+            return admins
+        # 3. the local storage will return an empty array, when no admin in this group
+        admins = await self._dos.get_administrators(group=self._group)
+        if admins is None:
+            # 4. return empty array as a placeholder for the memory cache
+            admins = []
+        # 5. update redis server
+        await self._dos.save_administrators(administrators=admins, group=self._group)
+        return admins
 
     # Override
-    async def _save_redis_cache(self, value: List[ID]) -> bool:
-        return await self._redis.save_administrators(administrators=value, group=self._group)
-
-    # Override
-    async def _load_local_storage(self) -> Optional[List[ID]]:
-        # 1. the local storage will return an empty array, when no admin in this group
-        # 2. return empty array as a placeholder for the memory cache
-        return await self._dos.get_administrators(group=self._group)
-
-    # Override
-    async def _save_local_storage(self, value: List[ID]) -> bool:
-        return await self._dos.save_administrators(administrators=value, group=self._group)
+    async def _write_data(self, value: List[ID]) -> bool:
+        # 1. store into redis server
+        ok1 = await self._redis.save_administrators(administrators=value, group=self._group)
+        # 2. save into local storage
+        ok2 = await self._dos.save_administrators(administrators=value, group=self._group)
+        return ok1 or ok2
 
 
 class GroupTable(GroupDBI):
@@ -150,18 +156,18 @@ class GroupTable(GroupDBI):
 
     def _new_member_task(self, group: ID) -> GrpTask:
         return MemberTask(group=group,
-                          cache_pool=self._member_cache, redis=self._redis, storage=self._dos,
-                          mutex_lock=self._lock)
+                          redis=self._redis, storage=self._dos,
+                          mutex_lock=self._lock, cache_pool=self._member_cache)
 
     def _new_bot_task(self, group: ID) -> GrpTask:
         return BotTask(group=group,
-                       cache_pool=self._bot_cache, redis=self._redis, storage=self._dos,
-                       mutex_lock=self._lock)
+                       redis=self._redis, storage=self._dos,
+                       mutex_lock=self._lock, cache_pool=self._bot_cache)
 
     def _new_admin_task(self, group: ID) -> GrpTask:
         return AdminTask(group=group,
-                         cache_pool=self._admin_cache, redis=self._redis, storage=self._dos,
-                         mutex_lock=self._lock)
+                         redis=self._redis, storage=self._dos,
+                         mutex_lock=self._lock, cache_pool=self._admin_cache)
 
     #
     #   Group DBI

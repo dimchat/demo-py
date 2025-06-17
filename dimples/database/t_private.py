@@ -41,54 +41,46 @@ from .dos import PrivateKeyStorage
 from .t_base import DbTask
 
 
+# noinspection PyAbstractClass
 class PriKeyTask(DbTask):
 
     MEM_CACHE_EXPIRES = 36000  # seconds
     MEM_CACHE_REFRESH = 32     # seconds
 
     def __init__(self, user: ID,
-                 cache_pool: CachePool, storage: PrivateKeyStorage,
-                 mutex_lock: threading.Lock):
-        super().__init__(cache_pool=cache_pool,
+                 storage: PrivateKeyStorage,
+                 mutex_lock: threading.Lock, cache_pool: CachePool):
+        super().__init__(mutex_lock=mutex_lock, cache_pool=cache_pool,
                          cache_expires=self.MEM_CACHE_EXPIRES,
-                         cache_refresh=self.MEM_CACHE_REFRESH,
-                         mutex_lock=mutex_lock)
+                         cache_refresh=self.MEM_CACHE_REFRESH)
         self._user = user
         self._dos = storage
 
-    # Override
+    @property  # Override
     def cache_key(self) -> ID:
         return self._user
-
-    # Override
-    async def _load_redis_cache(self) -> Optional[SignKey]:
-        pass
-
-    # Override
-    async def _save_redis_cache(self, value: SignKey) -> bool:
-        pass
-
-    # Override
-    async def _load_local_storage(self) -> Optional[SignKey]:
-        pass
-
-    # Override
-    async def _save_local_storage(self, value: SignKey) -> bool:
-        pass
 
 
 class IdKeyTask(PriKeyTask):
 
     # Override
-    async def _load_local_storage(self) -> Optional[SignKey]:
+    async def _read_data(self) -> Optional[SignKey]:
         return await self._dos.private_key_for_visa_signature(user=self._user)
+
+    # Override
+    async def _write_data(self, value: SignKey) -> bool:
+        pass
 
 
 class MsgKeyTask(PriKeyTask):
 
     # Override
-    async def _load_local_storage(self) -> Optional[List[DecryptKey]]:
+    async def _read_data(self) -> Optional[List[DecryptKey]]:
         return await self._dos.private_keys_for_decryption(user=self._user)
+
+    # Override
+    async def _write_data(self, value: List[DecryptKey]) -> bool:
+        pass
 
 
 class PrivateKeyTable(PrivateKeyDBI):
@@ -107,13 +99,13 @@ class PrivateKeyTable(PrivateKeyDBI):
 
     def _new_id_key_task(self, user: ID) -> IdKeyTask:
         return IdKeyTask(user=user,
-                         cache_pool=self._id_key_cache, storage=self._dos,
-                         mutex_lock=self._lock)
+                         storage=self._dos,
+                         mutex_lock=self._lock, cache_pool=self._id_key_cache)
 
     def _new_msg_key_task(self, user: ID) -> MsgKeyTask:
         return MsgKeyTask(user=user,
-                          cache_pool=self._msg_keys_cache, storage=self._dos,
-                          mutex_lock=self._lock)
+                          storage=self._dos,
+                          mutex_lock=self._lock, cache_pool=self._msg_keys_cache)
 
     async def _add_decrypt_key(self, key: PrivateKey, user: ID) -> Optional[List[PrivateKey]]:
         private_keys = await self.private_keys_for_decryption(user=user)

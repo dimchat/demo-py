@@ -41,90 +41,73 @@ from .redis import StationCache
 from .t_base import DbTask
 
 
-class SpTask(DbTask):
+class SpTask(DbTask[str, List[ProviderInfo]]):
 
-    MEM_CACHE_EXPIRES = 300  # seconds
-    MEM_CACHE_REFRESH = 32   # seconds
-
-    def __init__(self,
-                 cache_pool: CachePool, redis: StationCache, storage: StationStorage,
-                 mutex_lock: threading.Lock):
-        super().__init__(cache_pool=cache_pool,
-                         cache_expires=self.MEM_CACHE_EXPIRES,
-                         cache_refresh=self.MEM_CACHE_REFRESH,
-                         mutex_lock=mutex_lock)
+    def __init__(self, redis: StationCache, storage: StationStorage,
+                 mutex_lock: threading.Lock, cache_pool: CachePool):
+        super().__init__(mutex_lock=mutex_lock, cache_pool=cache_pool)
         self._redis = redis
         self._dos = storage
 
-    # Override
+    @property  # Override
     def cache_key(self) -> str:
         return 'providers'
 
     # Override
-    async def _load_redis_cache(self) -> Optional[List[ProviderInfo]]:
+    async def _read_data(self) -> Optional[List[ProviderInfo]]:
         # 1. the redis server will return None when cache not found
         # 2. when redis server return an empty array, no need to check local storage again
-        return await self._redis.load_providers()
-
-    # Override
-    async def _save_redis_cache(self, value: List[ProviderInfo]) -> bool:
-        return await self._redis.save_providers(providers=value)
-
-    # Override
-    async def _load_local_storage(self) -> Optional[List[ProviderInfo]]:
-        # 1. the local storage will return an empty array, when no provider
-        # 2. return default provider then
+        array = await self._redis.load_providers()
+        if array is not None:
+            return array
+        # 3. the local storage will return an empty array, when no provider
         array = await self._dos.all_providers()
         if array is None or len(array) == 0:
+            # 4. return default provider then
             sp = ProviderInfo(identifier=ProviderInfo.GSP, chosen=0)
-            return [sp]  # placeholder
-        else:
-            return array
+            array = [sp]  # placeholder
+        # 5. update redis server
+        await self._redis.save_providers(providers=array)
+        return array
 
     # Override
-    async def _save_local_storage(self, value: List[ProviderInfo]) -> bool:
-        pass
+    async def _write_data(self, value: List[ProviderInfo]) -> bool:
+        return await self._redis.save_providers(providers=value)
 
 
-class SrvTask(DbTask):
-
-    MEM_CACHE_EXPIRES = 300  # seconds
-    MEM_CACHE_REFRESH = 32   # seconds
+class SrvTask(DbTask[ID, List[StationInfo]]):
 
     def __init__(self, provider: ID,
-                 cache_pool: CachePool, redis: StationCache, storage: StationStorage,
-                 mutex_lock: threading.Lock):
-        super().__init__(cache_pool=cache_pool,
-                         cache_expires=self.MEM_CACHE_EXPIRES,
-                         cache_refresh=self.MEM_CACHE_REFRESH,
-                         mutex_lock=mutex_lock)
+                 redis: StationCache, storage: StationStorage,
+                 mutex_lock: threading.Lock, cache_pool: CachePool):
+        super().__init__(mutex_lock=mutex_lock, cache_pool=cache_pool)
         self._provider = provider
         self._redis = redis
         self._dos = storage
 
-    # Override
+    @property  # Override
     def cache_key(self) -> ID:
         return self._provider
 
     # Override
-    async def _load_redis_cache(self) -> Optional[List[StationInfo]]:
+    async def _read_data(self) -> Optional[List[StationInfo]]:
         # 1. the redis server will return None when cache not found
         # 2. when redis server return an empty array, no need to check local storage again
-        return await self._redis.load_stations(provider=self._provider)
+        array = await self._redis.load_stations(provider=self._provider)
+        if array is not None:
+            return array
+        # 3. the local storage will return an empty array, when no station for this sp
+        array = await self._dos.all_stations(provider=self._provider)
+        if array is None:
+            # 4. return empty array as a placeholder for the memory cache
+            array = []
+        # 5. update redis server
+        await self._redis.save_stations(stations=array, provider=self._provider)
+        return array
 
     # Override
-    async def _save_redis_cache(self, value: List[StationInfo]) -> bool:
+    async def _write_data(self, value: List[StationInfo]) -> bool:
         return await self._redis.save_stations(stations=value, provider=self._provider)
-
-    # Override
-    async def _load_local_storage(self) -> Optional[List[StationInfo]]:
-        # 1. the local storage will return an empty array, when no station for this sp
-        # 2. return empty array as a placeholder for the memory cache
-        return await self._dos.all_stations(provider=self._provider)
-
-    # Override
-    async def _save_local_storage(self, value: List[StationInfo]) -> bool:
-        pass
 
 
 class StationTable(ProviderDBI, StationDBI):
@@ -143,13 +126,13 @@ class StationTable(ProviderDBI, StationDBI):
         self._dos.show_info()
 
     def _new_sp_task(self) -> SpTask:
-        return SpTask(cache_pool=self._dim_cache, redis=self._redis, storage=self._dos,
-                      mutex_lock=self._lock)
+        return SpTask(redis=self._redis, storage=self._dos,
+                      mutex_lock=self._lock, cache_pool=self._dim_cache)
 
     def _new_srv_task(self, provider: ID) -> SrvTask:
         return SrvTask(provider=provider,
-                       cache_pool=self._stations_cache, redis=self._redis, storage=self._dos,
-                       mutex_lock=self._lock)
+                       redis=self._redis, storage=self._dos,
+                       mutex_lock=self._lock, cache_pool=self._stations_cache)
 
     #
     #   Provider DBI

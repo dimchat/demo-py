@@ -32,79 +32,77 @@ from dimsdk import ID
 from dimsdk import ReliableMessage
 
 from ..utils import Config
-from ..utils import SharedCacheManager
 from ..utils import is_before
 from ..common import LoginDBI, LoginCommand
 
 from .dos import LoginStorage
 from .redis import LoginCache
 
-from .t_base import DbTask
+from .t_base import DbTask, DataCache
 
 
-class CmdTask(DbTask):
-
-    MEM_CACHE_EXPIRES = 300  # seconds
-    MEM_CACHE_REFRESH = 32   # seconds
+class CmdTask(DbTask[ID, Tuple[Optional[LoginCommand], Optional[ReliableMessage]]]):
 
     def __init__(self, user: ID,
-                 cache_pool: CachePool, redis: LoginCache, storage: LoginStorage,
-                 mutex_lock: threading.Lock):
-        super().__init__(cache_pool=cache_pool,
-                         cache_expires=self.MEM_CACHE_EXPIRES,
-                         cache_refresh=self.MEM_CACHE_REFRESH,
-                         mutex_lock=mutex_lock)
+                 redis: LoginCache, storage: LoginStorage,
+                 mutex_lock: threading.Lock, cache_pool: CachePool):
+        super().__init__(mutex_lock=mutex_lock, cache_pool=cache_pool)
         self._user = user
         self._redis = redis
         self._dos = storage
 
-    # Override
+    @property  # Override
     def cache_key(self) -> ID:
         return self._user
 
     # Override
-    async def _load_redis_cache(self) -> Optional[Tuple[Optional[LoginCommand], Optional[ReliableMessage]]]:
+    async def _read_data(self) -> Optional[Tuple[Optional[LoginCommand], Optional[ReliableMessage]]]:
         # 1. the redis server will return None when cache not found
         # 2. when redis server return a tuple with None values, no need to check local storage again
-        return await self._redis.load_login(user=self._user)
+        pair = await self._redis.load_login(user=self._user)
+        if pair is not None:
+            return pair
+        # 3. the local storage will return a tuple with None values, when command not found
+        pair = await self._dos.get_login_command_message(user=self._user)
+        if pair is None:
+            # 4. return a tuple with None values as a placeholder for the memory cache
+            cmd = None
+            msg = None
+            pair = [cmd, msg]
+        else:
+            assert len(pair) == 2, 'login command message error: %s -> %s' % (self._user, pair)
+            cmd = pair[0]
+            msg = pair[1]
+        # 5. update redis server
+        await self._redis.save_login(user=self._user, content=cmd, msg=msg)
+        return pair
 
     # Override
-    async def _save_redis_cache(self, value: Tuple[LoginCommand, ReliableMessage]) -> bool:
+    async def _write_data(self, value: Tuple[Optional[LoginCommand], Optional[ReliableMessage]]) -> bool:
         cmd = value[0]
         msg = value[1]
-        return await self._redis.save_login(user=self._user, content=cmd, msg=msg)
-
-    # Override
-    async def _load_local_storage(self) -> Optional[Tuple[Optional[LoginCommand], Optional[ReliableMessage]]]:
-        # 1. the local storage will return a tuple with None values, when command not found
-        # 2. return a tuple with None values as a placeholder for the memory cache
-        return await self._dos.get_login_command_message(user=self._user)
-
-    # Override
-    async def _save_local_storage(self, value: Tuple[LoginCommand, ReliableMessage]) -> bool:
-        cmd = value[0]
-        msg = value[1]
-        return await self._dos.save_login_command_message(user=self._user, content=cmd, msg=msg)
+        # 1. store into redis server
+        ok1 = await self._redis.save_login(user=self._user, content=cmd, msg=msg)
+        # 2. save into local storage
+        ok2 = await self._dos.save_login_command_message(user=self._user, content=cmd, msg=msg)
+        return ok1 or ok2
 
 
-class LoginTable(LoginDBI):
+class LoginTable(DataCache, LoginDBI):
     """ Implementations of LoginDBI """
 
     def __init__(self, config: Config):
-        super().__init__()
-        man = SharedCacheManager()
-        self._cache = man.get_pool(name='login')  # ID => (LoginCommand, ReliableMessage)
+        super().__init__(pool_name='login')  # ID => (LoginCommand, ReliableMessage)
         self._redis = LoginCache(config=config)
         self._dos = LoginStorage(config=config)
-        self._lock = threading.Lock()
 
     def show_info(self):
         self._dos.show_info()
 
     def _new_task(self, user: ID) -> CmdTask:
         return CmdTask(user=user,
-                       cache_pool=self._cache, redis=self._redis, storage=self._dos,
-                       mutex_lock=self._lock)
+                       redis=self._redis, storage=self._dos,
+                       mutex_lock=self._mutex_lock, cache_pool=self._cache_pool)
 
     async def _is_expired(self, user: ID, content: LoginCommand) -> bool:
         """ check old record with command time """

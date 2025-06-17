@@ -31,70 +31,65 @@ from aiou.mem import CachePool
 from dimsdk import ID
 
 from ..utils import Config
-from ..utils import SharedCacheManager
 from ..common import UserDBI, ContactDBI
 
 from .dos import UserStorage
 from .redis import UserCache
 
-from .t_base import DbTask
+from .t_base import DbTask, DataCache
 
 
-class UsrTask(DbTask):
-
-    MEM_CACHE_EXPIRES = 300  # seconds
-    MEM_CACHE_REFRESH = 32   # seconds
+class UsrTask(DbTask[ID, List[ID]]):
 
     def __init__(self, user: ID,
-                 cache_pool: CachePool, redis: UserCache, storage: UserStorage,
-                 mutex_lock: threading.Lock):
-        super().__init__(cache_pool=cache_pool,
-                         cache_expires=self.MEM_CACHE_EXPIRES,
-                         cache_refresh=self.MEM_CACHE_REFRESH,
-                         mutex_lock=mutex_lock)
+                 redis: UserCache, storage: UserStorage,
+                 mutex_lock: threading.Lock, cache_pool: CachePool):
+        super().__init__(mutex_lock=mutex_lock, cache_pool=cache_pool)
         self._user = user
         self._redis = redis
         self._dos = storage
 
-    # Override
+    @property  # Override
     def cache_key(self) -> ID:
         return self._user
 
     # Override
-    async def _load_redis_cache(self) -> Optional[List[ID]]:
-        return await self._redis.get_contacts(identifier=self._user)
+    async def _read_data(self) -> Optional[List[ID]]:
+        # 1. get from redis server
+        contacts = await self._redis.get_contacts(identifier=self._user)
+        if contacts is not None:
+            return contacts
+        # 2. get from local storage
+        contacts = await self._dos.get_contacts(user=self._user)
+        if contacts is not None:
+            # 3. update redis server
+            await self._redis.save_contacts(contacts=contacts, identifier=self._user)
+            return contacts
 
     # Override
-    async def _save_redis_cache(self, value: List[ID]) -> bool:
-        return await self._redis.save_contacts(contacts=value, identifier=self._user)
-
-    # Override
-    async def _load_local_storage(self) -> Optional[List[ID]]:
-        return await self._dos.get_contacts(user=self._user)
-
-    # Override
-    async def _save_local_storage(self, value: List[ID]) -> bool:
-        return await self._dos.save_contacts(contacts=value, user=self._user)
+    async def _write_data(self, value: List[ID]) -> bool:
+        # 1. store into redis server
+        ok1 = await self._redis.save_contacts(contacts=value, identifier=self._user)
+        # 2. save into local storage
+        ok2 = await self._dos.save_contacts(contacts=value, user=self._user)
+        return ok1 or ok2
 
 
-class UserTable(UserDBI, ContactDBI):
+class UserTable(DataCache, UserDBI, ContactDBI):
     """ Implementations of UserDBI """
 
     def __init__(self, config: Config):
-        super().__init__()
-        man = SharedCacheManager()
-        self._cache = man.get_pool(name='contacts')  # ID => List[ID]
+        super().__init__(pool_name='contacts')  # ID => List[ID]
         self._redis = UserCache(config=config)
         self._dos = UserStorage(config=config)
-        self._lock = threading.Lock()
 
     def show_info(self):
         self._dos.show_info()
 
     def _new_task(self, user: ID) -> UsrTask:
         return UsrTask(user=user,
-                       cache_pool=self._cache, redis=self._redis, storage=self._dos,
-                       mutex_lock=self._lock)
+                       redis=self._redis, storage=self._dos,
+                       mutex_lock=self._mutex_lock, cache_pool=self._cache_pool)
 
     #
     #   User DBI
