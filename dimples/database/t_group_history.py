@@ -68,7 +68,7 @@ class HisTask(DbTask[ID, List[Tuple[GroupCommand, ReliableMessage]]]):
             # 4. return empty array as a placeholder for the memory cache
             array = []
         # 5. update redis server
-        await self._dos.save_group_histories(group=self._group, histories=array)
+        await self._redis.save_group_histories(group=self._group, histories=array)
         return array
 
     # Override

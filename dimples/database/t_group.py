@@ -72,7 +72,7 @@ class MemberTask(GrpTask):
             # 4. return empty array as a placeholder for the memory cache
             members = []
         # 5. update redis server
-        await self._dos.save_members(members=members, group=self._group)
+        await self._redis.save_members(members=members, group=self._group)
         return members
 
     # Override
@@ -99,7 +99,7 @@ class BotTask(GrpTask):
             # 4. return empty array as a placeholder for the memory cache
             bots = []
         # 5. update redis server
-        await self._dos.save_assistants(assistants=bots, group=self._group)
+        await self._redis.save_assistants(assistants=bots, group=self._group)
         return bots
 
     # Override
@@ -126,7 +126,7 @@ class AdminTask(GrpTask):
             # 4. return empty array as a placeholder for the memory cache
             admins = []
         # 5. update redis server
-        await self._dos.save_administrators(administrators=admins, group=self._group)
+        await self._redis.save_administrators(administrators=admins, group=self._group)
         return admins
 
     # Override

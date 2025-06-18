@@ -67,7 +67,7 @@ class PwdTask(DbTask[Tuple[ID, ID], Dict[str, str]]):
             # 4. return empty dictionary as a placeholder for the memory cache
             keys = {}
         # 5. update redis server
-        await self._dos.save_group_keys(group=self._group, sender=self._sender, keys=keys)
+        await self._redis.save_group_keys(group=self._group, sender=self._sender, keys=keys)
         return keys
 
     # Override

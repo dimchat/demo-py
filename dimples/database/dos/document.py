@@ -62,7 +62,7 @@ class DocumentStorage(Storage):
     async def load_documents(self, identifier: ID) -> Optional[List[Document]]:
         """ load documents from file """
         path = self.__docs_path(identifier=identifier)
-        self.info(msg='Loading documents from: %s' % path)
+        # self.info(msg='Loading documents from: %s' % path)
         array = await self.read_json(path=path)
         if array is None:
             # file not found

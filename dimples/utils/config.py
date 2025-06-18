@@ -104,7 +104,8 @@ class Config(Logging):
     def __init__(self):
         super().__init__()
         self.__parser: Optional[ConfigParser] = None
-        self.__info: Optional[Dict] = None
+        self.__ready = False
+        self.__info = {}
         self.__path: Optional[str] = None
         self.__redis: Optional[RedisConnector] = None
         self.__stations: List[MessageTransferAgent] = []
@@ -120,7 +121,7 @@ class Config(Logging):
         parser = ConfigParser()
         parser.read(path)
         self.__parser = parser
-        self.__info = None
+        self.__ready = False
         self.__stations = None
         # load neighbor stations
         try:
@@ -132,13 +133,12 @@ class Config(Logging):
 
     @property
     def dictionary(self) -> Optional[Dict]:
-        info = self.__info
-        if info is None:
-            parser = self.__parser
-            if parser is not None:
-                info = _config_sections(parser=parser)
-                self.__info = info
-        return info
+        parser = self.__parser
+        if parser is None or self.__ready:
+            return self.__info
+        else:
+            self.__ready = True
+            return _update_sections(info=self.__info, parser=parser)
 
     # Override
     def __str__(self) -> str:
@@ -335,10 +335,12 @@ class NeighborLoader(Logging):
         self.info(msg='downloading stations: %s' % url)
         http = self.__http
         try:
-            text = http.cache_get(url=url)
-            if text is None:
+            response = http.cache_get(url=url)
+            if response is None or response.status_code != 200:
+                self.error(msg='failed to get URL: %s response: %s' % (url, response))
                 return None
             else:
+                text = response.text
                 stations = JSON.decode(string=text)
         except Exception as error:
             self.error(msg='failed to download stations: %s, %s' % (error, url))
@@ -369,8 +371,7 @@ class NeighborLoader(Logging):
             self.error(msg='failed to save stations: %s, %s' % (error, path))
 
 
-def _config_sections(parser: ConfigParser) -> Dict:
-    info = {}
+def _update_sections(info: Dict, parser: ConfigParser) -> Dict:
     sections = parser.sections()
     for name in sections:
         options = _section_options(parser=parser, section=name)

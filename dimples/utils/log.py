@@ -35,6 +35,16 @@ def current_time() -> str:
     return str(DateTime.now())
 
 
+def shorten(text: str, max_len: int = 1024) -> str:
+    # assert max_len > 128, 'too short: %s' % max_len
+    size = 0 if text is None else len(text)
+    if size <= max_len:
+        return text
+    desc = 'total %d chars' % size
+    pos = (max_len - len(desc) - 10) >> 1
+    return '%s ... %s ... %s' % (text[:pos], desc, text[-pos:])
+
+
 DEBUG_FLAG = 0x01
 INFO_FLAG = 0x02
 WARNING_FLAG = 0x04
@@ -49,28 +59,38 @@ class Log:
 
     LEVEL = RELEASE
 
+    MAX_LEN = 1024
+
     @classmethod
     def debug(cls, msg: str):
         if cls.LEVEL & DEBUG_FLAG == 0:
             return None
+        # elif cls.MAX_LEN > 0:
+        #     msg = shorten(text=msg, max_len=cls.MAX_LEN)
         print('[%s]  DEBUG  | %s' % (current_time(), msg))
 
     @classmethod
     def info(cls, msg: str):
         if cls.LEVEL & INFO_FLAG == 0:
             return None
+        elif cls.MAX_LEN > 0:
+            msg = shorten(text=msg, max_len=cls.MAX_LEN)
         print('[%s]         | %s' % (current_time(), msg))
 
     @classmethod
     def warning(cls, msg: str):
         if cls.LEVEL & WARNING_FLAG == 0:
             return None
+        elif cls.MAX_LEN > 0:
+            msg = shorten(text=msg, max_len=cls.MAX_LEN)
         print('[%s] WARNING | %s' % (current_time(), msg))
 
     @classmethod
     def error(cls, msg: str):
         if cls.LEVEL & ERROR_FLAG == 0:
             return None
+        elif cls.MAX_LEN > 0:
+            msg = shorten(text=msg, max_len=cls.MAX_LEN)
         print('[%s]  ERROR  | %s' % (current_time(), msg))
 
 

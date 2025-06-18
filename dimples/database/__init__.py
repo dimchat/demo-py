@@ -34,7 +34,7 @@ from ..common.dbi import *
 from .dos import *
 from .redis import *
 
-from .t_base import DbTask
+from .t_base import DbTask, DataCache
 
 from .t_private import PrivateKeyTable
 from .t_meta import MetaTable
@@ -100,7 +100,7 @@ __all__ = [
     #   Table
     #
 
-    'DbTask',
+    'DbTask', 'DataCache',
 
     'PrivateKeyTable', 'MetaTable', 'DocumentTable',
     'UserTable', 'GroupTable', 'GroupHistoryTable',

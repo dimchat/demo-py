@@ -158,7 +158,7 @@ class HttpClient(Logging):
     def remove_cache(self, url: str):
         self.__web_cache.erase(key=url)
 
-    def cache_get(self, url: str, headers: Dict = None):
+    def cache_get(self, url: str, headers: Dict = None) -> Optional[Response]:
         now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__web_cache.fetch(key=url, now=now)
@@ -174,11 +174,9 @@ class HttpClient(Logging):
                 # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. query remote server
-            response = self.http_get(url=url, headers=headers)
-            if response.status_code == 200:
-                value = response.text
-                # 3. update memory cache
-                self.__web_cache.update(key=url, value=value, life_span=self.CACHE_EXPIRES, now=now)
+            value = self.http_get(url=url, headers=headers)
+            # 3. update memory cache
+            self.__web_cache.update(key=url, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 

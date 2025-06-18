@@ -61,37 +61,37 @@ class DbTask(Logging, Generic[K, V], ABC):
     def __init__(self, mutex_lock: threading.Lock, cache_pool: CachePool,
                  cache_expires: float = None, cache_refresh: float = None):
         super().__init__()
-        self.__lock = mutex_lock
+        self._lock = mutex_lock
         # memory cache
-        self.__cache_pool = cache_pool
+        self._cache_pool = cache_pool
         # memory expires
         if cache_expires is None:
-            self.__cache_expires = self.MEM_CACHE_EXPIRES
+            self._cache_expires = self.MEM_CACHE_EXPIRES
         else:
             assert cache_expires > 0, 'cache expires durations error: %s' % cache_expires
-            self.__cache_expires = cache_expires
+            self._cache_expires = cache_expires
         # memory refresh
         if cache_refresh is None:
-            self.__cache_refresh = self.MEM_CACHE_REFRESH
+            self._cache_refresh = self.MEM_CACHE_REFRESH
         else:
             assert cache_refresh > 0, 'cache refresh durations error: %s' % cache_refresh
-            self.__cache_refresh = cache_refresh
+            self._cache_refresh = cache_refresh
 
     @property  # protected
     def lock(self) -> threading.Lock:
-        return self.__lock
+        return self._lock
 
     @property  # protected
     def cache_pool(self) -> CachePool[K, V]:
-        return self.__cache_pool
+        return self._cache_pool
 
     @property  # protected
     def cache_expires(self) -> float:
-        return self.__cache_expires
+        return self._cache_expires
 
     @property  # protected
     def cache_refresh(self) -> float:
-        return self.__cache_refresh
+        return self._cache_refresh
 
     @property  # protected
     @abstractmethod

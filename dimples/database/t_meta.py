@@ -68,7 +68,7 @@ class TaiTask(DbTask[ID, Meta]):
         meta = await self._dos.get_meta(identifier=self._identifier)
         if meta is not None:
             # 3. update redis server
-            await self._dos.save_meta(meta=meta, identifier=self._identifier)
+            await self._redis.save_meta(meta=meta, identifier=self._identifier)
             return meta
 
     # Override
