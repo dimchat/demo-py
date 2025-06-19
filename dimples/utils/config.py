@@ -24,7 +24,7 @@
 # ==============================================================================
 
 from configparser import ConfigParser
-from typing import Optional, Any, Dict, List
+from typing import Optional, Any, List, Dict
 from typing import Iterable
 
 from aiou import JSONFile
@@ -33,6 +33,7 @@ from aiou import RedisConnector
 from dimsdk import JSON
 from dimsdk import Dictionary
 from dimsdk import ID
+from dimsdk import Facebook
 
 from .log import Log, Logging
 from .http import HttpClient
@@ -197,6 +198,37 @@ class Config(Logging):
             if len(string) > 0:
                 result.append(string)
         return result
+
+    #
+    #   ID list
+    #
+
+    def get_identifiers(self, section: str, option: str) -> List[ID]:
+        array = self.get_list(section=section, option=option)
+        return ID.convert(array=array)
+
+    async def get_users(self, section: str, option: str, facebook: Facebook) -> List[ID]:
+        users = []
+        array = self.get_identifiers(section=section, option=option)
+        for item in array:
+            if item.is_user:
+                if item not in users:
+                    users.append(item)
+                continue
+            # extract group members
+            members = await facebook.get_members(identifier=item)
+            for usr in members:
+                if usr not in users:
+                    users.append(usr)
+        return users
+
+    async def get_supervisors(self, section: str = 'admin', option: str = 'supervisors',
+                              facebook: Facebook = None) -> List[ID]:
+        """ extract group members when facebook available """
+        if facebook is None:
+            return self.get_identifiers(section=section, option=option)
+        else:
+            return await self.get_users(section=section, option=option, facebook=facebook)
 
     #
     #   database

@@ -58,7 +58,7 @@ class BaseSession(GateKeeper, Session, ABC):
         return '<%s id="%s" remote="%s" key="%s" />' % (cname, self.identifier, self.remote_address, self.session_key)
 
     # Override
-    def __repr__(self):
+    def __repr__(self) -> str:
         cname = self.__class__.__name__
         return '<%s id="%s" remote="%s" key="%s" />' % (cname, self.identifier, self.remote_address, self.session_key)
 
