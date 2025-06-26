@@ -32,35 +32,13 @@
 
 from typing import Optional, List
 
-from dimsdk import ID, User
+from dimsdk import ID
 
 from ..common import BroadcastUtils
 from ..common import CommonFacebook
 
 
 class ServerFacebook(CommonFacebook):
-
-    # Override
-    async def select_user(self, receiver: ID) -> Optional[User]:
-        if receiver.is_user:
-            return await super().select_user(receiver=receiver)
-        # group message(recipient not designated)
-        assert receiver.is_group, 'receiver error: %s' % receiver
-        # the messenger will check group info before decrypting message,
-        # so we can trust that the group's meta & members MUST exist here.
-        users = await self.archivist.local_users
-        if users is None or len(users) == 0:
-            self.error(msg='local users should not be empty')
-            return None
-        elif receiver.is_broadcast:
-            # broadcast message can decrypt by anyone, so just return current user
-            return users[0]
-        members = await self.get_members(identifier=receiver)
-        # assert len(members) > 0, 'members not found: %s' % receiver
-        for item in users:
-            if item.identifier in members:
-                # DISCUSS: set this item to be current user?
-                return item
 
     #
     #   Group DataSource

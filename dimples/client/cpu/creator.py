@@ -28,7 +28,7 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
-from typing import Optional, Union
+from typing import Optional
 
 from dimsdk import ContentType
 from dimsdk import Command, GroupCommand
@@ -55,18 +55,20 @@ from .customized import CustomizedContentProcessor
 class ClientContentProcessorCreator(BaseContentProcessorCreator):
 
     # Override
-    def create_content_processor(self, msg_type: Union[int, ContentType]) -> Optional[ContentProcessor]:
+    def create_content_processor(self, msg_type: str) -> Optional[ContentProcessor]:
         # application customized
-        if msg_type == ContentType.APPLICATION.value or msg_type == ContentType.CUSTOMIZED.value:
+        if msg_type == ContentType.APPLICATION or msg_type == 'application':
             return CustomizedContentProcessor(facebook=self.facebook, messenger=self.messenger)
-        # history
-        if msg_type == ContentType.HISTORY.value:
+        if msg_type == ContentType.CUSTOMIZED or msg_type == 'customized':
+            return CustomizedContentProcessor(facebook=self.facebook, messenger=self.messenger)
+        # history command
+        if msg_type == ContentType.HISTORY or msg_type == 'history':
             return HistoryCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
         return super().create_content_processor(msg_type=msg_type)
 
     # Override
-    def create_command_processor(self, msg_type: Union[int, ContentType], cmd: str) -> Optional[ContentProcessor]:
+    def create_command_processor(self, msg_type: str, cmd: str) -> Optional[ContentProcessor]:
         # receipt
         if cmd == Command.RECEIPT:
             return ReceiptCommandProcessor(facebook=self.facebook, messenger=self.messenger)

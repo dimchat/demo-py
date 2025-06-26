@@ -34,6 +34,7 @@ from .dbi import *
 
 from .anonymous import Anonymous
 from .register import Register
+from .ans import AddressNameService
 from .ans import AddressNameServer, ANSFactory
 
 from .checker import EntityChecker
@@ -91,7 +92,9 @@ __all__ = [
     #
 
     'Anonymous',
-    'AddressNameServer', 'ANSFactory',
+    'AddressNameService',
+    'AddressNameServer',
+    'ANSFactory',
 
     'EntityChecker',
     'CommonArchivist',

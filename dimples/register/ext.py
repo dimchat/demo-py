@@ -25,12 +25,14 @@
 
 from typing import Optional, Any, Tuple, List
 
+from dimsdk import AsymmetricAlgorithms
 from dimsdk import PrivateKey, SignKey
 from dimsdk import ID
 from dimsdk import Meta
 from dimsdk import Document, Visa, Bulletin
+from dimsdk import DocumentType
 
-from ..common import MetaType
+from ..common import MetaVersion
 from ..common import AccountDBI
 from ..database import PrivateKeyStorage
 
@@ -76,12 +78,12 @@ class GroupAccount(BaseAccount):
 
     # Override
     def generate(self, network: int, version: Any, seed: Optional[str]) -> Document:
-        version = MetaType.parse_str(version=version)
+        version = MetaVersion.parse_str(version=version)
         id_pri_key = self.__id_pri_key
         meta = self.generate_meta(version=version, seed=seed, sign_key=id_pri_key)
         assert meta is not None, 'failed to generate meta'
         identifier = self.generate_identifier(network=network)
-        doc = self.generate_document(doc_type=Document.BULLETIN)
+        doc = self.generate_document(doc_type=DocumentType.BULLETIN)
         assert doc.identifier == identifier, 'ID not match: %s' % identifier
         return doc
 
@@ -158,19 +160,19 @@ class UserAccount(BaseAccount):
     # private
     def generate_keys(self) -> Tuple[PrivateKey, List[PrivateKey]]:
         if self.__id_pri_key is None:
-            self.__id_pri_key = PrivateKey.generate(algorithm=PrivateKey.ECC)
+            self.__id_pri_key = PrivateKey.generate(algorithm=AsymmetricAlgorithms.ECC)
         if self.__msg_pri_keys is None:
-            self.__msg_pri_keys = [PrivateKey.generate(algorithm=PrivateKey.RSA)]
+            self.__msg_pri_keys = [PrivateKey.generate(algorithm=AsymmetricAlgorithms.RSA)]
         return self.__id_pri_key, self.__msg_pri_keys
 
     # Override
     def generate(self, network: int, version: Any, seed: Optional[str]) -> Visa:
-        version = MetaType.parse_str(version=version)
+        version = MetaVersion.parse_str(version=version)
         id_pri_key, msg_pri_keys = self.generate_keys()
         meta = self.generate_meta(version=version, seed=seed, sign_key=id_pri_key)
         assert meta is not None, 'failed to generate meta'
         identifier = self.generate_identifier(network=network)
-        doc = self.generate_document(doc_type=Document.VISA)
+        doc = self.generate_document(doc_type=DocumentType.VISA)
         assert isinstance(doc, Visa), 'visa error: %s' % doc
         assert doc.identifier == identifier, 'ID not match: %s' % identifier
         return doc

@@ -32,6 +32,8 @@ from abc import ABC, abstractmethod
 from typing import Optional, Tuple, Dict
 
 from dimsdk import URI
+from dimsdk import SymmetricAlgorithms
+from dimsdk import EncodeAlgorithms
 from dimsdk import PortableNetworkFile, TransportableData
 from dimsdk import SymmetricKey
 from dimsdk import ID, User
@@ -111,7 +113,7 @@ class Emitter(Logging, ABC):
         :return:
         """
         assert len(mp4) > 0, 'voice data should not empty'
-        ted = TransportableData.create(data=mp4)
+        ted = TransportableData.create(data=mp4, algorithm=EncodeAlgorithms.DEFAULT)
         # create audio content
         content = FileContent.audio(data=ted, filename=filename)
         # set voice data length & duration
@@ -136,7 +138,7 @@ class Emitter(Logging, ABC):
         :return:
         """
         assert len(jpeg) > 0, 'image data should not empty'
-        ted = TransportableData.create(data=jpeg)
+        ted = TransportableData.create(data=jpeg, algorithm=EncodeAlgorithms.DEFAULT)
         # create image content
         content = FileContent.image(data=ted, filename=filename)
         # set image data length
@@ -204,14 +206,14 @@ class Emitter(Logging, ABC):
             # OK
             pass
         else:
-            self.warning(msg='not send yet (type=%d): %s' % (content.type, receiver))
+            self.warning(msg='not send yet (type=%s): %s' % (content.type, receiver))
         return i_msg, r_msg
 
     async def send_instant_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
         """ Send message """
         receiver = msg.receiver
         assert msg.content.get('data') is None, 'cannot send this message: %s' % msg
-        self.info(msg='sending message (type=%d): %s -> %s' % (msg.content.type, msg.sender, receiver))
+        self.info(msg='sending message (type=%s): %s -> %s' % (msg.content.type, msg.sender, receiver))
         if receiver.is_user:
             # send out directly
             return await self.messenger.send_instant_message(msg=msg, priority=priority)
@@ -259,7 +261,7 @@ class Emitter(Logging, ABC):
         if r_msg is not None or receiver.is_group:
             return True
         else:
-            self.warning(msg='not send yet (type=%d): %s' % (content.type, receiver))
+            self.warning(msg='not send yet (type=%s): %s' % (content.type, receiver))
             return False
 
     # protected
@@ -309,7 +311,7 @@ class Emitter(Logging, ABC):
             pass
         else:
             # generate a new password for each file content
-            password = SymmetricKey.generate(algorithm=SymmetricKey.AES)
+            password = SymmetricKey.generate(algorithm=SymmetricAlgorithms.AES)
             # NOTICE: to avoid communication key leaks,
             #         here we should generate a new key to encrypt file data,
             #         because this key will be attached into file content,
@@ -346,7 +348,7 @@ class Emitter(Logging, ABC):
         if r_msg is not None or receiver.is_group:
             return True
         else:
-            self.warning(msg='not send yet (type=%d): %s' % (content.type, receiver))
+            self.warning(msg='not send yet (type=%s): %s' % (content.type, receiver))
             return False
 
     @abstractmethod

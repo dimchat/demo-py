@@ -117,7 +117,28 @@ class CommonFacebook(Facebook, Logging, ABC):
                 return user
             elif user.identifier == receiver:
                 return user
-        return await super().select_user(receiver=receiver)
+        if receiver.is_user:
+            return await super().select_user(receiver=receiver)
+        # group message(recipient not designated)
+        assert receiver.is_group, 'receiver error: %s' % receiver
+        # the messenger will check group info before decrypting message,
+        # so we can trust that the group's meta & members MUST exist here.
+        users = await self.barrack.local_users
+        if users is None or len(users) == 0:
+            self.error(msg='local users should not be empty')
+            return None
+        elif receiver.is_broadcast:
+            # broadcast message can decrypt by anyone, so just return current user
+            return users[0] if user is None else user
+        members = await self.get_members(identifier=receiver)
+        # assert len(members) > 0, 'members not found: %s' % receiver
+        for item in users:
+            if item.identifier in members:
+                # DISCUSS: set this item to be current user?
+                return item
+        if user is not None:
+            if user.identifier in members:
+                return user
 
     #
     #   Documents

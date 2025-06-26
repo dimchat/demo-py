@@ -60,7 +60,7 @@ class DocumentCommandProcessor(SuperCommandProcessor):
     async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, DocumentCommand), 'document command error: %s' % content
         responses = await super().process_content(content=content, r_msg=r_msg)
-        if content.document is None:
+        if content.documents is None:
             # this is a request, check DocumentCommand & LoginCommand
             if has_document(contents=responses):
                 db = self.session.database

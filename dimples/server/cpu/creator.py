@@ -28,9 +28,9 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
-from typing import Optional, Union
+from typing import Optional
 
-from dimsdk import ContentType, Command
+from dimsdk import Command
 from dimsdk import ContentProcessor
 
 from dimsdk.cpu import BaseContentProcessorCreator
@@ -49,9 +49,9 @@ from .document import DocumentCommandProcessor
 class ServerContentProcessorCreator(BaseContentProcessorCreator):
 
     # Override
-    def create_command_processor(self, msg_type: Union[int, ContentType], cmd: str) -> Optional[ContentProcessor]:
+    def create_command_processor(self, msg_type: str, cmd: str) -> Optional[ContentProcessor]:
         # document
-        if cmd == Command.DOCUMENT:
+        if cmd == Command.DOCUMENTS:
             return DocumentCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # handshake
         if cmd == HandshakeCommand.HANDSHAKE:

@@ -200,6 +200,6 @@ class ServerChecker(EntityChecker, Logging):
             self.debug(msg='visa response not expired yet: %s' % receiver)
             return False
         self.info(msg='push visa document: %s => %s' % (me, receiver))
-        content = DocumentCommand.response(document=visa, identifier=me)
+        content = DocumentCommand.response(identifier=me, meta=None, documents=[visa])
         _, r_msg = await messenger.send_content(content=content, sender=me, receiver=receiver, priority=1)
         return r_msg is not None

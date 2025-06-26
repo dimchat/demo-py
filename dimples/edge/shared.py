@@ -152,7 +152,7 @@ async def create_database(config: Config) -> Tuple[AccountDBI, MessageDBI, Sessi
 async def create_facebook(database: AccountDBI) -> ClientFacebook:
     """ create facebook """
     facebook = ClientFacebook(database=database)
-    facebook.archivist = CommonArchivist(facebook=facebook, database=database)
+    facebook.barrack = CommonArchivist(facebook=facebook, database=database)
     facebook.checker = ClientChecker(facebook=facebook, database=database)
     # set for group manager
     man = SharedGroupManager()

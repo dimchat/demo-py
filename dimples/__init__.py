@@ -211,7 +211,7 @@ __all__ = [
 
     'ServiceProvider', 'Station', 'Bot',
 
-    'MemberType',
+    # 'MemberType',
 
     'MetaUtils', 'DocumentUtils',
 
@@ -238,7 +238,7 @@ __all__ = [
     'TwinsHelper',
 
     'AddressNameService',
-    'Archivist',
+    # 'Archivist',
     'Facebook', 'Messenger',
     'MessageProcessor', 'MessagePacker',
 
@@ -322,7 +322,7 @@ __all__ = [
     #
     ####################################
 
-    'MetaType',
+    'MetaVersion',
     'Password',
     'BroadcastUtils',
 

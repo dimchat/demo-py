@@ -108,12 +108,12 @@ class OctopusMessenger(ClientMessenger, ABC):
             return await super().process_reliable_message(msg=msg)
         # check for cycled message
         if msg.receiver == msg.sender:
-            self.error(msg='drop cycled msg(type=%d): %s -> %s | from %s, traces: %s'
+            self.error(msg='drop cycled msg(type=%s): %s -> %s | from %s, traces: %s'
                        % (msg.type, msg.sender, msg.receiver, get_remote_station(messenger=self), msg.get('traces')))
             return []
         # handshake accepted, redirecting message
         sig = get_msg_sig(msg=msg)
-        self.info(msg='redirect msg(type=%d, sig=%s): %s -> %s | from %s, traces: %s'
+        self.info(msg='redirect msg(type=%s, sig=%s): %s -> %s | from %s, traces: %s'
                   % (msg.type, sig, msg.sender, msg.receiver, get_remote_station(messenger=self), msg.get('traces')))
         return await self._deliver_message(msg=msg)
 

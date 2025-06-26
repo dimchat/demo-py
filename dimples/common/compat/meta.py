@@ -56,6 +56,6 @@ class CompatibleMetaFactory(BaseMetaFactory):
             out = ETHMeta(meta=meta)
         else:
             # TODO: other types of meta
-            raise TypeError('unknown meta type: %d' % version)
+            raise TypeError('unknown meta type: %s' % version)
         if out.valid:
             return out

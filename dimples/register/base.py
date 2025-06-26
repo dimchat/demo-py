@@ -32,7 +32,7 @@ from dimsdk import Meta
 from dimsdk import Document, DocumentUtils
 
 from ..utils import Logging
-from ..common import MetaType
+from ..common import MetaVersion
 from ..common import AccountDBI
 from ..common.compat import NetworkType, network_to_type
 
@@ -46,13 +46,13 @@ class BaseAccount(Logging, ABC):
         (EntityType.ISP,        'ISP (Service Provider)'),
         (EntityType.BOT,        'Bot (Business Node)'),
         (EntityType.ICP,        'ICP (Content Provider)'),
-        (EntityType.SUPERVISOR, 'Supervisor (Company President)'),
-        (EntityType.COMPANY,    'Company (Super Group for ISP/ICP)'),
-
-        (NetworkType.MAIN,    'User (Deprecated)'),
-        (NetworkType.GROUP,   'Group (Deprecated)'),
-        (NetworkType.STATION, 'Station (Deprecated)'),
-        (NetworkType.BOT,     'Bot (Deprecated)'),
+        # (EntityType.SUPERVISOR, 'Supervisor (Company President)'),
+        # (EntityType.COMPANY,    'Company (Super Group for ISP/ICP)'),
+        #
+        # (NetworkType.MAIN,    'User (Deprecated)'),
+        # (NetworkType.GROUP,   'Group (Deprecated)'),
+        # (NetworkType.STATION, 'Station (Deprecated)'),
+        # (NetworkType.BOT,     'Bot (Deprecated)'),
     ]
 
     USER_META_TYPES = [
@@ -109,7 +109,7 @@ class BaseAccount(Logging, ABC):
 
     @classmethod
     def get_meta_seed(cls, meta_type: int, address_type: int) -> Optional[str]:
-        if not MetaType.has_seed(version=meta_type):
+        if not MetaVersion.has_seed(version=meta_type):
             # BTC/ETH address as ID without seed
             return None
         address_type = network_to_type(network=address_type)
