@@ -48,7 +48,7 @@ from .session import Transmitter, Session
 
 __all__ = [
 
-    'MetaType',
+    'MetaVersion',
     'Password',
     'BroadcastUtils',
 

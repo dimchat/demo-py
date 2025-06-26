@@ -229,7 +229,7 @@ class TripletsHelper(Logging):
     def archivist(self) -> Optional[CommonArchivist]:
         facebook = self.facebook
         if facebook is not None:
-            return facebook.archivist
+            return facebook.barrack
 
     @property
     def database(self) -> Optional[AccountDBI]:

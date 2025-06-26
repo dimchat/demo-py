@@ -115,7 +115,7 @@ class GroupEmitter(TripletsHelper):
             self.error(msg='not a group message')
             return None
         else:
-            self.info(msg='sending message (type=%d): %s => %s' % (content.type, msg.sender, group))
+            self.info(msg='sending message (type=%s): %s => %s' % (content.type, msg.sender, group))
             # attach group document & history times
             # for the receiver to check whether group info synchronized
             ok = await self._attach_group_times(group=group, msg=msg)

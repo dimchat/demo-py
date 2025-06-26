@@ -41,11 +41,12 @@ from typing import Optional, Union, Tuple, List, Dict
 from dimsdk import SymmetricKey
 from dimsdk import ID
 from dimsdk import Content, Envelope
-from dimsdk import FileContent, Command
+from dimsdk import Command
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import EntityDelegate, CipherKeyDelegate
 from dimsdk import Messenger, Packer, Processor
 
+from ..utils import utf8_decode, json_decode
 from ..utils import Logging, Converter
 
 from .dbi import MessageDBI
@@ -55,7 +56,7 @@ from .session import Transmitter, Session
 
 from .queue import SuspendedMessageQueue
 
-from .compat import Compatible
+from .compat import CompatibleIncoming, CompatibleOutgoing
 
 
 class CommonMessenger(Messenger, Transmitter, Logging, ABC):
@@ -150,20 +151,27 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
 
     # Override
     async def serialize_content(self, content: Content, key: SymmetricKey, msg: InstantMessage) -> bytes:
-        if isinstance(content, Command):
-            content = Compatible.fix_command(content=content)
-        elif isinstance(content, FileContent):
-            content = Compatible.fix_file_content(content=content)
+        CompatibleOutgoing.fix_content(content=content)
         return await super().serialize_content(content=content, key=key, msg=msg)
 
     # Override
     async def deserialize_content(self, data: bytes, key: SymmetricKey, msg: SecureMessage) -> Optional[Content]:
-        content = await super().deserialize_content(data=data, key=key, msg=msg)
-        if isinstance(content, Command):
-            content = Compatible.fix_command(content=content)
-        elif isinstance(content, FileContent):
-            content = Compatible.fix_file_content(content=content)
-        return content
+        # content = await super().deserialize_content(data=data, key=key, msg=msg)
+        js = utf8_decode(data=data)
+        if js is None:
+            # assert False, 'content data error: %s' % data
+            return None
+        dictionary = json_decode(string=js)
+        if isinstance(dictionary, Dict):
+            CompatibleIncoming.fix_content(content=dictionary)
+        # TODO: translate short keys
+        #       'T' -> 'type'
+        #       'N' -> 'sn'
+        #       'W' -> 'time'
+        #       'G' -> 'group'
+        return Content.parse(content=dictionary)
+        # NOTICE: check attachment for File/Image/Audio/Video message content
+        #         after deserialize content, this job should be do in subclass
 
     #
     #   Interfaces for Transmitting Message
@@ -209,7 +217,7 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
             self.warning(msg='cycled message: %s => %s, %s' % (sender, msg.receiver, msg.group))
             # return None
         else:
-            self.debug(msg='send instant message message (type=%d): %s => %s, %s'
+            self.debug(msg='send instant message message (type=%s): %s => %s, %s'
                            % (msg.content.type, sender, msg.receiver, msg.group))
             # attach sender's document times
             # for the receiver to check whether user info synchronized

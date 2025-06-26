@@ -28,45 +28,85 @@
 # SOFTWARE.
 # ==============================================================================
 
-from dimsdk import ReliableMessage
-from dimsdk import FileContent
+from typing import Any, List, Dict
+
+from dimsdk import Converter
+from dimsdk import Document, DocumentUtils
+from dimsdk import ContentType
+from dimsdk import Content, FileContent, NameCard
 from dimsdk import Command, MetaCommand, DocumentCommand
 from dimsdk import ReceiptCommand
+from dimsdk import ReliableMessage
 
+from ..protocol import LoginCommand
 from ..protocol import ReportCommand
 
-from ..protocol import MetaType
+from ..protocol import MetaVersion
 
 
-#
-#  Compatible with old versions
-#
+"""
+    Compatible with old versions
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"""
+
+
+# TODO: remove after all server/client upgraded
 class Compatible:
 
     @classmethod
     def fix_meta_attachment(cls, msg: ReliableMessage):
-        return _fix_meta_attachment(msg=msg)
+        meta = msg.get('meta')
+        if meta is not None:
+            return _fix_meta_version(meta=meta)
 
     @classmethod
-    def fix_meta_version(cls, meta: dict):
-        return _fix_meta_version(meta=meta)
+    def fix_meta_version(cls, meta: Dict[str, Any]):
+        _fix_meta_version(meta=meta)
 
     @classmethod
-    def fix_file_content(cls, content: FileContent):
-        return _fix_file_content(content=content)
+    def fix_visa_attachment(cls, msg: ReliableMessage):
+        visa = msg.get('visa')
+        if visa is not None:
+            return _fix_doc_id(document=visa)
 
     @classmethod
-    def fix_command(cls, content: Command) -> Command:
-        return _fix_command(content=content)
+    def fix_document_id(cls, document: Dict[str, Any]):
+        _fix_doc_id(document=document)
 
 
-def _fix_meta_attachment(msg: ReliableMessage):
-    meta = msg.get('meta')
-    if meta is not None:
-        return _fix_meta_version(meta=meta)
+def _fix_cmd(content: Dict[str, Any]):
+    cmd = content.get('command')
+    if cmd is not None:
+        # command to cmd
+        if 'cmd' not in content:
+            content['cmd'] = cmd
+    else:
+        # cmd to command
+        cmd = content.get('cmd')
+        if cmd is not None:
+            content['command'] = cmd
 
 
-def _fix_meta_version(meta: dict):
+def _fix_did(content: Dict[str, Any]):
+    did = content.get('did')
+    if did is not None:
+        # did to ID
+        if 'ID' not in content:
+            content['ID'] = did
+    else:
+        # ID to did
+        did = content.get('ID')
+        if did is not None:
+            content['ID'] = did
+
+
+def _fix_doc_id(document: Dict[str, Any]):
+    # 'ID' <-> 'did
+    _fix_did(document)
+    return document
+
+
+def _fix_meta_version(meta: Dict[str, Any]):
     version = meta.get('type')
     if version is None:
         version = meta.get('version')  # compatible with MKM 0.9.*
@@ -75,14 +115,13 @@ def _fix_meta_version(meta: dict):
         if len(version) > 2:
             meta['algorithm'] = version
     # compatible with v1.0
-    version = MetaType.parse_int(version=version, default=0)
+    version = MetaVersion.parse_int(version=version, default=0)
     if version > 0:
         meta['type'] = version
         meta['version'] = version
-    return meta
 
 
-def _fix_file_content(content: FileContent):
+def _fix_file_content(content: Dict[str, Any]):
     pwd = content.get('key')
     if pwd is not None:
         # Tarsier version > 1.3.7
@@ -97,37 +136,144 @@ def _fix_file_content(content: FileContent):
     return content
 
 
-def _fix_command(content: Command) -> Command:
-    # 1. fix 'cmd'
-    content = _fix_cmd(content=content)
-    # 2. fix other commands
-    if isinstance(content, ReceiptCommand):
-        # receipt
-        _fix_receipt_command(content=content)
-    elif isinstance(content, ReportCommand):
-        # report
-        _fix_report_command(content=content)
-    elif isinstance(content, DocumentCommand):
-        # document
-        _fix_document_command(content=content)
-    elif isinstance(content, MetaCommand):
-        # meta
-        meta = content.get('meta')
-        if meta is not None:
-            _fix_meta_version(meta=meta)
-    # OK
-    return content
+# TODO: remove after all server/client upgraded
+class CompatibleIncoming:
 
+    @classmethod
+    def fix_content(cls, content: Dict[str, Any]):
+        # get content type
+        msg_type = content.get('type')
+        msg_type = Converter.get_str(value=msg_type, default='')
 
-def _fix_cmd(content: Command):
-    cmd = content.get('cmd')
-    if cmd is None:
+        if msg_type == ContentType.FILE or msg_type == 'file' or \
+                msg_type == ContentType.IMAGE or msg_type == 'image' or \
+                msg_type == ContentType.AUDIO or msg_type == 'audio' or \
+                msg_type == ContentType.VIDEO or msg_type == 'video':
+            # 1. 'key' <-> 'password'
+            _fix_file_content(content=content)
+            return
+
+        if msg_type == ContentType.NAME_CARD or msg_type == 'card':
+            # 1. 'ID' <-> 'did'
+            _fix_did(content=content)
+            return
+
+        if msg_type == ContentType.COMMAND or msg_type == 'command':
+            # 1. 'cmd' <-> 'command'
+            _fix_cmd(content=content)
+        #
+        #  get command name
+        #
         cmd = content.get('command')
-        content['cmd'] = cmd
-    elif 'command' not in content:
-        content['command'] = cmd
-        content = Command.parse(content=content.dictionary)
-    return content
+        # cmd = Converter.get_str(value=cmd, default=None)
+        if cmd is None or len(cmd) == 0:
+            return
+
+        # if cmd == Command.RECEIPT:
+        #     pass
+
+        if cmd == LoginCommand.LOGIN:
+            # 2. 'ID' <-> 'did'
+            _fix_doc_id(content)
+            return
+
+        if cmd == Command.DOCUMENTS or cmd == 'document':
+            # 2. 'cmd: 'document' -> 'documents'
+            cls._fix_docs(content=content)
+        if cmd == Command.META or cmd == Command.DOCUMENTS or cmd == 'document':
+            # 3. 'ID' <-> 'did'
+            _fix_did(content=content)
+            meta = content.get('meta')
+            if meta is not None:
+                # 4. 'type' <-> 'version'
+                _fix_meta_version(meta=meta)
+
+    @classmethod
+    def _fix_docs(cls, content: Dict[str, Any]):
+        # cmd: 'document' -> 'documents'
+        cmd = content.get('command')
+        if cmd == 'document':
+            content['command'] = 'documents'
+        # 'document' -> 'documents'
+        doc = content.get('document')
+        if doc is not None:
+            content['documents'] = [_fix_did(doc)]
+            content.pop('document', None)
+
+
+# TODO: remove after all server/client upgraded
+class CompatibleOutgoing:
+
+    @classmethod
+    def fix_content(cls, content: Content):
+        # 0. change 'type' value from string to int
+        cls._fix_type(content=content.dictionary)
+
+        if isinstance(content, FileContent):
+            # 1. 'key' <-> 'password'
+            _fix_file_content(content=content.dictionary)
+            return
+
+        if isinstance(content, NameCard):
+            # 1. 'ID' <-> 'did'
+            _fix_did(content=content.dictionary)
+            return
+
+        if isinstance(content, Command):
+            # 1. 'cmd' <-> 'command'
+            _fix_cmd(content=content.dictionary)
+
+        if isinstance(content, ReceiptCommand):
+            # 2. check for v2.0
+            _fix_receipt_command(content=content)
+            return
+
+        if isinstance(content, LoginCommand):
+            # 2. 'ID' <-> 'did'
+            _fix_did(content=content.dictionary)
+            return
+
+        if isinstance(content, ReportCommand):
+            _fix_report_command(content=content)
+            return
+
+        if isinstance(content, DocumentCommand):
+            # 2. 'profile' -> 'document'
+            _fix_document_command(content=content)
+            # 3. cmd: 'documents' -> 'document
+            cls._fix_docs(content=content)
+        if isinstance(content, MetaCommand):
+            # 4. 'ID' <-> 'did'
+            _fix_did(content=content.dictionary)
+            meta = content.get('meta')
+            if meta is not None:
+                # 5. 'type' <-> 'version'
+                _fix_meta_version(meta=meta)
+
+    @classmethod
+    def _fix_type(cls, content: Dict[str, Any]):
+        msg_type = content.get('type')
+        if isinstance(msg_type, str):
+            num_type = Converter.get_int(value=msg_type, default=-1)
+            if num_type is not None and num_type >= 0:
+                content['type'] = num_type
+
+    @classmethod
+    def _fix_docs(cls, content: DocumentCommand):
+        # cmd: 'documents' -> 'document'
+        cmd = content.cmd
+        if cmd == 'documents':
+            content['cmd'] = 'document'
+            content['command'] = 'document'
+        # 'documents' -> 'document'
+        array = content.get('documents')
+        if isinstance(array, List):
+            docs = Document.convert(array)
+            last = DocumentUtils.last_document(documents=docs)
+            if last is not None:
+                content['document'] = _fix_doc_id(last.dictionary)
+            if len(docs) == 1:
+                content.pop('documents', None)
 
 
 def _copy_receipt_values(content: ReceiptCommand, env: dict):
@@ -171,7 +317,6 @@ def _fix_receipt_command(content: ReceiptCommand):
         return content
 
 
-# TODO: remove after all server/client upgraded
 def _fix_document_command(content: DocumentCommand):
     info = content.get('document')
     if info is not None:

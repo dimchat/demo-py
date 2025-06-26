@@ -60,6 +60,7 @@ from .checker import RecentTimeChecker
 
 from .log import Log, Logging
 from .cache import CachePool, SharedCacheManager
+from .thanos import MemoryCache, ThanosCache
 
 from .http import HttpSession, HttpClient
 
@@ -136,6 +137,7 @@ __all__ = [
     'Log', 'Logging',
     'Path', 'File', 'TextFile', 'JSONFile',
     'CachePool', 'SharedCacheManager',
+    'MemoryCache', 'ThanosCache',
 
     'HttpSession', 'HttpClient',
 

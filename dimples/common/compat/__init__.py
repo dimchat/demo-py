@@ -41,7 +41,7 @@ from .meta import CompatibleMetaFactory
 from .loader import CommonLoader
 from .loader import CommonPluginLoader
 
-from .compatible import Compatible
+from .compatible import Compatible, CompatibleIncoming, CompatibleOutgoing
 
 
 __all__ = [
@@ -59,6 +59,6 @@ __all__ = [
     'CommonLoader',
     'CommonPluginLoader',
 
-    'Compatible',
+    'Compatible', 'CompatibleIncoming', 'CompatibleOutgoing',
 
 ]

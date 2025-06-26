@@ -30,8 +30,6 @@
 
 from typing import Optional
 
-from dimsdk import VerifyKey
-from dimsdk import TransportableData
 from dimsdk import Meta
 from dimsdk.plugins import SharedAccountExtensions
 from dimplugins import DefaultMeta, BTCMeta, ETHMeta
@@ -42,24 +40,6 @@ class CompatibleMetaFactory(BaseMetaFactory):
 
     def __init__(self, version: str):
         super().__init__(version=version)
-
-    # Override
-    def create_meta(self, public_key: VerifyKey, seed: Optional[str], fingerprint: Optional[TransportableData]) -> Meta:
-        version = self.type
-        if version == Meta.MKM:
-            # MKM
-            out = DefaultMeta(version='1', public_key=public_key, seed=seed, fingerprint=fingerprint)
-        elif version == Meta.BTC:
-            # BTC
-            out = BTCMeta(version='2', public_key=public_key)
-        elif version == Meta.ETH:
-            # ETH
-            out = ETHMeta(version='4', public_key=public_key)
-        else:
-            # TODO: other types of meta
-            raise TypeError('unknown meta type: %d' % version)
-        assert out.valid, 'meta error: %s' % out
-        return out
 
     # Override
     def parse_meta(self, meta: dict) -> Optional[Meta]:

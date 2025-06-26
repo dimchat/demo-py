@@ -119,7 +119,7 @@ class AdminManager(TripletsHelper):
         #
         group = document.identifier
         meta = await facebook.get_meta(identifier=group)
-        content = DocumentCommand.response(identifier=group, meta=meta, document=document)
+        content = DocumentCommand.response(identifier=group, meta=meta, documents=[document])
         await messenger.send_content(sender=me, receiver=Station.ANY, content=content, priority=1)
         #
         #   2. check group bots

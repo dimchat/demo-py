@@ -25,6 +25,7 @@
 
 from dimsdk import ID, Address, Meta
 from dimsdk import ContentType
+from dimsdk import MetaType
 from dimsdk.plugins import ExtensionLoader
 from dimplugins import PluginLoader
 
@@ -59,8 +60,8 @@ class CommonLoader(ExtensionLoader):
         self.__plugins.run()
 
     def _register_customized_factories(self):
-        self._set_content_factory(msg_type=ContentType.APPLICATION, content_class=AppCustomizedContent)
-        self._set_content_factory(msg_type=ContentType.CUSTOMIZED, content_class=AppCustomizedContent)
+        self._set_content_factory(ContentType.APPLICATION, alias='application', content_class=AppCustomizedContent)
+        self._set_content_factory(ContentType.CUSTOMIZED, alias='customized', content_class=AppCustomizedContent)
 
     # Override
     def _register_content_factories(self):
@@ -100,9 +101,9 @@ class CommonPluginLoader(PluginLoader):
 
     # Override
     def _register_meta_factories(self):
-        mkm = CompatibleMetaFactory(version=Meta.MKM)
-        btc = CompatibleMetaFactory(version=Meta.BTC)
-        eth = CompatibleMetaFactory(version=Meta.ETH)
+        mkm = CompatibleMetaFactory(version=MetaType.MKM)
+        btc = CompatibleMetaFactory(version=MetaType.BTC)
+        eth = CompatibleMetaFactory(version=MetaType.ETH)
         Meta.set_factory(version='1', factory=mkm)
         Meta.set_factory(version='2', factory=btc)
         Meta.set_factory(version='4', factory=eth)

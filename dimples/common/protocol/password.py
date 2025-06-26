@@ -26,6 +26,7 @@
 from dimsdk import utf8_encode, base64_encode
 from dimsdk import sha256
 from dimsdk import SymmetricKey
+from dimsdk import SymmetricAlgorithms
 from dimplugins import PlainKey
 
 
@@ -53,7 +54,7 @@ class Password:
         # pos = len(digest) - cls.BLOCK_SIZE
         # iv = digest[pos:]
         info = {
-            'algorithm': SymmetricKey.AES,
+            'algorithm': SymmetricAlgorithms.AES,
             'data': base64_encode(data=data),
             # 'iv': base64_encode(iv),
         }
@@ -64,6 +65,6 @@ class Password:
         ~~~~~~~~~
     """
 
-    PLAIN = PlainKey.PLAIN
+    PLAIN = SymmetricAlgorithms.PLAIN
 
     kPlainKey = PlainKey()

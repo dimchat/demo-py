@@ -120,7 +120,7 @@ class GroupManager(TripletsHelper):
         meta = await self.delegate.get_meta(identifier=group)
         doc = await self.delegate.get_bulletin(group)
         if doc is not None:
-            content = DocumentCommand.response(identifier=group, meta=meta, document=doc)
+            content = DocumentCommand.response(identifier=group, meta=meta, documents=[doc])
         elif meta is not None:
             content = MetaCommand.response(identifier=group, meta=meta)
         else:

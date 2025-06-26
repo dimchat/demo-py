@@ -31,26 +31,26 @@
 import weakref
 from typing import List, Optional
 
-from dimsdk import VerifyKey, EncryptKey
-from dimsdk import ID, EntityType
-from dimsdk import User, BaseUser, Station, Bot
-from dimsdk import Group, BaseGroup, ServiceProvider
+from dimsdk import ID
+from dimsdk import User, Group
 from dimsdk import Facebook
-from dimsdk import Archivist
-from dimsdk import DocumentUtils
+from dimsdk import Barrack
 
 from ..utils import Logging
+from ..utils import ThanosCache
 
 from .dbi import AccountDBI
 
 
-class CommonArchivist(Archivist, Logging):
+class CommonArchivist(Barrack, Logging):
 
     def __init__(self, facebook: Facebook, database: AccountDBI):
         super().__init__()
         self.__barrack = weakref.ref(facebook)
         self.__database = database
-        self.__current: Optional[User] = None
+        # memory caches
+        self.__user_cache = ThanosCache()   # ID -> User
+        self.__group_cache = ThanosCache()  # ID -> Group
 
     @property
     def facebook(self) -> Optional[Facebook]:
@@ -60,82 +60,47 @@ class CommonArchivist(Archivist, Logging):
     def database(self) -> AccountDBI:
         return self.__database
 
-    @property
-    def current_user(self) -> Optional[User]:
-        return self.__current
+    def reduce_memory(self):
+        cnt1 = self.__user_cache.reduce_memory()
+        cnt2 = self.__group_cache.reduce_memory()
+        return cnt1 + cnt2
 
-    @current_user.setter
-    def current_user(self, user: User):
-        self.__current = user
-
-    # Override
-    async def create_user(self, identifier: ID) -> Optional[User]:
-        assert identifier.is_user, 'user ID error: %s' % identifier
-        # check visa key
-        if not identifier.is_broadcast:
-            key = await self.facebook.public_key_for_encryption(identifier=identifier)
-            if key is None:
-                # assert False, 'visa.key not found: %s' % identifier
-                return None
-            # NOTICE: if visa.key exists, then visa & meta must exist too.
-        network = identifier.type
-        # check user type
-        if network == EntityType.STATION:
-            return Station(identifier=identifier)
-        elif network == EntityType.BOT:
-            return Bot(identifier=identifier)
-        # general user, or 'anyone@anywhere'
-        return BaseUser(identifier=identifier)
+    #
+    #   Barrack
+    #
 
     # Override
-    async def create_group(self, identifier: ID) -> Optional[Group]:
-        assert identifier.is_group, 'group ID error: %s' % identifier
-        # check members
-        if not identifier.is_broadcast:
-            members = await self.facebook.get_members(identifier=identifier)
-            if members is None or len(members) == 0:
-                # assert False, 'group members not found: %s' % identifier
-                return None
-            # NOTICE: if members exist, then owner (founder) must exist,
-            #         and bulletin & meta must exist too.
-        network = identifier.type
-        # check group type
-        if network == EntityType.ISP:
-            return ServiceProvider(identifier=identifier)
-        # general group, or 'everyone@everhwhere'
-        return BaseGroup(identifier=identifier)
+    def cache_user(self, user: User):
+        if user.data_source is None:
+            user.data_source = self.facebook
+        self.__user_cache.put(key=user.identifier, value=user)
 
     # Override
-    async def get_meta_key(self, identifier: ID) -> Optional[VerifyKey]:
-        meta = await self.facebook.get_meta(identifier=identifier)
-        if meta is not None:
-            return meta.public_key
+    def cache_group(self, group: Group):
+        if group.data_source is None:
+            group.data_source = self.facebook
+        self.__group_cache.put(key=group.identifier, value=group)
 
     # Override
-    async def get_visa_key(self, identifier: ID) -> Optional[EncryptKey]:
-        docs = await self.facebook.get_documents(identifier=identifier)
-        if docs is not None:
-            visa = DocumentUtils.last_visa(documents=docs)
-            if visa is not None:
-                return visa.public_key
+    def get_user(self, identifier: ID):
+        return self.__user_cache.get(key=identifier)
+
+    # Override
+    def get_group(self, identifier: ID):
+        return self.__group_cache.get(key=identifier)
 
     @property  # Override
     async def local_users(self) -> List[User]:
-        all_users = []
         facebook = self.facebook
         array = await self.database.get_local_users()
-        if facebook is not None and array is not None:
-            for item in array:
-                # assert await facebook.private_key_for_signature(identifier=item) is not None
-                user = await facebook.get_user(identifier=item)
-                if user is not None:
-                    all_users.append(user)
-                else:
-                    assert False, 'failed to create user: %s' % item
-        if len(all_users) == 0:
-            current = self.__current
-            if current is not None:
-                all_users.append(current)
+        if facebook is None or array is None:
+            return []
+        all_users = []
+        for item in array:
+            # assert await facebook.private_key_for_signature(identifier=item) is not None
+            user = await facebook.get_user(identifier=item)
+            if user is not None:
+                all_users.append(user)
             else:
-                self.error(msg='failed to get local users')
+                assert False, 'failed to create user: %s' % item
         return all_users

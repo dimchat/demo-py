@@ -23,7 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from .version import MetaType
+from .version import MetaVersion
 from .password import Password
 from .utils import BroadcastUtils
 
@@ -44,7 +44,7 @@ from .customized import CustomizedContent, AppCustomizedContent
 
 __all__ = [
 
-    'MetaType',
+    'MetaVersion',
     'Password',
     'BroadcastUtils',
 

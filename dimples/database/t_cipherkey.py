@@ -28,6 +28,7 @@ from typing import Optional
 
 from dimsdk import DateTime
 from dimsdk import ID, SymmetricKey
+from dimsdk import SymmetricAlgorithms
 
 from ..utils import Config
 from ..utils import SharedCacheManager
@@ -78,7 +79,7 @@ class CipherKeyTable(CipherKeyDBI):
             pwd, _ = cache_pool.fetch(key=direction, now=now)
             if pwd is None and generate:
                 # generate and cache it
-                pwd = SymmetricKey.generate(algorithm=SymmetricKey.AES)
+                pwd = SymmetricKey.generate(algorithm=SymmetricAlgorithms.AES)
                 assert pwd is not None, 'failed to generate symmetric key'
                 cache_pool.update(key=direction, value=pwd, life_span=self.CACHE_EXPIRES, now=now)
         #

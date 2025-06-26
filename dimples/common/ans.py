@@ -30,11 +30,68 @@
     A map for short name to ID, just like DNS
 """
 
+from abc import ABC, abstractmethod
 from typing import Optional, List, Dict
 
 from dimsdk import Address, ID, IDFactory
 from dimsdk import ANYONE, EVERYONE, FOUNDER
-from dimsdk import AddressNameService
+
+
+class AddressNameService(ABC):
+
+    #
+    #   Reserved names
+    #
+    KEYWORDS = [
+        "all", "everyone", "anyone", "owner", "founder",
+        # --------------------------------
+        "dkd", "mkm", "dimp", "dim", "dimt",
+        "rsa", "ecc", "aes", "des", "btc", "eth",
+        # --------------------------------
+        "crypto", "key", "symmetric", "asymmetric",
+        "public", "private", "secret", "password",
+        "id", "address", "meta",
+        "tai", "document", "profile", "visa", "bulletin",
+        "entity", "user", "group", "contact",
+        # --------------------------------
+        "member", "admin", "administrator", "assistant",
+        "main", "polylogue", "chatroom",
+        "social", "organization",
+        "company", "school", "government", "department",
+        "provider", "station", "thing", "bot", "robot",
+        # --------------------------------
+        "message", "instant", "secure", "reliable",
+        "envelope", "sender", "receiver", "time",
+        "content", "forward", "command", "history",
+        "keys", "data", "signature",
+        # --------------------------------
+        "type", "serial", "sn",
+        "text", "file", "image", "audio", "video", "page",
+        "handshake", "receipt", "block", "mute",
+        "register", "suicide", "found", "abdicate",
+        "invite", "expel", "join", "quit", "reset", "query",
+        "hire", "fire", "resign",
+        # --------------------------------
+        "server", "client", "terminal", "local", "remote",
+        "barrack", "cache", "transceiver",
+        "ans", "facebook", "store", "messenger",
+        "root", "supervisor",
+    ]
+
+    @abstractmethod
+    def is_reserved(self, name: str) -> bool:
+        # return name in self.KEYWORDS
+        raise NotImplemented
+
+    @abstractmethod
+    def identifier(self, name: str) -> Optional[ID]:
+        """ Get ID by short name """
+        raise NotImplemented
+
+    @abstractmethod
+    def names(self, identifier: ID) -> List[str]:
+        """ Get all short names mapping to the same ID """
+        raise NotImplemented
 
 
 class AddressNameServer(AddressNameService):

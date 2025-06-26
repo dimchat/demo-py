@@ -30,13 +30,14 @@
 
 from typing import Optional
 
-from dimsdk.core import thanos
 from dimsdk import EntityType
 from dimsdk import ID, Identifier
 from dimsdk import ANYONE, EVERYONE, FOUNDER
 from dimsdk import Address
 
 from dimplugins import GeneralIdentifierFactory
+
+from ...utils.thanos import thanos
 
 from .network import network_to_type
 

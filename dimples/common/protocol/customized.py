@@ -94,14 +94,14 @@ class AppCustomizedContent(BaseContent, CustomizedContent):
     """
 
     def __init__(self, content: Dict[str, Any] = None,
-                 msg_type: int = None,
+                 msg_type: str = None,
                  app: str = None, mod: str = None, act: str = None):
         if content is None:
             # 1. new content with type, application, module & action
             assert app is not None and mod is not None and act is not None, \
                 'customized content error: %s, %s, %s, %s' % (msg_type, app, mod, act)
             if msg_type is None:
-                msg_type = ContentType.CUSTOMIZED.value
+                msg_type = ContentType.CUSTOMIZED
             super().__init__(None, msg_type)
             self['app'] = app
             self['mod'] = mod

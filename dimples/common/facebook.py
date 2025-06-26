@@ -39,11 +39,13 @@ from abc import ABC, abstractmethod
 from typing import Optional, List
 
 from dimsdk import DateTime
+from dimsdk import VerifyKey, EncryptKey
 from dimsdk import SignKey, DecryptKey
 from dimsdk import ID, User
 from dimsdk import Meta, Document, Visa, Bulletin
 from dimsdk import Facebook
 from dimsdk import MetaUtils, DocumentUtils
+from dimsdk import DocumentType
 
 from ..utils import Logging
 from ..utils import Runner
@@ -61,20 +63,21 @@ class CommonFacebook(Facebook, Logging, ABC):
     def __init__(self, database: AccountDBI):
         super().__init__()
         self.__database = database
-        self.__archivist: Optional[CommonArchivist] = None
+        self.__barrack: Optional[CommonArchivist] = None
         self.__checker: Optional[EntityChecker] = None
+        self.__current: Optional[User] = None
 
     @property
     def database(self) -> AccountDBI:
         return self.__database
 
     @property  # Override
-    def archivist(self) -> CommonArchivist:
-        return self.__archivist
+    def barrack(self) -> CommonArchivist:
+        return self.__barrack
 
-    @archivist.setter
-    def archivist(self, delegate: CommonArchivist):
-        self.__archivist = delegate
+    @barrack.setter
+    def barrack(self, archivist: CommonArchivist):
+        self.__barrack = archivist
 
     @property
     def checker(self) -> Optional[EntityChecker]:
@@ -91,19 +94,30 @@ class CommonFacebook(Facebook, Logging, ABC):
     @property
     async def current_user(self) -> Optional[User]:
         """ Get current user (for signing and sending message) """
-        archivist = self.archivist
-        user = archivist.current_user
+        user = self.__current
         if user is None:
-            all_users = await archivist.local_users
+            all_users = await self.barrack.local_users
             if len(all_users) > 0:
                 user = all_users[0]
-                archivist.current_user = user
+                self.__current = user
         return user
 
     async def set_current_user(self, user: User):
         if user.data_source is None:
             user.data_source = self
-        self.archivist.current_user = user
+        self.__current = user
+
+    # Override
+    async def select_user(self, receiver: ID) -> Optional[User]:
+        user = self.__current
+        if user is not None:
+            if receiver.is_broadcast:
+                # broadcast message can decrypt by anyone, so
+                # just return current user
+                return user
+            elif user.identifier == receiver:
+                return user
+        return await super().select_user(receiver=receiver)
 
     #
     #   Documents
@@ -113,8 +127,8 @@ class CommonFacebook(Facebook, Logging, ABC):
         all_documents = await self.get_documents(identifier=identifier)
         doc = DocumentUtils.last_document(all_documents, doc_type)
         # compatible for document type
-        if doc is None and doc_type == Document.VISA:
-            doc = DocumentUtils.last_document(all_documents, Document.PROFILE)
+        if doc is None and doc_type == DocumentType.VISA:
+            doc = DocumentUtils.last_document(all_documents, DocumentType.PROFILE)
         return doc
 
     async def get_visa(self, user: ID) -> Optional[Visa]:
@@ -127,9 +141,9 @@ class CommonFacebook(Facebook, Logging, ABC):
 
     async def get_name(self, identifier: ID) -> str:
         if identifier.is_user:
-            doc_type = Document.VISA
+            doc_type = DocumentType.VISA
         elif identifier.is_group:
-            doc_type = Document.BULLETIN
+            doc_type = DocumentType.BULLETIN
         else:
             doc_type = '*'
         # get name from document
@@ -221,13 +235,27 @@ class CommonFacebook(Facebook, Logging, ABC):
 
     async def _check_document_expired(self, document: Document) -> bool:
         identifier = document.identifier
-        doc_type = document.type
+        doc_type = DocumentUtils.get_document_type(document=document)
         if doc_type is None:
             doc_type = '*'
         # check old documents with type
         docs = await self.get_documents(identifier=identifier)
         old = DocumentUtils.last_document(documents=docs, doc_type=doc_type)
         return old is not None and DocumentUtils.is_expired(document, old)
+
+    # Override
+    async def get_meta_key(self, identifier: ID) -> Optional[VerifyKey]:
+        meta = await self.get_meta(identifier=identifier)
+        if meta is not None:  # and meta.valid:
+            return meta.public_key
+
+    # Override
+    async def get_visa_key(self, identifier: ID) -> Optional[EncryptKey]:
+        docs = await self.get_documents(identifier=identifier)
+        if docs is not None:
+            visa = DocumentUtils.last_visa(documents=docs)
+            if visa is not None:  # and visa.valid:
+                return visa.public_key
 
     #
     #   Entity DataSource

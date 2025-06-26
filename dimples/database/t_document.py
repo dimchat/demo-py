@@ -29,6 +29,7 @@ from typing import Optional, List
 from aiou.mem import CachePool
 
 from dimsdk import ID, Document
+from dimsdk import DocumentUtils
 
 from ..utils import Config
 from ..common import DocumentDBI
@@ -78,7 +79,7 @@ class DocTask(DbTask[ID, List[Document]]):
             # return False
         else:
             identifier = new_doc.identifier
-            doc_type = new_doc.type
+            doc_type = DocumentUtils.get_document_type(document=new_doc)
         #
         #   0. check old documents
         #

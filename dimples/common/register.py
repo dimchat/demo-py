@@ -33,9 +33,11 @@ from typing import Optional
 
 from dimsdk import PortableNetworkFile
 from dimsdk import EncryptKey, SignKey
-from dimsdk import AsymmetricKey, PrivateKey
+from dimsdk import PrivateKey
+from dimsdk import AsymmetricAlgorithms
+
 from dimsdk import EntityType, ID
-from dimsdk import Meta
+from dimsdk import Meta, MetaType
 from dimsdk import Visa, BaseVisa
 from dimsdk import Bulletin, BaseBulletin
 
@@ -63,11 +65,11 @@ class Register:
         #
         #   Step 1. generate private key (with asymmetric algorithm)
         #
-        id_key = PrivateKey.generate(algorithm=AsymmetricKey.ECC)
+        id_key = PrivateKey.generate(algorithm=AsymmetricAlgorithms.ECC)
         #
         #   Step 2: generate meta with private key (and meta seed)
         #
-        meta = Meta.generate(version=Meta.ETH, private_key=id_key)
+        meta = Meta.generate(version=MetaType.ETH, private_key=id_key)
         #
         #   Step 3: generate ID with meta
         #
@@ -75,7 +77,7 @@ class Register:
         #
         #   Step 4: generate visa with ID and sign with private key
         #
-        msg_key = PrivateKey.generate(algorithm=AsymmetricKey.RSA)
+        msg_key = PrivateKey.generate(algorithm=AsymmetricAlgorithms.RSA)
         visa_key = msg_key.public_key
         visa = self._create_visa(user=identifier, visa_key=visa_key, private_key=id_key, name=name, avatar=avatar)
         #
@@ -109,7 +111,7 @@ class Register:
         #
         #   Step 2: generate meta with private key (and meta seed)
         #
-        meta = Meta.generate(version=Meta.MKM, private_key=private_key, seed=seed)
+        meta = Meta.generate(version=MetaType.MKM, private_key=private_key, seed=seed)
         #
         #   Step 3: generate ID with meta
         #

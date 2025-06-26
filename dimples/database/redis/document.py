@@ -30,6 +30,8 @@ from dimsdk import ID, Document
 from ...utils import utf8_encode, utf8_decode, json_encode, json_decode
 from ..dos.document import parse_document
 
+from ...common.compat import Compatible
+
 from .base import RedisCache
 
 
@@ -79,10 +81,12 @@ class DocumentCache(RedisCache):
         info = json_decode(string=js)
         if isinstance(info, List):
             for item in info:
+                Compatible.fix_document_id(document=item)
                 doc = parse_document(dictionary=item, identifier=identifier)
                 if doc is not None:
                     array.append(doc)
         elif isinstance(info, Dict):
+            Compatible.fix_document_id(document=info)
             doc = parse_document(dictionary=info, identifier=identifier)
             if doc is not None:
                 array.append(doc)

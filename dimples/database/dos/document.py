@@ -29,6 +29,7 @@ from dimsdk import TransportableData
 from dimsdk import ID, Document
 
 from ...utils import template_replace
+from ...common.compat import Compatible
 
 from .base import Storage
 
@@ -70,6 +71,7 @@ class DocumentStorage(Storage):
             return None
         documents = []
         for info in array:
+            Compatible.fix_document_id(document=info)
             doc = parse_document(dictionary=info, identifier=identifier)
             if doc is not None:
                 documents.append(doc)

@@ -34,7 +34,7 @@ from typing import Any
 from ...utils import Log
 
 
-class MetaType(IntEnum):
+class MetaVersion(IntEnum):
     """
         @enum MKMMetaVersion
 
@@ -60,19 +60,19 @@ class MetaType(IntEnum):
             ...
     """
     DEFAULT = 0x01
-    MKM = 0x01    # 0000 0001
+    MKM = 0x01    # 0000 0001: username@address
 
-    BTC = 0x02    # 0000 0010
-    ExBTC = 0x03  # 0000 0011
+    BTC = 0x02    # 0000 0010: btc_address
+    ExBTC = 0x03  # 0000 0011: username@btc_address
 
-    ETH = 0x04    # 0000 0100
-    ExETH = 0x05  # 0000 0101
+    ETH = 0x04    # 0000 0100: eth_address
+    ExETH = 0x05  # 0000 0101: username@eth_address
 
     @classmethod
     def parse_str(cls, version: Any) -> str:
         if isinstance(version, str):
             return version
-        elif isinstance(version, MetaType):
+        elif isinstance(version, MetaVersion):
             version = version.value
         return str(version)
 
@@ -103,7 +103,7 @@ class MetaType(IntEnum):
             elif version == 'ExETH':
                 return cls.ExETH.value
             # TODO: other algorithms
-        elif isinstance(version, MetaType):
+        elif isinstance(version, MetaVersion):
             # enum
             return version.value
         else:

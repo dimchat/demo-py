@@ -30,12 +30,13 @@
 
 from typing import Optional
 
-from dimsdk.core import thanos
 from dimsdk import ConstantString
 from dimsdk import EntityType
 from dimsdk import Address, ANYWHERE, EVERYWHERE
 from dimplugins import BTCAddress, ETHAddress
 from dimplugins import BaseAddressFactory
+
+from ...utils.thanos import thanos
 
 
 class CompatibleAddressFactory(BaseAddressFactory):

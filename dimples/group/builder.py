@@ -115,7 +115,7 @@ class GroupHistoryBuilder(TripletsHelper):
             return None, None
         me = user.identifier
         meta = await self.delegate.get_meta(identifier=group)
-        cmd = DocumentCommand.response(identifier=group, meta=meta, document=doc)
+        cmd = DocumentCommand.response(identifier=group, meta=meta, documents=[doc])
         msg = await self.__pack_broadcast_message(sender=me, content=cmd)
         return doc, msg
 
