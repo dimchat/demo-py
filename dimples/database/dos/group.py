@@ -95,7 +95,7 @@ class GroupStorage(Storage, GroupDBI):
         """ save members into file """
         path = self.__members_path(identifier=group)
         self.info(msg='Saving members into: %s' % path)
-        return await self.write_json(container=ID.revert(array=members), path=path)
+        return await self.write_json(container=ID.revert(identifiers=members), path=path)
 
     # Override
     async def get_assistants(self, group: ID) -> List[ID]:
@@ -113,7 +113,7 @@ class GroupStorage(Storage, GroupDBI):
         """ save assistants into file """
         path = self.__assistants_path(identifier=group)
         self.info(msg='Saving assistants into: %s' % path)
-        return await self.write_json(container=ID.revert(array=assistants), path=path)
+        return await self.write_json(container=ID.revert(identifiers=assistants), path=path)
 
     # Override
     async def get_administrators(self, group: ID) -> List[ID]:
@@ -131,4 +131,4 @@ class GroupStorage(Storage, GroupDBI):
         """ save administrators into file """
         path = self.__administrators_path(identifier=group)
         self.info(msg='Saving administrators into: %s' % path)
-        return await self.write_json(container=ID.revert(array=administrators), path=path)
+        return await self.write_json(container=ID.revert(identifiers=administrators), path=path)

@@ -90,7 +90,7 @@ class ClientMessagePacker(CommonMessagePacker):
         error = {
             'message': 'encrypt keys not found',
             'group': str(receiver),
-            'members': ID.revert(array=waiting),
+            'members': ID.revert(identifiers=waiting),
         }
         self.messenger.suspend_instant_message(msg=msg, error=error)
         # perhaps some members have already disappeared,

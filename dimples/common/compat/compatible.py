@@ -268,7 +268,7 @@ class CompatibleOutgoing:
         # 'documents' -> 'document'
         array = content.get('documents')
         if isinstance(array, List):
-            docs = Document.convert(array)
+            docs = Document.convert(array=array)
             last = DocumentUtils.last_document(documents=docs)
             if last is not None:
                 content['document'] = _fix_doc_id(last.dictionary)

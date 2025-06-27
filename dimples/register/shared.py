@@ -164,7 +164,7 @@ async def generate(database: AccountDBI):
     #
     #   Step 2. edit & save
     #
-    await account.update()
+    await account.update_document()
     account.show_info()
 
 
@@ -187,5 +187,5 @@ async def modify(identifier: ID, database: AccountDBI):
     #
     #   Step 2. edit & save
     #
-    await account.update()
+    await account.update_document()
     account.show_info()

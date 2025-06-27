@@ -88,7 +88,7 @@ class GroupAccount(BaseAccount):
         return doc
 
     # Override
-    async def update(self, exists: bool = False) -> Optional[Document]:
+    async def update_document(self, exists: bool = False) -> Optional[Document]:
         doc = self.edit()
         assert isinstance(doc, Bulletin), 'failed to edit bulletin: %s' % doc
         # check founder & sign
@@ -178,7 +178,7 @@ class UserAccount(BaseAccount):
         return doc
 
     # Override
-    async def update(self, exists: bool = False) -> Optional[Document]:
+    async def update_document(self, exists: bool = False) -> Optional[Document]:
         doc = self.edit()
         assert isinstance(doc, Visa), 'failed to edit visa: %s' % doc
         # update visa.key and sign

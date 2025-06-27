@@ -23,6 +23,11 @@
 # SOFTWARE.
 # ==============================================================================
 
+from typing import Optional, Any
+
+from mkm.types import Converter, DataConverter
+from mkm.types import DateTime
+
 from dimsdk import ID, Address, Meta
 from dimsdk import ContentType
 from dimsdk import MetaType
@@ -89,6 +94,11 @@ class CommonPluginLoader(PluginLoader):
     """ Plugin Loader """
 
     # Override
+    def _load(self):
+        Converter.converter = SafeConverter()
+        super()._load()
+
+    # Override
     def _register_id_factory(self):
         ans = AddressNameServer()
         factory = EntityIDFactory()
@@ -113,3 +123,38 @@ class CommonPluginLoader(PluginLoader):
         Meta.set_factory(version='MKM', factory=mkm)
         Meta.set_factory(version='BTC', factory=btc)
         Meta.set_factory(version='ETH', factory=eth)
+
+
+class SafeConverter(DataConverter):
+
+    # Override
+    def get_bool(self, value: Any, default: Optional[bool]) -> Optional[bool]:
+        try:
+            return super().get_bool(value=value, default=default)
+        except ValueError:
+            # return default
+            pass
+
+    # Override
+    def get_int(self, value: Any, default: Optional[int]) -> Optional[int]:
+        try:
+            return super().get_int(value=value, default=default)
+        except ValueError:
+            # return default
+            pass
+
+    # Override
+    def get_float(self, value: Any, default: Optional[float]) -> Optional[float]:
+        try:
+            return super().get_float(value=value, default=default)
+        except ValueError:
+            # return default
+            pass
+
+    # Override
+    def get_datetime(self, value: Any, default: Optional[DateTime]) -> Optional[DateTime]:
+        try:
+            return super().get_datetime(value=value, default=default)
+        except ValueError:
+            # return default
+            pass

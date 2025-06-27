@@ -117,7 +117,7 @@ class InviteCommandProcessor(GroupCommandProcessor):
             #        if we received the 'invite' command here, maybe it was confused,
             #        anyway, we just append the new members directly.
             self.warning(msg='invited by administrator: %s, group: %s' % (sender, group))
-            content['added'] = ID.revert(added_list)
+            content['added'] = ID.revert(identifiers=added_list)
         else:
             # DB error?
             assert False, 'failed to save members for group: %s' % group

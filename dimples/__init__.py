@@ -109,6 +109,12 @@ __all__ = [
     'BaseFileWrapper',
 
     #
+    #   Algorithm
+    #
+    'AsymmetricAlgorithms', 'SymmetricAlgorithms',
+    'EncodeAlgorithms',
+
+    #
     #   MingKeMing
     #
 
@@ -117,6 +123,8 @@ __all__ = [
     'ID',
     'Meta',
     'Document', 'Visa', 'Bulletin',
+
+    'MetaType', 'DocumentType',
 
     'AddressFactory',
     'IDFactory',

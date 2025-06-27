@@ -64,7 +64,7 @@ class GroupCache(RedisCache):
             return ID.convert(array=text.splitlines())
 
     async def save_members(self, members: List[ID], group: ID) -> bool:
-        users = ID.revert(array=members)
+        users = ID.revert(identifiers=members)
         text = '\n'.join(users)
         value = utf8_encode(string=text)
         key = self.__members_cache_name(identifier=group)
@@ -88,7 +88,7 @@ class GroupCache(RedisCache):
             return ID.convert(array=text.splitlines())
 
     async def save_administrators(self, administrators: List[ID], group: ID) -> bool:
-        users = ID.revert(array=administrators)
+        users = ID.revert(identifiers=administrators)
         text = '\n'.join(users)
         value = utf8_encode(string=text)
         key = self.__administrators_cache_name(identifier=group)
@@ -112,7 +112,7 @@ class GroupCache(RedisCache):
             return ID.convert(array=text.splitlines())
 
     async def save_assistants(self, assistants: List[ID], group: ID) -> bool:
-        bots = ID.revert(array=assistants)
+        bots = ID.revert(identifiers=assistants)
         text = '\n'.join(bots)
         value = utf8_encode(string=text)
         key = self.__assistants_cache_name(identifier=group)

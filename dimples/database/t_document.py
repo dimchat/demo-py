@@ -83,6 +83,7 @@ class DocTask(DbTask[ID, List[Document]]):
         #
         #   0. check old documents
         #
+        updated = False
         index = len(documents)
         while index > 0:
             index -= 1
@@ -98,8 +99,9 @@ class DocTask(DbTask[ID, List[Document]]):
                 return True
             # old record found, update it
             documents[index] = new_doc
+            updated = True
             # break
-        if index == 0:
+        if not updated:
             # same type not found
             documents.append(new_doc)
         #

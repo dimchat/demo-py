@@ -69,7 +69,7 @@ class GroupKeyCommand:
             }
         if members is not None and len(members) > 0:
             # only query for these members
-            content['members'] = ID.revert(array=members)
+            content['members'] = ID.revert(identifiers=members)
         return content
 
     @classmethod

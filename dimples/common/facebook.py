@@ -109,36 +109,42 @@ class CommonFacebook(Facebook, Logging, ABC):
 
     # Override
     async def select_user(self, receiver: ID) -> Optional[User]:
+        local_users = await self.barrack.local_users
         user = self.__current
-        if user is not None:
-            if receiver.is_broadcast:
-                # broadcast message can decrypt by anyone, so
-                # just return current user
-                return user
-            elif user.identifier == receiver:
-                return user
-        if receiver.is_user:
-            return await super().select_user(receiver=receiver)
-        # group message(recipient not designated)
-        assert receiver.is_group, 'receiver error: %s' % receiver
-        # the messenger will check group info before decrypting message,
-        # so we can trust that the group's meta & members MUST exist here.
-        users = await self.barrack.local_users
-        if users is None or len(users) == 0:
+        if user is not None:  # and user not in local_users:
+            local_users.insert(0, user)
+        #
+        #  1.
+        #
+        if len(local_users) == 0:
             self.error(msg='local users should not be empty')
             return None
         elif receiver.is_broadcast:
-            # broadcast message can decrypt by anyone, so just return current user
-            return users[0] if user is None else user
-        members = await self.get_members(identifier=receiver)
-        # assert len(members) > 0, 'members not found: %s' % receiver
-        for item in users:
-            if item.identifier in members:
-                # DISCUSS: set this item to be current user?
-                return item
-        if user is not None:
-            if user.identifier in members:
-                return user
+            # broadcast message can decrypt by anyone, so
+            # just return current user
+            return local_users[0]
+        #
+        #  2.
+        #
+        if receiver.is_user:
+            # personal message
+            for item in local_users:
+                if item.identifier == receiver:
+                    # DISCUSS: set this item to be current user?
+                    return item
+        else:
+            # group message(recipient not designated)
+            assert receiver.is_group, 'receiver error: %s' % receiver
+            # the messenger will check group info before decrypting message,
+            # so we can trust that the group's meta & members MUST exist here.
+            members = await self.get_members(identifier=receiver)
+            # assert len(members) > 0, 'members not found: %s' % receiver
+            for item in local_users:
+                if item.identifier in members:
+                    # DISCUSS: set this item to be current user?
+                    return item
+        # not me?
+        return None
 
     #
     #   Documents

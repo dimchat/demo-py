@@ -134,10 +134,12 @@ class BaseAccount(Logging, ABC):
         identifier = self.__id
         meta = self.__meta
         doc = self.__doc
+        meta_type = meta.type
+        doc_type = DocumentUtils.get_document_type(document=doc)
         print('!!!')
         print('!!! ID: %s' % identifier)
         print('!!!')
-        print('!!! meta type: %s, document type: %s, name: "%s"' % (meta.type, doc.type, doc.name))
+        print('!!! meta type: %s, document type: %s, name: "%s"' % (meta_type, doc_type, doc.name))
         print('!!!')
 
     async def load_info(self, identifier: ID) -> Tuple[Optional[Meta], Optional[Document]]:
@@ -176,7 +178,7 @@ class BaseAccount(Logging, ABC):
         else:
             self.error(msg='failed to save document: %s, %s' % (doc.identifier, doc))
 
-    async def update(self, exists: bool = False) -> Optional[Document]:
+    async def update_document(self, exists: bool = False) -> Optional[Document]:
         doc = self.edit()
         assert doc is not None, 'failed to edit document'
         # TODO: sign & save
@@ -218,6 +220,9 @@ class BaseAccount(Logging, ABC):
         identifier = self.__id
         doc = self.__doc
         assert doc.identifier == identifier, 'document error: %s, %s' % (identifier, doc)
+        # clone to edit
+        doc = Document.parse(document=doc.copy_dictionary())
+        self.__doc = doc
         print('!!!')
         print('!!! ========================================================================')
         print('!!!   Editing document for: %s' % identifier)

@@ -206,7 +206,7 @@ class Octopus(Runner, Logging, ABC):
         #
         new_recipients = set()
         old_recipients = msg.get('recipients')
-        old_recipients = [] if old_recipients is None else ID.convert(old_recipients)
+        old_recipients = [] if old_recipients is None else ID.convert(array=old_recipients)
         for item in neighbors:
             if item in old_recipients:
                 self.info(msg='skip exists station: %s' % item)
@@ -216,7 +216,7 @@ class Octopus(Runner, Logging, ABC):
         # update 'recipients' to avoid the new recipients redirect it to same targets
         self.info(msg='append new recipients: %s, %s + %s' % (receiver, new_recipients, old_recipients))
         all_recipients = list(old_recipients) + list(new_recipients)
-        msg['recipients'] = ID.revert(all_recipients)
+        msg['recipients'] = ID.revert(identifiers=all_recipients)
         #
         #  1. send to the new recipients (neighbor stations)
         #

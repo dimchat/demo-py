@@ -77,4 +77,4 @@ class MuteCommand(BaseCommand):
         if value is None:
             self.pop('list', None)
         else:
-            self['list'] = ID.revert(array=value)
+            self['list'] = ID.revert(identifiers=value)

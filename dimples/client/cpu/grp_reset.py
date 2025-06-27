@@ -118,9 +118,9 @@ class ResetCommandProcessor(GroupCommandProcessor):
         elif await self._save_members(members=new_members, group=group):
             self.info(msg='new members saved in group: %s' % group)
             if len(add_list) > 0:
-                content['added'] = ID.revert(add_list)
+                content['added'] = ID.revert(identifiers=add_list)
             if len(remove_list) > 0:
-                content['removed'] = ID.revert(remove_list)
+                content['removed'] = ID.revert(identifiers=remove_list)
         else:
             # DB error?
             assert False, 'failed to save members for group: %s' % group

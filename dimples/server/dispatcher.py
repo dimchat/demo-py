@@ -195,7 +195,7 @@ class Dispatcher(Logging):
         #
         new_recipients = set()
         old_recipients = msg.get('recipients')
-        old_recipients = [] if old_recipients is None else ID.convert(old_recipients)
+        old_recipients = [] if old_recipients is None else ID.convert(array=old_recipients)
         for item in neighbors:
             if item == current:
                 self.info(msg='skip current station: %s' % item)
@@ -208,7 +208,7 @@ class Dispatcher(Logging):
         # set 'recipients' in the msg to avoid the new recipients redirect it to same targets
         self.info(msg='append new recipients: %s, %s + %s' % (receiver, new_recipients, old_recipients))
         all_recipients = list(old_recipients) + list(new_recipients)
-        msg['recipients'] = ID.revert(all_recipients)
+        msg['recipients'] = ID.revert(identifiers=all_recipients)
         #
         #  1. push to neighbor stations directly
         #
@@ -222,7 +222,7 @@ class Dispatcher(Logging):
         # update 'recipients' before redirect via bridge
         self.info(msg='update recipients: %s, %s + %s' % (receiver, new_recipients, old_recipients))
         all_recipients = list(old_recipients) + list(new_recipients)
-        msg['recipients'] = ID.revert(all_recipients)
+        msg['recipients'] = ID.revert(identifiers=all_recipients)
         #
         #  2. push to other neighbor stations via station bridge
         #
@@ -233,7 +233,7 @@ class Dispatcher(Logging):
         #
         text = 'Message forwarded.'
         cmd = ReceiptCommand.create(text=text, envelope=msg.envelope)
-        cmd['recipients'] = ID.revert(new_recipients)
+        cmd['recipients'] = ID.revert(identifiers=new_recipients)
         return [cmd]
 
     async def __save_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:

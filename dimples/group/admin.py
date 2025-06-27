@@ -84,7 +84,7 @@ class AdminManager(TripletsHelper):
             else:
                 assert False, 'bulletin error: %s, %s' % (group, doc)
         # update new bulletin document
-        doc.set_property(name='administrators', value=ID.revert(array=administrators))
+        doc.set_property(name='administrators', value=ID.revert(identifiers=administrators))
         signature = None if sign_key is None else doc.sign(private_key=sign_key)
         if signature is None:
             self.error(msg='failed to sign document for group: %s, owner: %s' % (group, me))

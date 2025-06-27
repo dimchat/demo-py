@@ -57,7 +57,7 @@ class UserCache(RedisCache):
 
     async def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
         assert contacts is not None, 'contacts cannot be empty'
-        contacts = ID.revert(array=contacts)
+        contacts = ID.revert(identifiers=contacts)
         text = '\n'.join(contacts)
         text = utf8_encode(string=text)
         key = self.__contacts_cache_name(identifier=identifier)

@@ -82,4 +82,4 @@ class UserStorage(Storage, UserDBI, ContactDBI):
         """ save contacts into file """
         path = self.__contacts_path(identifier=user)
         self.info(msg='Saving contacts into: %s' % path)
-        return await self.write_json(container=ID.revert(array=contacts), path=path)
+        return await self.write_json(container=ID.revert(identifiers=contacts), path=path)
