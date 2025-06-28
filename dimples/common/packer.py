@@ -151,9 +151,11 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
         msg = await super().deserialize_message(data=data)
         if msg is not None:
             Compatible.fix_meta_attachment(msg=msg)
+            Compatible.fix_visa_attachment(msg=msg)
         return msg
 
     # Override
     async def serialize_message(self, msg: ReliableMessage) -> bytes:
         Compatible.fix_meta_attachment(msg=msg)
+        Compatible.fix_visa_attachment(msg=msg)
         return await super().serialize_message(msg=msg)

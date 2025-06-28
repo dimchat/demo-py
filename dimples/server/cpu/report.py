@@ -68,9 +68,9 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
             session.set_active(active=True, when=content.time)
             text = 'Online received.'
             return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
-                'template': 'Online command received: ${ID}.',
+                'template': 'Online command received: ${did}.',
                 'replacements': {
-                    'ID': str(sender),
+                    'did': str(sender),
                 }
             })
         elif title == ReportCommand.OFFLINE:

@@ -71,7 +71,6 @@ class DocumentStorage(Storage):
             return None
         documents = []
         for info in array:
-            Compatible.fix_document_id(document=info)
             doc = parse_document(dictionary=info, identifier=identifier)
             if doc is not None:
                 documents.append(doc)
@@ -80,8 +79,9 @@ class DocumentStorage(Storage):
 
 
 def parse_document(dictionary: dict, identifier: ID = None, doc_type: str = '*') -> Optional[Document]:
+    Compatible.fix_document_id(document=dictionary)
     # check document ID
-    doc_id = ID.parse(identifier=dictionary.get('ID'))
+    doc_id = ID.parse(identifier=dictionary.get('did'))
     assert doc_id is not None, 'document error: %s' % dictionary
     if identifier is None:
         identifier = doc_id
@@ -103,7 +103,9 @@ def parse_document(dictionary: dict, identifier: ID = None, doc_type: str = '*')
     ted = TransportableData.parse(signature)
     doc = Document.create(doc_type=doc_type, identifier=identifier, data=data, signature=ted)
     for key in dictionary:
-        if key == 'ID' or key == 'data' or key == 'signature':
+        if key == 'did' or key == 'data' or key == 'signature':
+            continue
+        elif key == 'ID':
             continue
         doc[key] = dictionary[key]
     return doc

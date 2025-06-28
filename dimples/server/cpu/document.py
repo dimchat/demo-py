@@ -116,7 +116,10 @@ async def get_login_msg(doc_id: ID, sender: ID, node: ID, database: SessionDBI) 
                 Log.error(msg='[CPU] login command error: %s -> %s' % (doc_id, cmd))
                 Log.error(msg='[CPU] login command error: %s -> %s' % (doc_id, msg))
                 return None
-            sid = ID.parse(identifier=roaming.get('ID'))
+            sid = roaming.get('did')
+            if sid is None:
+                sid = roaming.get('ID')
+            sid = ID.parse(identifier=sid)
             if sid != node:
                 # not my guest, ignore it.
                 return None

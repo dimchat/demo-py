@@ -97,7 +97,7 @@ def _fix_did(content: Dict[str, Any]):
         # ID to did
         did = content.get('ID')
         if did is not None:
-            content['ID'] = did
+            content['did'] = did
 
 
 def _fix_doc_id(document: Dict[str, Any]):
@@ -231,6 +231,14 @@ class CompatibleOutgoing:
         if isinstance(content, LoginCommand):
             # 2. 'ID' <-> 'did'
             _fix_did(content=content.dictionary)
+            # 3. fix station
+            station = content.get('station')
+            if isinstance(station, Dict):
+                _fix_did(station)
+            # 4. fix provider
+            provider = content.get('provider')
+            if isinstance(provider, Dict):
+                _fix_did(provider)
             return
 
         if isinstance(content, ReportCommand):
@@ -271,9 +279,12 @@ class CompatibleOutgoing:
             docs = Document.convert(array=array)
             last = DocumentUtils.last_document(documents=docs)
             if last is not None:
-                content['document'] = _fix_doc_id(last.dictionary)
+                content['document'] = _fix_doc_id(document=last.dictionary)
             if len(docs) == 1:
                 content.pop('documents', None)
+        doc = content.get('document')
+        if isinstance(doc, Dict):
+            _fix_doc_id(document=doc)
 
 
 def _copy_receipt_values(content: ReceiptCommand, env: dict):

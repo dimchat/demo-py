@@ -74,7 +74,10 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
             self.error(msg='login command error/expired: %s' % content)
             return []
         current = await self.facebook.current_user
-        roaming = ID.parse(identifier=station.get('ID'))
+        sid = station.get('did')
+        if sid is None:
+            sid = station.get('ID')
+        roaming = ID.parse(identifier=sid)
         # assert isinstance(roaming, ID), 'login command error: %s' % content
         if not isinstance(roaming, ID):
             self.warning(msg='station ID not found: %s' % station)
@@ -94,9 +97,9 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         self.info(msg='user login: %s -> %s' % (sender, roaming))
         text = 'Login received.'
         return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
-            'template': 'Login command received: ${ID}.',
+            'template': 'Login command received: ${did}.',
             'replacements': {
-                'ID': str(sender),
+                'did': str(sender),
             }
         })
 

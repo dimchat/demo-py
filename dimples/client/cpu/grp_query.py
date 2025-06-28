@@ -72,9 +72,9 @@ class QueryCommandProcessor(GroupCommandProcessor):
         if not can_query:
             text = 'Permission denied.'
             return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
-                'template': 'Not allowed to query members of group: ${ID}',
+                'template': 'Not allowed to query members of group: ${gid}',
                 'replacements': {
-                    'ID': str(group),
+                    'gid': str(group),
                 }
             })
 
@@ -90,9 +90,9 @@ class QueryCommandProcessor(GroupCommandProcessor):
                 # group history not updated
                 text = 'Group history not updated.'
                 return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
-                    'template': 'Group history not updated: ${ID}, last time: ${time}',
+                    'template': 'Group history not updated: ${gid}, last time: ${time}',
                     'replacements': {
-                        'ID': str(group),
+                        'gid': str(group),
                         'time': last_time.timestamp,
                     }
                 })

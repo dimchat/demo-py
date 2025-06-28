@@ -169,10 +169,10 @@ class GroupCommandProcessor(HistoryCommandProcessor):
         if expired:
             text = 'Command expired.'
             errors = self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
-                'template': 'Group command expired: ${cmd}, group: ${ID}.',
+                'template': 'Group command expired: ${cmd}, group: ${gid}.',
                 'replacements': {
                     'cmd': content.cmd,
-                    'ID': str(group),
+                    'gid': str(group),
                 }
             })
             group = None
@@ -189,9 +189,9 @@ class GroupCommandProcessor(HistoryCommandProcessor):
         if len(members) == 0:
             text = 'Command error.'
             errors = self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
-                'template': 'Group members empty: ${ID}.',
+                'template': 'Group members empty: ${gid}.',
                 'replacements': {
-                    'ID': str(group),
+                    'gid': str(group),
                 }
             })
         else:
@@ -209,9 +209,9 @@ class GroupCommandProcessor(HistoryCommandProcessor):
             # TODO: query group members?
             text = 'Group empty.'
             errors = self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
-                'template': 'Group empty: ${ID}.',
+                'template': 'Group empty: ${gid}.',
                 'replacements': {
-                    'ID': str(group),
+                    'gid': str(group),
                 }
             })
         else:

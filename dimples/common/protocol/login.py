@@ -54,17 +54,17 @@ class LoginCommand(BaseCommand):
             cmd     : "login",
             time    : 0,
             //---- client info ----
-            ID       : "{UserID}",
+            did      : "{UserID}",
             device   : "{DeviceID}",  // (optional)
             agent    : "{UserAgent}", // (optional)
             //---- server info ----
             station  : {
-                ID   : "{StationID}",
+                did  : "{StationID}",
                 host : "{IP}",
                 port : {port}
             },
             provider : {
-                ID   : "{SP_ID}"
+                did  : "{SP_ID}"
             }
         }
     """
@@ -76,7 +76,7 @@ class LoginCommand(BaseCommand):
             assert identifier is not None, 'login ID should not empty'
             cmd = self.LOGIN
             super().__init__(cmd=cmd)
-            self['ID'] = str(identifier)
+            self['did'] = str(identifier)
         else:
             # 2. command info from network
             assert identifier is None, 'params error: %s, %s' % (content, identifier)
@@ -87,7 +87,7 @@ class LoginCommand(BaseCommand):
     #
     @property
     def identifier(self) -> ID:
-        return ID.parse(identifier=self.get('ID'))
+        return ID.parse(identifier=self.get('did'))
 
     # Device ID
     @property
@@ -131,7 +131,7 @@ class LoginCommand(BaseCommand):
                 }
             else:
                 self['station'] = {
-                    'ID': str(sid),
+                    'did': str(sid),
                     'host': info.host,
                     'port': info.port,
                 }
@@ -154,5 +154,5 @@ class LoginCommand(BaseCommand):
         else:
             assert isinstance(value, ServiceProvider), 'SP error: %s' % value
             self['provider'] = {
-                'ID': str(value.identifier),
+                'did': str(value.identifier),
             }

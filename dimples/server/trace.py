@@ -41,7 +41,10 @@ class TraceNode(Dictionary):
 
     @property
     def identifier(self) -> ID:
-        return ID.parse(identifier=self.get('ID'))
+        did = self.get('did')
+        if did is None:
+            did = self.get('ID')
+        return ID.parse(identifier=did)
 
     @property
     def time(self) -> float:
@@ -99,6 +102,7 @@ class TraceNode(Dictionary):
             when = DateTime.now()
         node = {
             'ID': str(identifier),
+            'did': str(identifier),
             'time': when.timestamp,
         }
         return cls(dictionary=node)
@@ -112,6 +116,7 @@ class TraceNode(Dictionary):
         elif isinstance(node, str):
             node = {
                 'ID': node,
+                'did': node,
             }
         # assert isinstance(node, dict), 'trace node error: %s' % node
         return cls(dictionary=node)
@@ -136,10 +141,12 @@ class TraceNode(Dictionary):
             elif isinstance(item, ID):
                 array.append({
                     'ID': str(item),
+                    'did': str(item),
                 })
             elif isinstance(item, str):
                 array.append({
                     'ID': item,
+                    'did': item,
                 })
                 # array.append(item)
         return array

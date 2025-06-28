@@ -114,7 +114,10 @@ class ProviderGeneralFactory:
     def convert_providers(self, array: Iterable[Dict[str, Any]]) -> List[ProviderInfo]:
         providers = []
         for item in array:
-            identifier = ID.parse(identifier=item.get('ID'))
+            did = item.get('did')
+            if did is None:
+                did = item.get('ID')
+            identifier = ID.parse(identifier=did)
             chosen = item.get('chosen')
             if identifier is None:
                 # provider ID error
@@ -129,6 +132,7 @@ class ProviderGeneralFactory:
         for item in array:
             providers.append({
                 'ID': str(item.identifier),
+                'did': str(item.identifier),
                 'chosen': item.chosen,
             })
         return providers
@@ -137,7 +141,10 @@ class ProviderGeneralFactory:
     def convert_stations(self, array: Iterable[Dict[str, Any]]) -> List[StationInfo]:
         stations = []
         for item in array:
-            identifier = ID.parse(identifier=item.get('ID'))
+            did = item.get('did')
+            if did is None:
+                did = item.get('ID')
+            identifier = ID.parse(identifier=did)
             host = item.get('host')
             port = item.get('port')
             provider = ID.parse(identifier=item.get('provider'))
@@ -157,6 +164,7 @@ class ProviderGeneralFactory:
         for item in array:
             stations.append({
                 'ID': str(item.identifier),
+                'did': str(item.identifier),
                 'host': item.host,
                 'port': item.port,
                 'provider': str(item.provider),

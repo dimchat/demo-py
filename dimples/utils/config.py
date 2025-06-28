@@ -54,9 +54,9 @@ class MessageTransferAgent(Dictionary):
 
     @property
     def identifier(self) -> Optional[ID]:
-        string = self.get(key='ID')
+        string = self.get(key='did')
         if string is None:
-            string = self.get(key='id')
+            string = self.get(key='ID')
         return ID.parse(identifier=string)
 
     @property

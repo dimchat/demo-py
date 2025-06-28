@@ -167,7 +167,10 @@ async def get_roaming_station(receiver: ID, database: SessionDBI) -> Optional[ID
     if isinstance(cmd, LoginCommand):
         station = cmd.station
         if isinstance(station, Dict):
-            return ID.parse(identifier=station.get('ID'))
+            sid = station.get('did')
+            if sid is None:
+                sid = station.get('ID')
+            return ID.parse(identifier=sid)
         else:
             Log.error(msg='login command error: %s -> %s' % (receiver, cmd))
             Log.error(msg='login command error: %s -> %s' % (receiver, msg))

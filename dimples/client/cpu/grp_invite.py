@@ -83,9 +83,9 @@ class InviteCommandProcessor(GroupCommandProcessor):
         if not is_member:
             text = 'Permission denied.'
             return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
-                'template': 'Not allowed to invite member into group: ${ID}',
+                'template': 'Not allowed to invite member into group: ${gid}',
                 'replacements': {
-                    'ID': str(group),
+                    'gid': str(group),
                 }
             })
 

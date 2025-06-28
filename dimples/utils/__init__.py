@@ -88,7 +88,9 @@ def get_msg_traces(msg: ReliableMessage) -> List:
     stations = []
     for item in traces:
         if isinstance(item, Dict):
-            sid = item.get('ID')
+            sid = item.get('did')
+            if sid is None:
+                sid = item.get('ID')
         elif isinstance(item, str):
             sid = item
         else:
