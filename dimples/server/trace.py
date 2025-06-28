@@ -122,13 +122,13 @@ class TraceNode(Dictionary):
         return cls(dictionary=node)
 
     @classmethod
-    def convert(cls, nodes: List[Union[dict, str]]):  # -> List[TraceNode]:
-        array = []
-        for item in nodes:
+    def convert(cls, array: List[Union[dict, str]]):  # -> List[TraceNode]:
+        nodes = []
+        for item in array:
             trace = cls.parse(node=item)
             if trace is not None:
-                array.append(trace)
-        return array
+                nodes.append(trace)
+        return nodes
 
     @classmethod
     def revert(cls, nodes: List) -> List[Dict[str, Any]]:
@@ -246,7 +246,7 @@ class TracePool:
         cached = self.get_traces(msg=msg)
         traces = msg.get('traces')
         if traces is not None:
-            array = TraceNode.convert(nodes=traces)
+            array = TraceNode.convert(array=traces)
             for item in array:
                 cached.insert(node=item)
         return cached

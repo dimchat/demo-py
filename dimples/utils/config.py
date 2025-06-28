@@ -81,13 +81,13 @@ class MessageTransferAgent(Dictionary):
             return cls(dictionary=node)
 
     @classmethod
-    def convert(cls, stations: Iterable[Any]):
-        array = []
-        for node in stations:
+    def convert(cls, array: Iterable[Any]):
+        stations = []
+        for node in array:
             item = cls.parse(node=node)
             if item is not None:
-                array.append(item)
-        return array
+                stations.append(item)
+        return stations
 
     @classmethod
     def revert(cls, stations: Iterable) -> List[Dict]:
@@ -380,7 +380,7 @@ class NeighborLoader(Logging):
         if isinstance(stations, Dict):
             stations = stations.get('stations')
         if isinstance(stations, List):
-            return MessageTransferAgent.convert(stations=stations)
+            return MessageTransferAgent.convert(array=stations)
 
     async def _load_stations(self, path: str) -> Optional[List[MessageTransferAgent]]:
         self.info(msg='loading stations: %s' % path)
@@ -392,7 +392,7 @@ class NeighborLoader(Logging):
         if isinstance(stations, Dict):
             stations = stations.get('stations')
         if isinstance(stations, List):
-            return MessageTransferAgent.convert(stations=stations)
+            return MessageTransferAgent.convert(array=stations)
 
     async def _save_stations(self, stations: List[MessageTransferAgent], path: str) -> bool:
         info = MessageTransferAgent.revert(stations=stations)

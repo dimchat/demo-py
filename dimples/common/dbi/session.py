@@ -65,9 +65,9 @@ class ProviderInfo:
         return gf.convert_providers(array=array)
 
     @classmethod
-    def revert(cls, array) -> List[Dict[str, Any]]:
+    def revert(cls, providers) -> List[Dict[str, Any]]:
         gf = ProviderFactoryManager.general_factory
-        return gf.revert_providers(array=array)
+        return gf.revert_providers(providers=providers)
 
 
 class StationInfo:
@@ -100,9 +100,9 @@ class StationInfo:
         return gf.convert_stations(array=array)
 
     @classmethod
-    def revert(cls, array) -> List[Dict[str, Any]]:
+    def revert(cls, stations) -> List[Dict[str, Any]]:
         gf = ProviderFactoryManager.general_factory
-        return gf.revert_stations(array=array)
+        return gf.revert_stations(stations=stations)
 
 
 class ProviderGeneralFactory:
@@ -127,15 +127,15 @@ class ProviderGeneralFactory:
         return providers
 
     # noinspection PyMethodMayBeStatic
-    def revert_providers(self, array: Iterable[ProviderInfo]) -> List[Dict[str, Any]]:
-        providers = []
-        for item in array:
-            providers.append({
+    def revert_providers(self, providers: Iterable[ProviderInfo]) -> List[Dict[str, Any]]:
+        array = []
+        for item in providers:
+            array.append({
                 'ID': str(item.identifier),
                 'did': str(item.identifier),
                 'chosen': item.chosen,
             })
-        return providers
+        return array
 
     # noinspection PyMethodMayBeStatic
     def convert_stations(self, array: Iterable[Dict[str, Any]]) -> List[StationInfo]:
@@ -159,10 +159,10 @@ class ProviderGeneralFactory:
         return stations
 
     # noinspection PyMethodMayBeStatic
-    def revert_stations(self, array: Iterable[StationInfo]) -> List[Dict[str, Any]]:
-        stations = []
-        for item in array:
-            stations.append({
+    def revert_stations(self, stations: Iterable[StationInfo]) -> List[Dict[str, Any]]:
+        array = []
+        for item in stations:
+            array.append({
                 'ID': str(item.identifier),
                 'did': str(item.identifier),
                 'host': item.host,
@@ -170,7 +170,7 @@ class ProviderGeneralFactory:
                 'provider': str(item.provider),
                 'chosen': item.chosen,
             })
-        return stations
+        return array
 
 
 class ProviderFactoryManager:

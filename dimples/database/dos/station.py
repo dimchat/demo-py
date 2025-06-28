@@ -77,7 +77,7 @@ class StationStorage(Storage, ProviderDBI, StationDBI):
         """ save providers into file """
         path = self.__providers_path()
         self.info(msg='Saving providers into: %s' % path)
-        return await self.write_json(container=ProviderInfo.revert(array=providers), path=path)
+        return await self.write_json(container=ProviderInfo.revert(providers=providers), path=path)
 
     # Override
     async def add_provider(self, identifier: ID, chosen: int = 0) -> bool:
@@ -141,7 +141,7 @@ class StationStorage(Storage, ProviderDBI, StationDBI):
         """ save stations into file """
         path = self.__stations_path(provider=provider)
         self.info(msg='Saving stations into: %s' % path)
-        return await self.write_json(container=StationInfo.revert(array=stations), path=path)
+        return await self.write_json(container=StationInfo.revert(stations=stations), path=path)
 
     # Override
     async def add_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = 0) -> bool:
