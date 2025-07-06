@@ -167,6 +167,7 @@ class ClientMessenger(CommonMessenger):
 
     async def _update_visa(self) -> Optional[Visa]:
         facebook = self.facebook
+        archivist = facebook.archivist
         user = await facebook.current_user
         assert user is not None, 'current user not found'
         # 1. get sign key for current user
@@ -189,7 +190,7 @@ class ClientMessenger(CommonMessenger):
         })
         if visa.sign(private_key=pri_key) is None:
             self.error(msg='failed to sign visa: %s, private key: %s' % (visa, pri_key))
-        elif await facebook.save_document(document=visa):
+        elif await archivist.save_document(document=visa):
             self.info(msg='visa updated: %s' % visa)
             return visa
         else:

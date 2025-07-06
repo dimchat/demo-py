@@ -73,7 +73,7 @@ class ClientMessagePacker(CommonMessagePacker):
                 'message': 'group not ready',
                 'group': str(receiver),
             }
-            self.messenger.suspend_instant_message(msg=msg, error=error)
+            self.suspend_instant_message(msg=msg, error=error)
             return False
         #
         #   check group members' visa key
@@ -92,7 +92,7 @@ class ClientMessagePacker(CommonMessagePacker):
             'group': str(receiver),
             'members': ID.revert(identifiers=waiting),
         }
-        self.messenger.suspend_instant_message(msg=msg, error=error)
+        self.suspend_instant_message(msg=msg, error=error)
         # perhaps some members have already disappeared,
         # although the packer will query document when the member's visa key is not found,
         # but the station will never respond with the right document,
@@ -129,7 +129,7 @@ class ClientMessagePacker(CommonMessagePacker):
             'message': 'group not ready',
             'group': str(receiver),
         }
-        self.messenger.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
+        self.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
         return False
 
     # Override

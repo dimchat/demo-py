@@ -114,11 +114,10 @@ class ClientMessageProcessor(CommonMessageProcessor):
             return responses
         sender = r_msg.sender
         receiver = r_msg.receiver
-        user = await self.facebook.select_user(receiver=receiver)
-        if user is None:
+        me = await self.facebook.select_local_user(receiver=receiver)
+        if me is None:
             # assert False, 'receiver error: %s' % receiver
             return responses
-        receiver = user.identifier
         messenger = self.messenger
         # check responses
         from_bots = sender.type == EntityType.STATION or sender.type == EntityType.BOT
@@ -137,6 +136,6 @@ class ClientMessageProcessor(CommonMessageProcessor):
                     self.info(msg='drop text to %s, origin time=[%s], text=%s' % (sender, r_msg.time, res.text))
                     continue
             # normal response
-            await messenger.send_content(sender=receiver, receiver=sender, content=res, priority=1)
+            await messenger.send_content(sender=me, receiver=sender, content=res, priority=1)
         # DON'T respond to station directly
         return []

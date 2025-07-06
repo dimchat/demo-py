@@ -64,7 +64,10 @@ class ThanosCache(MemoryCache[K, V]):
 
     # Override
     def put(self, key: K, value: Optional[V]):
-        self.__caches[key] = value
+        if value is None:
+            self.__caches.pop(key, None)
+        else:
+            self.__caches[key] = value
 
     # Override
     def reduce_memory(self) -> int:

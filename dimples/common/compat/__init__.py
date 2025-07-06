@@ -40,6 +40,7 @@ from .meta import CompatibleMetaFactory
 
 from .loader import CommonExtensionLoader
 from .loader import CommonPluginLoader
+from .loader import LibraryLoader
 
 from .compressor import CompatibleCompressor  # , CompatibleShortener
 from .compatible import Compatible, CompatibleIncoming, CompatibleOutgoing
@@ -59,6 +60,7 @@ __all__ = [
 
     'CommonExtensionLoader',
     'CommonPluginLoader',
+    'LibraryLoader',
 
     'CompatibleCompressor',  # 'CompatibleShortener',
     'Compatible', 'CompatibleIncoming', 'CompatibleOutgoing',

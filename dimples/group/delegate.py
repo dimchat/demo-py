@@ -101,7 +101,8 @@ class GroupDelegate(TwinsHelper, GroupDataSource, Logging):
         return await self.facebook.get_bulletin(identifier)
 
     async def save_document(self, document: Document) -> bool:
-        return await self.facebook.save_document(document=document)
+        archivist = self.facebook.archivist
+        return await archivist.save_document(document=document)
 
     #
     #   Group DataSource

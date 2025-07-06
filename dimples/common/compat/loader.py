@@ -47,6 +47,18 @@ from .address import CompatibleAddressFactory
 from .meta import CompatibleMetaFactory
 
 
+class LibraryLoader:
+
+    def __init__(self, extensions: ExtensionLoader = None, plugins: PluginLoader = None):
+        super().__init__()
+        self.__extensions = CommonExtensionLoader() if extensions is None else extensions
+        self.__plugins = CommonPluginLoader() if plugins is None else plugins
+
+    def run(self):
+        self.__extensions.run()
+        self.__plugins.run()
+
+
 class CommonExtensionLoader(ExtensionLoader):
     """ Extensions Loader """
 

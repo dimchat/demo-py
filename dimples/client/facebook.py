@@ -39,17 +39,16 @@ from dimsdk import Group
 from ..utils import Runner
 from ..common import BroadcastUtils
 from ..common import CommonFacebook
+from ..common import CommonArchivist
 from ..group import SharedGroupManager
 
 
-class ClientFacebook(CommonFacebook):
+class ClientArchivist(CommonArchivist):
 
     # Override
-    async def get_group(self, identifier: ID) -> Optional[Group]:
-        group = await super().get_group(identifier=identifier)
-        if group is not None:
-            group.data_source = SharedGroupManager()
-        return group
+    def cache_group(self, group: Group):
+        group.data_source = SharedGroupManager()
+        super().cache_group(group=group)
 
     # Override
     async def save_document(self, document: Document) -> bool:
@@ -61,8 +60,13 @@ class ClientFacebook(CommonFacebook):
                 group = document.identifier
                 assert group.is_group, 'group ID error: %s' % group
                 admins = ID.convert(array=array)
-                ok = await self.save_administrators(administrators=admins, group=group)
+                db = self.database
+                ok = await db.save_administrators(administrators=admins, group=group)
         return ok
+
+
+class ClientFacebook(CommonFacebook):
+    """ Client Facebook with Address Name Service """
 
     #
     #   Group DataSource

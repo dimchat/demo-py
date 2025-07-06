@@ -42,6 +42,7 @@ from dimsdk import ContentProcessorCreator
 from ..common import HandshakeCommand
 from ..common import CommonFacebook, CommonMessenger
 from ..common import CommonMessageProcessor
+from ..common import CommonMessagePacker
 
 from .cpu import AnsCommandProcessor
 
@@ -118,7 +119,9 @@ class ServerMessageProcessor(CommonMessageProcessor):
             error = {
                 'message': 'user not login',
             }
-            messenger.suspend_reliable_message(msg=msg, error=error)
+            packer = messenger.packer
+            assert isinstance(packer, CommonMessagePacker), 'message packer error: %s' % packer
+            packer.suspend_reliable_message(msg=msg, error=error)
             # 2.2. ask client to handshake again (with session key)
             #      this message won't be delivered before handshake accepted
             command = HandshakeCommand.ask(session=session.session_key)

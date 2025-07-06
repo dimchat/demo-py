@@ -35,7 +35,7 @@ from ..common.compat import NetworkType, network_to_type
 from ..utils import Singleton
 from ..utils import Path, Config
 from ..common import AccountDBI
-from ..common.compat import CommonLoader
+from ..common.compat import LibraryLoader
 from ..database import AccountDatabase
 
 
@@ -52,7 +52,7 @@ class GlobalVariable:
         self.__config: Optional[Config] = None
         self.__adb: Optional[AccountDBI] = None
         # load extensions
-        CommonLoader().run()
+        LibraryLoader().run()
 
     @property
     def config(self) -> Config:

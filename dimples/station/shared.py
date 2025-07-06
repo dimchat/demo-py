@@ -37,7 +37,7 @@ from ..common import CommonArchivist
 from ..common import CommonFacebook
 from ..common import AccountDBI, MessageDBI, SessionDBI
 from ..common import ProviderInfo
-from ..common.compat import CommonLoader
+from ..common.compat import LibraryLoader
 from ..database import AccountDatabase, MessageDatabase, SessionDatabase
 from ..group import SharedGroupManager
 
@@ -62,7 +62,7 @@ class GlobalVariable:
         self.__facebook: Optional[ServerFacebook] = None
         self.__messenger: Optional[ServerMessenger] = None  # only for entity checker
         # load extensions
-        CommonLoader().run()
+        LibraryLoader().run()
 
     @property
     def config(self) -> Config:
@@ -141,6 +141,7 @@ class GlobalVariable:
 
     async def login(self, current_user: ID):
         facebook = self.facebook
+        archivist = facebook.archivist
         # make sure private keys exists
         sign_key = await facebook.private_key_for_visa_signature(identifier=current_user)
         msg_keys = await facebook.private_keys_for_decryption(identifier=current_user)
@@ -154,7 +155,7 @@ class GlobalVariable:
             # refresh visa
             visa = Document.parse(document=visa.copy_dictionary())
             visa.sign(private_key=sign_key)
-            await facebook.save_document(document=visa)
+            await archivist.save_document(document=visa)
         await facebook.set_current_user(user=user)
 
 
