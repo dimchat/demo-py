@@ -348,8 +348,6 @@ __all__ = [
 
     'ReportCommand',
 
-    'GroupKeyCommand',
-
     'CustomizedContent', 'AppCustomizedContent',
 
     #

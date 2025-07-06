@@ -24,27 +24,51 @@
 # ==============================================================================
 
 from abc import ABC
-from typing import Optional
+from typing import Optional, List, Dict
 
 from dimsdk import EncryptKey
 from dimsdk import ID
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import MessagePacker
 from dimsdk import MessageUtils
+from dimsdk import Compressor
 
 from ..utils import Logging
 
+from .facebook import CommonFacebook
 from .messenger import CommonMessenger
 from .compat import Compatible
+
+from .queue import SuspendedMessageQueue
 
 
 class CommonMessagePacker(MessagePacker, Logging, ABC):
 
-    @property
+    def __init__(self, facebook: CommonFacebook, messenger: CommonMessenger):
+        super().__init__(facebook=facebook, messenger=messenger)
+        self.__queue = SuspendedMessageQueue()
+
+    @property  # Override
     def messenger(self) -> Optional[CommonMessenger]:
         transceiver = super().messenger
         assert isinstance(transceiver, CommonMessenger), 'transceiver error: %s' % transceiver
         return transceiver
+
+    @property  # Override
+    def compressor(self) -> Compressor:
+        return self.messenger.compressor
+
+    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
+        self.__queue.suspend_reliable_message(msg=msg, error=error)
+
+    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
+        self.__queue.suspend_instant_message(msg=msg, error=error)
+
+    def resume_reliable_messages(self) -> List[ReliableMessage]:
+        return self.__queue.resume_reliable_messages()
+
+    def resume_instant_messages(self) -> List[InstantMessage]:
+        return self.__queue.resume_instant_messages()
 
     #
     #   Checking
@@ -77,7 +101,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
             'message': 'verify key not found',
             'user': str(sender),
         }
-        self.messenger.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
+        self.suspend_reliable_message(msg=msg, error=error)  # msg['error'] = error
         return False
 
     # protected
@@ -102,7 +126,7 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
             'message': 'encrypt key not found',
             'user': str(receiver),
         }
-        self.messenger.suspend_instant_message(msg=msg, error=error)  # msg['error'] = error
+        self.suspend_instant_message(msg=msg, error=error)  # msg['error'] = error
         return False
 
     #

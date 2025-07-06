@@ -34,12 +34,13 @@ from typing import Optional, List, Dict
 from dimsdk import DateTime
 from dimsdk import ID, Meta, Document, Visa
 
+from ..utils import Logging
 from ..utils import FrequencyChecker, RecentTimeChecker
 
 from .dbi import AccountDBI
 
 
-class EntityChecker(ABC):
+class EntityChecker(Logging, ABC):
 
     # each query will be expired after 10 minutes
     QUERY_EXPIRES = 10 * 60
@@ -174,7 +175,7 @@ class EntityChecker(ABC):
             doc_time = doc.time
             if doc_time is None:
                 # assert False, 'document error: %s' % doc
-                continue
+                self.warning(msg='document time error: %s' % doc)
             elif last_time is None or last_time < doc_time:
                 last_time = doc_time
         # OK
@@ -221,8 +222,8 @@ class EntityChecker(ABC):
         for cmd, _ in array:
             his_time = cmd.time
             if his_time is None:
-                assert False, 'group command error: %s' % cmd
-                pass
+                # assert False, 'group command error: %s' % cmd
+                self.warning(msg='group command time error: %s' % cmd)
             elif last_time is None or last_time < his_time:
                 last_time = his_time
         # OK

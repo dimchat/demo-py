@@ -25,9 +25,8 @@
 
 from typing import Optional, Any
 
-from mkm.types import Converter, DataConverter
-from mkm.types import DateTime
-
+from dimsdk import Converter, BaseConverter
+from dimsdk import DateTime
 from dimsdk import ID, Address, Meta
 from dimsdk import ContentType
 from dimsdk import MetaType
@@ -48,21 +47,8 @@ from .address import CompatibleAddressFactory
 from .meta import CompatibleMetaFactory
 
 
-class CommonLoader(ExtensionLoader):
+class CommonExtensionLoader(ExtensionLoader):
     """ Extensions Loader """
-
-    def __init__(self):
-        super().__init__()
-        self.__plugins = self._create_plugin_loader()
-
-    # noinspection PyMethodMayBeStatic
-    def _create_plugin_loader(self) -> PluginLoader:
-        return CommonPluginLoader()
-
-    # Override
-    def run(self):
-        super().run()
-        self.__plugins.run()
 
     def _register_customized_factories(self):
         self._set_content_factory(ContentType.APPLICATION, alias='application', content_class=AppCustomizedContent)
@@ -95,7 +81,7 @@ class CommonPluginLoader(PluginLoader):
 
     # Override
     def _load(self):
-        Converter.converter = SafeConverter()
+        Converter.converter = _SafeConverter()
         super()._load()
 
     # Override
@@ -124,8 +110,10 @@ class CommonPluginLoader(PluginLoader):
         Meta.set_factory(version='BTC', factory=btc)
         Meta.set_factory(version='ETH', factory=eth)
 
+    # TODO: RSA keys with created time
 
-class SafeConverter(DataConverter):
+
+class _SafeConverter(BaseConverter):
 
     # Override
     def get_bool(self, value: Any, default: Optional[bool]) -> Optional[bool]:

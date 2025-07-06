@@ -36,17 +36,17 @@
 """
 
 from abc import ABC
-from typing import Optional, Union, Tuple, List, Dict
+from typing import Optional, Union, Tuple
 
 from dimsdk import SymmetricKey
 from dimsdk import ID
 from dimsdk import Content, Envelope
 from dimsdk import Command
-from dimsdk import InstantMessage, SecureMessage, ReliableMessage
-from dimsdk import EntityDelegate, CipherKeyDelegate
+from dimsdk import InstantMessage, ReliableMessage
+from dimsdk import CipherKeyDelegate
 from dimsdk import Messenger, Packer, Processor
+from dimsdk import Compressor
 
-from ..utils import utf8_decode, json_decode
 from ..utils import Logging, Converter
 
 from .dbi import MessageDBI
@@ -54,9 +54,8 @@ from .dbi import MessageDBI
 from .facebook import CommonFacebook
 from .session import Transmitter, Session
 
-from .queue import SuspendedMessageQueue
-
-from .compat import CompatibleIncoming, CompatibleOutgoing
+from .compat import CompatibleOutgoing
+from .compat import CompatibleCompressor
 
 
 class CommonMessenger(Messenger, Transmitter, Logging, ABC):
@@ -68,7 +67,7 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         self.__database = database
         self.__packer: Optional[Packer] = None
         self.__processor: Optional[Processor] = None
-        self.__queue = SuspendedMessageQueue()
+        self.__compressor = CompatibleCompressor()
 
     @property  # Override
     def packer(self) -> Packer:
@@ -95,28 +94,16 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         return self.__database
 
     @property  # Override
-    def barrack(self) -> EntityDelegate:
-        return self.__facebook
-
-    @property
     def facebook(self) -> CommonFacebook:
         return self.__facebook
+
+    @property  # Override
+    def compressor(self) -> Compressor:
+        return self.__compressor
 
     @property
     def session(self) -> Session:
         return self.__session
-
-    def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
-        self.__queue.suspend_reliable_message(msg=msg, error=error)
-
-    def suspend_instant_message(self, msg: InstantMessage, error: Dict):
-        self.__queue.suspend_instant_message(msg=msg, error=error)
-
-    def resume_reliable_messages(self) -> List[ReliableMessage]:
-        return self.__queue.resume_reliable_messages()
-
-    def resume_instant_messages(self) -> List[InstantMessage]:
-        return self.__queue.resume_instant_messages()
 
     # Override
     async def encrypt_key(self, data: bytes, receiver: ID, msg: InstantMessage) -> Optional[bytes]:
@@ -153,25 +140,6 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     async def serialize_content(self, content: Content, key: SymmetricKey, msg: InstantMessage) -> bytes:
         CompatibleOutgoing.fix_content(content=content)
         return await super().serialize_content(content=content, key=key, msg=msg)
-
-    # Override
-    async def deserialize_content(self, data: bytes, key: SymmetricKey, msg: SecureMessage) -> Optional[Content]:
-        # content = await super().deserialize_content(data=data, key=key, msg=msg)
-        js = utf8_decode(data=data)
-        if js is None:
-            # assert False, 'content data error: %s' % data
-            return None
-        dictionary = json_decode(string=js)
-        if isinstance(dictionary, Dict):
-            CompatibleIncoming.fix_content(content=dictionary)
-        # TODO: translate short keys
-        #       'T' -> 'type'
-        #       'N' -> 'sn'
-        #       'W' -> 'time'
-        #       'G' -> 'group'
-        return Content.parse(content=dictionary)
-        # NOTICE: check attachment for File/Image/Audio/Video message content
-        #         after deserialize content, this job should be do in subclass
 
     #
     #   Interfaces for Transmitting Message
@@ -212,7 +180,9 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
     async def send_instant_message(self, msg: InstantMessage, priority: int = 0) -> Optional[ReliableMessage]:
         """ send instant message with priority """
         sender = msg.sender
-        # 0. check cycled message
+        #
+        #  0. check cycled message
+        #
         if sender == msg.receiver:
             self.warning(msg='cycled message: %s => %s, %s' % (sender, msg.receiver, msg.group))
             # return None

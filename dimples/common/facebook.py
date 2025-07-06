@@ -38,13 +38,11 @@
 from abc import ABC, abstractmethod
 from typing import Optional, List
 
-from dimsdk import DateTime
-from dimsdk import VerifyKey, EncryptKey
 from dimsdk import SignKey, DecryptKey
 from dimsdk import ID, User
 from dimsdk import Meta, Document, Visa, Bulletin
 from dimsdk import Facebook
-from dimsdk import MetaUtils, DocumentUtils
+from dimsdk import DocumentUtils
 from dimsdk import DocumentType
 
 from ..utils import Logging
@@ -54,7 +52,7 @@ from .dbi import AccountDBI
 
 from .ans import AddressNameServer
 from .checker import EntityChecker
-from .archivist import CommonArchivist
+from .archivist import Archivist, CommonArchivist
 from .anonymous import Anonymous
 
 
@@ -72,7 +70,11 @@ class CommonFacebook(Facebook, Logging, ABC):
         return self.__database
 
     @property  # Override
-    def barrack(self) -> CommonArchivist:
+    def archivist(self) -> Optional[Archivist]:
+        return self.__barrack
+
+    @property  # Override
+    def barrack(self) -> Optional[CommonArchivist]:
         return self.__barrack
 
     @barrack.setter
@@ -95,11 +97,16 @@ class CommonFacebook(Facebook, Logging, ABC):
     async def current_user(self) -> Optional[User]:
         """ Get current user (for signing and sending message) """
         user = self.__current
-        if user is None:
-            all_users = await self.barrack.local_users
-            if len(all_users) > 0:
-                user = all_users[0]
-                self.__current = user
+        if user is not None:
+            return user
+        array = await self.database.get_local_users()
+        if array is None or len(array) == 0:
+            return None
+        else:
+            me = array[0]
+        assert await self.private_key_for_signature(identifier=me), 'user error: %s' % me
+        user = await self.get_user(identifier=me)
+        self.__current = user
         return user
 
     async def set_current_user(self, user: User):
@@ -108,43 +115,29 @@ class CommonFacebook(Facebook, Logging, ABC):
         self.__current = user
 
     # Override
-    async def select_user(self, receiver: ID) -> Optional[User]:
-        local_users = await self.barrack.local_users
+    async def select_local_user(self, receiver: ID) -> Optional[ID]:
         user = self.__current
-        if user is not None:  # and user not in local_users:
-            local_users.insert(0, user)
-        #
-        #  1.
-        #
-        if len(local_users) == 0:
-            self.error(msg='local users should not be empty')
-            return None
-        elif receiver.is_broadcast:
-            # broadcast message can decrypt by anyone, so
-            # just return current user
-            return local_users[0]
-        #
-        #  2.
-        #
-        if receiver.is_user:
-            # personal message
-            for item in local_users:
-                if item.identifier == receiver:
-                    # DISCUSS: set this item to be current user?
-                    return item
-        else:
-            # group message(recipient not designated)
-            assert receiver.is_group, 'receiver error: %s' % receiver
-            # the messenger will check group info before decrypting message,
-            # so we can trust that the group's meta & members MUST exist here.
-            members = await self.get_members(identifier=receiver)
-            # assert len(members) > 0, 'members not found: %s' % receiver
-            for item in local_users:
-                if item.identifier in members:
-                    # DISCUSS: set this item to be current user?
-                    return item
-        # not me?
-        return None
+        if user is not None:
+            me = user.identifier
+            if receiver.is_broadcast:
+                # broadcast message can be decrypted by anyone, so
+                # just return current user here
+                return me
+            elif receiver.is_group:
+                # group message (recipient not designated)
+                #
+                # the messenger will check group info before decrypting message,
+                # so we can trust that the group's meta & members MUST exist here.
+                members = await self.get_members(identifier=receiver)
+                if members is None or len(members) == 0:
+                    self.warning(msg='members not found: %s' % receiver)
+                    return None
+                elif me in members:
+                    return me
+            elif receiver == me:
+                return me
+        # check local users
+        return await super().select_local_user(receiver=receiver)
 
     #
     #   Documents
@@ -181,108 +174,6 @@ class CommonFacebook(Facebook, Logging, ABC):
                 return name
         # get name from ID
         return Anonymous.get_name(identifier=identifier)
-
-    #
-    #   Storage
-    #
-
-    # Override
-    async def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        #
-        #  1. check valid
-        #
-        if not self._check_meta(meta=meta, identifier=identifier):
-            # assert False, 'meta not valid: %s' % identifier
-            return False
-        #
-        #  2. check duplicated
-        #
-        old = await self.get_meta(identifier=identifier)
-        if old is not None:
-            self.debug(msg='meta duplicated: %s' % identifier)
-            return True
-        #
-        #  3. save into database
-        #
-        db = self.database
-        return await db.save_meta(meta=meta, identifier=identifier)
-
-    # noinspection PyMethodMayBeStatic
-    def _check_meta(self, meta: Meta, identifier: ID) -> bool:
-        return meta.valid and MetaUtils.match_identifier(identifier=identifier, meta=meta)
-
-    # Override
-    async def save_document(self, document: Document) -> bool:
-        #
-        #  1. check valid
-        #
-        if await self._check_document_valid(document=document):
-            # document valid
-            pass
-        else:
-            # assert False, 'meta not valid: %s' % document.identifier
-            return False
-        #
-        #  2. check expired
-        #
-        if await self._check_document_expired(document=document):
-            self.info(msg='drop expired document: %s' % document)
-            return False
-        #
-        #  3. save into database
-        #
-        db = self.database
-        return await db.save_document(document=document)
-
-    async def _check_document_valid(self, document: Document) -> bool:
-        identifier = document.identifier
-        doc_time = document.time
-        # check document time
-        if doc_time is None:
-            self.warning(msg='document without time: %s' % identifier)
-        else:
-            # calibrate the clock
-            # make sure the document time is not in the far future
-            near_future = DateTime.now() + 30 * 60
-            if doc_time > near_future:
-                self.error(msg='document time error: %s, %s' % (doc_time, identifier))
-                return False
-        # check valid
-        return await self._verify_document(document=document)
-
-    async def _verify_document(self, document: Document) -> bool:
-        if document.valid:
-            return True
-        identifier = document.identifier
-        meta = await self.get_meta(identifier=identifier)
-        if meta is None:
-            self.warning(msg='failed to get meta: %s' % identifier)
-            return False
-        return document.verify(public_key=meta.public_key)
-
-    async def _check_document_expired(self, document: Document) -> bool:
-        identifier = document.identifier
-        doc_type = DocumentUtils.get_document_type(document=document)
-        if doc_type is None:
-            doc_type = '*'
-        # check old documents with type
-        docs = await self.get_documents(identifier=identifier)
-        old = DocumentUtils.last_document(documents=docs, doc_type=doc_type)
-        return old is not None and DocumentUtils.is_expired(document, old)
-
-    # Override
-    async def get_meta_key(self, identifier: ID) -> Optional[VerifyKey]:
-        meta = await self.get_meta(identifier=identifier)
-        if meta is not None:  # and meta.valid:
-            return meta.public_key
-
-    # Override
-    async def get_visa_key(self, identifier: ID) -> Optional[EncryptKey]:
-        docs = await self.get_documents(identifier=identifier)
-        if docs is not None:
-            visa = DocumentUtils.last_visa(documents=docs)
-            if visa is not None:  # and visa.valid:
-                return visa.public_key
 
     #
     #   Entity DataSource

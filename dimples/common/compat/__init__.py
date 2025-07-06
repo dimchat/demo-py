@@ -38,9 +38,10 @@ from .address import UnknownAddress
 
 from .meta import CompatibleMetaFactory
 
-from .loader import CommonLoader
+from .loader import CommonExtensionLoader
 from .loader import CommonPluginLoader
 
+from .compressor import CompatibleCompressor  # , CompatibleShortener
 from .compatible import Compatible, CompatibleIncoming, CompatibleOutgoing
 
 
@@ -56,9 +57,10 @@ __all__ = [
 
     'CompatibleMetaFactory',
 
-    'CommonLoader',
+    'CommonExtensionLoader',
     'CommonPluginLoader',
 
+    'CompatibleCompressor',  # 'CompatibleShortener',
     'Compatible', 'CompatibleIncoming', 'CompatibleOutgoing',
 
 ]

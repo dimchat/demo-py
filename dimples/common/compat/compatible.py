@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-#
-#   Ming-Ke-Ming : Decentralized User Identity Authentication
-#
-#                                Written in 2022 by Moky <albert.moky@gmail.com>
-#
 # ==============================================================================
 # MIT License
 #
@@ -57,7 +52,7 @@ class Compatible:
     def fix_meta_attachment(cls, msg: ReliableMessage):
         meta = msg.get('meta')
         if meta is not None:
-            return _fix_meta_version(meta=meta)
+            _fix_meta_version(meta=meta)
 
     @classmethod
     def fix_meta_version(cls, meta: Dict[str, Any]):
@@ -67,7 +62,7 @@ class Compatible:
     def fix_visa_attachment(cls, msg: ReliableMessage):
         visa = msg.get('visa')
         if visa is not None:
-            return _fix_doc_id(document=visa)
+            _fix_doc_id(document=visa)
 
     @classmethod
     def fix_document_id(cls, document: Dict[str, Any]):
@@ -76,32 +71,40 @@ class Compatible:
 
 def _fix_cmd(content: Dict[str, Any]):
     cmd = content.get('command')
-    if cmd is not None:
-        # command to cmd
-        if 'cmd' not in content:
-            content['cmd'] = cmd
-    else:
-        # cmd to command
+    if cmd is None:
+        # 'command' not exists, copy the value from 'cmd'
         cmd = content.get('cmd')
         if cmd is not None:
             content['command'] = cmd
+        else:
+            assert False, 'command error: %s' % content
+    elif 'cmd' in content:
+        # these two values must be equal
+        assert content.get('cmd') == cmd, 'command error: %s' % content
+    else:
+        # copy value from 'command' to 'cmd'
+        content['cmd'] = cmd
 
 
 def _fix_did(content: Dict[str, Any]):
     did = content.get('did')
-    if did is not None:
-        # did to ID
-        if 'ID' not in content:
-            content['ID'] = did
-    else:
-        # ID to did
+    if did is None:
+        # 'did' not exists, copy the value from 'ID'
         did = content.get('ID')
         if did is not None:
             content['did'] = did
+        # else:
+        #     assert False, 'did not exists: %s' % content
+    elif 'ID' in content:
+        # these two values must be equal
+        assert content.get('ID') == did, 'did error: %s' % content
+    else:
+        # copy value from 'did' to 'ID'
+        content['ID'] = did
 
 
 def _fix_doc_id(document: Dict[str, Any]):
-    # 'ID' <-> 'did
+    # 'ID' <-> 'did'
     _fix_did(document)
     return document
 
@@ -133,7 +136,14 @@ def _fix_file_content(content: Dict[str, Any]):
         pwd = content.get('password')
         if pwd is not None:
             content['key'] = pwd
-    return content
+
+
+_file_types = [
+    ContentType.FILE, 'file',
+    ContentType.IMAGE, 'image',
+    ContentType.AUDIO, 'audio',
+    ContentType.VIDEO, 'video',
+]
 
 
 # TODO: remove after all server/client upgraded
@@ -145,10 +155,7 @@ class CompatibleIncoming:
         msg_type = content.get('type')
         msg_type = Converter.get_str(value=msg_type, default='')
 
-        if msg_type == ContentType.FILE or msg_type == 'file' or \
-                msg_type == ContentType.IMAGE or msg_type == 'image' or \
-                msg_type == ContentType.AUDIO or msg_type == 'audio' or \
-                msg_type == ContentType.VIDEO or msg_type == 'video':
+        if msg_type in _file_types:
             # 1. 'key' <-> 'password'
             _fix_file_content(content=content)
             return
@@ -174,12 +181,13 @@ class CompatibleIncoming:
 
         if cmd == LoginCommand.LOGIN:
             # 2. 'ID' <-> 'did'
-            _fix_doc_id(content)
+            _fix_did(content=content)
             return
 
         if cmd == Command.DOCUMENTS or cmd == 'document':
-            # 2. 'cmd: 'document' -> 'documents'
+            # 2. cmd: 'document' -> 'documents'
             cls._fix_docs(content=content)
+
         if cmd == Command.META or cmd == Command.DOCUMENTS or cmd == 'document':
             # 3. 'ID' <-> 'did'
             _fix_did(content=content)
@@ -197,7 +205,7 @@ class CompatibleIncoming:
         # 'document' -> 'documents'
         doc = content.get('document')
         if doc is not None:
-            content['documents'] = [_fix_did(doc)]
+            content['documents'] = [_fix_doc_id(document=doc)]
             content.pop('document', None)
 
 

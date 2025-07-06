@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2020 Albert Moky
+# Copyright (c) 2025 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,43 +23,46 @@
 # SOFTWARE.
 # ==============================================================================
 
-from .version import MetaVersion
-from .password import Password
-from .utils import BroadcastUtils
+from typing import Optional, Dict
 
-from .ans import AnsCommand
+from dimsdk import MessageCompressor
+from dimsdk import MessageShortener
 
-from .handshake import HandshakeCommand, HandshakeState
-from .login import LoginCommand
-
-from .mute import MuteCommand
-from .block import BlockCommand
-
-from .report import ReportCommand
-
-from .customized import CustomizedContent, AppCustomizedContent
+from .compatible import CompatibleIncoming
 
 
-__all__ = [
+class CompatibleCompressor(MessageCompressor):
 
-    'MetaVersion',
-    'Password',
-    'BroadcastUtils',
+    # Override
+    def _create_shortener(self) -> MessageShortener:
+        return CompatibleShortener()
 
-    #
-    #   Commands
-    #
+    # Override
+    def compress_content(self, content: Dict, key: Dict) -> bytes:
+        # CompatibleOutgoing.fix_content(content=content);
+        return super().compress_content(content=content, key=key)
 
-    'AnsCommand',
+    # Override
+    def extract_content(self, data: bytes, key: Dict) -> Optional[Dict]:
+        content = super().extract_content(data=data, key=key)
+        if content is not None:
+            CompatibleIncoming.fix_content(content=content)
+        return content
 
-    'HandshakeCommand', 'HandshakeState',
-    'LoginCommand',
 
-    'BlockCommand',
-    'MuteCommand',
+class CompatibleShortener(MessageShortener):
 
-    'ReportCommand',
+    # Override
+    def compress_content(self, content: Dict) -> Dict:
+        # DON'T COMPRESS NOW
+        return content
 
-    'CustomizedContent', 'AppCustomizedContent',
+    # Override
+    def compress_symmetric_key(self, key: Dict) -> Dict:
+        # DON'T COMPRESS NOW
+        return key
 
-]
+    # Override
+    def compress_reliable_message(self, msg: Dict) -> Dict:
+        # DON'T COMPRESS NOW
+        return msg
