@@ -72,7 +72,7 @@ class ServerSession(BaseSession):
                 A random string generated when session initialized.
                 It's used in handshaking for authentication.
 
-        'ID' - Remote User ID
+        'did' - Remote User ID
                 It will be set after handshake accepted.
                 So we can trust all messages from this sender after that.
 

@@ -60,7 +60,7 @@ class HandshakeCommand(BaseCommand):
             type : 0x88,
             sn   : 123,
 
-            cmd     : "handshake",    // command name
+            command : "handshake",    // command name
             title   : "Hello world!", // "DIM?", "DIM!"
             session : "{SESSION_ID}", // session key
         }

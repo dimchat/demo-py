@@ -51,7 +51,7 @@ class LoginCommand(BaseCommand):
             type : 0x88,
             sn   : 123,
 
-            cmd     : "login",
+            command : "login",
             time    : 0,
             //---- client info ----
             did      : "{UserID}",

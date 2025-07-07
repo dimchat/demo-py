@@ -49,7 +49,7 @@ class AnsCommand(BaseCommand):
             type : 0x88,
             sn   : 123,
 
-            cmd     : "ans",
+            command : "ans",
             names   : "...",        // query with alias(es, separated by ' ')
             records : {             // respond with record(s)
                 "{alias}": "{ID}",

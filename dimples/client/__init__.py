@@ -35,7 +35,9 @@ from .network import SessionState
 from .checkpoint import Checkpoint
 from .checker import ClientChecker
 
+from .facebook import ClientArchivist
 from .facebook import ClientFacebook
+
 from .messenger import ClientMessenger
 from .packer import ClientMessagePacker
 from .processor import ClientMessageProcessor
@@ -58,7 +60,9 @@ __all__ = [
     'Checkpoint',
     'ClientChecker',
 
+    'ClientArchivist',
     'ClientFacebook',
+
     'ClientMessenger',
     'ClientMessagePacker',
     'ClientMessageProcessor',
