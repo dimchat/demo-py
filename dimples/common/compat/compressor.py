@@ -33,9 +33,8 @@ from .compatible import CompatibleIncoming
 
 class CompatibleCompressor(MessageCompressor):
 
-    # Override
-    def _create_shortener(self) -> MessageShortener:
-        return CompatibleShortener()
+    def __init__(self):
+        super().__init__(shortener=CompatibleShortener())
 
     # Override
     def compress_content(self, content: Dict, key: Dict) -> bytes:
