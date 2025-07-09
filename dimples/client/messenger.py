@@ -40,9 +40,11 @@ from dimsdk import ContentType, Command
 from dimsdk import ReceiptCommand
 from dimsdk import MessageUtils
 
+from ..utils import get_msg_sig
 from ..common import HandshakeCommand, ReportCommand, LoginCommand
 from ..common import CommonMessenger
 
+from .checkpoint import Checkpoint
 from .network import ClientSession
 
 
@@ -53,6 +55,21 @@ class ClientMessenger(CommonMessenger):
         sess = super().session
         assert isinstance(sess, ClientSession), 'session error: %s' % sess
         return sess
+
+    # Override
+    async def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
+        msg = await super().deserialize_message(data=data)
+        if msg is not None and self._check_message_duplicated(msg=msg):
+            msg = None
+        return msg
+
+    def _check_message_duplicated(self, msg: ReliableMessage) -> bool:
+        """ check duplicated """
+        cp = Checkpoint()
+        if cp.duplicated(msg=msg):
+            sig = get_msg_sig(msg=msg)
+            self.warning(msg='drop duplicated message (%s): %s -> %s' % (sig, msg.sender, msg.receiver))
+            return True
 
     # Override
     async def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:

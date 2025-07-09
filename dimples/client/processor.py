@@ -39,17 +39,11 @@ from dimsdk import Facebook, Messenger
 from dimsdk import ContentProcessorCreator
 
 from ..common import HandshakeCommand
-from ..common import CommonFacebook, CommonMessenger
+from ..common import CommonMessenger
 from ..common import CommonMessageProcessor
 
 
 class ClientMessageProcessor(CommonMessageProcessor):
-
-    @property
-    def facebook(self) -> Optional[CommonFacebook]:
-        barrack = super().facebook
-        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
-        return barrack
 
     @property
     def messenger(self) -> Optional[CommonMessenger]:
@@ -112,13 +106,16 @@ class ClientMessageProcessor(CommonMessageProcessor):
         elif isinstance(responses[0], HandshakeCommand):
             # urgent command
             return responses
+        else:
+            facebook = self.facebook
+            messenger = self.messenger
+            assert facebook is not None and messenger is not None, 'twins not ready: %s, %s' % (facebook, messenger)
         sender = r_msg.sender
         receiver = r_msg.receiver
-        me = await self.facebook.select_local_user(receiver=receiver)
+        me = await facebook.select_local_user(receiver=receiver)
         if me is None:
             # assert False, 'receiver error: %s' % receiver
             return responses
-        messenger = self.messenger
         # check responses
         from_bots = sender.type == EntityType.STATION or sender.type == EntityType.BOT
         for res in responses:

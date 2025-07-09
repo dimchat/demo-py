@@ -33,11 +33,8 @@ from dimsdk import ID
 from dimsdk import ContentType, TextContent, FileContent
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 
-from ..utils import get_msg_sig
 from ..common import CommonFacebook
 from ..common import CommonMessagePacker
-
-from .checkpoint import Checkpoint
 
 
 class ClientMessagePacker(CommonMessagePacker):
@@ -142,20 +139,6 @@ class ClientMessagePacker(CommonMessagePacker):
         return await super().verify_message(msg=msg)
 
     # Override
-    async def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
-        msg = await super().deserialize_message(data=data)
-        if msg is not None and self._message_duplicated(msg=msg):
-            msg = None
-        return msg
-
-    def _message_duplicated(self, msg: ReliableMessage) -> bool:
-        cp = Checkpoint()
-        if cp.duplicated(msg=msg):
-            sig = get_msg_sig(msg=msg)
-            self.warning(msg='drop duplicated message (%s): %s -> %s' % (sig, msg.sender, msg.receiver))
-            return True
-
-    # Override
     async def decrypt_message(self, msg: SecureMessage) -> Optional[InstantMessage]:
         try:
             i_msg = await super().decrypt_message(msg=msg)
@@ -199,7 +182,11 @@ class ClientMessagePacker(CommonMessagePacker):
         checker = facebook.checker
         # visa.key not updated?
         user = await facebook.current_user
+        if user is None:
+            self.error(msg='current user not found')
+            return False
         visa = await user.visa
+        assert visa is not None, 'user visa error: %s' % user
         return await checker.send_visa(visa=visa, receiver=receiver)
 
     # protected
