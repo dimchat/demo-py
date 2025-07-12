@@ -132,29 +132,25 @@ class _SafeConverter(BaseConverter):
         try:
             return super().get_bool(value=value, default=default)
         except ValueError:
-            # return default
-            pass
+            return default
 
     # Override
     def get_int(self, value: Any, default: Optional[int]) -> Optional[int]:
         try:
             return super().get_int(value=value, default=default)
         except ValueError:
-            # return default
-            pass
+            return default
 
     # Override
     def get_float(self, value: Any, default: Optional[float]) -> Optional[float]:
         try:
             return super().get_float(value=value, default=default)
         except ValueError:
-            # return default
-            pass
+            return default
 
     # Override
     def get_datetime(self, value: Any, default: Optional[DateTime]) -> Optional[DateTime]:
         try:
             return super().get_datetime(value=value, default=default)
         except ValueError:
-            # return default
-            pass
+            return default

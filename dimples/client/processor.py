@@ -68,7 +68,7 @@ class ClientMessageProcessor(CommonMessageProcessor):
         doc_updated = False
         mem_updated = False
         # check group document time
-        last_doc_time = r_msg.get_datetime(key='GDT', default=None)
+        last_doc_time = r_msg.get_datetime(key='GDT')
         if last_doc_time is not None:
             if last_doc_time.after(now):
                 # calibrate the clock
@@ -79,7 +79,7 @@ class ClientMessageProcessor(CommonMessageProcessor):
                 self.info(msg='checking for new bulletin: %s' % group)
                 await facebook.get_documents(identifier=group)
         # check group history time
-        last_his_time = r_msg.get_datetime(key='GHT', default=None)
+        last_his_time = r_msg.get_datetime(key='GHT')
         if last_his_time is not None:
             if last_his_time.after(now):
                 # calibrate the clock

@@ -31,13 +31,11 @@ from dimsdk import ID
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import MessagePacker
 from dimsdk import MessageUtils
-from dimsdk import Compressor
 
 from ..utils import Logging
 
 from .facebook import CommonFacebook
 from .messenger import CommonMessenger
-from .compat import Compatible
 
 from .queue import SuspendedMessageQueue
 
@@ -53,10 +51,6 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
         transceiver = super().messenger
         assert isinstance(transceiver, CommonMessenger), 'transceiver error: %s' % transceiver
         return transceiver
-
-    @property  # Override
-    def compressor(self) -> Compressor:
-        return self.messenger.compressor
 
     def suspend_reliable_message(self, msg: ReliableMessage, error: Dict):
         self.__queue.suspend_reliable_message(msg=msg, error=error)
@@ -163,23 +157,3 @@ class CommonMessagePacker(MessagePacker, Logging, ABC):
             # already signed
             return msg
         return await super().sign_message(msg=msg)
-
-    # Override
-    async def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
-        if data is None or len(data) <= 4:
-            # message data error
-            return None
-        # elif not (data.startswith(b'{') and data.endswith(b'}')):
-        #     # only support JsON format now
-        #     return None
-        msg = await super().deserialize_message(data=data)
-        if msg is not None:
-            Compatible.fix_meta_attachment(msg=msg)
-            Compatible.fix_visa_attachment(msg=msg)
-        return msg
-
-    # Override
-    async def serialize_message(self, msg: ReliableMessage) -> bytes:
-        Compatible.fix_meta_attachment(msg=msg)
-        Compatible.fix_visa_attachment(msg=msg)
-        return await super().serialize_message(msg=msg)

@@ -172,7 +172,7 @@ class CompatibleIncoming:
         #  get command name
         #
         cmd = content.get('command')
-        # cmd = Converter.get_str(value=cmd, default=None)
+        # cmd = Converter.get_str(value=cmd)
         if cmd is None or len(cmd) == 0:
             return
 
@@ -270,7 +270,7 @@ class CompatibleOutgoing:
     def _fix_type(cls, content: Dict[str, Any]):
         msg_type = content.get('type')
         if isinstance(msg_type, str):
-            num_type = Converter.get_int(value=msg_type, default=-1)
+            num_type = Converter.get_int(value=msg_type)
             if num_type is not None and num_type >= 0:
                 content['type'] = num_type
 

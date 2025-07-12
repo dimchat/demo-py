@@ -48,7 +48,7 @@ class TraceNode(Dictionary):
 
     @property
     def time(self) -> float:
-        return self.get_float(key='time', default=0)
+        return self.get_float(key='time', default=0.0)
 
     def __eq__(self, other) -> bool:
         """ Return self == other. """

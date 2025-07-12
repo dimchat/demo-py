@@ -85,7 +85,7 @@ class HandshakeCommand(BaseCommand):
     @property
     def title(self) -> str:
         # TODO: modify after all clients upgraded
-        text = self.get_str(key='title', default=None)
+        text = self.get_str(key='title')
         if text is None:
             # compatible with v1.0
             text = self.get_str(key='message', default='')
@@ -93,7 +93,7 @@ class HandshakeCommand(BaseCommand):
 
     @property
     def session(self) -> Optional[str]:
-        return self.get_str(key='session', default=None)
+        return self.get_str(key='session')
 
     @property
     def state(self) -> HandshakeState:

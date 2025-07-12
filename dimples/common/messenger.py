@@ -56,6 +56,7 @@ from .session import Transmitter, Session
 
 from .compat import CompatibleOutgoing
 from .compat import CompatibleCompressor
+from .compat import Compatible
 
 
 class CommonMessenger(Messenger, Transmitter, Logging, ABC):
@@ -106,6 +107,28 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         return self.__session
 
     # Override
+    async def serialize_message(self, msg: ReliableMessage) -> bytes:
+        Compatible.fix_meta_attachment(msg=msg)
+        Compatible.fix_visa_attachment(msg=msg)
+        return await super().serialize_message(msg=msg)
+
+    # Override
+    async def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
+        if data is None or len(data) <= 4:
+            # message data error
+            return None
+        # elif not (data.startswith(b'{') and data.endswith(b'}')):
+        #     # only support JsON format now
+        #     return None
+        msg = await super().deserialize_message(data=data)
+        if msg is not None:
+            Compatible.fix_meta_attachment(msg=msg)
+            Compatible.fix_visa_attachment(msg=msg)
+        return msg
+
+    # -------- InstantMessageDelegate
+
+    # Override
     async def encrypt_key(self, data: bytes, receiver: ID, msg: InstantMessage) -> Optional[bytes]:
         try:
             return await super().encrypt_key(data=data, receiver=receiver, msg=msg)
@@ -129,7 +152,7 @@ class CommonMessenger(Messenger, Transmitter, Logging, ABC):
         # 2. serialize key without flags
         data = await super().serialize_key(key=key, msg=msg)
         # 3. put them back after serialized
-        if Converter.get_bool(value=reused, default=False):
+        if Converter.get_bool(value=reused):
             key['reused'] = reused
         if digest is not None:
             key['digest'] = digest

@@ -61,7 +61,7 @@ class CommonMessageProcessor(MessageProcessor, Logging, ABC):
             assert False, 'entity checker lost'
         doc_updated = False
         # check sender document time
-        last_doc_time = r_msg.get_datetime(key='SDT', default=None)
+        last_doc_time = r_msg.get_datetime(key='SDT')
         if last_doc_time is not None:
             now = DateTime.now()
             if last_doc_time.after(now):

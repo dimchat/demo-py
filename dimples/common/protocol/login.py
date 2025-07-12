@@ -92,7 +92,7 @@ class LoginCommand(BaseCommand):
     # Device ID
     @property
     def device(self) -> Optional[str]:
-        return self.get_str(key='device', default=None)
+        return self.get_str(key='device')
 
     @device.setter
     def device(self, value: str):
@@ -104,7 +104,7 @@ class LoginCommand(BaseCommand):
     # User Agent
     @property
     def agent(self) -> Optional[str]:
-        return self.get_str(key='agent', default=None)
+        return self.get_str(key='agent')
 
     @agent.setter
     def agent(self, value: str):
