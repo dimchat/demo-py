@@ -29,7 +29,7 @@
 # ==============================================================================
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Dict
 
 from dimsdk import Content, ContentType
 from dimsdk import BaseContent
@@ -93,7 +93,7 @@ class AppCustomizedContent(BaseContent, CustomizedContent):
         }
     """
 
-    def __init__(self, content: Dict[str, Any] = None,
+    def __init__(self, content: Dict = None,
                  msg_type: str = None,
                  app: str = None, mod: str = None, act: str = None):
         if content is None:

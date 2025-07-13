@@ -156,6 +156,11 @@ class BaseAccount(Logging, ABC):
             self.error(msg='failed to load documents: %s' % identifier)
             return meta, None
         doc = DocumentUtils.last_document(documents=documents)
+        if doc is not None:
+            # clone for editing
+            doc = Document.parse(document=doc.copy_dictionary())
+            ok = doc.verify(public_key=meta.public_key)
+            assert ok, 'document error: %s, %s' % (identifier, doc)
         self.__id = identifier
         self.__meta = meta
         self.__doc = doc
@@ -220,9 +225,6 @@ class BaseAccount(Logging, ABC):
         identifier = self.__id
         doc = self.__doc
         assert doc.identifier == identifier, 'document error: %s, %s' % (identifier, doc)
-        # clone to edit
-        doc = Document.parse(document=doc.copy_dictionary())
-        self.__doc = doc
         print('!!!')
         print('!!! ========================================================================')
         print('!!!   Editing document for: %s' % identifier)

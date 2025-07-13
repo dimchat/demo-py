@@ -197,7 +197,7 @@ class ClientMessenger(CommonMessenger):
             return None
         else:
             # clone for modifying
-            visa = Document.parse(document=visa.copy_dictionary(deep_copy=False))
+            visa = Document.parse(document=visa.copy_dictionary())
             if not isinstance(visa, Visa):
                 self.error(msg='visa error: %s' % visa)
                 return None

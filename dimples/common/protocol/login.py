@@ -35,7 +35,7 @@
     As receipt returned to sender to proofing the message's received
 """
 
-from typing import Optional, Union, Any, Dict
+from typing import Optional, Union, Dict
 
 from dimsdk import ID
 from dimsdk import BaseCommand
@@ -70,7 +70,7 @@ class LoginCommand(BaseCommand):
     """
     LOGIN = 'login'
 
-    def __init__(self, content: Dict[str, Any] = None, identifier: ID = None):
+    def __init__(self, content: Dict = None, identifier: ID = None):
         if content is None:
             # 1. new command with ID
             assert identifier is not None, 'login ID should not empty'

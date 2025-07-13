@@ -27,7 +27,7 @@
 # ==============================================================================
 
 import threading
-from typing import Union, Any, Dict, List, Set
+from typing import Union, Dict, List, Set
 
 from dimsdk import DateTime
 from dimsdk import Mapper, Dictionary
@@ -131,7 +131,7 @@ class TraceNode(Dictionary):
         return nodes
 
     @classmethod
-    def revert(cls, nodes: List) -> List[Dict[str, Any]]:
+    def revert(cls, nodes: List) -> List[Dict]:
         array = []
         for item in nodes:
             if isinstance(item, Mapper):

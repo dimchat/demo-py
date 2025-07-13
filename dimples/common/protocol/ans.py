@@ -35,7 +35,7 @@
     Query/respond ANS records
 """
 
-from typing import Union, Any, List, Dict
+from typing import Union, List, Dict
 
 from dimsdk import Command, BaseCommand
 
@@ -59,7 +59,7 @@ class AnsCommand(BaseCommand):
 
     ANS = 'ans'
 
-    def __init__(self, content: Dict[str, Any] = None, names: str = None):
+    def __init__(self, content: Dict = None, names: str = None):
         if content is None:
             # 1. new command with names
             assert names is not None, 'ANS command error'
@@ -76,8 +76,8 @@ class AnsCommand(BaseCommand):
     #
     @property
     def names(self) -> List[str]:
-        string = self.get_str(key='names', default='')
-        return string.split()
+        string = self.get_str(key='names')
+        return [] if string is None else string.split()
 
     @property
     def records(self) -> Dict[str, str]:

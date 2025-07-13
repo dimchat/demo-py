@@ -23,7 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Any, List, Dict
+from typing import List, Dict
 
 from dimsdk import Converter
 from dimsdk import Document, DocumentUtils
@@ -55,7 +55,7 @@ class Compatible:
             _fix_meta_version(meta=meta)
 
     @classmethod
-    def fix_meta_version(cls, meta: Dict[str, Any]):
+    def fix_meta_version(cls, meta: Dict):
         _fix_meta_version(meta=meta)
 
     @classmethod
@@ -65,11 +65,11 @@ class Compatible:
             _fix_doc_id(document=visa)
 
     @classmethod
-    def fix_document_id(cls, document: Dict[str, Any]):
+    def fix_document_id(cls, document: Dict):
         _fix_doc_id(document=document)
 
 
-def _fix_cmd(content: Dict[str, Any]):
+def _fix_cmd(content: Dict):
     cmd = content.get('command')
     if cmd is None:
         # 'command' not exists, copy the value from 'cmd'
@@ -86,7 +86,7 @@ def _fix_cmd(content: Dict[str, Any]):
         content['cmd'] = cmd
 
 
-def _fix_did(content: Dict[str, Any]):
+def _fix_did(content: Dict):
     did = content.get('did')
     if did is None:
         # 'did' not exists, copy the value from 'ID'
@@ -103,13 +103,13 @@ def _fix_did(content: Dict[str, Any]):
         content['ID'] = did
 
 
-def _fix_doc_id(document: Dict[str, Any]):
+def _fix_doc_id(document: Dict):
     # 'ID' <-> 'did'
     _fix_did(document)
     return document
 
 
-def _fix_meta_version(meta: Dict[str, Any]):
+def _fix_meta_version(meta: Dict):
     version = meta.get('type')
     if version is None:
         version = meta.get('version')  # compatible with MKM 0.9.*
@@ -124,7 +124,7 @@ def _fix_meta_version(meta: Dict[str, Any]):
         meta['version'] = version
 
 
-def _fix_file_content(content: Dict[str, Any]):
+def _fix_file_content(content: Dict):
     pwd = content.get('key')
     if pwd is not None:
         # Tarsier version > 1.3.7
@@ -150,11 +150,12 @@ _file_types = [
 class CompatibleIncoming:
 
     @classmethod
-    def fix_content(cls, content: Dict[str, Any]):
+    def fix_content(cls, content: Dict):
         # get content type
         msg_type = content.get('type')
-        msg_type = Converter.get_str(value=msg_type, default='')
-
+        msg_type = Converter.get_str(value=msg_type)
+        if msg_type is None:
+            msg_type = ''
         if msg_type in _file_types:
             # 1. 'key' <-> 'password'
             _fix_file_content(content=content)
@@ -197,7 +198,7 @@ class CompatibleIncoming:
                 _fix_meta_version(meta=meta)
 
     @classmethod
-    def _fix_docs(cls, content: Dict[str, Any]):
+    def _fix_docs(cls, content: Dict):
         # cmd: 'document' -> 'documents'
         cmd = content.get('command')
         if cmd == 'document':
@@ -267,7 +268,7 @@ class CompatibleOutgoing:
                 _fix_meta_version(meta=meta)
 
     @classmethod
-    def _fix_type(cls, content: Dict[str, Any]):
+    def _fix_type(cls, content: Dict):
         msg_type = content.get('type')
         if isinstance(msg_type, str):
             num_type = Converter.get_int(value=msg_type)

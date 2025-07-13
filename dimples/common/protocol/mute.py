@@ -36,7 +36,7 @@
     If value of 'list' is None, means querying mute-list from station
 """
 
-from typing import Optional, Any, Dict, List
+from typing import Optional, Dict, List
 
 from dimsdk import ID, BaseCommand
 
@@ -57,7 +57,7 @@ class MuteCommand(BaseCommand):
 
     MUTE = 'mute'
 
-    def __init__(self, content: Optional[Dict[str, Any]] = None):
+    def __init__(self, content: Optional[Dict] = None):
         if content is None:
             super().__init__(cmd=MuteCommand.MUTE)
         else:

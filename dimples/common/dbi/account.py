@@ -24,7 +24,7 @@
 # ==============================================================================
 
 from abc import ABC, abstractmethod
-from typing import Optional, Union, Any, Dict, List, Tuple
+from typing import Optional, Union, Dict, List, Tuple
 from typing import Iterable
 
 from dimsdk import PrivateKey, SignKey, DecryptKey
@@ -76,7 +76,7 @@ class PrivateKeyDBI(ABC):
         return private_keys
 
     @classmethod
-    def revert_private_keys(cls, keys: Iterable[PrivateKey]) -> List[Dict[str, Any]]:
+    def revert_private_keys(cls, keys: Iterable[PrivateKey]) -> List[Dict]:
         array = []
         for item in keys:
             array.append(item.dictionary)

@@ -39,7 +39,7 @@
 """
 
 from enum import IntEnum
-from typing import Optional, Any, Dict
+from typing import Optional, Dict
 
 from dimsdk import Command, BaseCommand
 
@@ -67,7 +67,7 @@ class HandshakeCommand(BaseCommand):
     """
     HANDSHAKE = 'handshake'
 
-    def __init__(self, content: Dict[str, Any] = None, title: str = None, session: str = None):
+    def __init__(self, content: Dict = None, title: str = None, session: str = None):
         if content is None:
             # 1. new command with title & session key
             assert title is not None, 'handshake command error: %s' % session
