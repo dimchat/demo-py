@@ -66,8 +66,10 @@ __all__ = [
     'MuteCommand',
 
     'ReportCommand',
+    'SearchCommand',
 
     'CustomizedContent', 'AppCustomizedContent',
+    'GroupHistory', 'GroupKeys',
 
     #
     #   Database Interface

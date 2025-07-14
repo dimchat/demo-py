@@ -36,10 +36,10 @@ class CompatibleCompressor(MessageCompressor):
     def __init__(self):
         super().__init__(shortener=CompatibleShortener())
 
-    # Override
-    def compress_content(self, content: Dict, key: Dict) -> bytes:
-        # CompatibleOutgoing.fix_content(content=content);
-        return super().compress_content(content=content, key=key)
+    # # Override
+    # def compress_content(self, content: Dict, key: Dict) -> bytes:
+    #     # CompatibleOutgoing.fix_content(content=content);
+    #     return super().compress_content(content=content, key=key)
 
     # Override
     def extract_content(self, data: bytes, key: Dict) -> Optional[Dict]:
@@ -50,6 +50,17 @@ class CompatibleCompressor(MessageCompressor):
 
 
 class CompatibleShortener(MessageShortener):
+
+    # Override
+    def _move_key(self, from_key: str, to_key: str, info: Dict):
+        value = info.get(from_key)
+        if value is not None:
+            if info.get(to_key) is not None:
+                # assert False, 'keys conflicted: "%s" -> "%s", %s' % (from_key, to_key, info)
+                return
+            assert to_key not in info, 'keys conflicted: "%s" -> "%s", %s' % (from_key, to_key, info)
+            info.pop(from_key, None)
+            info[to_key] = value
 
     # Override
     def compress_content(self, content: Dict) -> Dict:
