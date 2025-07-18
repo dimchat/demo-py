@@ -70,11 +70,11 @@ class GroupPacker(TripletsHelper):
                 continue
             else:
                 self.info(msg='split group message for member: %s' % receiver)
-            info = msg.copy_dictionary(deep_copy=False)
+            info = msg.copy_dictionary()
             # Copy the content to avoid conflicts caused by modifications
             # by different processes.
             # Notice: there is no need to use deep copying here.
-            info['content'] = msg.content.copy_dictionary(deep_copy=False)
+            info['content'] = msg.content.copy_dictionary()
             # replace 'receiver' with member ID
             info['receiver'] = str(receiver)
             item = InstantMessage.parse(msg=info)
@@ -98,7 +98,7 @@ class GroupPacker(TripletsHelper):
                 continue
             else:
                 self.info(msg='split group message for member: %s' % receiver)
-            info = msg.copy_dictionary(deep_copy=False)
+            info = msg.copy_dictionary()
             # replace 'receiver' with member ID
             info['receiver'] = str(receiver)
             # fetch encrypted key data

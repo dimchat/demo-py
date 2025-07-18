@@ -24,13 +24,18 @@
 # ==============================================================================
 
 from dimsdk import utf8_encode, base64_encode
-from dimsdk import sha256
+from dimsdk import sha256, md5
 from dimsdk import SymmetricKey
 from dimsdk import SymmetricAlgorithms
 from dimplugins import PlainKey
 
 
 class Password:
+    """ SymmetricKey
+        ~~~~~~~~~~~~
+
+        This is for generating symmetric key with a text string
+    """
 
     KEY_SIZE = 32
 
@@ -38,6 +43,7 @@ class Password:
 
     @classmethod
     def generate(cls, passphrase: str) -> SymmetricKey:
+        """ Generate AES key """
         data = utf8_encode(string=passphrase)
         digest = sha256(data=data)
         # AES key data
@@ -60,9 +66,23 @@ class Password:
         }
         return SymmetricKey.parse(key=info)
 
+    #
+    #   Key Digest
+    #
+
+    @classmethod
+    def digest(cls, password: SymmetricKey) -> str:
+        """ Get key digest """
+        key = password.data             # 32 bytes
+        dig = md5(data=key)             # 16 bytes
+        pre = dig[:6]                   # 6 bytes
+        return base64_encode(data=pre)  # 8 chars
+
     """
         Plain Key
         ~~~~~~~~~
+        
+        (no password)
     """
 
     PLAIN = SymmetricAlgorithms.PLAIN

@@ -33,10 +33,14 @@ from typing import Optional, List
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
-from dimsdk import Content
+from dimsdk import ContentType, Content
+from dimsdk import GroupCommand, QueryCommand
+from dimsdk import TwinsHelper
+from dimsdk import Facebook, Messenger
 from dimsdk.cpu import BaseContentProcessor
 
 from ...common import CustomizedContent
+from ...common import GroupHistory
 
 
 class CustomizedContentHandler(ABC):
@@ -46,8 +50,8 @@ class CustomizedContentHandler(ABC):
     """
 
     @abstractmethod
-    async def handle_action(self, act: str, sender: ID,
-                            content: CustomizedContent, msg: ReliableMessage) -> List[Content]:
+    async def handle_action(self, act: str, sender: ID, content: CustomizedContent,
+                            msg: ReliableMessage) -> List[Content]:
         """
         Do your job
 
@@ -60,11 +64,64 @@ class CustomizedContentHandler(ABC):
         raise NotImplemented
 
 
+# private
+class GroupHistoryHandler(TwinsHelper, CustomizedContentHandler):
+    """ Command Transform:
+
+        +===============================+===============================+
+        |      Customized Content       |      Group Query Command      |
+        +-------------------------------+-------------------------------+
+        |   "type" : i2s(0xCC)          |   "type" : i2s(0x88)          |
+        |   "sn"   : 123                |   "sn"   : 123                |
+        |   "time" : 123.456            |   "time" : 123.456            |
+        |   "app"  : "chat.dim.group"   |                               |
+        |   "mod"  : "history"          |                               |
+        |   "act"  : "query"            |                               |
+        |                               |   "command"   : "query"       |
+        |   "group"     : "{GROUP_ID}"  |   "group"     : "{GROUP_ID}"  |
+        |   "last_time" : 0             |   "last_time" : 0             |
+        +===============================+===============================+
+    """
+
+    # Override
+    async def handle_action(self, act: str, sender: ID, content: CustomizedContent,
+                            msg: ReliableMessage) -> List[Content]:
+        messenger = self.messenger
+        if messenger is None:
+            assert False, 'messenger lost'
+            # return []
+        elif act == GroupHistory.ACT_QUERY:
+            assert GroupHistory.APP == content.application
+            assert GroupHistory.MOD == content.module
+            assert content.group is not None, 'group command error: %s, sender: %s' % (content, sender)
+        else:
+            # assert False, 'unknown action: %s, %s, sender: %s' % (act, content, sender)
+            return []
+        info = content.copy_dictionary()
+        info['type'] = ContentType.COMMAND
+        info['command'] = GroupCommand.QUERY
+        query = Content.parse(content=info)
+        if isinstance(query, QueryCommand):
+            return await messenger.process_content(content=query, r_msg=msg)
+        # else:
+        #     assert False, 'query command error: %s, %s, sender: %s' % (query, content, sender)
+        return []
+
+
 class CustomizedContentProcessor(BaseContentProcessor, CustomizedContentHandler):
     """
         Customized Content Processing Unit
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
+
+    def __init__(self, facebook: Facebook, messenger: Messenger):
+        super().__init__(facebook=facebook, messenger=messenger)
+        handler = GroupHistoryHandler(facebook=facebook, messenger=messenger)
+        self.__group_history_handler = handler
+
+    @property  # private
+    def group_history_handler(self) -> GroupHistoryHandler:
+        return self.__group_history_handler
 
     # Override
     async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
@@ -88,15 +145,11 @@ class CustomizedContentProcessor(BaseContentProcessor, CustomizedContentHandler)
 
     # noinspection PyUnusedLocal
     def _filter(self, app: str, content: CustomizedContent, msg: ReliableMessage) -> Optional[List[Content]]:
-        # Override for your application
-        """
-        Check for application
-
-        :param app:     app ID
-        :param content: customized content
-        :param msg:     received message
-        :return: None on app ID matched
-        """
+        """ Override for your application """
+        if app == GroupHistory.APP:
+            # app id matched,
+            # return no errors
+            return None
         text = 'Content not support.'
         return self._respond_receipt(text=text, content=content, envelope=msg.envelope, extra={
             'template': 'Customized content (app: ${app}) not support yet!',
@@ -107,14 +160,20 @@ class CustomizedContentProcessor(BaseContentProcessor, CustomizedContentHandler)
 
     # noinspection PyUnusedLocal
     def _fetch(self, mod: str, content: CustomizedContent, msg: ReliableMessage) -> Optional[CustomizedContentHandler]:
-        """ Override for you module """
+        """ Override for you modules """
+        if mod == GroupHistory.MOD:
+            app = content.application
+            if app == GroupHistory.APP:
+                return self.group_history_handler
+            # assert False, 'unknown app: %s, content: %s, sender: %s' % (app, content, msg.sender)
+            # return None
         # if the application has too many modules, I suggest you to
         # use different handler to do the job for each module.
         return self
 
     # Override
-    async def handle_action(self, act: str, sender: ID,
-                            content: CustomizedContent, msg: ReliableMessage) -> List[Content]:
+    async def handle_action(self, act: str, sender: ID, content: CustomizedContent,
+                            msg: ReliableMessage) -> List[Content]:
         """ Override for customized actions """
         app = content.application
         mod = content.module

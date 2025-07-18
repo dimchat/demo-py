@@ -208,7 +208,7 @@ class ClientMessagePacker(CommonMessagePacker):
         if group is not None:
             content.group = group
         # pack instant message
-        info = msg.copy_dictionary(deep_copy=False)
+        info = msg.copy_dictionary()
         info.pop('data', None)
         info['content'] = content.dictionary
         return InstantMessage.parse(msg=info)

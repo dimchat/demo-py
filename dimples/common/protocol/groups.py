@@ -30,9 +30,7 @@
 
 from typing import List, Dict
 
-from dimsdk import md5, base64_encode
 from dimsdk import DateTime
-from dimsdk import SymmetricKey
 from dimsdk import ID
 
 from .customized import CustomizedContent
@@ -172,16 +170,3 @@ class GroupKeys:
             'digest': digest,
             str(member): encoded_key,
         })
-
-    #
-    #   Key Digest
-    #
-
-    @classmethod
-    def digest(cls, password: SymmetricKey):
-        """ Get key digest """
-        key = password.data            # 32 bytes
-        suf = key[len(key) >> 1:]      # last 16 bytes
-        dig = md5(data=suf)            # 16 bytes
-        res = base64_encode(data=dig)  # 24 chars
-        return res[len(res) >> 1:]     # last 12 chars
