@@ -29,11 +29,13 @@
 # ==============================================================================
 
 from abc import ABC, abstractmethod
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
+from dimsdk import Envelope
 from dimsdk import ContentType, Content
+from dimsdk import ReceiptCommand
 from dimsdk import GroupCommand, QueryCommand
 from dimsdk import TwinsHelper
 from dimsdk import Facebook, Messenger
@@ -64,8 +66,41 @@ class CustomizedContentHandler(ABC):
         raise NotImplemented
 
 
-# private
-class GroupHistoryHandler(TwinsHelper, CustomizedContentHandler):
+class BaseCustomizedHandler(TwinsHelper, CustomizedContentHandler):
+    """
+        Default Handler
+        ~~~~~~~~~~~~~~~
+    """
+
+    # Override
+    async def handle_action(self, act: str, sender: ID, content: CustomizedContent,
+                            msg: ReliableMessage) -> List[Content]:
+        app = content.application
+        mod = content.module
+        text = 'Content not support.'
+        return self._respond_receipt(text=text, content=content, envelope=msg.envelope, extra={
+            'template': 'Customized content (app: ${app}, mod: ${mod}, act: ${act}) not support yet!',
+            'replacements': {
+                'app': app,
+                'mod': mod,
+                'act': act,
+            }
+        })
+
+    #
+    #   Convenient responding
+    #
+
+    # noinspection PyMethodMayBeStatic
+    def _respond_receipt(self, text: str, envelope: Envelope, content: Optional[Content],
+                         extra: Optional[Dict] = None) -> List[ReceiptCommand]:
+        return [
+            # create base receipt command with text & original envelope
+            BaseContentProcessor.create_receipt(text=text, envelope=envelope, content=content, extra=extra)
+        ]
+
+
+class GroupHistoryHandler(BaseCustomizedHandler):
     """ Command Transform:
 
         +===============================+===============================+
@@ -83,6 +118,10 @@ class GroupHistoryHandler(TwinsHelper, CustomizedContentHandler):
         +===============================+===============================+
     """
 
+    # noinspection PyMethodMayBeStatic
+    def matches(self, app: str, mod: str) -> bool:
+        return app == GroupHistory.APP and mod == GroupHistory.MOD
+
     # Override
     async def handle_action(self, act: str, sender: ID, content: CustomizedContent,
                             msg: ReliableMessage) -> List[Content]:
@@ -96,7 +135,7 @@ class GroupHistoryHandler(TwinsHelper, CustomizedContentHandler):
             assert content.group is not None, 'group command error: %s, sender: %s' % (content, sender)
         else:
             # assert False, 'unknown action: %s, %s, sender: %s' % (act, content, sender)
-            return []
+            return await super().handle_action(act=act, sender=sender, content=content, msg=msg)
         info = content.copy_dictionary()
         info['type'] = ContentType.COMMAND
         info['command'] = GroupCommand.QUERY
@@ -105,84 +144,61 @@ class GroupHistoryHandler(TwinsHelper, CustomizedContentHandler):
             return await messenger.process_content(content=query, r_msg=msg)
         # else:
         #     assert False, 'query command error: %s, %s, sender: %s' % (query, content, sender)
-        return []
+        text = 'Query command error.'
+        return self._respond_receipt(text=text, envelope=msg.envelope, content=content)
 
 
-class CustomizedContentProcessor(BaseContentProcessor, CustomizedContentHandler):
+class CustomizedContentProcessor(BaseContentProcessor):
     """
         Customized Content Processing Unit
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        Handle content for application customized
     """
 
     def __init__(self, facebook: Facebook, messenger: Messenger):
         super().__init__(facebook=facebook, messenger=messenger)
-        handler = GroupHistoryHandler(facebook=facebook, messenger=messenger)
-        self.__group_history_handler = handler
+        self.__default_handler = self._create_default_handler(facebook=facebook, messenger=messenger)
+        self.__group_history_handler = self._create_group_history_handler(facebook=facebook, messenger=messenger)
 
-    @property  # private
+    # noinspection PyMethodMayBeStatic
+    def _create_default_handler(self, facebook: Facebook, messenger: Messenger) -> CustomizedContentHandler:
+        return BaseCustomizedHandler(facebook=facebook, messenger=messenger)
+
+    # noinspection PyMethodMayBeStatic
+    def _create_group_history_handler(self, facebook: Facebook, messenger: Messenger) -> GroupHistoryHandler:
+        return GroupHistoryHandler(facebook=facebook, messenger=messenger)
+
+    @property  # protected
+    def default_handler(self) -> CustomizedContentHandler:
+        return self.__default_handler
+
+    @property  # protected
     def group_history_handler(self) -> GroupHistoryHandler:
         return self.__group_history_handler
 
     # Override
     async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, CustomizedContent), 'customized content error: %s' % content
-        # 1. check app id
+        # get handler for 'app' & 'mod'
         app = content.application
-        responses = self._filter(app, content=content, msg=r_msg)
-        if responses is not None:
-            # app id not found
-            return responses
-        # 2. get handler with module name
         mod = content.module
-        handler = self._fetch(mod, content=content, msg=r_msg)
+        handler = self._filter(app, mod, content=content, msg=r_msg)
         if handler is None:
             # module not support
-            return []
-        # 3. do the job
+            handler = self.default_handler
+        # handle the action
         act = content.action
         sender = r_msg.sender
         return await handler.handle_action(act, sender=sender, content=content, msg=r_msg)
 
     # noinspection PyUnusedLocal
-    def _filter(self, app: str, content: CustomizedContent, msg: ReliableMessage) -> Optional[List[Content]]:
-        """ Override for your application """
-        if app == GroupHistory.APP:
-            # app id matched,
-            # return no errors
-            return None
-        text = 'Content not support.'
-        return self._respond_receipt(text=text, content=content, envelope=msg.envelope, extra={
-            'template': 'Customized content (app: ${app}) not support yet!',
-            'replacements': {
-                'app': app,
-            }
-        })
-
-    # noinspection PyUnusedLocal
-    def _fetch(self, mod: str, content: CustomizedContent, msg: ReliableMessage) -> Optional[CustomizedContentHandler]:
-        """ Override for you modules """
-        if mod == GroupHistory.MOD:
-            app = content.application
-            if app == GroupHistory.APP:
-                return self.group_history_handler
-            # assert False, 'unknown app: %s, content: %s, sender: %s' % (app, content, msg.sender)
-            # return None
+    def _filter(self, app: str, mod: str,
+                content: CustomizedContent, msg: ReliableMessage) -> Optional[CustomizedContentHandler]:
+        """ Override for your handler """
+        if content.group is not None:
+            handler = self.group_history_handler
+            if handler.matches(app=app, mod=mod):
+                return handler
         # if the application has too many modules, I suggest you to
         # use different handler to do the job for each module.
-        return self
-
-    # Override
-    async def handle_action(self, act: str, sender: ID, content: CustomizedContent,
-                            msg: ReliableMessage) -> List[Content]:
-        """ Override for customized actions """
-        app = content.application
-        mod = content.module
-        text = 'Content not support.'
-        return self._respond_receipt(text=text, content=content, envelope=msg.envelope, extra={
-            'template': 'Customized content (app: ${app}, mod: ${mod}, act: ${act}) not support yet!',
-            'replacements': {
-                'app': app,
-                'mod': mod,
-                'act': act,
-            }
-        })
+        return None
