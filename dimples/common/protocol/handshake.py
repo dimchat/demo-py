@@ -38,6 +38,7 @@
     4. (S-C) handshake success
 """
 
+from abc import ABC, abstractmethod
 from enum import IntEnum
 from typing import Optional, Dict
 
@@ -51,7 +52,20 @@ class HandshakeState(IntEnum):
     Success = 3  # S -> C, handshake accepted
 
 
-class HandshakeCommand(BaseCommand):
+def handshake_state(title: str, session: str = None) -> HandshakeState:
+    # Server -> Client
+    if title == 'DIM!':  # or title == 'OK!':
+        return HandshakeState.Success
+    if title == 'DIM?':
+        return HandshakeState.Again
+    # Client -> Server: "Hello world!"
+    if session is None or len(session) == 0:
+        return HandshakeState.Start
+    else:
+        return HandshakeState.Restart
+
+
+class HandshakeCommand(Command, ABC):
     """
         Handshake Command
         ~~~~~~~~~~~~~~~~~
@@ -66,6 +80,62 @@ class HandshakeCommand(BaseCommand):
         }
     """
     HANDSHAKE = 'handshake'
+
+    @property
+    @abstractmethod
+    def title(self) -> str:
+        raise NotImplemented
+
+    @property
+    @abstractmethod
+    def session(self) -> Optional[str]:
+        raise NotImplemented
+
+    @property
+    @abstractmethod
+    def state(self) -> HandshakeState:
+        raise NotImplemented
+
+    #
+    #   Factories
+    #
+
+    @classmethod
+    def offer(cls, session: str = None) -> Command:
+        """
+        Create client-station handshake offer
+
+        :param session: Old session key
+        :return: HandshakeCommand object
+        """
+        return BaseHandshakeCommand(title='Hello world!', session=session)
+
+    @classmethod
+    def ask(cls, session: str) -> Command:
+        """
+        Create station-client handshake again with new session
+
+        :param session: New session key
+        :return: HandshakeCommand object
+        """
+        return BaseHandshakeCommand(title='DIM?', session=session)
+
+    @classmethod
+    def accepted(cls, session: str = None) -> Command:
+        """
+        Create station-client handshake success notice
+
+        :return: HandshakeCommand object
+        """
+        return BaseHandshakeCommand(title='DIM!', session=session)
+
+    start = offer       # (1. C->S) first handshake, without session
+    again = ask         # (2. S->C) ask client to handshake with new session key
+    restart = offer     # (3. C->S) handshake with new session key
+    success = accepted  # (4. S->C) notice the client that handshake accepted
+
+
+class BaseHandshakeCommand(BaseCommand, HandshakeCommand):
 
     def __init__(self, content: Dict = None, title: str = None, session: str = None):
         if content is None:
@@ -84,12 +154,7 @@ class HandshakeCommand(BaseCommand):
 
     @property
     def title(self) -> str:
-        # TODO: modify after all clients upgraded
-        text = self.get_str(key='title')
-        if text is None:
-            # compatible with v1.0
-            text = self.get_str(key='message', default='')
-        return text
+        return self.get_str(key='title', default='')
 
     @property
     def session(self) -> Optional[str]:
@@ -98,54 +163,3 @@ class HandshakeCommand(BaseCommand):
     @property
     def state(self) -> HandshakeState:
         return handshake_state(title=self.title, session=self.session)
-
-    #
-    #   Factories
-    #
-
-    @classmethod
-    def offer(cls, session: str = None) -> Command:
-        """
-        Create client-station handshake offer
-
-        :param session: Old session key
-        :return: HandshakeCommand object
-        """
-        return HandshakeCommand(title='Hello world!', session=session)
-
-    @classmethod
-    def ask(cls, session: str) -> Command:
-        """
-        Create station-client handshake again with new session
-
-        :param session: New session key
-        :return: HandshakeCommand object
-        """
-        return HandshakeCommand(title='DIM?', session=session)
-
-    @classmethod
-    def accepted(cls, session: str = None) -> Command:
-        """
-        Create station-client handshake success notice
-
-        :return: HandshakeCommand object
-        """
-        return HandshakeCommand(title='DIM!', session=session)
-
-    start = offer       # (1. C->S) first handshake, without session
-    again = ask         # (2. S->C) ask client to handshake with new session key
-    restart = offer     # (3. C->S) handshake with new session key
-    success = accepted  # (4. S->C) notice the client that handshake accepted
-
-
-def handshake_state(title: str, session: str = None) -> HandshakeState:
-    # Server -> Client
-    if title == 'DIM!':  # or title == 'OK!':
-        return HandshakeState.Success
-    if title == 'DIM?':
-        return HandshakeState.Again
-    # Client -> Server: "Hello world!"
-    if session is None or len(session) == 0:
-        return HandshakeState.Start
-    else:
-        return HandshakeState.Restart

@@ -59,7 +59,7 @@ __all__ = [
 
     'AnsCommand',
 
-    'HandshakeCommand', 'HandshakeState',
+    'HandshakeState', 'HandshakeCommand', 'BaseHandshakeCommand',
     'LoginCommand',
 
     'BlockCommand',

@@ -183,17 +183,13 @@ class CustomizedContentProcessor(BaseContentProcessor):
         app = content.application
         mod = content.module
         handler = self._filter(app, mod, content=content, msg=r_msg)
-        if handler is None:
-            # module not support
-            handler = self.default_handler
         # handle the action
         act = content.action
         sender = r_msg.sender
         return await handler.handle_action(act, sender=sender, content=content, msg=r_msg)
 
     # noinspection PyUnusedLocal
-    def _filter(self, app: str, mod: str,
-                content: CustomizedContent, msg: ReliableMessage) -> Optional[CustomizedContentHandler]:
+    def _filter(self, app: str, mod: str, content: CustomizedContent, msg: ReliableMessage) -> CustomizedContentHandler:
         """ Override for your handler """
         if content.group is not None:
             handler = self.group_history_handler
@@ -201,4 +197,4 @@ class CustomizedContentProcessor(BaseContentProcessor):
                 return handler
         # if the application has too many modules, I suggest you to
         # use different handler to do the job for each module.
-        return None
+        return self.default_handler

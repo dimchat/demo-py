@@ -29,7 +29,7 @@ from .utils import BroadcastUtils
 
 from .ans import AnsCommand
 
-from .handshake import HandshakeCommand, HandshakeState
+from .handshake import HandshakeState, HandshakeCommand, BaseHandshakeCommand
 from .login import LoginCommand
 
 from .mute import MuteCommand
@@ -54,7 +54,7 @@ __all__ = [
 
     'AnsCommand',
 
-    'HandshakeCommand', 'HandshakeState',
+    'HandshakeState', 'HandshakeCommand', 'BaseHandshakeCommand',
     'LoginCommand',
 
     'BlockCommand',

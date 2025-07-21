@@ -34,7 +34,8 @@ from dimsdk.plugins import ExtensionLoader
 from dimplugins import PluginLoader
 
 from ..protocol import AppCustomizedContent
-from ..protocol import HandshakeCommand, LoginCommand
+from ..protocol import HandshakeCommand, BaseHandshakeCommand
+from ..protocol import LoginCommand
 from ..protocol import ReportCommand
 from ..protocol import AnsCommand
 from ..protocol import MuteCommand, BlockCommand
@@ -75,7 +76,7 @@ class CommonExtensionLoader(ExtensionLoader):
     def _register_command_factories(self):
         super()._register_command_factories()
         # Handshake
-        self._set_command_factory(cmd=HandshakeCommand.HANDSHAKE, command_class=HandshakeCommand)
+        self._set_command_factory(cmd=HandshakeCommand.HANDSHAKE, command_class=BaseHandshakeCommand)
         # Login
         self._set_command_factory(cmd=LoginCommand.LOGIN, command_class=LoginCommand)
         # Report
