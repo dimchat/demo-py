@@ -68,7 +68,6 @@ __all__ = [
     'ReportCommand',
     'SearchCommand',
 
-    'CustomizedContent', 'AppCustomizedContent',
     'GroupHistory', 'GroupKeys',
 
     #
@@ -92,9 +91,7 @@ __all__ = [
     #
 
     'Anonymous',
-    'AddressNameService',
-    'AddressNameServer',
-    'ANSFactory',
+    'AddressNameService', 'AddressNameServer', 'ANSFactory',
 
     'EntityChecker',
     'CommonArchivist',

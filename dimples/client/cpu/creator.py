@@ -49,7 +49,7 @@ from .grp_reset import ResetCommandProcessor
 from .grp_query import QueryCommandProcessor
 from .grp_resign import ResignCommandProcessor
 
-from .customized import CustomizedContentProcessor
+from .customized import AppCustomizedContentProcessor
 
 
 class ClientContentProcessorCreator(BaseContentProcessorCreator):
@@ -58,9 +58,9 @@ class ClientContentProcessorCreator(BaseContentProcessorCreator):
     def create_content_processor(self, msg_type: str) -> Optional[ContentProcessor]:
         # application customized
         if msg_type == ContentType.APPLICATION or msg_type == 'application':
-            return CustomizedContentProcessor(facebook=self.facebook, messenger=self.messenger)
+            return AppCustomizedContentProcessor(facebook=self.facebook, messenger=self.messenger)
         if msg_type == ContentType.CUSTOMIZED or msg_type == 'customized':
-            return CustomizedContentProcessor(facebook=self.facebook, messenger=self.messenger)
+            return AppCustomizedContentProcessor(facebook=self.facebook, messenger=self.messenger)
         # history command
         if msg_type == ContentType.HISTORY or msg_type == 'history':
             return HistoryCommandProcessor(facebook=self.facebook, messenger=self.messenger)

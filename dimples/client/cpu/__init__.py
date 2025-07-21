@@ -45,8 +45,8 @@ from .commands import AnsCommandProcessor
 from .commands import LoginCommandProcessor
 from .commands import ReceiptCommandProcessor
 
-from .customized import CustomizedContentProcessor
-from .customized import CustomizedContentHandler, BaseCustomizedHandler, GroupHistoryHandler
+from .customized import GroupHistoryHandler
+from .customized import AppCustomizedContentProcessor
 
 from .creator import ClientContentProcessorCreator
 
@@ -65,8 +65,8 @@ __all__ = [
     'LoginCommandProcessor',
     'ReceiptCommandProcessor',
 
-    'CustomizedContentProcessor',
-    'CustomizedContentHandler', 'BaseCustomizedHandler', 'GroupHistoryHandler',
+    'GroupHistoryHandler',
+    'AppCustomizedContentProcessor',
 
     'ClientContentProcessorCreator',
 

@@ -30,10 +30,10 @@ from dimsdk import DateTime
 from dimsdk import ID, Address, Meta
 from dimsdk import ContentType
 from dimsdk import MetaType
+from dimsdk import AppCustomizedContent
 from dimsdk.plugins import ExtensionLoader
 from dimplugins import PluginLoader
 
-from ..protocol import AppCustomizedContent
 from ..protocol import HandshakeCommand, BaseHandshakeCommand
 from ..protocol import LoginCommand
 from ..protocol import ReportCommand
@@ -63,14 +63,10 @@ class LibraryLoader:
 class CommonExtensionLoader(ExtensionLoader):
     """ Extensions Loader """
 
+    # Override
     def _register_customized_factories(self):
         self._set_content_factory(ContentType.APPLICATION, alias='application', content_class=AppCustomizedContent)
         self._set_content_factory(ContentType.CUSTOMIZED, alias='customized', content_class=AppCustomizedContent)
-
-    # Override
-    def _register_content_factories(self):
-        super()._register_content_factories()
-        self._register_customized_factories()
 
     # Override
     def _register_command_factories(self):

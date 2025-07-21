@@ -31,7 +31,6 @@
 from typing import Optional
 
 from dimsdk import ConstantString
-from dimsdk import EntityType
 from dimsdk import Address, ANYWHERE, EVERYWHERE
 from dimplugins import BTCAddress, ETHAddress
 from dimplugins import BaseAddressFactory
@@ -95,4 +94,4 @@ class UnknownAddress(ConstantString, Address):
 
     @property  # Override
     def network(self) -> int:
-        return EntityType.USER.value
+        return 0  # EntityType.USER.value

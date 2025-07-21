@@ -32,8 +32,7 @@ from typing import List, Dict
 
 from dimsdk import DateTime
 from dimsdk import ID
-
-from .customized import CustomizedContent
+from dimsdk import CustomizedContent
 
 
 class GroupHistory:

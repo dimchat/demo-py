@@ -28,76 +28,18 @@
 # SOFTWARE.
 # ==============================================================================
 
-from abc import ABC, abstractmethod
-from typing import Optional, List, Dict
+from typing import List
 
 from dimsdk import ID
 from dimsdk import ReliableMessage
-from dimsdk import Envelope
 from dimsdk import ContentType, Content
-from dimsdk import ReceiptCommand
+from dimsdk import CustomizedContent
 from dimsdk import GroupCommand, QueryCommand
-from dimsdk import TwinsHelper
 from dimsdk import Facebook, Messenger
-from dimsdk.cpu import BaseContentProcessor
+from dimsdk.cpu import CustomizedContentHandler, BaseCustomizedHandler
+from dimsdk.cpu import CustomizedContentProcessor
 
-from ...common import CustomizedContent
 from ...common import GroupHistory
-
-
-class CustomizedContentHandler(ABC):
-    """
-        Handler for Customized Content
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    """
-
-    @abstractmethod
-    async def handle_action(self, act: str, sender: ID, content: CustomizedContent,
-                            msg: ReliableMessage) -> List[Content]:
-        """
-        Do your job
-
-        @param act:     action
-        @param sender:  user ID
-        @param content: customized content
-        @param msg:     network message
-        @return contents
-        """
-        raise NotImplemented
-
-
-class BaseCustomizedHandler(TwinsHelper, CustomizedContentHandler):
-    """
-        Default Handler
-        ~~~~~~~~~~~~~~~
-    """
-
-    # Override
-    async def handle_action(self, act: str, sender: ID, content: CustomizedContent,
-                            msg: ReliableMessage) -> List[Content]:
-        app = content.application
-        mod = content.module
-        text = 'Content not support.'
-        return self._respond_receipt(text=text, content=content, envelope=msg.envelope, extra={
-            'template': 'Customized content (app: ${app}, mod: ${mod}, act: ${act}) not support yet!',
-            'replacements': {
-                'app': app,
-                'mod': mod,
-                'act': act,
-            }
-        })
-
-    #
-    #   Convenient responding
-    #
-
-    # noinspection PyMethodMayBeStatic
-    def _respond_receipt(self, text: str, envelope: Envelope, content: Optional[Content],
-                         extra: Optional[Dict] = None) -> List[ReceiptCommand]:
-        return [
-            # create base receipt command with text & original envelope
-            BaseContentProcessor.create_receipt(text=text, envelope=envelope, content=content, extra=extra)
-        ]
 
 
 class GroupHistoryHandler(BaseCustomizedHandler):
@@ -148,7 +90,7 @@ class GroupHistoryHandler(BaseCustomizedHandler):
         return self._respond_receipt(text=text, envelope=msg.envelope, content=content)
 
 
-class CustomizedContentProcessor(BaseContentProcessor):
+class AppCustomizedContentProcessor(CustomizedContentProcessor):
     """
         Customized Content Processing Unit
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -157,36 +99,15 @@ class CustomizedContentProcessor(BaseContentProcessor):
 
     def __init__(self, facebook: Facebook, messenger: Messenger):
         super().__init__(facebook=facebook, messenger=messenger)
-        self.__default_handler = self._create_default_handler(facebook=facebook, messenger=messenger)
         self.__group_history_handler = self._create_group_history_handler(facebook=facebook, messenger=messenger)
-
-    # noinspection PyMethodMayBeStatic
-    def _create_default_handler(self, facebook: Facebook, messenger: Messenger) -> CustomizedContentHandler:
-        return BaseCustomizedHandler(facebook=facebook, messenger=messenger)
 
     # noinspection PyMethodMayBeStatic
     def _create_group_history_handler(self, facebook: Facebook, messenger: Messenger) -> GroupHistoryHandler:
         return GroupHistoryHandler(facebook=facebook, messenger=messenger)
 
     @property  # protected
-    def default_handler(self) -> CustomizedContentHandler:
-        return self.__default_handler
-
-    @property  # protected
     def group_history_handler(self) -> GroupHistoryHandler:
         return self.__group_history_handler
-
-    # Override
-    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
-        assert isinstance(content, CustomizedContent), 'customized content error: %s' % content
-        # get handler for 'app' & 'mod'
-        app = content.application
-        mod = content.module
-        handler = self._filter(app, mod, content=content, msg=r_msg)
-        # handle the action
-        act = content.action
-        sender = r_msg.sender
-        return await handler.handle_action(act, sender=sender, content=content, msg=r_msg)
 
     # noinspection PyUnusedLocal
     def _filter(self, app: str, mod: str, content: CustomizedContent, msg: ReliableMessage) -> CustomizedContentHandler:
@@ -195,6 +116,5 @@ class CustomizedContentProcessor(BaseContentProcessor):
             handler = self.group_history_handler
             if handler.matches(app=app, mod=mod):
                 return handler
-        # if the application has too many modules, I suggest you to
-        # use different handler to do the job for each module.
-        return self.default_handler
+        # default handler
+        return super()._filter(app=app, mod=mod, content=content, msg=msg)

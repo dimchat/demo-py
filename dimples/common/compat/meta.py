@@ -44,7 +44,7 @@ class CompatibleMetaFactory(BaseMetaFactory):
     # Override
     def parse_meta(self, meta: dict) -> Optional[Meta]:
         ext = SharedAccountExtensions()
-        version = ext.helper.get_meta_type(meta=meta, default='')
+        version = ext.helper.get_meta_type(meta=meta)
         if version == 'MKM' or version == 'mkm' or version == '1':
             # MKM
             out = DefaultMeta(meta=meta)
