@@ -22,12 +22,12 @@
         # 'pycryptodome',  # 3.14.1
         # 'base58',  # 1.0.3
         # 'ecdsa',   # 0.16.1
-        'dimplugins>=2.3.2',
+        'dimplugins>=2.3.3',
 
-        'dimsdk>=2.3.2',
-        # 'dimp>=2.3.2',
-        # 'dkd>=2.3.2',
-        # 'mkm>=2.3.2',
+        'dimsdk>=2.3.3',
+        # 'dimp>=2.3.3',
+        # 'dkd>=2.3.3',
+        # 'mkm>=2.3.3',
 
         'startrek>=2.2.2',
         'tcp>=2.2.2',
@@ -45,7 +45,8 @@
 | [Dao Ke Dao (道可道)](https://github.com/dimchat/dkd-py) | [![Version](https://img.shields.io/pypi/v/dkd)](https://pypi.org/project/dkd) | Universal Message Module |
 | [DIMP (去中心化通讯协议)](https://github.com/dimchat/core-py) | [![Version](https://img.shields.io/pypi/v/dimp)](https://pypi.org/project/dimp) | Decentralized Instant Messaging Protocol |
 | [DIM SDK](https://github.com/dimchat/sdk-py) | [![Version](https://img.shields.io/pypi/v/dimsdk)](https://pypi.org/project/dimsdk) | Software Development Kit |
-| [DIM Plugins](https://github.com/dimchat/sdk-dart) | [![Version](https://img.shields.io/pypi/v/dimplugins)](https://pypi.org/project/dimplugins) | Cryptography & Account Plugins |
+| [DIM Plugins](https://github.com/dimchat/sdk-py) | [![Version](https://img.shields.io/pypi/v/dimplugins)](https://pypi.org/project/dimplugins) | Cryptography & Account Plugins |
+| [Star Trek](https://github.com/moky/wormhole) | [![Version](https://img.shields.io/pypi/v/startrek)](https://pypi.org/project/startrek) | Network Connection Module |
 
 Talk is cheap, [read my codes](https://github.com/dimchat/demo-py).
 

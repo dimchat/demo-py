@@ -357,7 +357,6 @@ __all__ = [
     'MuteCommand',
 
     'ReportCommand',
-    'SearchCommand',
 
     'GroupHistory', 'GroupKeys',
 

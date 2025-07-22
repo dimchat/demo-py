@@ -36,7 +36,6 @@ from .mute import MuteCommand
 from .block import BlockCommand
 
 from .report import ReportCommand
-from .search import SearchCommand
 
 from .groups import GroupHistory, GroupKeys
 
@@ -60,7 +59,6 @@ __all__ = [
     'MuteCommand',
 
     'ReportCommand',
-    'SearchCommand',
 
     'GroupHistory', 'GroupKeys',
 

@@ -33,10 +33,12 @@ from typing import Optional
 from dimsdk import ContentType
 from dimsdk import Command, GroupCommand
 from dimsdk import ContentProcessor
+from dimsdk import Facebook, Messenger
 
 from dimsdk.cpu import BaseContentProcessorCreator
 
 from ...common import HandshakeCommand, LoginCommand, AnsCommand
+from ...common import GroupHistory
 
 from .handshake import HandshakeCommandProcessor
 from .commands import AnsCommandProcessor, LoginCommandProcessor, ReceiptCommandProcessor
@@ -49,18 +51,27 @@ from .grp_reset import ResetCommandProcessor
 from .grp_query import QueryCommandProcessor
 from .grp_resign import ResignCommandProcessor
 
-from .customized import AppCustomizedContentProcessor
+from .customized import GroupHistoryHandler
+from .customized import AppCustomizedProcessor
 
 
 class ClientContentProcessorCreator(BaseContentProcessorCreator):
+
+    # noinspection PyMethodMayBeStatic
+    def _create_customized_content_processor(self, facebook: Facebook, messenger: Messenger) -> AppCustomizedProcessor:
+        cpu = AppCustomizedProcessor(facebook=facebook, messenger=messenger)
+        # 'chat.dim.group:history'
+        handler = GroupHistoryHandler(facebook=facebook, messenger=messenger)
+        cpu.set_handler(app=GroupHistory.APP, mod=GroupHistory.MOD, handler=handler)
+        return cpu
 
     # Override
     def create_content_processor(self, msg_type: str) -> Optional[ContentProcessor]:
         # application customized
         if msg_type == ContentType.APPLICATION or msg_type == 'application':
-            return AppCustomizedContentProcessor(facebook=self.facebook, messenger=self.messenger)
-        if msg_type == ContentType.CUSTOMIZED or msg_type == 'customized':
-            return AppCustomizedContentProcessor(facebook=self.facebook, messenger=self.messenger)
+            return self._create_customized_content_processor(facebook=self.facebook, messenger=self.messenger)
+        elif msg_type == ContentType.CUSTOMIZED or msg_type == 'customized':
+            return self._create_customized_content_processor(facebook=self.facebook, messenger=self.messenger)
         # history command
         if msg_type == ContentType.HISTORY or msg_type == 'history':
             return HistoryCommandProcessor(facebook=self.facebook, messenger=self.messenger)
